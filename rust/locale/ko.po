@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">후원 또는 자세히 알아보기</a>"
 msgid "No mic"
 msgstr "마이크 없음"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:358
 msgid "Downloading…"
 msgstr "다운로드 중…"
 
@@ -346,7 +346,7 @@ msgstr "노란색: 리미터가 피크를 억제 중이에요. 빨간색: 소리
 msgid "Click to clear"
 msgstr "클릭하여 지우기"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:172 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
 msgid "Reset"
 msgstr "초기화"
 
@@ -370,7 +370,7 @@ msgstr "노이즈 감소"
 msgid "Noise reduction unavailable"
 msgstr "노이즈 감소 사용 불가"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
 msgid "Cancel"
 msgstr "취소"
 
@@ -400,11 +400,11 @@ msgstr "스톱"
 msgid " stops"
 msgstr " 스톱"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "다음"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "이전"
 
@@ -544,7 +544,7 @@ msgstr "플러그인"
 msgid "Updates & About"
 msgstr "업데이트 및 정보"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
 msgid "Camera"
 msgstr "카메라"
 
@@ -617,7 +617,7 @@ msgid "Analysing…"
 msgstr "분석 중…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:201 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "끔"
 
@@ -2526,15 +2526,15 @@ msgstr "노출 브라케팅"
 msgid "Focus bracket"
 msgstr "초점 브라케팅"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:285 rust/crates/effects/src/photos.rs:804 rust/crates/effects/src/photos.rs:941 rust/crates/effects/ui/photos.slint:165 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "사진"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345
 msgid "Both"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345
 msgid "Merged"
 msgstr ""
 
@@ -2558,7 +2558,7 @@ msgstr ""
 msgid "Favour the darker or the lighter photos of an exposure bracket in the merged picture."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342
+#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383
 msgid "On"
 msgstr "켬"
 
@@ -2591,203 +2591,248 @@ msgid "Number of photos from the nearest focus to the farthest, for focus stacki
 msgstr "초점 스태킹을 위해 가장 가까운 초점부터 가장 먼 초점까지 촬영할 사진 수예요."
 
 #: rust/crates/effects/src/photos.rs:53
+msgid "Take the focus bracket between the two handles, from the farthest focus on the left to the nearest on the right. The mark shows where the phone is focused now (in manual focus)."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:54
+msgid "Number of photos in the exposure bracket, spread evenly around the video's exposure."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:55
+msgid "EV between photos"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:56
 msgid "Number of photos in the burst."
 msgstr "연속 촬영할 사진 수예요."
 
-#: rust/crates/effects/src/photos.rs:54
+#: rust/crates/effects/src/photos.rs:57
 msgid "Take one photo, a burst or a set at different exposures or focus distances."
 msgstr "사진 한 장, 연속 촬영, 또는 서로 다른 노출이나 초점 거리로 여러 장을 찍어요."
 
-#: rust/crates/effects/src/photos.rs:55
+#: rust/crates/effects/src/photos.rs:58
 msgid "Wait a few seconds before taking the photo."
 msgstr "사진을 찍기 전에 몇 초간 기다려요."
 
-#: rust/crates/effects/src/photos.rs:56
+#: rust/crates/effects/src/photos.rs:59
 msgid "A long exposure uses the video's ISO and the video stops while the shutter is open."
 msgstr "장노출은 비디오의 ISO를 사용하며, 셔터가 열려 있는 동안 비디오가 중지돼요."
 
-#: rust/crates/effects/src/photos.rs:57
+#: rust/crates/effects/src/photos.rs:60
 msgid "Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer."
 msgstr "비디오가 아닌 사진에만 추가 노이즈 감소와 선명도를 적용해요. 사진 촬영 시간이 조금 더 걸려요."
 
-#: rust/crates/effects/src/photos.rs:58
+#: rust/crates/effects/src/photos.rs:61
 msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "이 렌즈와 모드는 추가 노이즈 감소나 선명도를 지원하지 않아요"
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:62
 msgid "JPEG quality is set by the camera"
 msgstr "카메라에서 JPEG 화질 설정됨"
 
-#: rust/crates/effects/src/photos.rs:60
+#: rust/crates/effects/src/photos.rs:63
 msgid "RAW photos have no quality setting"
 msgstr "RAW 사진에는 화질 설정이 없어요"
 
-#: rust/crates/effects/src/photos.rs:61 rust/crates/shell/src/streams.rs:845
+#: rust/crates/effects/src/photos.rs:64 rust/crates/shell/src/streams.rs:845
 msgid "The camera is already taking a photo."
 msgstr "카메라가 이미 사진을 찍고 있어요."
 
-#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
+#: rust/crates/effects/src/photos.rs:65 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
 msgid "The camera couldn't take the photo."
 msgstr "카메라가 사진을 찍지 못했어요."
 
-#: rust/crates/effects/src/photos.rs:66
+#: rust/crates/effects/src/photos.rs:70
 msgid "Like the video"
 msgstr "동영상과 동일"
 
-#: rust/crates/effects/src/photos.rs:66 rust/crates/effects/src/photos.rs:201 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:72
+#, python-brace-format
+msgid "1/{n} s"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:74 rust/crates/effects/src/photos.rs:232 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds}초"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:85
+#, python-brace-format
+msgid "{near} m-∞"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:87
+#, python-brace-format
+msgid "{near}-{far} m"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:94
+msgid "Infinity"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:95
+#, python-brace-format
+msgid "{cm} cm"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:96
+#, python-brace-format
+msgid "{m} m"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/photos.rs:950 rust/crates/effects/src/photos.rs:966 rust/crates/effects/ui/photos.slint:179
 msgid "Take photo"
 msgstr "사진 촬영"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/stargazer.rs:816
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/stargazer.rs:816
 msgid "Open folder"
 msgstr "폴더 열기"
 
-#: rust/crates/effects/src/photos.rs:193
+#: rust/crates/effects/src/photos.rs:224
 msgid "Best quality"
 msgstr "최고 화질"
 
-#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:200 rust/crates/effects/ui/photos.slint:201
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:191 rust/crates/effects/ui/photos.slint:192 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:210 rust/crates/effects/ui/photos.slint:211 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
 msgid "Shutter"
 msgstr "셔터"
 
-#: rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/photos.slint:214 rust/crates/effects/ui/photos.slint:219
+#: rust/crates/effects/src/photos.rs:262 rust/crates/effects/ui/photos.slint:233 rust/crates/effects/ui/photos.slint:238
 msgid "Mode"
 msgstr "모드"
 
-#: rust/crates/effects/src/photos.rs:235 rust/crates/effects/ui/photos.slint:225 rust/crates/effects/ui/photos.slint:229 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
+#: rust/crates/effects/src/photos.rs:265 rust/crates/effects/ui/photos.slint:244 rust/crates/effects/ui/photos.slint:248 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
 msgid "Format"
 msgstr "형식"
 
-#: rust/crates/effects/src/photos.rs:238 rust/crates/effects/ui/photos.slint:237 rust/crates/effects/ui/photos.slint:242
+#: rust/crates/effects/src/photos.rs:268 rust/crates/effects/ui/photos.slint:256 rust/crates/effects/ui/photos.slint:261
 msgid "Shots"
 msgstr "촬영 방식"
 
-#: rust/crates/effects/src/photos.rs:240 rust/crates/effects/ui/photos.slint:264 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:270 rust/crates/effects/ui/photos.slint:271
+#: rust/crates/effects/src/photos.rs:274 rust/crates/effects/ui/photos.slint:283 rust/crates/effects/ui/photos.slint:284
 msgid "How many"
 msgstr "매수"
 
-#: rust/crates/effects/src/photos.rs:240
+#: rust/crates/effects/src/photos.rs:280
 msgid "Steps"
 msgstr "단계"
 
-#: rust/crates/effects/src/photos.rs:251
-msgid "Bracket"
-msgstr "브라케팅"
+#: rust/crates/effects/src/photos.rs:289 rust/crates/effects/src/photos.rs:340
+msgid "EV"
+msgstr ""
 
-#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:174 rust/crates/effects/ui/photos.slint:278 rust/crates/effects/ui/photos.slint:282 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:285 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
+#: rust/crates/effects/src/photos.rs:294 rust/crates/effects/src/photos.rs:340 rust/crates/effects/ui/photos.slint:193 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
 msgid "Exposure"
 msgstr "노출"
 
-#: rust/crates/effects/src/photos.rs:261 rust/crates/effects/ui/photos.slint:333 rust/crates/effects/ui/photos.slint:339
+#: rust/crates/effects/src/photos.rs:299 rust/crates/effects/ui/photos.slint:374 rust/crates/effects/ui/photos.slint:380
 msgid "Distortion fix"
 msgstr "왜곡 보정"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
+#: rust/crates/effects/src/photos.rs:345 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
+msgid "All"
+msgstr "전체"
+
+#: rust/crates/effects/src/photos.rs:408 rust/crates/effects/src/photos.rs:881
 msgid "Start streaming to take photos."
 msgstr "사진을 촬영하려면 스트리밍을 시작하세요."
 
-#: rust/crates/effects/src/photos.rs:355
+#: rust/crates/effects/src/photos.rs:410
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "이 휴대폰은 아직 Telescope에서 사진을 촬영할 수 없어요. 휴대폰의 앱을 업데이트하세요."
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Darker"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Lighter"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Middle"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:571
+#: rust/crates/effects/src/photos.rs:666
 msgid "Merging the bracket…"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:582
+#: rust/crates/effects/src/photos.rs:677
 #, python-brace-format
 msgid "Saved {name} from {used} of {frames} photos. The photos are still saved."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:584
+#: rust/crates/effects/src/photos.rs:679
 #, python-brace-format
 msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:586
+#: rust/crates/effects/src/photos.rs:681
 #, python-brace-format
 msgid "Saved the merged picture {name} from {used} of {frames} photos"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:588
+#: rust/crates/effects/src/photos.rs:683
 #, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
+#: rust/crates/effects/src/photos.rs:692 rust/crates/effects/src/photos.rs:757 rust/crates/effects/src/photos.rs:779
 msgid "Photo saved"
 msgstr "사진 저장됨"
 
-#: rust/crates/effects/src/photos.rs:601
+#: rust/crates/effects/src/photos.rs:696
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
+#: rust/crates/effects/src/photos.rs:718 rust/crates/effects/src/photos.rs:738
 msgid "Taking the photo…"
 msgstr "사진 촬영 중…"
 
-#: rust/crates/effects/src/photos.rs:637
+#: rust/crates/effects/src/photos.rs:732
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "{seconds}초 후 사진 촬영"
 
-#: rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:734
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "사진 {n}/{total}"
 
-#: rust/crates/effects/src/photos.rs:641
+#: rust/crates/effects/src/photos.rs:736
 msgid "The video is paused while the photo is taken…"
 msgstr "사진을 촬영하는 동안 비디오가 일시 중지돼요…"
 
-#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:752 rust/crates/effects/src/stargazer.rs:823
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "{name} 저장됨"
 
-#: rust/crates/effects/src/photos.rs:680
+#: rust/crates/effects/src/photos.rs:775
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "사진이 늦게 도착했어요. {name} 저장됨"
 
-#: rust/crates/effects/src/photos.rs:694
+#: rust/crates/effects/src/photos.rs:789
 msgid "Save photos in"
 msgstr "사진 저장 위치"
 
-#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
+#: rust/crates/effects/src/photos.rs:805 rust/crates/effects/ui/photos.slint:166
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "카메라가 지원하는 경우 RAW를 포함해 휴대폰이나 DSLR에서 최고 화질로 사진을 찍어요."
 
-#: rust/crates/effects/src/photos.rs:711
+#: rust/crates/effects/src/photos.rs:806
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "사진 플러그인이 없으면 사진 카드가 표시되지 않으며, 사진 촬영 단축키도 사용할 수 없어요."
 
-#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
+#: rust/crates/effects/src/photos.rs:943 rust/crates/effects/src/photos.rs:981
 msgid "Photo mode"
 msgstr "사진 모드"
 
-#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
+#: rust/crates/effects/src/photos.rs:948 rust/crates/effects/src/photos.rs:991
 msgid "Photo timer"
 msgstr "사진 타이머"
 
@@ -3289,22 +3334,6 @@ msgstr "두 대의 휴대폰을 하나의 3D 화면으로 변환해요. 헤드�
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr "3D 플러그인이 없으면 3D 카드가 표시되지 않으며, 두 스트림은 각각 본래의 카메라로만 전송돼요."
 
-#: rust/crates/effects/src/stills.rs:13
-msgid "3 photos, 1 EV apart"
-msgstr "사진 3장, 1 EV 간격"
-
-#: rust/crates/effects/src/stills.rs:13
-msgid "3 photos, 2 EV apart"
-msgstr "사진 3장, 2 EV 간격"
-
-#: rust/crates/effects/src/stills.rs:14
-msgid "5 photos, 1 EV apart"
-msgstr "사진 5장, 1 EV 간격"
-
-#: rust/crates/effects/src/stills.rs:14
-msgid "7 photos, 1 EV apart"
-msgstr "사진 7장, 1 EV 간격"
-
 #: rust/crates/effects/src/transforms.rs:37
 msgid "Set flip, rotation, zoom, pan, stretch and lens correction back to default."
 msgstr "반전, 회전, 줌, 팬, 늘이기, 렌즈 보정을 기본값으로 되돌려요."
@@ -3635,11 +3664,7 @@ msgstr "색상 vs 색상"
 msgid "Curve"
 msgstr "커브"
 
-#: rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
-msgid "All"
-msgstr "전체"
-
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:173 rust/crates/system/ui/updates.slint:184
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:153 rust/crates/system/ui/updates.slint:164
 msgid "Channel"
 msgstr "채널"
 
@@ -4397,51 +4422,55 @@ msgstr "아래"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "화살표 키로 선택한 포인트를 이동하고, Shift와 화살표 키를 함께 누르면 더 많이 이동해요. 왼쪽 및 오른쪽 대괄호 키로 다른 포인트를 선택해요. Delete는 포인트를 삭제하고 Home은 커브를 초기화해요."
 
-#: rust/crates/effects/ui/photos.slint:154
+#: rust/crates/effects/ui/photos.slint:173
 msgid "Set every photo setting except the folder back to default."
 msgstr "폴더를 제외한 모든 사진 설정을 기본값으로 되돌려요."
 
-#: rust/crates/effects/ui/photos.slint:183
+#: rust/crates/effects/ui/photos.slint:202
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "ISO가 높을수록 사진이 밝아지지만 노이즈가 많아져요."
 
-#: rust/crates/effects/ui/photos.slint:193
+#: rust/crates/effects/ui/photos.slint:212
 msgid "Slower shutter speeds make the photo brighter but blur movement."
 msgstr "셔터 속도가 느릴수록 사진이 밝아지지만 움직임이 흔들려요."
 
-#: rust/crates/effects/ui/photos.slint:206
+#: rust/crates/effects/ui/photos.slint:225
 msgid "Mode and format"
 msgstr "모드 및 형식"
 
-#: rust/crates/effects/ui/photos.slint:230
+#: rust/crates/effects/ui/photos.slint:249
 msgid "The file type photos are saved as."
 msgstr "사진이 저장되는 파일 형식이에요."
 
-#: rust/crates/effects/ui/photos.slint:295 rust/crates/effects/ui/photos.slint:301
+#: rust/crates/effects/ui/photos.slint:310 rust/crates/effects/ui/photos.slint:315 rust/crates/effects/ui/photos.slint:328
+msgid "Focus range"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:336 rust/crates/effects/ui/photos.slint:342
 msgid "Merge bracket"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:312 rust/crates/effects/ui/photos.slint:317 rust/crates/effects/ui/photos.slint:326
+#: rust/crates/effects/ui/photos.slint:353 rust/crates/effects/ui/photos.slint:358 rust/crates/effects/ui/photos.slint:367
 msgid "Merged brightness"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:350 rust/crates/effects/ui/photos.slint:355 rust/crates/effects/ui/photos.slint:364
+#: rust/crates/effects/ui/photos.slint:391 rust/crates/effects/ui/photos.slint:396 rust/crates/effects/ui/photos.slint:405
 msgid "Quality"
 msgstr "화질"
 
-#: rust/crates/effects/ui/photos.slint:365
+#: rust/crates/effects/ui/photos.slint:406
 msgid "Higher quality gives bigger and cleaner JPEG files."
 msgstr "화질이 높을수록 JPEG 파일이 더 크고 깨끗해져요."
 
-#: rust/crates/effects/ui/photos.slint:382 rust/crates/effects/ui/photos.slint:388
+#: rust/crates/effects/ui/photos.slint:423 rust/crates/effects/ui/photos.slint:429
 msgid "Timer"
 msgstr "타이머"
 
-#: rust/crates/effects/ui/photos.slint:400 rust/crates/effects/ui/photos.slint:409 rust/crates/effects/ui/phototrap.slint:137 rust/crates/effects/ui/phototrap.slint:145
+#: rust/crates/effects/ui/photos.slint:441 rust/crates/effects/ui/photos.slint:450 rust/crates/effects/ui/phototrap.slint:137 rust/crates/effects/ui/phototrap.slint:145
 msgid "Save in"
 msgstr "저장 위치"
 
-#: rust/crates/effects/ui/photos.slint:410
+#: rust/crates/effects/ui/photos.slint:451
 msgid "The folder path photos are saved in."
 msgstr "사진이 저장되는 폴더 경로예요."
 
@@ -4863,7 +4892,7 @@ msgstr "속도를 따라갈 수 없음"
 msgid "Browser"
 msgstr "브라우저"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "다시 시도"
 
@@ -8251,7 +8280,7 @@ msgstr "초점 거리"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "v4l2loopback 패키지를 설치하세요. Fedora 및 Nobara: v4l2loopback(RPM Fusion 제공). Debian, Ubuntu 및 Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:365
 msgid "Checking…"
 msgstr "확인 중…"
 
@@ -8271,7 +8300,7 @@ msgstr "설치됨."
 msgid "Check again"
 msgstr "다시 확인"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:360
 msgid "Installing…"
 msgstr "설치 중…"
 
@@ -9571,67 +9600,6 @@ msgstr "Telescope를 로그인 시 자동 시작하도록 설정하지 못했어
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "Telescope가 로그인 시 자동 시작되지 않도록 설정하지 못했어요: {error}"
 
-#: rust/crates/system/src/going_back.rs:113
-#, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
-msgstr "{version} 버전에 필요한 Python 라이브러리를 설정할 수 없어요. 인터넷 연결과 Telescope가 쓸 수 있는 폴더({folder})가 필요해요. 아무것도 변경되지 않았어요."
-
-#: rust/crates/system/src/going_back.rs:227
-#, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
-msgstr "Telescope가 마지막 Python 버전인 {version} 버전으로 다시 시작돼요. 설정과 페어링된 휴대폰은 유지되며, 현재 설정의 복사본이 먼저 {folder}에 저장돼요."
-
-#: rust/crates/system/src/going_back.rs:229
-#, python-brace-format
-msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
-msgstr "그 이후 추가된 새로운 기능은 사용할 수 없게 돼요. Lua로 작성된 플러그인은 {version} 버전에서 실행되지 않으며, 당시 존재하지 않았던 설정은 무시돼요."
-
-#: rust/crates/system/src/going_back.rs:231
-#, python-brace-format
-msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
-msgstr "{version} 버전에는 자동 업데이트 확인 기능이 없으며 이 버전으로 다시 돌아가는 기능을 제공하지 않아요. 해당 버전의 설정에서 다시 켤 수 있어요."
-
-#: rust/crates/system/src/going_back.rs:234
-#, python-brace-format
-msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
-msgstr "먼저 {version} 버전에 필요한 Python 라이브러리를 설정해요. 인터넷 연결이 필요하며 몇 분 정도 걸려요. 실패하더라도 아무것도 변경되지 않아요."
-
-#: rust/crates/system/src/going_back.rs:236
-msgid "If the Python version doesn't start, opening Telescope again brings this version back."
-msgstr "Python 버전이 시작되지 않는 경우 Telescope를 다시 열면 현재 버전으로 복원돼요."
-
-#: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
-msgid "Go back"
-msgstr "되돌아가기"
-
-#: rust/crates/system/src/going_back.rs:242
-#, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
-msgstr "AppImage는 Python 버전으로 전환할 수 없어요. {version} 릴리스에서 Telescope-linux.tar.gz를 다운로드하고 압축을 푼 다음 해당 폴더에서 start.sh를 실행하세요. Python 버전은 Python 3.12 이상이 필요하며 동일한 설정 폴더를 사용해요."
-
-#: rust/crates/system/src/going_back.rs:244
-#, python-brace-format
-msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
-msgstr "폴더에 쓰기 권한이 없어 Telescope가 자체 파일을 교체할 수 없어요. 릴리스 페이지에서 {version} 버전을 다운로드해 직접 설치하세요."
-
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:529
-msgid "Open download page"
-msgstr "다운로드 페이지 열기"
-
-#: rust/crates/system/src/going_back.rs:258
-#, python-brace-format
-msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
-msgstr "{version} 버전은 venv가 포함된 Python 3.12 이상이 필요하지만 이 컴퓨터에는 설치되어 있지 않아요. 먼저 설치한 후(Debian 또는 Ubuntu에서는 python3 및 python3-venv) 다시 시도하세요. 아무것도 변경되지 않았어요."
-
-#: rust/crates/system/src/going_back.rs:262
-#, python-brace-format
-msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "휴대폰 앱 버전이 일치해야 해요. 더 최신 휴대폰 앱은 {version} 버전에 연결되지 않을 수 있어요. Android에서는 최신 앱 위에 이전 버전 앱을 설치할 수 없어요. 휴대폰에서 Telescope를 제거한 후 {version} 릴리스에서 Telescope.apk를 설치하고 다시 페어링하세요."
-
-#: rust/crates/system/src/going_back.rs:282
-msgid "A copy of your settings couldn't be saved. Nothing was changed."
-msgstr "설정 복사본을 저장할 수 없어요. 아무것도 변경되지 않았어요."
-
 #: rust/crates/system/src/hotkeys_portal.rs:117
 msgid "Not available on this desktop"
 msgstr "이 데스크톱 환경에서는 지원되지 않음"
@@ -10324,99 +10292,86 @@ msgstr "Telescope 파일을 교체할 수 없었어요: {error}"
 msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr "{file}이(가) 사용 중인 동안에는 업데이트가 설치되지 않았어요. 다시 시작한 후 다시 시도해 보세요."
 
-#: rust/crates/system/src/updates.rs:596
+#: rust/crates/system/src/updates.rs:591
 #, python-brace-format
 msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr "이 폴더에 {name}이라는 이름의 항목이 이미 있어 Telescope를 현재 위치에서 자체 업데이트할 수 없어요. 다운로드한 파일의 압축을 별도의 폴더에 푸세요."
 
-#: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:98 rust/crates/system/src/updates_plugin.rs:169 rust/crates/system/src/updates_plugin.rs:241 rust/crates/system/src/updates_plugin.rs:623 rust/crates/system/src/updates_plugin.rs:829
+#: rust/crates/system/src/updates.rs:656 rust/crates/system/src/updates_plugin.rs:142 rust/crates/system/src/updates_plugin.rs:612
 msgid "The update failed."
 msgstr "업데이트에 실패했어요."
 
-#: rust/crates/system/src/updates.rs:692
+#: rust/crates/system/src/updates.rs:683
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "이 업데이트는 이 컴퓨터에서 실행할 수 없어 설치되지 않았어요."
 
-#: rust/crates/system/src/updates_plugin.rs:31
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Stable"
 msgstr "안정"
 
-#: rust/crates/system/src/updates_plugin.rs:31 rust/crates/system/ui/updates.slint:188
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:168
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:356
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "다운로드 중 {percent}%…"
 
-#: rust/crates/system/src/updates_plugin.rs:460
-msgid "Setting up Python's libraries. This takes a few minutes…"
-msgstr "Python 라이브러리를 설정하는 중이에요. 몇 분 정도 걸려요…"
-
-#: rust/crates/system/src/updates_plugin.rs:461
+#: rust/crates/system/src/updates_plugin.rs:361
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "업데이트되었어요. 스트리밍을 중지하면 Telescope가 다시 시작돼요."
 
-#: rust/crates/system/src/updates_plugin.rs:471
-msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
-msgstr "Python 버전이 시작되지 않아 Python 버전으로 돌아가지 못했어요. 현재 버전이 다시 실행 중이에요."
-
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "업데이트하면 시작 메뉴 항목과 함께 현재 사용자용으로 설치되며 압축을 푼 복사본은 제거돼요. 설정과 페어링된 휴대폰은 유지돼요."
 
-#: rust/crates/system/src/updates_plugin.rs:482
+#: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."
 msgstr "업데이트하려면 스트리밍을 중지하세요."
 
-#: rust/crates/system/src/updates_plugin.rs:494
+#: rust/crates/system/src/updates_plugin.rs:391
 msgid "This is a source checkout. Update Telescope with git."
 msgstr "소스 코드를 체크아웃한 환경이에요. git을 사용하여 Telescope를 업데이트하세요."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no nightly release yet."
 msgstr "아직 Nightly 릴리스가 없어요."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no stable release yet."
 msgstr "아직 안정 릴리스가 없어요."
 
-#: rust/crates/system/src/updates_plugin.rs:504
+#: rust/crates/system/src/updates_plugin.rs:401
 msgid "You have the latest version."
 msgstr "최신 버전을 사용하고 있어요."
 
-#: rust/crates/system/src/updates_plugin.rs:508
+#: rust/crates/system/src/updates_plugin.rs:405
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} 사용 가능"
 
-#: rust/crates/system/src/updates_plugin.rs:529
+#: rust/crates/system/src/updates_plugin.rs:426
+msgid "Open download page"
+msgstr "다운로드 페이지 열기"
+
+#: rust/crates/system/src/updates_plugin.rs:426
 msgid "Update and restart"
 msgstr "업데이트 및 다시 시작"
 
-#: rust/crates/system/src/updates_plugin.rs:533
-msgid "Stop streaming to go back."
-msgstr "되돌아가려면 스트리밍을 중지하세요."
-
-#: rust/crates/system/src/updates_plugin.rs:533
-#, python-brace-format
-msgid "Swap this version for the last Python version, {version}."
-msgstr "이 버전을 마지막 Python 버전인 {version} 버전으로 교체해요."
-
-#: rust/crates/system/src/updates_plugin.rs:722
+#: rust/crates/system/src/updates_plugin.rs:509
 msgid "Couldn't check for updates."
 msgstr "업데이트를 확인할 수 없었어요."
 
-#: rust/crates/system/src/updates_plugin.rs:879
+#: rust/crates/system/src/updates_plugin.rs:659
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "업데이트되었어요. 완료하려면 Telescope를 닫았다가 다시 여세요."
 
-#: rust/crates/system/src/updates_plugin.rs:895
+#: rust/crates/system/src/updates_plugin.rs:675
 msgid "Updates"
 msgstr "업데이트"
 
-#: rust/crates/system/src/updates_plugin.rs:896
+#: rust/crates/system/src/updates_plugin.rs:676
 msgid "Check for new versions of Telescope and install them."
 msgstr "새로운 버전의 Telescope가 있는지 확인하고 설치해요."
 
@@ -10652,103 +10607,82 @@ msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "알림 알림창 팝업 메시지 경고 notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:107
+#: rust/crates/system/ui/updates.slint:87
 msgid "Check for new versions and install them."
 msgstr "새 버전을 확인하고 설치해요."
 
-#: rust/crates/system/ui/updates.slint:108
+#: rust/crates/system/ui/updates.slint:88
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "업데이트 업그레이드 새 버전 릴리스 다운로드 설치 최신 update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:113 rust/crates/system/ui/updates.slint:114
+#: rust/crates/system/ui/updates.slint:93 rust/crates/system/ui/updates.slint:94
 msgid "Check now"
 msgstr "지금 확인"
 
-#: rust/crates/system/ui/updates.slint:115
+#: rust/crates/system/ui/updates.slint:95
 msgid "Look for a new version of Telescope."
 msgstr "Telescope의 새 버전을 찾아요."
 
-#: rust/crates/system/ui/updates.slint:120
+#: rust/crates/system/ui/updates.slint:100
 msgid "Set the update channel and automatic checking back to default."
 msgstr "업데이트 채널 및 자동 확인을 기본값으로 다시 설정해요."
 
-#: rust/crates/system/ui/updates.slint:126
+#: rust/crates/system/ui/updates.slint:106
 msgid "This version"
 msgstr "현재 버전"
 
-#: rust/crates/system/ui/updates.slint:127
+#: rust/crates/system/ui/updates.slint:107
 msgid "The version of Telescope you're running"
 msgstr "현재 실행 중인 Telescope 버전"
 
-#: rust/crates/system/ui/updates.slint:130
+#: rust/crates/system/ui/updates.slint:110
 msgctxt "search"
 msgid "current build number"
 msgstr "현재 빌드 번호 버전 current build number"
 
-#: rust/crates/system/ui/updates.slint:155
+#: rust/crates/system/ui/updates.slint:135
 msgid "What's new"
 msgstr "새로운 기능"
 
-#: rust/crates/system/ui/updates.slint:174
+#: rust/crates/system/ui/updates.slint:154
 msgid "Stable is tested more and nightly gets fixes first"
 msgstr "안정 채널은 테스트를 더 많이 거치며 Nightly 채널은 수정 사항이 먼저 적용돼요"
 
-#: rust/crates/system/ui/updates.slint:177
+#: rust/crates/system/ui/updates.slint:157
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "안정 nightly 베타 릴리스 트랙 빌드 테스트 stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:189
+#: rust/crates/system/ui/updates.slint:169
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr "모든 변경 사항마다 빌드돼요. 수정 사항을 가장 먼저 받지만 테스트가 덜 되었어요."
 
-#: rust/crates/system/ui/updates.slint:195
+#: rust/crates/system/ui/updates.slint:175
 msgid "Check daily"
 msgstr "매일 확인"
 
-#: rust/crates/system/ui/updates.slint:196
+#: rust/crates/system/ui/updates.slint:176
 msgid "Look for a new version once a day"
 msgstr "하루에 한 번 새 버전 확인"
 
-#: rust/crates/system/ui/updates.slint:197
+#: rust/crates/system/ui/updates.slint:177
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "자동 업데이트 자동 확인 매일 백그라운드 automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:204 rust/crates/system/ui/updates.slint:206
+#: rust/crates/system/ui/updates.slint:184 rust/crates/system/ui/updates.slint:186
 msgid "Keep this copy where it is"
 msgstr "현재 위치에 그대로 유지"
 
-#: rust/crates/system/ui/updates.slint:205
+#: rust/crates/system/ui/updates.slint:185
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr "포터블 현재 실행 중인 프로그램 유지 압축 폴더 제자리 윈도우 압축 해제 portable keep this copy where it is zip folder in place windows unzipped"
 
-#: rust/crates/system/ui/updates.slint:207
+#: rust/crates/system/ui/updates.slint:187
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr "사용자 계정에 Telescope를 설치하는 대신 압축을 푼 이 폴더를 제자리에서 업데이트해요."
-
-#: rust/crates/system/ui/updates.slint:214
-msgid "Older version"
-msgstr "이전 버전"
-
-#: rust/crates/system/ui/updates.slint:215
-msgid "Go back to the older Python version of Telescope"
-msgstr "Telescope의 이전 Python 버전으로 돌아가기"
-
-#: rust/crates/system/ui/updates.slint:218
-msgctxt "search"
-msgid "go back downgrade python previous old version revert undo rust"
-msgstr "되돌아가기 다운그레이드 파이썬 이전 구버전 되돌리기 실행 취소 러스트 go back downgrade python previous old version revert undo rust"
-
-#: rust/crates/system/ui/updates.slint:222 rust/crates/system/ui/updates.slint:223
-msgid "Go back to the Python version"
-msgstr "Python 버전으로 되돌아가기"
-
-#: rust/crates/system/ui/updates.slint:248
-msgid "Go back to the Python version?"
-msgstr "Python 버전으로 되돌아갈까요?"
 
 #: rust/crates/ui-kit/ui/widgets/colour.slint:253
 msgid "Hex"
@@ -10895,7 +10829,7 @@ msgstr "°C"
 msgid "Add your phone"
 msgstr "휴대폰 추가"
 
-#: rust/crates/effects/src/photos.rs:655
+#: rust/crates/effects/src/photos.rs:750
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
@@ -10936,17 +10870,17 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "늘리기 줄이기 세로 화면비 세로형 stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:474
+#: rust/crates/system/src/updates_plugin.rs:371
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version}을(를) 사용할 수 있어요."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "최신 Nightly 빌드는 {version}이에요."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "최신 안정 빌드는 {version}이에요."
@@ -11002,6 +10936,95 @@ msgstr "대체됨"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "다시 시작할 수 없음"
+
+#~ msgid "Bracket"
+#~ msgstr "브라케팅"
+
+#~ msgid "3 photos, 1 EV apart"
+#~ msgstr "사진 3장, 1 EV 간격"
+
+#~ msgid "3 photos, 2 EV apart"
+#~ msgstr "사진 3장, 2 EV 간격"
+
+#~ msgid "5 photos, 1 EV apart"
+#~ msgstr "사진 5장, 1 EV 간격"
+
+#~ msgid "7 photos, 1 EV apart"
+#~ msgstr "사진 7장, 1 EV 간격"
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+#~ msgstr "{version} 버전에 필요한 Python 라이브러리를 설정할 수 없어요. 인터넷 연결과 Telescope가 쓸 수 있는 폴더({folder})가 필요해요. 아무것도 변경되지 않았어요."
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
+#~ msgstr "Telescope가 마지막 Python 버전인 {version} 버전으로 다시 시작돼요. 설정과 페어링된 휴대폰은 유지되며, 현재 설정의 복사본이 먼저 {folder}에 저장돼요."
+
+#, python-brace-format
+#~ msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
+#~ msgstr "그 이후 추가된 새로운 기능은 사용할 수 없게 돼요. Lua로 작성된 플러그인은 {version} 버전에서 실행되지 않으며, 당시 존재하지 않았던 설정은 무시돼요."
+
+#, python-brace-format
+#~ msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "{version} 버전에는 자동 업데이트 확인 기능이 없으며 이 버전으로 다시 돌아가는 기능을 제공하지 않아요. 해당 버전의 설정에서 다시 켤 수 있어요."
+
+#, python-brace-format
+#~ msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
+#~ msgstr "먼저 {version} 버전에 필요한 Python 라이브러리를 설정해요. 인터넷 연결이 필요하며 몇 분 정도 걸려요. 실패하더라도 아무것도 변경되지 않아요."
+
+#~ msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+#~ msgstr "Python 버전이 시작되지 않는 경우 Telescope를 다시 열면 현재 버전으로 복원돼요."
+
+#~ msgid "Go back"
+#~ msgstr "되돌아가기"
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+#~ msgstr "AppImage는 Python 버전으로 전환할 수 없어요. {version} 릴리스에서 Telescope-linux.tar.gz를 다운로드하고 압축을 푼 다음 해당 폴더에서 start.sh를 실행하세요. Python 버전은 Python 3.12 이상이 필요하며 동일한 설정 폴더를 사용해요."
+
+#, python-brace-format
+#~ msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
+#~ msgstr "폴더에 쓰기 권한이 없어 Telescope가 자체 파일을 교체할 수 없어요. 릴리스 페이지에서 {version} 버전을 다운로드해 직접 설치하세요."
+
+#, python-brace-format
+#~ msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
+#~ msgstr "{version} 버전은 venv가 포함된 Python 3.12 이상이 필요하지만 이 컴퓨터에는 설치되어 있지 않아요. 먼저 설치한 후(Debian 또는 Ubuntu에서는 python3 및 python3-venv) 다시 시도하세요. 아무것도 변경되지 않았어요."
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "휴대폰 앱 버전이 일치해야 해요. 더 최신 휴대폰 앱은 {version} 버전에 연결되지 않을 수 있어요. Android에서는 최신 앱 위에 이전 버전 앱을 설치할 수 없어요. 휴대폰에서 Telescope를 제거한 후 {version} 릴리스에서 Telescope.apk를 설치하고 다시 페어링하세요."
+
+#~ msgid "A copy of your settings couldn't be saved. Nothing was changed."
+#~ msgstr "설정 복사본을 저장할 수 없어요. 아무것도 변경되지 않았어요."
+
+#~ msgid "Setting up Python's libraries. This takes a few minutes…"
+#~ msgstr "Python 라이브러리를 설정하는 중이에요. 몇 분 정도 걸려요…"
+
+#~ msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+#~ msgstr "Python 버전이 시작되지 않아 Python 버전으로 돌아가지 못했어요. 현재 버전이 다시 실행 중이에요."
+
+#~ msgid "Stop streaming to go back."
+#~ msgstr "되돌아가려면 스트리밍을 중지하세요."
+
+#, python-brace-format
+#~ msgid "Swap this version for the last Python version, {version}."
+#~ msgstr "이 버전을 마지막 Python 버전인 {version} 버전으로 교체해요."
+
+#~ msgid "Older version"
+#~ msgstr "이전 버전"
+
+#~ msgid "Go back to the older Python version of Telescope"
+#~ msgstr "Telescope의 이전 Python 버전으로 돌아가기"
+
+#~ msgctxt "search"
+#~ msgid "go back downgrade python previous old version revert undo rust"
+#~ msgstr "되돌아가기 다운그레이드 파이썬 이전 구버전 되돌리기 실행 취소 러스트 go back downgrade python previous old version revert undo rust"
+
+#~ msgid "Go back to the Python version"
+#~ msgstr "Python 버전으로 되돌아가기"
+
+#~ msgid "Go back to the Python version?"
+#~ msgstr "Python 버전으로 되돌아갈까요?"
 
 #, python-brace-format
 #~ msgid "{name} (not streaming)"

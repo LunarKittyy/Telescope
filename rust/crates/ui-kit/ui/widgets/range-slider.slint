@@ -1,0 +1,208 @@
+// A slider with two handles that picks a range, drawn like Slider. Each handle is a stop of its own for Tab and takes the same keys as
+// Slider (arrows, Shift with an arrow or Page up and down for a tenth of the range, Home and End for its end of the track). The two
+// never cross: the lower stops one step short of the upper. A marker on the track shows a live value (where a lens is focused now), which
+// a handle can be dragged to. The value is the owner's words in the column at the right, like Slider's.
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
+import { Tip } from "tip.slint";
+import { FineAxis } from "fine.slint";
+
+export component RangeSlider inherits HorizontalLayout {
+    out property <string> control-kind: "slider";
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    // Where the parent says the handles are. A drag never writes here, so the parent's binding keeps following its own value.
+    in property <float> low: 0;
+    in property <float> high: 100;
+    // What the handles read, for a screen reader, and the words in the column at the right ("2 m - 25 cm", "All")
+    in property <string> low-text;
+    in property <string> high-text;
+    in property <string> readout;
+    in property <length> readout-width: Theme.readout-w;
+    in property <string> label;
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    // A live value to draw as a marker (a lens's focus now), when there is one
+    in property <bool> has-live;
+    in property <float> live: 0;
+    in property <string> tip;
+    in property <string> tip-detail;
+    in property <string> shortcut;
+    in property <string> setting;
+    // The handles as the person last put them, shown until the parent says something new
+    property <float> local-low;
+    property <float> local-high;
+    property <bool> touched;
+    out property <float> shown-low: touched ? local-low : low;
+    out property <float> shown-high: touched ? local-high : high;
+    changed low => { touched = false; }
+    changed high => { touched = false; }
+    // Which handle a drag has hold of (0 low, 1 high), and whether one is down
+    property <int> grip;
+    property <bool> dragging;
+    property <bool> key-live;
+    out property <bool> touched-now: enabled && (dragging || key-live);
+    out property <float> key-small: max(0.0001, step);
+    out property <float> key-big: max(0.0001, step) * max(1, round((maximum - minimum) / max(0.0001, step) / 10));
+    callback moved(float, float);
+    callback released(float, float);
+
+    function place(which: int, wanted: float) {
+        if (!enabled) { return; }
+        let lo = which == 0 ? clamp(wanted, minimum, shown-high - key-small) : shown-low;
+        let hi = which == 1 ? clamp(wanted, shown-low + key-small, maximum) : shown-high;
+        if (lo != shown-low || hi != shown-high) {
+            local-low = lo;
+            local-high = hi;
+            touched = true;
+            moved(lo, hi);
+        }
+    }
+    function key(which: int, e: KeyEvent) -> EventResult {
+        if (!enabled) { return reject; }
+        let now = which == 0 ? shown-low : shown-high;
+        let by = e.modifiers.shift ? key-big : key-small;
+        let up = e.text == Key.UpArrow || e.text == Key.RightArrow;
+        let down = e.text == Key.DownArrow || e.text == Key.LeftArrow;
+        let known = up || down || e.text == Key.PageUp || e.text == Key.PageDown || e.text == Key.Home || e.text == Key.End;
+        if (!known) { return reject; }
+        let to = up ? now + by : down ? now - by : e.text == Key.PageUp ? now + key-big : e.text == Key.PageDown ? now - key-big : e.text == Key.Home ? minimum : maximum;
+        key-live = true;
+        place(which, to);
+        released(shown-low, shown-high);
+        return accept;
+    }
+    spacing: Theme.u(4);
+    horizontal-stretch: 1;
+    track := Rectangle {
+        horizontal-stretch: 1;
+        min-width: Theme.u(42);
+        height: Theme.row;
+        property <length> inset: Theme.handle-w / 2;
+        property <length> run: self.width - 2 * inset;
+        pure function x-of(v: float) -> length { return inset + run * clamp((v - minimum) / max(0.0001, maximum - minimum), 0, 1); }
+        // Shift while dragging goes a tenth as far, as on Slider
+        fine := FineAxis { }
+        property <float> held-tone: touched-now ? 1 : 0;
+        animate held-tone { duration: 120ms; }
+
+        low-focus := FocusScope {
+            width: 0px;
+            height: 0px;
+            enabled: root.enabled;
+            focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+            changed has-focus => { if (!self.has-focus && !high-focus.has-focus) { key-live = false; } }
+            key-pressed(e) => { return key(0, e); }
+        }
+        high-focus := FocusScope {
+            width: 0px;
+            height: 0px;
+            enabled: root.enabled;
+            focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+            changed has-focus => { if (!self.has-focus && !low-focus.has-focus) { key-live = false; } }
+            key-pressed(e) => { return key(1, e); }
+        }
+        TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+        groove := Rectangle {
+            y: (parent.height - Theme.track) / 2;
+            height: Theme.track;
+            border-radius: Theme.track / 2;
+            background: Theme.raise;
+            border-width: Theme.outline-w;
+            border-color: enabled ? Theme.outline : Theme.dis-outline;
+            // The range between the handles
+            if enabled: Rectangle {
+                x: track.x-of(shown-low);
+                width: track.x-of(shown-high) - track.x-of(shown-low);
+                height: parent.height;
+                background: Theme.lit(hue, track.held-tone);
+            }
+        }
+        // Where the lens is now, marked like Slider's own centre line
+        if has-live && enabled: Rectangle {
+            x: track.x-of(live) - Theme.stroke / 2;
+            y: (parent.height - self.height) / 2;
+            width: Theme.stroke;
+            height: Theme.track + Theme.u(4);
+            border-radius: Theme.stroke / 2;
+            background: Theme.ink2.with-alpha(0.7);
+        }
+        for which in 2: handle := Rectangle {
+            width: Theme.handle-w;
+            height: Theme.handle-h;
+            y: (parent.height - self.height) / 2;
+            x: track.x-of(which == 0 ? shown-low : shown-high) - Theme.handle-w / 2;
+            border-radius: Theme.r-handle;
+            property <bool> on: grip == which && dragging;
+            background: !enabled ? Theme.raise : hue.mix(Theme.card, on ? 0.6 : 0);
+            border-width: Theme.stroke;
+            border-color: !enabled ? Theme.dis : hue.mix(Theme.card, 0.75 + 0.25 * (on ? 1 : 0));
+            accessible-role: slider;
+            accessible-label: root.label + ": " + (which == 0 ? root.low-text : root.high-text);
+            accessible-value: which == 0 ? root.low-text : root.high-text;
+            accessible-value-minimum: root.minimum;
+            accessible-value-maximum: root.maximum;
+            accessible-value-step: root.step;
+            accessible-action-increment => { place(which, (which == 0 ? shown-low : shown-high) + key-small); }
+            accessible-action-decrement => { place(which, (which == 0 ? shown-low : shown-high) - key-small); }
+            FocusRing {
+                shown: (which == 0 ? low-focus.has-focus : high-focus.has-focus) && KeyFocus.keyboard;
+                radius: Theme.r-handle;
+                width: parent.width + 2 * Theme.stroke;
+                height: parent.height + 2 * Theme.stroke;
+            }
+        }
+        usage := Tip { says: root.tip != "" ? root.tip : root.label; detail: root.tip-detail; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: (low-focus.has-focus || high-focus.has-focus) && KeyFocus.keyboard; }
+        touch := TouchArea {
+            enabled: root.enabled;
+            property <float> at: minimum + clamp((self.mouse-x - track.inset) / max(1px, track.run), 0, 1) * (maximum - minimum);
+            property <float> snapped: minimum + round((at - minimum) / key-small) * key-small;
+            // Where the pointer is along the track in the slider's units, past either end too
+            property <float> beyond: minimum + (self.mouse-x - track.inset) / max(1px, track.run) * (maximum - minimum);
+            property <bool> shift-now;
+            pointer-event(e) => {
+                shift-now = e.modifiers.shift;
+                if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                    // The nearer handle takes it; on top of each other, the one on the side the pointer is on
+                    let to-low = abs(self.mouse-x - track.x-of(shown-low));
+                    let to-high = abs(self.mouse-x - track.x-of(shown-high));
+                    grip = to-low < to-high || (to-low == to-high && snapped < shown-low) ? 0 : 1;
+                    dragging = true;
+                    fine.begin(beyond);
+                    if (grip == 0) { low-focus.focus(); } else { high-focus.focus(); }
+                    place(grip, snapped);
+                }
+                if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) {
+                    if (dragging) {
+                        dragging = false;
+                        released(shown-low, shown-high);
+                    }
+                }
+            }
+            moved => {
+                if (dragging) {
+                    let v = fine.at(beyond, shift-now, minimum, maximum);
+                    place(grip, minimum + round((v - minimum) / key-small) * key-small);
+                }
+            }
+        }
+    }
+    Rectangle {
+        width: readout-width;
+        Text {
+            width: parent.width;
+            height: parent.height;
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: enabled ? Theme.ink : Theme.dis;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}

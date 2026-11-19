@@ -14,7 +14,9 @@ use crate::shared::{no_pictures, PictureReader};
 use crate::transition::{self, Spec};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::image::{halve_2x2, keep_bytes, resample_box};
 use telescope_core::time::monotonic_ns;
 
 /// The frames to draw from: each stream's newest, with its number when the same frame can come again (None: always fresh).
@@ -99,25 +101,6 @@ impl Region<'_> {
         }
         out
     }
-
-    /// cv2.resize to exactly half (INTER_AREA): each pixel the rounded mean of a 2 x 2 block, an odd last row or column left out.
-    fn halved(&self) -> Vec<u8> {
-        let (w2, h2, ch) = (self.w / 2, self.h / 2, self.ch);
-        let mut out = vec![0u8; w2 * h2 * ch];
-        for y in 0..h2 {
-            let r0 = ((self.y0 + 2 * y) * self.stride + self.x0) * ch;
-            let r1 = r0 + self.stride * ch;
-            let row = &mut out[y * w2 * ch..(y + 1) * w2 * ch];
-            for x in 0..w2 {
-                for c in 0..ch {
-                    let (a, b) = (r0 + 2 * x * ch + c, r1 + 2 * x * ch + c);
-                    let sum = self.data[a] as u32 + self.data[a + ch] as u32 + self.data[b] as u32 + self.data[b + ch] as u32;
-                    row[x * ch + c] = ((sum + 2) >> 2) as u8;
-                }
-            }
-        }
-        out
-    }
 }
 
 /// INTER_LINEAR's taps along an axis of n scaled to n2: (first source, second source, their weights out of 2048).
@@ -138,61 +121,10 @@ fn linear_taps(n: usize, n2: usize) -> Vec<(usize, usize, i32, i32)> {
     }).collect()
 }
 
-/// cv2.resize(INTER_LINEAR) of an 8-bit region: whole-number taps across, then down with OpenCV's SSE rounding for each
-/// stretch of 16 and 8 values and its plain one for what's left of a row.
+/// cv2.resize(INTER_LINEAR) of an 8-bit region: whole-number taps across, then down with OpenCV's SSE rounding, banded and AVX2 in core.
 fn linear(src: Region, w2: usize, h2: usize) -> Vec<u8> {
-    let ch = src.ch;
     let (xs, ys) = (linear_taps(src.w, w2), linear_taps(src.h, h2));
-    let n = w2 * ch;
-    // The across pass of one source row into a buffer taken from the spares, so no row is allocated twice
-    let row = |y: usize, out: &mut Vec<i32>| {
-        out.clear();
-        let start = ((src.y0 + y) * src.stride + src.x0) * ch;
-        let line = &src.data[start..start + src.w * ch];
-        if ch == 1 {
-            out.extend(xs.iter().map(|&(x0, x1, a0, a1)| line[x0] as i32 * a0 + line[x1] as i32 * a1));
-        } else {
-            for &(x0, x1, a0, a1) in &xs {
-                let (p0, p1) = (&line[x0 * ch..x0 * ch + ch], &line[x1 * ch..x1 * ch + ch]);
-                out.extend(p0.iter().zip(p1).map(|(&v0, &v1)| v0 as i32 * a0 + v1 as i32 * a1));
-            }
-        }
-    };
-    // At most the two rows the current line reads stay, in a pair of buffers that swap places as the lines go down
-    let mut rows: Vec<(usize, Vec<i32>)> = Vec::with_capacity(3);
-    let mut spare: Vec<Vec<i32>> = Vec::with_capacity(3);
-    let mut out = vec![0u8; n * h2];
-    let vec16 = n / 16 * 16;
-    let vec_end = if (vec16 as i64) < n as i64 - 8 { vec16 + 8 } else { vec16 };
-    for (dy, &(y0, y1, b0, b1)) in ys.iter().enumerate() {
-        let mut i = 0;
-        while i < rows.len() {
-            if rows[i].0 < y0 {
-                spare.push(rows.swap_remove(i).1);
-            } else {
-                i += 1;
-            }
-        }
-        for y in [y0, y1] {
-            if !rows.iter().any(|(k, _)| *k == y) {
-                let mut buffer = spare.pop().unwrap_or_default();
-                row(y, &mut buffer);
-                rows.push((y, buffer));
-            }
-        }
-        let find = |y: usize| &rows.iter().find(|(k, _)| *k == y).unwrap().1;
-        let (s0, s1) = (find(y0), find(y1));
-        let line = &mut out[dy * n..(dy + 1) * n];
-        let (head, tail) = line.split_at_mut(vec_end);
-        let hi = |b: i32, s: i32| (b * ((s >> 4).clamp(-32768, 32767))) >> 16;
-        for ((d, &a), &b) in head.iter_mut().zip(&s0[..vec_end]).zip(&s1[..vec_end]) {
-            *d = ((hi(b0, a) + hi(b1, b) + 2) >> 2).clamp(0, 255) as u8;
-        }
-        for ((d, &a), &b) in tail.iter_mut().zip(&s0[vec_end..]).zip(&s1[vec_end..]) {
-            *d = ((b0 as i64 * a as i64 + b1 as i64 * b as i64 + (1 << 21)) >> 22).clamp(0, 255) as u8;
-        }
-    }
-    out
+    resample_box(src.data, src.stride, src.ch, (src.x0, src.y0, src.w, src.h), &xs, &ys)
 }
 
 /// composite.scale_to on a region: in exact halves while it's at least twice the size each way, then INTER_LINEAR the rest.
@@ -207,17 +139,19 @@ fn halves_then_linear(src: Region, w: usize, h: usize) -> Vec<u8> {
     if src.w < 2 * w || src.h < 2 * h {
         return linear(src, w, h);
     }
-    let mut image = src.halved();
+    let mut image = halve_2x2(src.data, src.stride, src.ch, (src.x0, src.y0, src.w, src.h));
     let (mut iw, mut ih) = (src.w / 2, src.h / 2);
     while iw >= 2 * w && ih >= 2 * h {
-        let r = Region { data: &image, stride: iw, ch: src.ch, x0: 0, y0: 0, w: iw, h: ih };
-        image = r.halved();
+        let next = halve_2x2(&image, iw, src.ch, (0, 0, iw, ih));
+        keep_bytes(std::mem::replace(&mut image, next));
         (iw, ih) = (iw / 2, ih / 2);
     }
     if (iw, ih) == (w, h) {
         return image;
     }
-    linear(Region { data: &image, stride: iw, ch: src.ch, x0: 0, y0: 0, w: iw, h: ih }, w, h)
+    let out = linear(Region { data: &image, stride: iw, ch: src.ch, x0: 0, y0: 0, w: iw, h: ih }, w, h);
+    keep_bytes(image);
+    out
 }
 
 /// composite.scale_to on a whole w x h picture of ch bytes a pixel.
@@ -847,6 +781,14 @@ struct Scaled {
     planes: Arc<ScaledPlanes>,
     alpha: Option<Arc<ScaledPlanes>>,
 }
+/// Where the last render's time went: scaling the streams, drawing them onto the canvas and getting the canvas ready.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RenderTimes {
+    pub scale: Duration,
+    pub paste: Duration,
+    pub setup: Duration,
+}
+
 type BackgroundKey = (String, String, usize, usize);
 
 /// composite.Compositor: prepare() on the host thread (it may read the background picture), render() on a stream's thread.
@@ -874,6 +816,7 @@ pub struct Compositor {
     waiting: HashMap<String, u64>,
     /// The same as of the picture before, so a tile that has an alpha now or isn't cut out any more starts again next time.
     waiting_before: HashMap<String, u64>,
+    times: RenderTimes,
 }
 
 /// How long a cut-out tile whose stream has no alpha stays blank before it is drawn plain (ns).
@@ -930,7 +873,7 @@ fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
 
 impl Compositor {
     pub fn new(reader: PictureReader) -> Compositor {
-        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new(), now: 0, waiting: HashMap::new(), waiting_before: HashMap::new() }
+        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new(), now: 0, waiting: HashMap::new(), waiting_before: HashMap::new(), times: RenderTimes::default() }
     }
 
     pub fn prepare(&mut self, layout: &Layout, size: (u32, u32)) {
@@ -1101,6 +1044,7 @@ impl Compositor {
     }
 
     fn render_picture(&mut self, frames: &Frames, format: PixelFormat, now: u64) -> Option<Frame> {
+        self.times = RenderTimes::default();
         let plan = self.plan.clone()?;
         let kind = Kind::of(format);
         if let Some(active) = self.transition.as_mut() {
@@ -1120,6 +1064,11 @@ impl Compositor {
         Some(Frame::new(plan.size.0 as u32, plan.size.1 as u32, kind.format(), out))
     }
 
+    /// How the last render's time split up.
+    pub fn last_times(&self) -> RenderTimes {
+        self.times
+    }
+
     /// A buffer holding a copy of `from`, one given back before if there is one.
     fn copy_of(&mut self, from: &[u8]) -> Vec<u8> {
         let mut buf = self.spare.pop().unwrap_or_default();
@@ -1136,8 +1085,10 @@ impl Compositor {
 
     /// The whole of a plan drawn as it is: the background, then every tile with a frame.
     fn draw_plan(&mut self, plan: &Plan, frames: &Frames, kind: Kind, key_base: usize) -> Vec<u8> {
+        let started = Instant::now();
         let background = self.background_planes(plan, kind);
         let mut out = self.copy_of(&background);
+        self.times.setup += started.elapsed();
         let items: Vec<Item> = plan.layout.tiles.iter().zip(&plan.boxes).enumerate()
             .map(|(i, (tile, placed))| Item { tile: Cow::Borrowed(tile), placed: *placed, alpha: 1.0, key: key_base + i }).collect();
         self.draw_items(&mut out, kind, plan.size, &items, frames);
@@ -1152,8 +1103,10 @@ impl Compositor {
         let from_plan = active.from.plan();
         if spec.kind.moves_tiles() {
             let posed = transition::poses_from(spec.kind, &active.from.tiles(), &plan.layout.tiles, t, spec.ease, cw as f64 / chh as f64);
+            let started = Instant::now();
             let background = self.background_planes(plan, kind);
             let mut out = self.copy_of(&background);
+            self.times.setup += started.elapsed();
             // a different background fades from one to the other (the one an interrupted transition left from is part way already)
             let over = match &active.from {
                 Start::Tiles { over: Some((to, w)), .. } => Some((to.clone(), *w)),
@@ -1206,18 +1159,25 @@ impl Compositor {
                 // a cut-out has no box for a border to fill, so it keeps the room the border takes and leaves it empty
                 if !tile.cut_out {
                     let colour = colour_planes(kind, { let [b, g, r] = bgr(&tile.border_colour); [r, g, b] });
+                    let started = Instant::now();
                     paste(out, kind, cw, chh, Content::Colour(colour), (x as usize, y as usize, w as usize, h as usize), placed.radius as usize);
+                    self.times.paste += started.elapsed();
                 }
                 (x, y, w, h) = (x + placed.border, y + placed.border, w - 2 * placed.border, h - 2 * placed.border);
             }
             if w > 0 && h > 0 {
                 let bx = (x as usize, y as usize, w as usize, h as usize);
-                if let Some(scaled) = self.scale(item.key, tile, frame, *number, bx, kind) {
+                let started = Instant::now();
+                let scaled = self.scale(item.key, tile, frame, *number, bx, kind);
+                self.times.scale += started.elapsed();
+                if let Some(scaled) = scaled {
                     let radius = if placed.border > 0 { placed.inner } else { placed.radius };
+                    let started = Instant::now();
                     match &scaled.alpha {
                         Some(alpha) => paste_over(out, kind, cw, chh, &scaled.planes, alpha, bx, radius as usize),
                         None => paste(out, kind, cw, chh, Content::Picture(&scaled.planes), bx, radius as usize),
                     }
+                    self.times.paste += started.elapsed();
                 }
             }
             if let Some(under) = under {
@@ -1290,3 +1250,7 @@ impl Compositor {
 #[cfg(test)]
 #[path = "compositor_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "compositor_speed_tests.rs"]
+mod speed_tests;

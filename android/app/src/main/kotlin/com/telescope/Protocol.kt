@@ -64,6 +64,10 @@ data class StillCapability(
     val hotPixelHq: Boolean = false,
     val distortionCorrection: Boolean = false,  // takes distortion 0 and 1
     val burstMax: Int = 1,  // the most pictures one request takes, bursts and brackets together
+    // The limits a newer phone says it has. A phone without them takes 9 bracket pictures at most 6 EV from the middle and 30 focus steps.
+    val exposureMinNs: Long = 0L,  // the fastest shutter; 0 = not said
+    val bracketMax: Int = 0,  // the most exposure bracket pictures, which come with up to 12 EV from the middle; 0 = not said
+    val focusStepsMax: Int = 0,  // the most focus bracket steps; 0 = not said
 )
 
 @Serializable

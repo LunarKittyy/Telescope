@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Quyên góp hoặc đọc thêm</a>"
 msgid "No mic"
 msgstr "Không có mic"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:358
 msgid "Downloading…"
 msgstr "Đang tải về…"
 
@@ -346,7 +346,7 @@ msgstr "Vàng: bộ giới hạn đang nén các đỉnh âm lượng. Đỏ: â
 msgid "Click to clear"
 msgstr "Nhấp để xóa"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:172 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
 msgid "Reset"
 msgstr "Đặt lại"
 
@@ -370,7 +370,7 @@ msgstr "Giảm nhiễu"
 msgid "Noise reduction unavailable"
 msgstr "Giảm nhiễu không khả dụng"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
 msgid "Cancel"
 msgstr "Hủy"
 
@@ -400,11 +400,11 @@ msgstr "Bước sáng"
 msgid " stops"
 msgstr " bước sáng"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "Tiếp theo"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "Trước đó"
 
@@ -544,7 +544,7 @@ msgstr "Tiện ích bổ sung"
 msgid "Updates & About"
 msgstr "Bản cập nhật & Giới thiệu"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
 msgid "Camera"
 msgstr "Camera"
 
@@ -617,7 +617,7 @@ msgid "Analysing…"
 msgstr "Đang phân tích…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:201 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Tắt"
 
@@ -2526,15 +2526,15 @@ msgstr "Bao phơi sáng"
 msgid "Focus bracket"
 msgstr "Bao lấy nét"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:285 rust/crates/effects/src/photos.rs:804 rust/crates/effects/src/photos.rs:941 rust/crates/effects/ui/photos.slint:165 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "Ảnh"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345
 msgid "Both"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345
 msgid "Merged"
 msgstr ""
 
@@ -2558,7 +2558,7 @@ msgstr ""
 msgid "Favour the darker or the lighter photos of an exposure bracket in the merged picture."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342
+#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383
 msgid "On"
 msgstr "Bật"
 
@@ -2591,203 +2591,248 @@ msgid "Number of photos from the nearest focus to the farthest, for focus stacki
 msgstr "Số lượng ảnh từ điểm lấy nét gần nhất đến xa nhất để ghép nét."
 
 #: rust/crates/effects/src/photos.rs:53
+msgid "Take the focus bracket between the two handles, from the farthest focus on the left to the nearest on the right. The mark shows where the phone is focused now (in manual focus)."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:54
+msgid "Number of photos in the exposure bracket, spread evenly around the video's exposure."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:55
+msgid "EV between photos"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:56
 msgid "Number of photos in the burst."
 msgstr "Số lượng ảnh trong loạt chụp liên tiếp."
 
-#: rust/crates/effects/src/photos.rs:54
+#: rust/crates/effects/src/photos.rs:57
 msgid "Take one photo, a burst or a set at different exposures or focus distances."
 msgstr "Chụp một ảnh, chụp liên tiếp hoặc chụp một bộ ở các mức phơi sáng hay khoảng cách lấy nét khác nhau."
 
-#: rust/crates/effects/src/photos.rs:55
+#: rust/crates/effects/src/photos.rs:58
 msgid "Wait a few seconds before taking the photo."
 msgstr "Đợi vài giây trước khi chụp ảnh."
 
-#: rust/crates/effects/src/photos.rs:56
+#: rust/crates/effects/src/photos.rs:59
 msgid "A long exposure uses the video's ISO and the video stops while the shutter is open."
 msgstr "Phơi sáng lâu sử dụng ISO của video và video sẽ dừng trong khi màn trập đang mở."
 
-#: rust/crates/effects/src/photos.rs:57
+#: rust/crates/effects/src/photos.rs:60
 msgid "Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer."
 msgstr "Tăng cường giảm nhiễu và tăng độ nét cho riêng ảnh chụp, không áp dụng cho video. Chụp ảnh sẽ mất thêm một chút thời gian."
 
-#: rust/crates/effects/src/photos.rs:58
+#: rust/crates/effects/src/photos.rs:61
 msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "Ống kính và chế độ này không hỗ trợ tăng cường giảm nhiễu hay tăng độ nét"
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:62
 msgid "JPEG quality is set by the camera"
 msgstr "Chất lượng JPEG do camera thiết lập"
 
-#: rust/crates/effects/src/photos.rs:60
+#: rust/crates/effects/src/photos.rs:63
 msgid "RAW photos have no quality setting"
 msgstr "Ảnh RAW không có cài đặt chất lượng"
 
-#: rust/crates/effects/src/photos.rs:61 rust/crates/shell/src/streams.rs:845
+#: rust/crates/effects/src/photos.rs:64 rust/crates/shell/src/streams.rs:845
 msgid "The camera is already taking a photo."
 msgstr "Camera đang chụp ảnh rồi."
 
-#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
+#: rust/crates/effects/src/photos.rs:65 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
 msgid "The camera couldn't take the photo."
 msgstr "Camera không thể chụp ảnh."
 
-#: rust/crates/effects/src/photos.rs:66
+#: rust/crates/effects/src/photos.rs:70
 msgid "Like the video"
 msgstr "Như video"
 
-#: rust/crates/effects/src/photos.rs:66 rust/crates/effects/src/photos.rs:201 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:72
+#, python-brace-format
+msgid "1/{n} s"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:74 rust/crates/effects/src/photos.rs:232 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:85
+#, python-brace-format
+msgid "{near} m-∞"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:87
+#, python-brace-format
+msgid "{near}-{far} m"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:94
+msgid "Infinity"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:95
+#, python-brace-format
+msgid "{cm} cm"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:96
+#, python-brace-format
+msgid "{m} m"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/photos.rs:950 rust/crates/effects/src/photos.rs:966 rust/crates/effects/ui/photos.slint:179
 msgid "Take photo"
 msgstr "Chụp ảnh"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/stargazer.rs:816
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/stargazer.rs:816
 msgid "Open folder"
 msgstr "Mở thư mục"
 
-#: rust/crates/effects/src/photos.rs:193
+#: rust/crates/effects/src/photos.rs:224
 msgid "Best quality"
 msgstr "Chất lượng tốt nhất"
 
-#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:200 rust/crates/effects/ui/photos.slint:201
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:191 rust/crates/effects/ui/photos.slint:192 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:210 rust/crates/effects/ui/photos.slint:211 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
 msgid "Shutter"
 msgstr "Màn trập"
 
-#: rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/photos.slint:214 rust/crates/effects/ui/photos.slint:219
+#: rust/crates/effects/src/photos.rs:262 rust/crates/effects/ui/photos.slint:233 rust/crates/effects/ui/photos.slint:238
 msgid "Mode"
 msgstr "Chế độ"
 
-#: rust/crates/effects/src/photos.rs:235 rust/crates/effects/ui/photos.slint:225 rust/crates/effects/ui/photos.slint:229 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
+#: rust/crates/effects/src/photos.rs:265 rust/crates/effects/ui/photos.slint:244 rust/crates/effects/ui/photos.slint:248 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
 msgid "Format"
 msgstr "Định dạng"
 
-#: rust/crates/effects/src/photos.rs:238 rust/crates/effects/ui/photos.slint:237 rust/crates/effects/ui/photos.slint:242
+#: rust/crates/effects/src/photos.rs:268 rust/crates/effects/ui/photos.slint:256 rust/crates/effects/ui/photos.slint:261
 msgid "Shots"
 msgstr "Kiểu chụp"
 
-#: rust/crates/effects/src/photos.rs:240 rust/crates/effects/ui/photos.slint:264 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:270 rust/crates/effects/ui/photos.slint:271
+#: rust/crates/effects/src/photos.rs:274 rust/crates/effects/ui/photos.slint:283 rust/crates/effects/ui/photos.slint:284
 msgid "How many"
 msgstr "Số lượng"
 
-#: rust/crates/effects/src/photos.rs:240
+#: rust/crates/effects/src/photos.rs:280
 msgid "Steps"
 msgstr "Số bước"
 
-#: rust/crates/effects/src/photos.rs:251
-msgid "Bracket"
-msgstr "Bao phơi sáng"
+#: rust/crates/effects/src/photos.rs:289 rust/crates/effects/src/photos.rs:340
+msgid "EV"
+msgstr ""
 
-#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:174 rust/crates/effects/ui/photos.slint:278 rust/crates/effects/ui/photos.slint:282 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:285 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
+#: rust/crates/effects/src/photos.rs:294 rust/crates/effects/src/photos.rs:340 rust/crates/effects/ui/photos.slint:193 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
 msgid "Exposure"
 msgstr "Độ phơi sáng"
 
-#: rust/crates/effects/src/photos.rs:261 rust/crates/effects/ui/photos.slint:333 rust/crates/effects/ui/photos.slint:339
+#: rust/crates/effects/src/photos.rs:299 rust/crates/effects/ui/photos.slint:374 rust/crates/effects/ui/photos.slint:380
 msgid "Distortion fix"
 msgstr "Sửa méo hình"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
+#: rust/crates/effects/src/photos.rs:345 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
+msgid "All"
+msgstr "Tất cả"
+
+#: rust/crates/effects/src/photos.rs:408 rust/crates/effects/src/photos.rs:881
 msgid "Start streaming to take photos."
 msgstr "Bắt đầu truyền phát để chụp ảnh."
 
-#: rust/crates/effects/src/photos.rs:355
+#: rust/crates/effects/src/photos.rs:410
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "Điện thoại này chưa thể chụp ảnh từ Telescope. Hãy cập nhật ứng dụng trên điện thoại."
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Darker"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Lighter"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Middle"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:571
+#: rust/crates/effects/src/photos.rs:666
 msgid "Merging the bracket…"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:582
+#: rust/crates/effects/src/photos.rs:677
 #, python-brace-format
 msgid "Saved {name} from {used} of {frames} photos. The photos are still saved."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:584
+#: rust/crates/effects/src/photos.rs:679
 #, python-brace-format
 msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:586
+#: rust/crates/effects/src/photos.rs:681
 #, python-brace-format
 msgid "Saved the merged picture {name} from {used} of {frames} photos"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:588
+#: rust/crates/effects/src/photos.rs:683
 #, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
+#: rust/crates/effects/src/photos.rs:692 rust/crates/effects/src/photos.rs:757 rust/crates/effects/src/photos.rs:779
 msgid "Photo saved"
 msgstr "Đã lưu ảnh"
 
-#: rust/crates/effects/src/photos.rs:601
+#: rust/crates/effects/src/photos.rs:696
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
+#: rust/crates/effects/src/photos.rs:718 rust/crates/effects/src/photos.rs:738
 msgid "Taking the photo…"
 msgstr "Đang chụp ảnh…"
 
-#: rust/crates/effects/src/photos.rs:637
+#: rust/crates/effects/src/photos.rs:732
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Chụp ảnh sau {seconds} s"
 
-#: rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:734
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Ảnh {n} / {total}"
 
-#: rust/crates/effects/src/photos.rs:641
+#: rust/crates/effects/src/photos.rs:736
 msgid "The video is paused while the photo is taken…"
 msgstr "Video tạm dừng trong khi chụp ảnh…"
 
-#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:752 rust/crates/effects/src/stargazer.rs:823
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Đã lưu {name}"
 
-#: rust/crates/effects/src/photos.rs:680
+#: rust/crates/effects/src/photos.rs:775
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "Ảnh nhận được trễ. Đã lưu {name}"
 
-#: rust/crates/effects/src/photos.rs:694
+#: rust/crates/effects/src/photos.rs:789
 msgid "Save photos in"
 msgstr "Lưu ảnh vào"
 
-#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
+#: rust/crates/effects/src/photos.rs:805 rust/crates/effects/ui/photos.slint:166
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Chụp ảnh chất lượng tối đa trên điện thoại hoặc máy DSLR, bao gồm cả ảnh RAW nếu camera hỗ trợ."
 
-#: rust/crates/effects/src/photos.rs:711
+#: rust/crates/effects/src/photos.rs:806
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Nếu không có tiện ích bổ sung Ảnh, sẽ không có thẻ Ảnh và không có phím tắt Chụp ảnh."
 
-#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
+#: rust/crates/effects/src/photos.rs:943 rust/crates/effects/src/photos.rs:981
 msgid "Photo mode"
 msgstr "Chế độ chụp ảnh"
 
-#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
+#: rust/crates/effects/src/photos.rs:948 rust/crates/effects/src/photos.rs:991
 msgid "Photo timer"
 msgstr "Hẹn giờ chụp ảnh"
 
@@ -3289,22 +3334,6 @@ msgstr "Biến hai điện thoại thành một hình ảnh 3D, chia đôi màn 
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr "Nếu không có tiện ích bổ sung 3D, sẽ không có thẻ 3D và hai luồng phát chỉ đi tới camera riêng của chúng."
 
-#: rust/crates/effects/src/stills.rs:13
-msgid "3 photos, 1 EV apart"
-msgstr "3 ảnh, cách nhau 1 EV"
-
-#: rust/crates/effects/src/stills.rs:13
-msgid "3 photos, 2 EV apart"
-msgstr "3 ảnh, cách nhau 2 EV"
-
-#: rust/crates/effects/src/stills.rs:14
-msgid "5 photos, 1 EV apart"
-msgstr "5 ảnh, cách nhau 1 EV"
-
-#: rust/crates/effects/src/stills.rs:14
-msgid "7 photos, 1 EV apart"
-msgstr "7 ảnh, cách nhau 1 EV"
-
 #: rust/crates/effects/src/transforms.rs:37
 msgid "Set flip, rotation, zoom, pan, stretch and lens correction back to default."
 msgstr "Đặt lại lật, xoay, thu phóng, lia, kéo giãn và hiệu chỉnh ống kính về mặc định."
@@ -3635,11 +3664,7 @@ msgstr "Hue theo hue"
 msgid "Curve"
 msgstr "Đường cong"
 
-#: rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
-msgid "All"
-msgstr "Tất cả"
-
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:173 rust/crates/system/ui/updates.slint:184
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:153 rust/crates/system/ui/updates.slint:164
 msgid "Channel"
 msgstr "Kênh"
 
@@ -4397,51 +4422,55 @@ msgstr "xuống"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "Phím mũi tên di chuyển điểm đã chọn, giữ Shift kèm phím mũi tên để di chuyển xa hơn. Dấu ngoặc vuông trái và phải chọn điểm khác. Phím Delete xóa điểm và phím Home đặt lại đường cong."
 
-#: rust/crates/effects/ui/photos.slint:154
+#: rust/crates/effects/ui/photos.slint:173
 msgid "Set every photo setting except the folder back to default."
 msgstr "Đặt lại tất cả các cài đặt ảnh về mặc định, ngoại trừ thư mục."
 
-#: rust/crates/effects/ui/photos.slint:183
+#: rust/crates/effects/ui/photos.slint:202
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "ISO càng cao làm ảnh sáng hơn nhưng nhiều hạt nhiễu hơn."
 
-#: rust/crates/effects/ui/photos.slint:193
+#: rust/crates/effects/ui/photos.slint:212
 msgid "Slower shutter speeds make the photo brighter but blur movement."
 msgstr "Tốc độ màn trập chậm hơn làm ảnh sáng hơn nhưng dễ nhòe chuyển động."
 
-#: rust/crates/effects/ui/photos.slint:206
+#: rust/crates/effects/ui/photos.slint:225
 msgid "Mode and format"
 msgstr "Chế độ và định dạng"
 
-#: rust/crates/effects/ui/photos.slint:230
+#: rust/crates/effects/ui/photos.slint:249
 msgid "The file type photos are saved as."
 msgstr "Loại tệp dùng để lưu ảnh."
 
-#: rust/crates/effects/ui/photos.slint:295 rust/crates/effects/ui/photos.slint:301
+#: rust/crates/effects/ui/photos.slint:310 rust/crates/effects/ui/photos.slint:315 rust/crates/effects/ui/photos.slint:328
+msgid "Focus range"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:336 rust/crates/effects/ui/photos.slint:342
 msgid "Merge bracket"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:312 rust/crates/effects/ui/photos.slint:317 rust/crates/effects/ui/photos.slint:326
+#: rust/crates/effects/ui/photos.slint:353 rust/crates/effects/ui/photos.slint:358 rust/crates/effects/ui/photos.slint:367
 msgid "Merged brightness"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:350 rust/crates/effects/ui/photos.slint:355 rust/crates/effects/ui/photos.slint:364
+#: rust/crates/effects/ui/photos.slint:391 rust/crates/effects/ui/photos.slint:396 rust/crates/effects/ui/photos.slint:405
 msgid "Quality"
 msgstr "Chất lượng"
 
-#: rust/crates/effects/ui/photos.slint:365
+#: rust/crates/effects/ui/photos.slint:406
 msgid "Higher quality gives bigger and cleaner JPEG files."
 msgstr "Chất lượng cao hơn cho tệp JPEG sắc nét hơn nhưng dung lượng lớn hơn."
 
-#: rust/crates/effects/ui/photos.slint:382 rust/crates/effects/ui/photos.slint:388
+#: rust/crates/effects/ui/photos.slint:423 rust/crates/effects/ui/photos.slint:429
 msgid "Timer"
 msgstr "Hẹn giờ"
 
-#: rust/crates/effects/ui/photos.slint:400 rust/crates/effects/ui/photos.slint:409 rust/crates/effects/ui/phototrap.slint:137 rust/crates/effects/ui/phototrap.slint:145
+#: rust/crates/effects/ui/photos.slint:441 rust/crates/effects/ui/photos.slint:450 rust/crates/effects/ui/phototrap.slint:137 rust/crates/effects/ui/phototrap.slint:145
 msgid "Save in"
 msgstr "Lưu vào"
 
-#: rust/crates/effects/ui/photos.slint:410
+#: rust/crates/effects/ui/photos.slint:451
 msgid "The folder path photos are saved in."
 msgstr "Đường dẫn thư mục lưu ảnh."
 
@@ -4863,7 +4892,7 @@ msgstr "Không theo kịp"
 msgid "Browser"
 msgstr "Trình duyệt"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Thử lại"
 
@@ -8251,7 +8280,7 @@ msgstr "Khoảng cách lấy nét"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Cài đặt gói v4l2loopback. Fedora và Nobara: v4l2loopback (từ RPM Fusion). Debian, Ubuntu và Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:365
 msgid "Checking…"
 msgstr "Đang kiểm tra…"
 
@@ -8271,7 +8300,7 @@ msgstr "Đã cài đặt."
 msgid "Check again"
 msgstr "Kiểm tra lại"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:360
 msgid "Installing…"
 msgstr "Đang cài đặt…"
 
@@ -9571,67 +9600,6 @@ msgstr "Không thể đặt Telescope tự mở khi đăng nhập: {error}"
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "Không thể dừng việc Telescope tự mở khi đăng nhập: {error}"
 
-#: rust/crates/system/src/going_back.rs:113
-#, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
-msgstr "Không thể thiết lập các thư viện Python mà {version} cần. Thao tác đó yêu cầu kết nối internet và một thư mục mà Telescope có thể ghi ({folder}). Chưa có gì bị thay đổi."
-
-#: rust/crates/system/src/going_back.rs:227
-#, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
-msgstr "Telescope sẽ khởi động lại dưới dạng phiên bản {version}, phiên bản Python cuối cùng. Cài đặt và các điện thoại đã ghép đôi của bạn sẽ được giữ lại, với một bản sao cài đặt hiện tại được lưu trước trong {folder}."
-
-#: rust/crates/system/src/going_back.rs:229
-#, python-brace-format
-msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
-msgstr "Bạn sẽ mất các tính năng mới kể từ thời điểm đó. Các tiện ích bổ sung viết bằng Lua không chạy trong {version} và các cài đặt không tồn tại vào thời điểm đó sẽ bị bỏ qua."
-
-#: rust/crates/system/src/going_back.rs:231
-#, python-brace-format
-msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
-msgstr "{version} không có tính năng tự động kiểm tra bản cập nhật và không đề xuất quay lại phiên bản này. Bạn có thể bật lại tính năng đó trong phần cài đặt của phiên bản này."
-
-#: rust/crates/system/src/going_back.rs:234
-#, python-brace-format
-msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
-msgstr "Trước tiên, các thư viện Python mà {version} cần sẽ được thiết lập. Thao tác này cần có kết nối internet và mất vài phút. Sẽ không có gì thay đổi nếu thao tác đó thất bại."
-
-#: rust/crates/system/src/going_back.rs:236
-msgid "If the Python version doesn't start, opening Telescope again brings this version back."
-msgstr "Nếu phiên bản Python không khởi động được, việc mở lại Telescope sẽ khôi phục phiên bản này."
-
-#: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
-msgid "Go back"
-msgstr "Quay lại"
-
-#: rust/crates/system/src/going_back.rs:242
-#, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
-msgstr "Không thể đổi AppImage sang phiên bản Python. Hãy tải về Telescope-linux.tar.gz từ bản phát hành {version}, giải nén tệp lưu trữ và chạy start.sh trong thư mục. Phiên bản Python cần Python 3.12 trở lên và dùng chung thư mục cài đặt."
-
-#: rust/crates/system/src/going_back.rs:244
-#, python-brace-format
-msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
-msgstr "Telescope không thể tự tráo đổi các tệp tại đây vì thư mục không có quyền ghi. Hãy tải về {version} từ trang phát hành và tự cài đặt."
-
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:529
-msgid "Open download page"
-msgstr "Mở trang tải về"
-
-#: rust/crates/system/src/going_back.rs:258
-#, python-brace-format
-msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
-msgstr "{version} cần Python 3.12 trở lên kèm venv và máy tính này chưa có. Hãy cài đặt trước (python3 và python3-venv trên Debian hoặc Ubuntu), sau đó thử lại. Chưa có gì bị thay đổi."
-
-#: rust/crates/system/src/going_back.rs:262
-#, python-brace-format
-msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "Ứng dụng điện thoại phải tương thích. Ứng dụng điện thoại mới hơn có thể không kết nối được với {version}. Android sẽ không cài đặt ứng dụng cũ hơn đè lên ứng dụng mới hơn. Hãy gỡ cài đặt Telescope trên điện thoại, cài đặt Telescope.apk từ bản phát hành {version} và ghép đôi lại."
-
-#: rust/crates/system/src/going_back.rs:282
-msgid "A copy of your settings couldn't be saved. Nothing was changed."
-msgstr "Không thể lưu một bản sao cài đặt của bạn. Chưa có gì bị thay đổi."
-
 #: rust/crates/system/src/hotkeys_portal.rs:117
 msgid "Not available on this desktop"
 msgstr "Không khả dụng trên môi trường máy tính để bàn này"
@@ -10324,99 +10292,86 @@ msgstr "Không thể thay thế các tệp của Telescope: {error}"
 msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr "Bản cập nhật không được cài đặt khi {file} đang được dùng. Hãy thử lại sau khi khởi động lại."
 
-#: rust/crates/system/src/updates.rs:596
+#: rust/crates/system/src/updates.rs:591
 #, python-brace-format
 msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr "Telescope không thể tự cập nhật tại chỗ vì thư mục này cũng chứa một mục của bạn có tên là {name}. Hãy giải nén bản tải về vào một thư mục riêng biệt."
 
-#: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:98 rust/crates/system/src/updates_plugin.rs:169 rust/crates/system/src/updates_plugin.rs:241 rust/crates/system/src/updates_plugin.rs:623 rust/crates/system/src/updates_plugin.rs:829
+#: rust/crates/system/src/updates.rs:656 rust/crates/system/src/updates_plugin.rs:142 rust/crates/system/src/updates_plugin.rs:612
 msgid "The update failed."
 msgstr "Cập nhật thất bại."
 
-#: rust/crates/system/src/updates.rs:692
+#: rust/crates/system/src/updates.rs:683
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "Bản cập nhật này không được cài đặt vì không thể khởi động trên máy tính này."
 
-#: rust/crates/system/src/updates_plugin.rs:31
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Stable"
 msgstr "Ổn định"
 
-#: rust/crates/system/src/updates_plugin.rs:31 rust/crates/system/ui/updates.slint:188
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:168
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:356
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Đang tải về {percent} %…"
 
-#: rust/crates/system/src/updates_plugin.rs:460
-msgid "Setting up Python's libraries. This takes a few minutes…"
-msgstr "Đang thiết lập các thư viện Python. Việc này mất vài phút…"
-
-#: rust/crates/system/src/updates_plugin.rs:461
+#: rust/crates/system/src/updates_plugin.rs:361
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Đã cập nhật. Telescope sẽ khởi động lại khi bạn dừng truyền phát."
 
-#: rust/crates/system/src/updates_plugin.rs:471
-msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
-msgstr "Quay lại phiên bản Python không thành công vì phiên bản Python không khởi động được. Phiên bản này đang chạy lại."
-
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "Việc cập nhật cũng sẽ cài đặt ứng dụng cho người dùng của bạn với một mục trong menu Start và gỡ bỏ bản sao đã giải nén này. Cài đặt và các điện thoại đã ghép đôi được giữ lại."
 
-#: rust/crates/system/src/updates_plugin.rs:482
+#: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."
 msgstr "Dừng truyền phát để cập nhật."
 
-#: rust/crates/system/src/updates_plugin.rs:494
+#: rust/crates/system/src/updates_plugin.rs:391
 msgid "This is a source checkout. Update Telescope with git."
 msgstr "Đây là mã nguồn lấy từ kho lưu trữ. Hãy cập nhật Telescope bằng git."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no nightly release yet."
 msgstr "Chưa có bản phát hành nightly nào."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no stable release yet."
 msgstr "Chưa có bản phát hành ổn định nào."
 
-#: rust/crates/system/src/updates_plugin.rs:504
+#: rust/crates/system/src/updates_plugin.rs:401
 msgid "You have the latest version."
 msgstr "Bạn đang có phiên bản mới nhất."
 
-#: rust/crates/system/src/updates_plugin.rs:508
+#: rust/crates/system/src/updates_plugin.rs:405
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Đã có Telescope {version}"
 
-#: rust/crates/system/src/updates_plugin.rs:529
+#: rust/crates/system/src/updates_plugin.rs:426
+msgid "Open download page"
+msgstr "Mở trang tải về"
+
+#: rust/crates/system/src/updates_plugin.rs:426
 msgid "Update and restart"
 msgstr "Cập nhật và khởi động lại"
 
-#: rust/crates/system/src/updates_plugin.rs:533
-msgid "Stop streaming to go back."
-msgstr "Dừng truyền phát để quay lại."
-
-#: rust/crates/system/src/updates_plugin.rs:533
-#, python-brace-format
-msgid "Swap this version for the last Python version, {version}."
-msgstr "Đổi phiên bản này sang phiên bản Python cuối cùng, {version}."
-
-#: rust/crates/system/src/updates_plugin.rs:722
+#: rust/crates/system/src/updates_plugin.rs:509
 msgid "Couldn't check for updates."
 msgstr "Không thể kiểm tra bản cập nhật."
 
-#: rust/crates/system/src/updates_plugin.rs:879
+#: rust/crates/system/src/updates_plugin.rs:659
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Đã cập nhật. Hãy đóng và mở lại Telescope để hoàn tất."
 
-#: rust/crates/system/src/updates_plugin.rs:895
+#: rust/crates/system/src/updates_plugin.rs:675
 msgid "Updates"
 msgstr "Bản cập nhật"
 
-#: rust/crates/system/src/updates_plugin.rs:896
+#: rust/crates/system/src/updates_plugin.rs:676
 msgid "Check for new versions of Telescope and install them."
 msgstr "Kiểm tra các phiên bản mới của Telescope và cài đặt."
 
@@ -10652,103 +10607,82 @@ msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "thông báo cảnh báo tin nhắn bật lên notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:107
+#: rust/crates/system/ui/updates.slint:87
 msgid "Check for new versions and install them."
 msgstr "Kiểm tra phiên bản mới và cài đặt."
 
-#: rust/crates/system/ui/updates.slint:108
+#: rust/crates/system/ui/updates.slint:88
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "cập nhật nâng cấp phiên bản mới bản phát hành tải về cài đặt mới nhất update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:113 rust/crates/system/ui/updates.slint:114
+#: rust/crates/system/ui/updates.slint:93 rust/crates/system/ui/updates.slint:94
 msgid "Check now"
 msgstr "Kiểm tra ngay"
 
-#: rust/crates/system/ui/updates.slint:115
+#: rust/crates/system/ui/updates.slint:95
 msgid "Look for a new version of Telescope."
 msgstr "Tìm phiên bản mới của Telescope."
 
-#: rust/crates/system/ui/updates.slint:120
+#: rust/crates/system/ui/updates.slint:100
 msgid "Set the update channel and automatic checking back to default."
 msgstr "Đặt lại kênh cập nhật và tính năng kiểm tra tự động về mặc định."
 
-#: rust/crates/system/ui/updates.slint:126
+#: rust/crates/system/ui/updates.slint:106
 msgid "This version"
 msgstr "Phiên bản này"
 
-#: rust/crates/system/ui/updates.slint:127
+#: rust/crates/system/ui/updates.slint:107
 msgid "The version of Telescope you're running"
 msgstr "Phiên bản Telescope bạn đang chạy"
 
-#: rust/crates/system/ui/updates.slint:130
+#: rust/crates/system/ui/updates.slint:110
 msgctxt "search"
 msgid "current build number"
 msgstr "số bản dựng hiện tại current build number"
 
-#: rust/crates/system/ui/updates.slint:155
+#: rust/crates/system/ui/updates.slint:135
 msgid "What's new"
 msgstr "Có gì mới"
 
-#: rust/crates/system/ui/updates.slint:174
+#: rust/crates/system/ui/updates.slint:154
 msgid "Stable is tested more and nightly gets fixes first"
 msgstr "Kênh Ổn định được kiểm thử nhiều hơn và kênh Nightly nhận được các bản vá lỗi trước"
 
-#: rust/crates/system/ui/updates.slint:177
+#: rust/crates/system/ui/updates.slint:157
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "ổn định nightly beta bản phát hành kênh bản dựng kiểm thử stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:189
+#: rust/crates/system/ui/updates.slint:169
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr "Được tạo từ mọi thay đổi. Nhận bản sửa lỗi sớm nhất nhưng ít được kiểm thử hơn."
 
-#: rust/crates/system/ui/updates.slint:195
+#: rust/crates/system/ui/updates.slint:175
 msgid "Check daily"
 msgstr "Kiểm tra hằng ngày"
 
-#: rust/crates/system/ui/updates.slint:196
+#: rust/crates/system/ui/updates.slint:176
 msgid "Look for a new version once a day"
 msgstr "Tìm phiên bản mới mỗi ngày một lần"
 
-#: rust/crates/system/ui/updates.slint:197
+#: rust/crates/system/ui/updates.slint:177
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "cập nhật tự động tự kiểm tra mỗi ngày chạy ngầm automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:204 rust/crates/system/ui/updates.slint:206
+#: rust/crates/system/ui/updates.slint:184 rust/crates/system/ui/updates.slint:186
 msgid "Keep this copy where it is"
 msgstr "Giữ bản sao này ở vị trí hiện tại"
 
-#: rust/crates/system/ui/updates.slint:205
+#: rust/crates/system/ui/updates.slint:185
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr "di động giữ bản sao này ở nguyên vị trí thư mục zip tại chỗ đã giải nén portable keep this copy where it is zip folder in place windows unzipped"
 
-#: rust/crates/system/ui/updates.slint:207
+#: rust/crates/system/ui/updates.slint:187
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr "Cập nhật thư mục đã giải nén này tại chỗ thay vì cài đặt Telescope cho tài khoản người dùng của bạn."
-
-#: rust/crates/system/ui/updates.slint:214
-msgid "Older version"
-msgstr "Phiên bản cũ hơn"
-
-#: rust/crates/system/ui/updates.slint:215
-msgid "Go back to the older Python version of Telescope"
-msgstr "Quay lại phiên bản Python cũ hơn của Telescope"
-
-#: rust/crates/system/ui/updates.slint:218
-msgctxt "search"
-msgid "go back downgrade python previous old version revert undo rust"
-msgstr "quay lại hạ cấp phiên bản cũ trước hoàn tác go back downgrade python previous old version revert undo rust"
-
-#: rust/crates/system/ui/updates.slint:222 rust/crates/system/ui/updates.slint:223
-msgid "Go back to the Python version"
-msgstr "Quay lại phiên bản Python"
-
-#: rust/crates/system/ui/updates.slint:248
-msgid "Go back to the Python version?"
-msgstr "Quay lại phiên bản Python?"
 
 #: rust/crates/ui-kit/ui/widgets/colour.slint:253
 msgid "Hex"
@@ -10895,7 +10829,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Thêm điện thoại của bạn"
 
-#: rust/crates/effects/src/photos.rs:655
+#: rust/crates/effects/src/photos.rs:750
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
@@ -10936,17 +10870,17 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "kéo giãn ép tỷ lệ cao stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:474
+#: rust/crates/system/src/updates_plugin.rs:371
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Đã có Telescope {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Bản dựng nightly mới nhất là {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Bản dựng ổn định mới nhất là {version}."
@@ -11002,6 +10936,95 @@ msgstr "Đã thay thế"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Không thể khởi động lại"
+
+#~ msgid "Bracket"
+#~ msgstr "Bao phơi sáng"
+
+#~ msgid "3 photos, 1 EV apart"
+#~ msgstr "3 ảnh, cách nhau 1 EV"
+
+#~ msgid "3 photos, 2 EV apart"
+#~ msgstr "3 ảnh, cách nhau 2 EV"
+
+#~ msgid "5 photos, 1 EV apart"
+#~ msgstr "5 ảnh, cách nhau 1 EV"
+
+#~ msgid "7 photos, 1 EV apart"
+#~ msgstr "7 ảnh, cách nhau 1 EV"
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+#~ msgstr "Không thể thiết lập các thư viện Python mà {version} cần. Thao tác đó yêu cầu kết nối internet và một thư mục mà Telescope có thể ghi ({folder}). Chưa có gì bị thay đổi."
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
+#~ msgstr "Telescope sẽ khởi động lại dưới dạng phiên bản {version}, phiên bản Python cuối cùng. Cài đặt và các điện thoại đã ghép đôi của bạn sẽ được giữ lại, với một bản sao cài đặt hiện tại được lưu trước trong {folder}."
+
+#, python-brace-format
+#~ msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
+#~ msgstr "Bạn sẽ mất các tính năng mới kể từ thời điểm đó. Các tiện ích bổ sung viết bằng Lua không chạy trong {version} và các cài đặt không tồn tại vào thời điểm đó sẽ bị bỏ qua."
+
+#, python-brace-format
+#~ msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "{version} không có tính năng tự động kiểm tra bản cập nhật và không đề xuất quay lại phiên bản này. Bạn có thể bật lại tính năng đó trong phần cài đặt của phiên bản này."
+
+#, python-brace-format
+#~ msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
+#~ msgstr "Trước tiên, các thư viện Python mà {version} cần sẽ được thiết lập. Thao tác này cần có kết nối internet và mất vài phút. Sẽ không có gì thay đổi nếu thao tác đó thất bại."
+
+#~ msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+#~ msgstr "Nếu phiên bản Python không khởi động được, việc mở lại Telescope sẽ khôi phục phiên bản này."
+
+#~ msgid "Go back"
+#~ msgstr "Quay lại"
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+#~ msgstr "Không thể đổi AppImage sang phiên bản Python. Hãy tải về Telescope-linux.tar.gz từ bản phát hành {version}, giải nén tệp lưu trữ và chạy start.sh trong thư mục. Phiên bản Python cần Python 3.12 trở lên và dùng chung thư mục cài đặt."
+
+#, python-brace-format
+#~ msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
+#~ msgstr "Telescope không thể tự tráo đổi các tệp tại đây vì thư mục không có quyền ghi. Hãy tải về {version} từ trang phát hành và tự cài đặt."
+
+#, python-brace-format
+#~ msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
+#~ msgstr "{version} cần Python 3.12 trở lên kèm venv và máy tính này chưa có. Hãy cài đặt trước (python3 và python3-venv trên Debian hoặc Ubuntu), sau đó thử lại. Chưa có gì bị thay đổi."
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "Ứng dụng điện thoại phải tương thích. Ứng dụng điện thoại mới hơn có thể không kết nối được với {version}. Android sẽ không cài đặt ứng dụng cũ hơn đè lên ứng dụng mới hơn. Hãy gỡ cài đặt Telescope trên điện thoại, cài đặt Telescope.apk từ bản phát hành {version} và ghép đôi lại."
+
+#~ msgid "A copy of your settings couldn't be saved. Nothing was changed."
+#~ msgstr "Không thể lưu một bản sao cài đặt của bạn. Chưa có gì bị thay đổi."
+
+#~ msgid "Setting up Python's libraries. This takes a few minutes…"
+#~ msgstr "Đang thiết lập các thư viện Python. Việc này mất vài phút…"
+
+#~ msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+#~ msgstr "Quay lại phiên bản Python không thành công vì phiên bản Python không khởi động được. Phiên bản này đang chạy lại."
+
+#~ msgid "Stop streaming to go back."
+#~ msgstr "Dừng truyền phát để quay lại."
+
+#, python-brace-format
+#~ msgid "Swap this version for the last Python version, {version}."
+#~ msgstr "Đổi phiên bản này sang phiên bản Python cuối cùng, {version}."
+
+#~ msgid "Older version"
+#~ msgstr "Phiên bản cũ hơn"
+
+#~ msgid "Go back to the older Python version of Telescope"
+#~ msgstr "Quay lại phiên bản Python cũ hơn của Telescope"
+
+#~ msgctxt "search"
+#~ msgid "go back downgrade python previous old version revert undo rust"
+#~ msgstr "quay lại hạ cấp phiên bản cũ trước hoàn tác go back downgrade python previous old version revert undo rust"
+
+#~ msgid "Go back to the Python version"
+#~ msgstr "Quay lại phiên bản Python"
+
+#~ msgid "Go back to the Python version?"
+#~ msgstr "Quay lại phiên bản Python?"
 
 #, python-brace-format
 #~ msgid "{name} (not streaming)"

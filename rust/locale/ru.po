@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Поддержать или узнать больше<
 msgid "No mic"
 msgstr "Без микрофона"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:358
 msgid "Downloading…"
 msgstr "Скачивание…"
 
@@ -346,7 +346,7 @@ msgstr "Желтый: лимитер удерживает пики. Красны
 msgid "Click to clear"
 msgstr "Нажми, чтобы сбросить"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:172 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
 msgid "Reset"
 msgstr "Сбросить"
 
@@ -370,7 +370,7 @@ msgstr "Шумоподавление"
 msgid "Noise reduction unavailable"
 msgstr "Шумоподавление недоступно"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
 msgid "Cancel"
 msgstr "Отмена"
 
@@ -400,11 +400,11 @@ msgstr "Ступени"
 msgid " stops"
 msgstr " ступени"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "Следующий"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "Предыдущий"
 
@@ -544,7 +544,7 @@ msgstr "Плагины"
 msgid "Updates & About"
 msgstr "Обновления и о приложении"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
 msgid "Camera"
 msgstr "Камера"
 
@@ -617,7 +617,7 @@ msgid "Analysing…"
 msgstr "Анализ…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:201 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Выкл"
 
@@ -2526,15 +2526,15 @@ msgstr "Брекетинг экспозиции"
 msgid "Focus bracket"
 msgstr "Брекетинг фокуса"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:285 rust/crates/effects/src/photos.rs:804 rust/crates/effects/src/photos.rs:941 rust/crates/effects/ui/photos.slint:165 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "Фото"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345
 msgid "Both"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345
 msgid "Merged"
 msgstr ""
 
@@ -2558,7 +2558,7 @@ msgstr ""
 msgid "Favour the darker or the lighter photos of an exposure bracket in the merged picture."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342
+#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383
 msgid "On"
 msgstr "Вкл."
 
@@ -2591,203 +2591,248 @@ msgid "Number of photos from the nearest focus to the farthest, for focus stacki
 msgstr "Количество снимков от ближнего фокуса к дальнему для фокус-стекинга."
 
 #: rust/crates/effects/src/photos.rs:53
+msgid "Take the focus bracket between the two handles, from the farthest focus on the left to the nearest on the right. The mark shows where the phone is focused now (in manual focus)."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:54
+msgid "Number of photos in the exposure bracket, spread evenly around the video's exposure."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:55
+msgid "EV between photos"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:56
 msgid "Number of photos in the burst."
 msgstr "Количество снимков в серии."
 
-#: rust/crates/effects/src/photos.rs:54
+#: rust/crates/effects/src/photos.rs:57
 msgid "Take one photo, a burst or a set at different exposures or focus distances."
 msgstr "Сделать один снимок, серию или набор кадров с разной экспозицией либо дистанцией фокусировки."
 
-#: rust/crates/effects/src/photos.rs:55
+#: rust/crates/effects/src/photos.rs:58
 msgid "Wait a few seconds before taking the photo."
 msgstr "Подождать несколько секунд перед снимком."
 
-#: rust/crates/effects/src/photos.rs:56
+#: rust/crates/effects/src/photos.rs:59
 msgid "A long exposure uses the video's ISO and the video stops while the shutter is open."
 msgstr "При длинной выдержке используется ISO видео, а видеопоток приостанавливается, пока открыт затвор."
 
-#: rust/crates/effects/src/photos.rs:57
+#: rust/crates/effects/src/photos.rs:60
 msgid "Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer."
 msgstr "Применять усиленное шумоподавление и резкость только к фото, не к видео. Съемка фото займет чуть больше времени."
 
-#: rust/crates/effects/src/photos.rs:58
+#: rust/crates/effects/src/photos.rs:61
 msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "Для этого объектива и режима нет дополнительного шумоподавления или повышения резкости"
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:62
 msgid "JPEG quality is set by the camera"
 msgstr "Качество JPEG задается камерой"
 
-#: rust/crates/effects/src/photos.rs:60
+#: rust/crates/effects/src/photos.rs:63
 msgid "RAW photos have no quality setting"
 msgstr "Для снимков в RAW настройка качества не применяется"
 
-#: rust/crates/effects/src/photos.rs:61 rust/crates/shell/src/streams.rs:845
+#: rust/crates/effects/src/photos.rs:64 rust/crates/shell/src/streams.rs:845
 msgid "The camera is already taking a photo."
 msgstr "Камера уже делает снимок."
 
-#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
+#: rust/crates/effects/src/photos.rs:65 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
 msgid "The camera couldn't take the photo."
 msgstr "Камере не удалось сделать снимок."
 
-#: rust/crates/effects/src/photos.rs:66
+#: rust/crates/effects/src/photos.rs:70
 msgid "Like the video"
 msgstr "Как в видео"
 
-#: rust/crates/effects/src/photos.rs:66 rust/crates/effects/src/photos.rs:201 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:72
+#, python-brace-format
+msgid "1/{n} s"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:74 rust/crates/effects/src/photos.rs:232 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} с"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:85
+#, python-brace-format
+msgid "{near} m-∞"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:87
+#, python-brace-format
+msgid "{near}-{far} m"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:94
+msgid "Infinity"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:95
+#, python-brace-format
+msgid "{cm} cm"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:96
+#, python-brace-format
+msgid "{m} m"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/photos.rs:950 rust/crates/effects/src/photos.rs:966 rust/crates/effects/ui/photos.slint:179
 msgid "Take photo"
 msgstr "Сделать фото"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/stargazer.rs:816
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/stargazer.rs:816
 msgid "Open folder"
 msgstr "Открыть папку"
 
-#: rust/crates/effects/src/photos.rs:193
+#: rust/crates/effects/src/photos.rs:224
 msgid "Best quality"
 msgstr "Наилучшее качество"
 
-#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:200 rust/crates/effects/ui/photos.slint:201
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:191 rust/crates/effects/ui/photos.slint:192 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:210 rust/crates/effects/ui/photos.slint:211 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
 msgid "Shutter"
 msgstr "Выдержка"
 
-#: rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/photos.slint:214 rust/crates/effects/ui/photos.slint:219
+#: rust/crates/effects/src/photos.rs:262 rust/crates/effects/ui/photos.slint:233 rust/crates/effects/ui/photos.slint:238
 msgid "Mode"
 msgstr "Режим"
 
-#: rust/crates/effects/src/photos.rs:235 rust/crates/effects/ui/photos.slint:225 rust/crates/effects/ui/photos.slint:229 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
+#: rust/crates/effects/src/photos.rs:265 rust/crates/effects/ui/photos.slint:244 rust/crates/effects/ui/photos.slint:248 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
 msgid "Format"
 msgstr "Формат"
 
-#: rust/crates/effects/src/photos.rs:238 rust/crates/effects/ui/photos.slint:237 rust/crates/effects/ui/photos.slint:242
+#: rust/crates/effects/src/photos.rs:268 rust/crates/effects/ui/photos.slint:256 rust/crates/effects/ui/photos.slint:261
 msgid "Shots"
 msgstr "Съемка"
 
-#: rust/crates/effects/src/photos.rs:240 rust/crates/effects/ui/photos.slint:264 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:270 rust/crates/effects/ui/photos.slint:271
+#: rust/crates/effects/src/photos.rs:274 rust/crates/effects/ui/photos.slint:283 rust/crates/effects/ui/photos.slint:284
 msgid "How many"
 msgstr "Количество"
 
-#: rust/crates/effects/src/photos.rs:240
+#: rust/crates/effects/src/photos.rs:280
 msgid "Steps"
 msgstr "Шаги"
 
-#: rust/crates/effects/src/photos.rs:251
-msgid "Bracket"
-msgstr "Брекетинг"
+#: rust/crates/effects/src/photos.rs:289 rust/crates/effects/src/photos.rs:340
+msgid "EV"
+msgstr ""
 
-#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:174 rust/crates/effects/ui/photos.slint:278 rust/crates/effects/ui/photos.slint:282 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:285 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
+#: rust/crates/effects/src/photos.rs:294 rust/crates/effects/src/photos.rs:340 rust/crates/effects/ui/photos.slint:193 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
 msgid "Exposure"
 msgstr "Экспозиция"
 
-#: rust/crates/effects/src/photos.rs:261 rust/crates/effects/ui/photos.slint:333 rust/crates/effects/ui/photos.slint:339
+#: rust/crates/effects/src/photos.rs:299 rust/crates/effects/ui/photos.slint:374 rust/crates/effects/ui/photos.slint:380
 msgid "Distortion fix"
 msgstr "Коррекция искажений"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
+#: rust/crates/effects/src/photos.rs:345 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
+msgid "All"
+msgstr "Все"
+
+#: rust/crates/effects/src/photos.rs:408 rust/crates/effects/src/photos.rs:881
 msgid "Start streaming to take photos."
 msgstr "Начни трансляцию, чтобы делать фото."
 
-#: rust/crates/effects/src/photos.rs:355
+#: rust/crates/effects/src/photos.rs:410
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "Этот телефон пока не умеет делать фото из Telescope. Обнови приложение на телефоне."
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Darker"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Lighter"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Middle"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:571
+#: rust/crates/effects/src/photos.rs:666
 msgid "Merging the bracket…"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:582
+#: rust/crates/effects/src/photos.rs:677
 #, python-brace-format
 msgid "Saved {name} from {used} of {frames} photos. The photos are still saved."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:584
+#: rust/crates/effects/src/photos.rs:679
 #, python-brace-format
 msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:586
+#: rust/crates/effects/src/photos.rs:681
 #, python-brace-format
 msgid "Saved the merged picture {name} from {used} of {frames} photos"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:588
+#: rust/crates/effects/src/photos.rs:683
 #, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
+#: rust/crates/effects/src/photos.rs:692 rust/crates/effects/src/photos.rs:757 rust/crates/effects/src/photos.rs:779
 msgid "Photo saved"
 msgstr "Фото сохранено"
 
-#: rust/crates/effects/src/photos.rs:601
+#: rust/crates/effects/src/photos.rs:696
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
+#: rust/crates/effects/src/photos.rs:718 rust/crates/effects/src/photos.rs:738
 msgid "Taking the photo…"
 msgstr "Съемка фото…"
 
-#: rust/crates/effects/src/photos.rs:637
+#: rust/crates/effects/src/photos.rs:732
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Съемка фото через {seconds} с"
 
-#: rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:734
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Фото {n} из {total}"
 
-#: rust/crates/effects/src/photos.rs:641
+#: rust/crates/effects/src/photos.rs:736
 msgid "The video is paused while the photo is taken…"
 msgstr "Видео приостановлено на время съемки фото…"
 
-#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:752 rust/crates/effects/src/stargazer.rs:823
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Сохранено {name}"
 
-#: rust/crates/effects/src/photos.rs:680
+#: rust/crates/effects/src/photos.rs:775
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "Фото получено с задержкой. Сохранено: {name}"
 
-#: rust/crates/effects/src/photos.rs:694
+#: rust/crates/effects/src/photos.rs:789
 msgid "Save photos in"
 msgstr "Сохранять фото в"
 
-#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
+#: rust/crates/effects/src/photos.rs:805 rust/crates/effects/ui/photos.slint:166
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Делать фото в полном качестве на телефон или DSLR-камеру, включая RAW, если камера его поддерживает."
 
-#: rust/crates/effects/src/photos.rs:711
+#: rust/crates/effects/src/photos.rs:806
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Без плагина «Фото» не будет карточки «Фото» и горячей клавиши «Сделать фото»."
 
-#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
+#: rust/crates/effects/src/photos.rs:943 rust/crates/effects/src/photos.rs:981
 msgid "Photo mode"
 msgstr "Режим фото"
 
-#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
+#: rust/crates/effects/src/photos.rs:948 rust/crates/effects/src/photos.rs:991
 msgid "Photo timer"
 msgstr "Таймер фото"
 
@@ -3299,22 +3344,6 @@ msgstr "Объединяй два телефона в одну 3D-картинк
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr "Без плагина «3D» не будет карточки «3D», и две трансляции идут только на свои камеры."
 
-#: rust/crates/effects/src/stills.rs:13
-msgid "3 photos, 1 EV apart"
-msgstr "3 фото с шагом 1 EV"
-
-#: rust/crates/effects/src/stills.rs:13
-msgid "3 photos, 2 EV apart"
-msgstr "3 фото с шагом 2 EV"
-
-#: rust/crates/effects/src/stills.rs:14
-msgid "5 photos, 1 EV apart"
-msgstr "5 фото с шагом 1 EV"
-
-#: rust/crates/effects/src/stills.rs:14
-msgid "7 photos, 1 EV apart"
-msgstr "7 фото с шагом 1 EV"
-
 #: rust/crates/effects/src/transforms.rs:37
 msgid "Set flip, rotation, zoom, pan, stretch and lens correction back to default."
 msgstr "Сбросить отражение, поворот, масштаб, панорамирование, растяжение и коррекцию объектива."
@@ -3645,11 +3674,7 @@ msgstr "Тон / тон"
 msgid "Curve"
 msgstr "Кривая"
 
-#: rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
-msgid "All"
-msgstr "Все"
-
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:173 rust/crates/system/ui/updates.slint:184
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:153 rust/crates/system/ui/updates.slint:164
 msgid "Channel"
 msgstr "Канал"
 
@@ -4407,51 +4432,55 @@ msgstr "вниз"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "Стрелки сдвигают выбранную точку, а с клавишей Shift — быстрее. Квадратные скобки переключают точки. Delete удаляет точку, Home сбрасывает кривую."
 
-#: rust/crates/effects/ui/photos.slint:154
+#: rust/crates/effects/ui/photos.slint:173
 msgid "Set every photo setting except the folder back to default."
 msgstr "Сбросить все настройки фото, кроме папки, до значений по умолчанию."
 
-#: rust/crates/effects/ui/photos.slint:183
+#: rust/crates/effects/ui/photos.slint:202
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "Чем выше ISO, тем светлее, но зернистее получается фото."
 
-#: rust/crates/effects/ui/photos.slint:193
+#: rust/crates/effects/ui/photos.slint:212
 msgid "Slower shutter speeds make the photo brighter but blur movement."
 msgstr "Длинная выдержка делает фото светлее, но размывает движение."
 
-#: rust/crates/effects/ui/photos.slint:206
+#: rust/crates/effects/ui/photos.slint:225
 msgid "Mode and format"
 msgstr "Режим и формат"
 
-#: rust/crates/effects/ui/photos.slint:230
+#: rust/crates/effects/ui/photos.slint:249
 msgid "The file type photos are saved as."
 msgstr "Формат файла, в котором сохраняются фото."
 
-#: rust/crates/effects/ui/photos.slint:295 rust/crates/effects/ui/photos.slint:301
+#: rust/crates/effects/ui/photos.slint:310 rust/crates/effects/ui/photos.slint:315 rust/crates/effects/ui/photos.slint:328
+msgid "Focus range"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:336 rust/crates/effects/ui/photos.slint:342
 msgid "Merge bracket"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:312 rust/crates/effects/ui/photos.slint:317 rust/crates/effects/ui/photos.slint:326
+#: rust/crates/effects/ui/photos.slint:353 rust/crates/effects/ui/photos.slint:358 rust/crates/effects/ui/photos.slint:367
 msgid "Merged brightness"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:350 rust/crates/effects/ui/photos.slint:355 rust/crates/effects/ui/photos.slint:364
+#: rust/crates/effects/ui/photos.slint:391 rust/crates/effects/ui/photos.slint:396 rust/crates/effects/ui/photos.slint:405
 msgid "Quality"
 msgstr "Качество"
 
-#: rust/crates/effects/ui/photos.slint:365
+#: rust/crates/effects/ui/photos.slint:406
 msgid "Higher quality gives bigger and cleaner JPEG files."
 msgstr "Чем выше качество, тем чище картинка и больше размер файла JPEG."
 
-#: rust/crates/effects/ui/photos.slint:382 rust/crates/effects/ui/photos.slint:388
+#: rust/crates/effects/ui/photos.slint:423 rust/crates/effects/ui/photos.slint:429
 msgid "Timer"
 msgstr "Таймер"
 
-#: rust/crates/effects/ui/photos.slint:400 rust/crates/effects/ui/photos.slint:409 rust/crates/effects/ui/phototrap.slint:137 rust/crates/effects/ui/phototrap.slint:145
+#: rust/crates/effects/ui/photos.slint:441 rust/crates/effects/ui/photos.slint:450 rust/crates/effects/ui/phototrap.slint:137 rust/crates/effects/ui/phototrap.slint:145
 msgid "Save in"
 msgstr "Сохранять в"
 
-#: rust/crates/effects/ui/photos.slint:410
+#: rust/crates/effects/ui/photos.slint:451
 msgid "The folder path photos are saved in."
 msgstr "Путь к папке, в которую сохраняются фото."
 
@@ -4873,7 +4902,7 @@ msgstr "Не справляется"
 msgid "Browser"
 msgstr "Браузер"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Попробовать снова"
 
@@ -8261,7 +8290,7 @@ msgstr "Дистанция фокусировки"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Установи пакет v4l2loopback. Fedora и Nobara: v4l2loopback (из RPM Fusion). Debian, Ubuntu и Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:365
 msgid "Checking…"
 msgstr "Проверка…"
 
@@ -8281,7 +8310,7 @@ msgstr "Установлено."
 msgid "Check again"
 msgstr "Проверить снова"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:360
 msgid "Installing…"
 msgstr "Установка…"
 
@@ -9611,67 +9640,6 @@ msgstr "Не удалось настроить запуск Telescope при в�
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "Не удалось отключить запуск Telescope при входе в систему: {error}"
 
-#: rust/crates/system/src/going_back.rs:113
-#, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
-msgstr "Не удалось настроить библиотеки Python, необходимые для {version}. Для этого требуется подключение к интернету и папка с доступом на запись для Telescope ({folder}). Никаких изменений не внесено."
-
-#: rust/crates/system/src/going_back.rs:227
-#, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
-msgstr "Telescope перезапустится как версия {version} - последняя версия на Python. Твои настройки и сопряженные телефоны сохранятся, а копия текущих настроек предварительно сохранится в {folder}."
-
-#: rust/crates/system/src/going_back.rs:229
-#, python-brace-format
-msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
-msgstr "Ты потеряешь новшества, появившиеся с тех пор. Плагины, написанные на Lua, не работают в {version}, а настройки, которых тогда не существовало, игнорируются."
-
-#: rust/crates/system/src/going_back.rs:231
-#, python-brace-format
-msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
-msgstr "В версии {version} нет автоматической проверки обновлений и не предлагается возврат к этой версии. Ты сможешь снова включить это в ее настройках."
-
-#: rust/crates/system/src/going_back.rs:234
-#, python-brace-format
-msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
-msgstr "Сначала настраиваются библиотеки Python, необходимые для {version}. Для этого требуется интернет и несколько минут. В случае сбоя ничего изменено не будет."
-
-#: rust/crates/system/src/going_back.rs:236
-msgid "If the Python version doesn't start, opening Telescope again brings this version back."
-msgstr "Если версия на Python не запустится, повторное открытие Telescope вернет эту версию."
-
-#: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
-msgid "Go back"
-msgstr "Вернуться"
-
-#: rust/crates/system/src/going_back.rs:242
-#, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
-msgstr "AppImage нельзя заменить версией на Python. Скачай Telescope-linux.tar.gz из релиза {version}, распакуй архив и запусти start.sh в этой папке. Версии на Python требуется Python 3.12 или новее, и она использует ту же папку настроек."
-
-#: rust/crates/system/src/going_back.rs:244
-#, python-brace-format
-msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
-msgstr "Telescope не может заменить свои файлы, так как его папка недоступна для записи. Скачай {version} со страницы релиза и установи вручную."
-
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:529
-msgid "Open download page"
-msgstr "Открыть страницу загрузки"
-
-#: rust/crates/system/src/going_back.rs:258
-#, python-brace-format
-msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
-msgstr "Для {version} требуется Python 3.12 или новее с модулем venv, но на этом компьютере его нет. Сначала установи его (пакеты python3 и python3-venv в Debian или Ubuntu), затем попробуй снова. Никаких изменений не внесено."
-
-#: rust/crates/system/src/going_back.rs:262
-#, python-brace-format
-msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "Версия приложения на телефоне должна совпадать. Более новое приложение на телефоне может не подключиться к {version}. Android не станет устанавливать более старое приложение поверх нового. Удали Telescope на телефоне, установи Telescope.apk из релиза {version} и выполни сопряжение снова."
-
-#: rust/crates/system/src/going_back.rs:282
-msgid "A copy of your settings couldn't be saved. Nothing was changed."
-msgstr "Не удалось сохранить копию твоих настроек. Никаких изменений не внесено."
-
 #: rust/crates/system/src/hotkeys_portal.rs:117
 msgid "Not available on this desktop"
 msgstr "Недоступно в этом графическом окружении"
@@ -10368,99 +10336,86 @@ msgstr "Не удалось заменить файлы Telescope: {error}"
 msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr "Обновление не было установлено, так как файл {file} занят. Попробуй снова после перезагрузки."
 
-#: rust/crates/system/src/updates.rs:596
+#: rust/crates/system/src/updates.rs:591
 #, python-brace-format
 msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr "Telescope не может обновиться на месте, так как в этой папке находится твой файл или папка с именем {name}. Распакуй скачанный архив в отдельную папку."
 
-#: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:98 rust/crates/system/src/updates_plugin.rs:169 rust/crates/system/src/updates_plugin.rs:241 rust/crates/system/src/updates_plugin.rs:623 rust/crates/system/src/updates_plugin.rs:829
+#: rust/crates/system/src/updates.rs:656 rust/crates/system/src/updates_plugin.rs:142 rust/crates/system/src/updates_plugin.rs:612
 msgid "The update failed."
 msgstr "Обновление не удалось."
 
-#: rust/crates/system/src/updates.rs:692
+#: rust/crates/system/src/updates.rs:683
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "Это обновление не установлено, потому что оно не может запуститься на этом компьютере."
 
-#: rust/crates/system/src/updates_plugin.rs:31
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Stable"
 msgstr "Стабильный"
 
-#: rust/crates/system/src/updates_plugin.rs:31 rust/crates/system/ui/updates.slint:188
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:168
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:356
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Скачивание: {percent} %…"
 
-#: rust/crates/system/src/updates_plugin.rs:460
-msgid "Setting up Python's libraries. This takes a few minutes…"
-msgstr "Настройка библиотек Python. Это займет пару минут…"
-
-#: rust/crates/system/src/updates_plugin.rs:461
+#: rust/crates/system/src/updates_plugin.rs:361
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Обновлено. Telescope перезапустится, когда ты остановишь трансляцию."
 
-#: rust/crates/system/src/updates_plugin.rs:471
-msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
-msgstr "Возврат к версии на Python не удался, так как версия на Python не запустилась. Снова работает эта версия."
-
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "Обновление также установит программу для текущего пользователя с добавлением в меню «Пуск» и удалит эту распакованную копию. Настройки и сопряженные телефоны сохранятся."
 
-#: rust/crates/system/src/updates_plugin.rs:482
+#: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."
 msgstr "Останови трансляцию для обновления."
 
-#: rust/crates/system/src/updates_plugin.rs:494
+#: rust/crates/system/src/updates_plugin.rs:391
 msgid "This is a source checkout. Update Telescope with git."
 msgstr "Это рабочая копия из исходного кода. Обнови Telescope с помощью git."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no nightly release yet."
 msgstr "Релиза Nightly пока нет."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no stable release yet."
 msgstr "Стабильного релиза пока нет."
 
-#: rust/crates/system/src/updates_plugin.rs:504
+#: rust/crates/system/src/updates_plugin.rs:401
 msgid "You have the latest version."
 msgstr "У тебя последняя версия."
 
-#: rust/crates/system/src/updates_plugin.rs:508
+#: rust/crates/system/src/updates_plugin.rs:405
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Доступен Telescope {version}"
 
-#: rust/crates/system/src/updates_plugin.rs:529
+#: rust/crates/system/src/updates_plugin.rs:426
+msgid "Open download page"
+msgstr "Открыть страницу загрузки"
+
+#: rust/crates/system/src/updates_plugin.rs:426
 msgid "Update and restart"
 msgstr "Обновить и перезапустить"
 
-#: rust/crates/system/src/updates_plugin.rs:533
-msgid "Stop streaming to go back."
-msgstr "Останови трансляцию, чтобы вернуться к старой версии."
-
-#: rust/crates/system/src/updates_plugin.rs:533
-#, python-brace-format
-msgid "Swap this version for the last Python version, {version}."
-msgstr "Заменить эту версию на последнюю версию с Python ({version})."
-
-#: rust/crates/system/src/updates_plugin.rs:722
+#: rust/crates/system/src/updates_plugin.rs:509
 msgid "Couldn't check for updates."
 msgstr "Не удалось проверить обновления."
 
-#: rust/crates/system/src/updates_plugin.rs:879
+#: rust/crates/system/src/updates_plugin.rs:659
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Обновлено. Закрой и снова открой Telescope для завершения."
 
-#: rust/crates/system/src/updates_plugin.rs:895
+#: rust/crates/system/src/updates_plugin.rs:675
 msgid "Updates"
 msgstr "Обновления"
 
-#: rust/crates/system/src/updates_plugin.rs:896
+#: rust/crates/system/src/updates_plugin.rs:676
 msgid "Check for new versions of Telescope and install them."
 msgstr "Проверяй наличие новых версий Telescope и устанавливай их."
 
@@ -10696,103 +10651,82 @@ msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "уведомление уведомить оповещение всплывающее сообщение notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:107
+#: rust/crates/system/ui/updates.slint:87
 msgid "Check for new versions and install them."
 msgstr "Проверять наличие новых версий и устанавливать их."
 
-#: rust/crates/system/ui/updates.slint:108
+#: rust/crates/system/ui/updates.slint:88
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "обновление обновить новая версия релиз скачать установить свежая последняя update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:113 rust/crates/system/ui/updates.slint:114
+#: rust/crates/system/ui/updates.slint:93 rust/crates/system/ui/updates.slint:94
 msgid "Check now"
 msgstr "Проверить сейчас"
 
-#: rust/crates/system/ui/updates.slint:115
+#: rust/crates/system/ui/updates.slint:95
 msgid "Look for a new version of Telescope."
 msgstr "Проверить наличие новой версии Telescope."
 
-#: rust/crates/system/ui/updates.slint:120
+#: rust/crates/system/ui/updates.slint:100
 msgid "Set the update channel and automatic checking back to default."
 msgstr "Сбросить канал обновлений и автоматическую проверку к значениям по умолчанию."
 
-#: rust/crates/system/ui/updates.slint:126
+#: rust/crates/system/ui/updates.slint:106
 msgid "This version"
 msgstr "Текущая версия"
 
-#: rust/crates/system/ui/updates.slint:127
+#: rust/crates/system/ui/updates.slint:107
 msgid "The version of Telescope you're running"
 msgstr "Используемая версия Telescope"
 
-#: rust/crates/system/ui/updates.slint:130
+#: rust/crates/system/ui/updates.slint:110
 msgctxt "search"
 msgid "current build number"
 msgstr "текущий номер сборки current build number"
 
-#: rust/crates/system/ui/updates.slint:155
+#: rust/crates/system/ui/updates.slint:135
 msgid "What's new"
 msgstr "Что нового"
 
-#: rust/crates/system/ui/updates.slint:174
+#: rust/crates/system/ui/updates.slint:154
 msgid "Stable is tested more and nightly gets fixes first"
 msgstr "Канал «Стабильный» более протестирован, а канал Nightly первым получает исправления"
 
-#: rust/crates/system/ui/updates.slint:177
+#: rust/crates/system/ui/updates.slint:157
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "стабильный стабильная nightly бета релиз канал ветка сборки тестирование stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:189
+#: rust/crates/system/ui/updates.slint:169
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr "Собирается из каждого изменения. Первым получает исправления, но меньше протестирован."
 
-#: rust/crates/system/ui/updates.slint:195
+#: rust/crates/system/ui/updates.slint:175
 msgid "Check daily"
 msgstr "Проверять каждый день"
 
-#: rust/crates/system/ui/updates.slint:196
+#: rust/crates/system/ui/updates.slint:176
 msgid "Look for a new version once a day"
 msgstr "Проверять наличие новой версии раз в день"
 
-#: rust/crates/system/ui/updates.slint:197
+#: rust/crates/system/ui/updates.slint:177
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "автоматические обновления автопроверка каждый день в фоне фоновая automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:204 rust/crates/system/ui/updates.slint:206
+#: rust/crates/system/ui/updates.slint:184 rust/crates/system/ui/updates.slint:186
 msgid "Keep this copy where it is"
 msgstr "Оставить эту копию на месте"
 
-#: rust/crates/system/ui/updates.slint:205
+#: rust/crates/system/ui/updates.slint:185
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr "портативная сохранить эту копию на месте зип архив папка без установки распакованная portable keep this copy where it is zip folder in place windows unzipped"
 
-#: rust/crates/system/ui/updates.slint:207
+#: rust/crates/system/ui/updates.slint:187
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr "Обновлять эту распакованную папку на месте вместо установки Telescope для пользователя."
-
-#: rust/crates/system/ui/updates.slint:214
-msgid "Older version"
-msgstr "Старая версия"
-
-#: rust/crates/system/ui/updates.slint:215
-msgid "Go back to the older Python version of Telescope"
-msgstr "Вернуться к более старой версии Telescope на Python"
-
-#: rust/crates/system/ui/updates.slint:218
-msgctxt "search"
-msgid "go back downgrade python previous old version revert undo rust"
-msgstr "вернуться откат даунгрейд пайтон питон предыдущая старая версия отменить раст go back downgrade python previous old version revert undo rust"
-
-#: rust/crates/system/ui/updates.slint:222 rust/crates/system/ui/updates.slint:223
-msgid "Go back to the Python version"
-msgstr "Вернуться к версии на Python"
-
-#: rust/crates/system/ui/updates.slint:248
-msgid "Go back to the Python version?"
-msgstr "Хочешь вернуться к версии на Python?"
 
 #: rust/crates/ui-kit/ui/widgets/colour.slint:253
 msgid "Hex"
@@ -10939,7 +10873,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Добавить телефон"
 
-#: rust/crates/effects/src/photos.rs:655
+#: rust/crates/effects/src/photos.rs:750
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
@@ -10982,17 +10916,17 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "растянуть сжать пропорции высокий stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:474
+#: rust/crates/system/src/updates_plugin.rs:371
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Доступен Telescope {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Последняя сборка Nightly - {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Последняя стабильная сборка - {version}."
@@ -11048,6 +10982,95 @@ msgstr "Заменено"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Не удалось перезапустить"
+
+#~ msgid "Bracket"
+#~ msgstr "Брекетинг"
+
+#~ msgid "3 photos, 1 EV apart"
+#~ msgstr "3 фото с шагом 1 EV"
+
+#~ msgid "3 photos, 2 EV apart"
+#~ msgstr "3 фото с шагом 2 EV"
+
+#~ msgid "5 photos, 1 EV apart"
+#~ msgstr "5 фото с шагом 1 EV"
+
+#~ msgid "7 photos, 1 EV apart"
+#~ msgstr "7 фото с шагом 1 EV"
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+#~ msgstr "Не удалось настроить библиотеки Python, необходимые для {version}. Для этого требуется подключение к интернету и папка с доступом на запись для Telescope ({folder}). Никаких изменений не внесено."
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
+#~ msgstr "Telescope перезапустится как версия {version} - последняя версия на Python. Твои настройки и сопряженные телефоны сохранятся, а копия текущих настроек предварительно сохранится в {folder}."
+
+#, python-brace-format
+#~ msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
+#~ msgstr "Ты потеряешь новшества, появившиеся с тех пор. Плагины, написанные на Lua, не работают в {version}, а настройки, которых тогда не существовало, игнорируются."
+
+#, python-brace-format
+#~ msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "В версии {version} нет автоматической проверки обновлений и не предлагается возврат к этой версии. Ты сможешь снова включить это в ее настройках."
+
+#, python-brace-format
+#~ msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
+#~ msgstr "Сначала настраиваются библиотеки Python, необходимые для {version}. Для этого требуется интернет и несколько минут. В случае сбоя ничего изменено не будет."
+
+#~ msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+#~ msgstr "Если версия на Python не запустится, повторное открытие Telescope вернет эту версию."
+
+#~ msgid "Go back"
+#~ msgstr "Вернуться"
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+#~ msgstr "AppImage нельзя заменить версией на Python. Скачай Telescope-linux.tar.gz из релиза {version}, распакуй архив и запусти start.sh в этой папке. Версии на Python требуется Python 3.12 или новее, и она использует ту же папку настроек."
+
+#, python-brace-format
+#~ msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
+#~ msgstr "Telescope не может заменить свои файлы, так как его папка недоступна для записи. Скачай {version} со страницы релиза и установи вручную."
+
+#, python-brace-format
+#~ msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
+#~ msgstr "Для {version} требуется Python 3.12 или новее с модулем venv, но на этом компьютере его нет. Сначала установи его (пакеты python3 и python3-venv в Debian или Ubuntu), затем попробуй снова. Никаких изменений не внесено."
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "Версия приложения на телефоне должна совпадать. Более новое приложение на телефоне может не подключиться к {version}. Android не станет устанавливать более старое приложение поверх нового. Удали Telescope на телефоне, установи Telescope.apk из релиза {version} и выполни сопряжение снова."
+
+#~ msgid "A copy of your settings couldn't be saved. Nothing was changed."
+#~ msgstr "Не удалось сохранить копию твоих настроек. Никаких изменений не внесено."
+
+#~ msgid "Setting up Python's libraries. This takes a few minutes…"
+#~ msgstr "Настройка библиотек Python. Это займет пару минут…"
+
+#~ msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+#~ msgstr "Возврат к версии на Python не удался, так как версия на Python не запустилась. Снова работает эта версия."
+
+#~ msgid "Stop streaming to go back."
+#~ msgstr "Останови трансляцию, чтобы вернуться к старой версии."
+
+#, python-brace-format
+#~ msgid "Swap this version for the last Python version, {version}."
+#~ msgstr "Заменить эту версию на последнюю версию с Python ({version})."
+
+#~ msgid "Older version"
+#~ msgstr "Старая версия"
+
+#~ msgid "Go back to the older Python version of Telescope"
+#~ msgstr "Вернуться к более старой версии Telescope на Python"
+
+#~ msgctxt "search"
+#~ msgid "go back downgrade python previous old version revert undo rust"
+#~ msgstr "вернуться откат даунгрейд пайтон питон предыдущая старая версия отменить раст go back downgrade python previous old version revert undo rust"
+
+#~ msgid "Go back to the Python version"
+#~ msgstr "Вернуться к версии на Python"
+
+#~ msgid "Go back to the Python version?"
+#~ msgstr "Хочешь вернуться к версии на Python?"
 
 #, python-brace-format
 #~ msgid "{name} (not streaming)"

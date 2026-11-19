@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">捐赠或了解更多</a>"
 msgid "No mic"
 msgstr "无麦克风"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:358
 msgid "Downloading…"
 msgstr "正在下载…"
 
@@ -346,7 +346,7 @@ msgstr "黄色：限制器正在抑制峰值。红色：声音削波。"
 msgid "Click to clear"
 msgstr "点击清除"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:172 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
 msgid "Reset"
 msgstr "重置"
 
@@ -370,7 +370,7 @@ msgstr "降噪"
 msgid "Noise reduction unavailable"
 msgstr "降噪不可用"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
 msgid "Cancel"
 msgstr "取消"
 
@@ -400,11 +400,11 @@ msgstr "档"
 msgid " stops"
 msgstr " 档"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "下一个"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "上一个"
 
@@ -544,7 +544,7 @@ msgstr "插件"
 msgid "Updates & About"
 msgstr "更新与关于"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
 msgid "Camera"
 msgstr "相机"
 
@@ -617,7 +617,7 @@ msgid "Analysing…"
 msgstr "正在分析…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:201 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "关"
 
@@ -2526,15 +2526,15 @@ msgstr "包围曝光"
 msgid "Focus bracket"
 msgstr "包围对焦"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:285 rust/crates/effects/src/photos.rs:804 rust/crates/effects/src/photos.rs:941 rust/crates/effects/ui/photos.slint:165 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "照片"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345
 msgid "Both"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345
 msgid "Merged"
 msgstr ""
 
@@ -2558,7 +2558,7 @@ msgstr ""
 msgid "Favour the darker or the lighter photos of an exposure bracket in the merged picture."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342
+#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383
 msgid "On"
 msgstr "开"
 
@@ -2591,203 +2591,248 @@ msgid "Number of photos from the nearest focus to the farthest, for focus stacki
 msgstr "从最近对焦点到最远对焦点的拍摄张数，用于景深合成。"
 
 #: rust/crates/effects/src/photos.rs:53
+msgid "Take the focus bracket between the two handles, from the farthest focus on the left to the nearest on the right. The mark shows where the phone is focused now (in manual focus)."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:54
+msgid "Number of photos in the exposure bracket, spread evenly around the video's exposure."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:55
+msgid "EV between photos"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:56
 msgid "Number of photos in the burst."
 msgstr "连拍的照片张数。"
 
-#: rust/crates/effects/src/photos.rs:54
+#: rust/crates/effects/src/photos.rs:57
 msgid "Take one photo, a burst or a set at different exposures or focus distances."
 msgstr "拍摄单张照片、连拍，或按不同曝光、对焦距离拍摄一组照片。"
 
-#: rust/crates/effects/src/photos.rs:55
+#: rust/crates/effects/src/photos.rs:58
 msgid "Wait a few seconds before taking the photo."
 msgstr "等待几秒后再拍照。"
 
-#: rust/crates/effects/src/photos.rs:56
+#: rust/crates/effects/src/photos.rs:59
 msgid "A long exposure uses the video's ISO and the video stops while the shutter is open."
 msgstr "长曝光使用视频的 ISO，快门开启期间视频将暂停。"
 
-#: rust/crates/effects/src/photos.rs:57
+#: rust/crates/effects/src/photos.rs:60
 msgid "Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer."
 msgstr "仅对照片（而非视频）使用额外的降噪和锐化。拍照耗时将略微增加。"
 
-#: rust/crates/effects/src/photos.rs:58
+#: rust/crates/effects/src/photos.rs:61
 msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "此镜头和模式不支持额外的降噪或锐化"
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:62
 msgid "JPEG quality is set by the camera"
 msgstr "JPEG 质量由相机决定"
 
-#: rust/crates/effects/src/photos.rs:60
+#: rust/crates/effects/src/photos.rs:63
 msgid "RAW photos have no quality setting"
 msgstr "RAW 照片没有质量设置"
 
-#: rust/crates/effects/src/photos.rs:61 rust/crates/shell/src/streams.rs:845
+#: rust/crates/effects/src/photos.rs:64 rust/crates/shell/src/streams.rs:845
 msgid "The camera is already taking a photo."
 msgstr "相机正在拍照中。"
 
-#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
+#: rust/crates/effects/src/photos.rs:65 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
 msgid "The camera couldn't take the photo."
 msgstr "相机无法完成拍照。"
 
-#: rust/crates/effects/src/photos.rs:66
+#: rust/crates/effects/src/photos.rs:70
 msgid "Like the video"
 msgstr "与视频一致"
 
-#: rust/crates/effects/src/photos.rs:66 rust/crates/effects/src/photos.rs:201 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:72
+#, python-brace-format
+msgid "1/{n} s"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:74 rust/crates/effects/src/photos.rs:232 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} 秒"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:85
+#, python-brace-format
+msgid "{near} m-∞"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:87
+#, python-brace-format
+msgid "{near}-{far} m"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:94
+msgid "Infinity"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:95
+#, python-brace-format
+msgid "{cm} cm"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:96
+#, python-brace-format
+msgid "{m} m"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/photos.rs:950 rust/crates/effects/src/photos.rs:966 rust/crates/effects/ui/photos.slint:179
 msgid "Take photo"
 msgstr "拍照"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/stargazer.rs:816
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/stargazer.rs:816
 msgid "Open folder"
 msgstr "打开文件夹"
 
-#: rust/crates/effects/src/photos.rs:193
+#: rust/crates/effects/src/photos.rs:224
 msgid "Best quality"
 msgstr "最佳质量"
 
-#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:200 rust/crates/effects/ui/photos.slint:201
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:191 rust/crates/effects/ui/photos.slint:192 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:210 rust/crates/effects/ui/photos.slint:211 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
 msgid "Shutter"
 msgstr "快门"
 
-#: rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/photos.slint:214 rust/crates/effects/ui/photos.slint:219
+#: rust/crates/effects/src/photos.rs:262 rust/crates/effects/ui/photos.slint:233 rust/crates/effects/ui/photos.slint:238
 msgid "Mode"
 msgstr "模式"
 
-#: rust/crates/effects/src/photos.rs:235 rust/crates/effects/ui/photos.slint:225 rust/crates/effects/ui/photos.slint:229 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
+#: rust/crates/effects/src/photos.rs:265 rust/crates/effects/ui/photos.slint:244 rust/crates/effects/ui/photos.slint:248 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
 msgid "Format"
 msgstr "格式"
 
-#: rust/crates/effects/src/photos.rs:238 rust/crates/effects/ui/photos.slint:237 rust/crates/effects/ui/photos.slint:242
+#: rust/crates/effects/src/photos.rs:268 rust/crates/effects/ui/photos.slint:256 rust/crates/effects/ui/photos.slint:261
 msgid "Shots"
 msgstr "拍摄方式"
 
-#: rust/crates/effects/src/photos.rs:240 rust/crates/effects/ui/photos.slint:264 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:270 rust/crates/effects/ui/photos.slint:271
+#: rust/crates/effects/src/photos.rs:274 rust/crates/effects/ui/photos.slint:283 rust/crates/effects/ui/photos.slint:284
 msgid "How many"
 msgstr "拍摄张数"
 
-#: rust/crates/effects/src/photos.rs:240
+#: rust/crates/effects/src/photos.rs:280
 msgid "Steps"
 msgstr "步数"
 
-#: rust/crates/effects/src/photos.rs:251
-msgid "Bracket"
-msgstr "包围设置"
+#: rust/crates/effects/src/photos.rs:289 rust/crates/effects/src/photos.rs:340
+msgid "EV"
+msgstr ""
 
-#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:174 rust/crates/effects/ui/photos.slint:278 rust/crates/effects/ui/photos.slint:282 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:285 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
+#: rust/crates/effects/src/photos.rs:294 rust/crates/effects/src/photos.rs:340 rust/crates/effects/ui/photos.slint:193 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
 msgid "Exposure"
 msgstr "曝光"
 
-#: rust/crates/effects/src/photos.rs:261 rust/crates/effects/ui/photos.slint:333 rust/crates/effects/ui/photos.slint:339
+#: rust/crates/effects/src/photos.rs:299 rust/crates/effects/ui/photos.slint:374 rust/crates/effects/ui/photos.slint:380
 msgid "Distortion fix"
 msgstr "畸变校正"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
+#: rust/crates/effects/src/photos.rs:345 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
+msgid "All"
+msgstr "全部"
+
+#: rust/crates/effects/src/photos.rs:408 rust/crates/effects/src/photos.rs:881
 msgid "Start streaming to take photos."
 msgstr "开始串流以拍照。"
 
-#: rust/crates/effects/src/photos.rs:355
+#: rust/crates/effects/src/photos.rs:410
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "此手机目前尚无法在 Telescope 中拍照。请更新手机上的应用。"
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Darker"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Lighter"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:629
 msgid "Middle"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:571
+#: rust/crates/effects/src/photos.rs:666
 msgid "Merging the bracket…"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:582
+#: rust/crates/effects/src/photos.rs:677
 #, python-brace-format
 msgid "Saved {name} from {used} of {frames} photos. The photos are still saved."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:584
+#: rust/crates/effects/src/photos.rs:679
 #, python-brace-format
 msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:586
+#: rust/crates/effects/src/photos.rs:681
 #, python-brace-format
 msgid "Saved the merged picture {name} from {used} of {frames} photos"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:588
+#: rust/crates/effects/src/photos.rs:683
 #, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
+#: rust/crates/effects/src/photos.rs:692 rust/crates/effects/src/photos.rs:757 rust/crates/effects/src/photos.rs:779
 msgid "Photo saved"
 msgstr "照片已保存"
 
-#: rust/crates/effects/src/photos.rs:601
+#: rust/crates/effects/src/photos.rs:696
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
+#: rust/crates/effects/src/photos.rs:718 rust/crates/effects/src/photos.rs:738
 msgid "Taking the photo…"
 msgstr "正在拍照…"
 
-#: rust/crates/effects/src/photos.rs:637
+#: rust/crates/effects/src/photos.rs:732
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "将在 {seconds} 秒后拍照"
 
-#: rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:734
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "第 {n} 张，共 {total} 张"
 
-#: rust/crates/effects/src/photos.rs:641
+#: rust/crates/effects/src/photos.rs:736
 msgid "The video is paused while the photo is taken…"
 msgstr "拍照期间视频已暂停…"
 
-#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:752 rust/crates/effects/src/stargazer.rs:823
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "已保存 {name}"
 
-#: rust/crates/effects/src/photos.rs:680
+#: rust/crates/effects/src/photos.rs:775
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "照片传输延迟。已保存 {name}"
 
-#: rust/crates/effects/src/photos.rs:694
+#: rust/crates/effects/src/photos.rs:789
 msgid "Save photos in"
 msgstr "将照片保存至"
 
-#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
+#: rust/crates/effects/src/photos.rs:805 rust/crates/effects/ui/photos.slint:166
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "使用手机或单反/微单拍摄全画质照片，若相机支持也可拍摄 RAW 格式。"
 
-#: rust/crates/effects/src/photos.rs:711
+#: rust/crates/effects/src/photos.rs:806
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "若没有“拍照”插件，将没有“拍照”卡片，也没有“拍照”快捷键。"
 
-#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
+#: rust/crates/effects/src/photos.rs:943 rust/crates/effects/src/photos.rs:981
 msgid "Photo mode"
 msgstr "拍照模式"
 
-#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
+#: rust/crates/effects/src/photos.rs:948 rust/crates/effects/src/photos.rs:991
 msgid "Photo timer"
 msgstr "拍照倒计时"
 
@@ -3289,22 +3334,6 @@ msgstr "将两台手机合成为单个 3D 画面，左右并排适用于头显�
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr "若没有“3D”插件，将没有“3D”卡片，两个串流只能分别输出到各自的相机。"
 
-#: rust/crates/effects/src/stills.rs:13
-msgid "3 photos, 1 EV apart"
-msgstr "3 张照片，间隔 1 EV"
-
-#: rust/crates/effects/src/stills.rs:13
-msgid "3 photos, 2 EV apart"
-msgstr "3 张照片，间隔 2 EV"
-
-#: rust/crates/effects/src/stills.rs:14
-msgid "5 photos, 1 EV apart"
-msgstr "5 张照片，间隔 1 EV"
-
-#: rust/crates/effects/src/stills.rs:14
-msgid "7 photos, 1 EV apart"
-msgstr "7 张照片，间隔 1 EV"
-
 #: rust/crates/effects/src/transforms.rs:37
 msgid "Set flip, rotation, zoom, pan, stretch and lens correction back to default."
 msgstr "将翻转、旋转、缩放、平移、拉伸和镜头校正恢复为默认值。"
@@ -3635,11 +3664,7 @@ msgstr "色相 vs 色相"
 msgid "Curve"
 msgstr "曲线"
 
-#: rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
-msgid "All"
-msgstr "全部"
-
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:173 rust/crates/system/ui/updates.slint:184
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:153 rust/crates/system/ui/updates.slint:164
 msgid "Channel"
 msgstr "通道"
 
@@ -4397,51 +4422,55 @@ msgstr "下"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "方向键可微调所选控制点，按住 Shift 加方向键可大幅移动。左右方括号键可切换控制点。Delete 删除控制点，Home 重置曲线。"
 
-#: rust/crates/effects/ui/photos.slint:154
+#: rust/crates/effects/ui/photos.slint:173
 msgid "Set every photo setting except the folder back to default."
 msgstr "将除文件夹外的所有拍照设置恢复为默认值。"
 
-#: rust/crates/effects/ui/photos.slint:183
+#: rust/crates/effects/ui/photos.slint:202
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "提高 ISO 会让照片更亮，但噪点更多。"
 
-#: rust/crates/effects/ui/photos.slint:193
+#: rust/crates/effects/ui/photos.slint:212
 msgid "Slower shutter speeds make the photo brighter but blur movement."
 msgstr "放慢快门速度会让照片更亮，但运动物体更容易模糊。"
 
-#: rust/crates/effects/ui/photos.slint:206
+#: rust/crates/effects/ui/photos.slint:225
 msgid "Mode and format"
 msgstr "模式与格式"
 
-#: rust/crates/effects/ui/photos.slint:230
+#: rust/crates/effects/ui/photos.slint:249
 msgid "The file type photos are saved as."
 msgstr "照片保存的文件格式。"
 
-#: rust/crates/effects/ui/photos.slint:295 rust/crates/effects/ui/photos.slint:301
+#: rust/crates/effects/ui/photos.slint:310 rust/crates/effects/ui/photos.slint:315 rust/crates/effects/ui/photos.slint:328
+msgid "Focus range"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:336 rust/crates/effects/ui/photos.slint:342
 msgid "Merge bracket"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:312 rust/crates/effects/ui/photos.slint:317 rust/crates/effects/ui/photos.slint:326
+#: rust/crates/effects/ui/photos.slint:353 rust/crates/effects/ui/photos.slint:358 rust/crates/effects/ui/photos.slint:367
 msgid "Merged brightness"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:350 rust/crates/effects/ui/photos.slint:355 rust/crates/effects/ui/photos.slint:364
+#: rust/crates/effects/ui/photos.slint:391 rust/crates/effects/ui/photos.slint:396 rust/crates/effects/ui/photos.slint:405
 msgid "Quality"
 msgstr "质量"
 
-#: rust/crates/effects/ui/photos.slint:365
+#: rust/crates/effects/ui/photos.slint:406
 msgid "Higher quality gives bigger and cleaner JPEG files."
 msgstr "质量越高，生成的 JPEG 文件越大、画质越纯净。"
 
-#: rust/crates/effects/ui/photos.slint:382 rust/crates/effects/ui/photos.slint:388
+#: rust/crates/effects/ui/photos.slint:423 rust/crates/effects/ui/photos.slint:429
 msgid "Timer"
 msgstr "倒计时"
 
-#: rust/crates/effects/ui/photos.slint:400 rust/crates/effects/ui/photos.slint:409 rust/crates/effects/ui/phototrap.slint:137 rust/crates/effects/ui/phototrap.slint:145
+#: rust/crates/effects/ui/photos.slint:441 rust/crates/effects/ui/photos.slint:450 rust/crates/effects/ui/phototrap.slint:137 rust/crates/effects/ui/phototrap.slint:145
 msgid "Save in"
 msgstr "保存位置"
 
-#: rust/crates/effects/ui/photos.slint:410
+#: rust/crates/effects/ui/photos.slint:451
 msgid "The folder path photos are saved in."
 msgstr "保存照片的文件夹路径。"
 
@@ -4863,7 +4892,7 @@ msgstr "无法跟上"
 msgid "Browser"
 msgstr "浏览器"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "重试"
 
@@ -8251,7 +8280,7 @@ msgstr "对焦距离"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "请安装 v4l2loopback 软件包。Fedora 和 Nobara：v4l2loopback（来自 RPM Fusion）。Debian、Ubuntu 和 Arch：v4l2loopback-dkms。"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:365
 msgid "Checking…"
 msgstr "正在检查…"
 
@@ -8271,7 +8300,7 @@ msgstr "已安装。"
 msgid "Check again"
 msgstr "重新检查"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:360
 msgid "Installing…"
 msgstr "正在安装…"
 
@@ -9571,67 +9600,6 @@ msgstr "无法将 Telescope 设置为登录时自动打开：{error}"
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "无法取消 Telescope 登录时自动打开：{error}"
 
-#: rust/crates/system/src/going_back.rs:113
-#, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
-msgstr "无法配置 {version} 所需的 Python 库。这需要网络连接以及 Telescope 具有写入权限的文件夹（{folder}）。未做任何更改。"
-
-#: rust/crates/system/src/going_back.rs:227
-#, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
-msgstr "Telescope 将重启为版本 {version}（最后的 Python 版本）。你的设置和已配对手机将直接保留，当前设置的副本会先保存在 {folder} 中。"
-
-#: rust/crates/system/src/going_back.rs:229
-#, python-brace-format
-msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
-msgstr "你将失去自此之后的新功能。使用 Lua 编写的插件无法在 {version} 中运行，当时不存在的设置会直接忽略。"
-
-#: rust/crates/system/src/going_back.rs:231
-#, python-brace-format
-msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
-msgstr "{version} 没有自动更新检查，也不会提示换回此版本。你可以在其设置中重新开启此功能。"
-
-#: rust/crates/system/src/going_back.rs:234
-#, python-brace-format
-msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
-msgstr "首先会配置 {version} 所需的 Python 库。这需要连接互联网并耗时数分钟。如果配置失败，不会做任何更改。"
-
-#: rust/crates/system/src/going_back.rs:236
-msgid "If the Python version doesn't start, opening Telescope again brings this version back."
-msgstr "如果 Python 版本未能启动，重新打开 Telescope 即可恢复此版本。"
-
-#: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
-msgid "Go back"
-msgstr "回退"
-
-#: rust/crates/system/src/going_back.rs:242
-#, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
-msgstr "AppImage 无法直接切换为 Python 版本。请从 {version} 发布页面下载 Telescope-linux.tar.gz，解压归档并运行文件夹中的 start.sh。Python 版本需要 Python 3.12 或更高版本，并使用相同的设置文件夹。"
-
-#: rust/crates/system/src/going_back.rs:244
-#, python-brace-format
-msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
-msgstr "Telescope 无法在此替换自身文件，因为所在文件夹不可写。请从 {version} 的发布页面下载并手动安装。"
-
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:529
-msgid "Open download page"
-msgstr "打开下载页面"
-
-#: rust/crates/system/src/going_back.rs:258
-#, python-brace-format
-msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
-msgstr "{version} 需要带有 venv 的 Python 3.12 或更高版本，而这台电脑尚未安装。请先安装（Debian 或 Ubuntu 上为 python3 和 python3-venv），然后重试。未做任何更改。"
-
-#: rust/crates/system/src/going_back.rs:262
-#, python-brace-format
-msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "手机应用必须与之匹配。较新的手机应用可能无法连接到 {version}。Android 不允许覆盖安装旧版应用。请卸载手机上的 Telescope，从 {version} 发布页面安装 Telescope.apk 并重新配对。"
-
-#: rust/crates/system/src/going_back.rs:282
-msgid "A copy of your settings couldn't be saved. Nothing was changed."
-msgstr "无法保存设置副本。未做任何更改。"
-
 #: rust/crates/system/src/hotkeys_portal.rs:117
 msgid "Not available on this desktop"
 msgstr "在此桌面环境下不可用"
@@ -10324,99 +10292,86 @@ msgstr "无法替换 Telescope 的文件：{error}"
 msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr "在 {file} 正在使用时无法安装更新。请在重启后重试。"
 
-#: rust/crates/system/src/updates.rs:596
+#: rust/crates/system/src/updates.rs:591
 #, python-brace-format
 msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr "Telescope 无法就地自行更新，因为此文件夹中还包含名为 {name} 的个人文件。请将下载内容解压到单独的文件夹中。"
 
-#: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:98 rust/crates/system/src/updates_plugin.rs:169 rust/crates/system/src/updates_plugin.rs:241 rust/crates/system/src/updates_plugin.rs:623 rust/crates/system/src/updates_plugin.rs:829
+#: rust/crates/system/src/updates.rs:656 rust/crates/system/src/updates_plugin.rs:142 rust/crates/system/src/updates_plugin.rs:612
 msgid "The update failed."
 msgstr "更新失败。"
 
-#: rust/crates/system/src/updates.rs:692
+#: rust/crates/system/src/updates.rs:683
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "此更新未安装，因为它无法在这台电脑上启动。"
 
-#: rust/crates/system/src/updates_plugin.rs:31
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Stable"
 msgstr "稳定版"
 
-#: rust/crates/system/src/updates_plugin.rs:31 rust/crates/system/ui/updates.slint:188
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:168
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:356
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "正在下载 {percent}%…"
 
-#: rust/crates/system/src/updates_plugin.rs:460
-msgid "Setting up Python's libraries. This takes a few minutes…"
-msgstr "正在配置 Python 库，需要几分钟时间…"
-
-#: rust/crates/system/src/updates_plugin.rs:461
+#: rust/crates/system/src/updates_plugin.rs:361
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "已更新。Telescope 会在你停止串流后重启。"
 
-#: rust/crates/system/src/updates_plugin.rs:471
-msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
-msgstr "退回 Python 版本失败，因为 Python 版本未能启动。当前版本已重新运行。"
-
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "更新同时会为当前用户安装并添加“开始”菜单项，同时移除此未打包的解压副本。设置和已配对手机将直接保留。"
 
-#: rust/crates/system/src/updates_plugin.rs:482
+#: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."
 msgstr "停止串流以更新。"
 
-#: rust/crates/system/src/updates_plugin.rs:494
+#: rust/crates/system/src/updates_plugin.rs:391
 msgid "This is a source checkout. Update Telescope with git."
 msgstr "这是源码检出版本。请使用 git 更新 Telescope。"
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no nightly release yet."
 msgstr "暂无 Nightly 版本发布。"
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no stable release yet."
 msgstr "暂无稳定版本发布。"
 
-#: rust/crates/system/src/updates_plugin.rs:504
+#: rust/crates/system/src/updates_plugin.rs:401
 msgid "You have the latest version."
 msgstr "已是最新版本。"
 
-#: rust/crates/system/src/updates_plugin.rs:508
+#: rust/crates/system/src/updates_plugin.rs:405
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "有新版本：Telescope {version}"
 
-#: rust/crates/system/src/updates_plugin.rs:529
+#: rust/crates/system/src/updates_plugin.rs:426
+msgid "Open download page"
+msgstr "打开下载页面"
+
+#: rust/crates/system/src/updates_plugin.rs:426
 msgid "Update and restart"
 msgstr "更新并重启"
 
-#: rust/crates/system/src/updates_plugin.rs:533
-msgid "Stop streaming to go back."
-msgstr "请先停止串流再回退。"
-
-#: rust/crates/system/src/updates_plugin.rs:533
-#, python-brace-format
-msgid "Swap this version for the last Python version, {version}."
-msgstr "将当前版本替换为最后一个 Python 版本 {version}。"
-
-#: rust/crates/system/src/updates_plugin.rs:722
+#: rust/crates/system/src/updates_plugin.rs:509
 msgid "Couldn't check for updates."
 msgstr "无法检查更新。"
 
-#: rust/crates/system/src/updates_plugin.rs:879
+#: rust/crates/system/src/updates_plugin.rs:659
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "已更新。关闭并重新打开 Telescope 即可完成。"
 
-#: rust/crates/system/src/updates_plugin.rs:895
+#: rust/crates/system/src/updates_plugin.rs:675
 msgid "Updates"
 msgstr "更新"
 
-#: rust/crates/system/src/updates_plugin.rs:896
+#: rust/crates/system/src/updates_plugin.rs:676
 msgid "Check for new versions of Telescope and install them."
 msgstr "检查 Telescope 的新版本并安装。"
 
@@ -10652,103 +10607,82 @@ msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "通知 提醒 弹窗 消息 notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:107
+#: rust/crates/system/ui/updates.slint:87
 msgid "Check for new versions and install them."
 msgstr "检查并安装新版本。"
 
-#: rust/crates/system/ui/updates.slint:108
+#: rust/crates/system/ui/updates.slint:88
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "更新 升级 新版本 发布 下载 安装 最新 update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:113 rust/crates/system/ui/updates.slint:114
+#: rust/crates/system/ui/updates.slint:93 rust/crates/system/ui/updates.slint:94
 msgid "Check now"
 msgstr "立即检查"
 
-#: rust/crates/system/ui/updates.slint:115
+#: rust/crates/system/ui/updates.slint:95
 msgid "Look for a new version of Telescope."
 msgstr "检查是否有新版本的 Telescope。"
 
-#: rust/crates/system/ui/updates.slint:120
+#: rust/crates/system/ui/updates.slint:100
 msgid "Set the update channel and automatic checking back to default."
 msgstr "将更新通道和自动检查恢复为默认值。"
 
-#: rust/crates/system/ui/updates.slint:126
+#: rust/crates/system/ui/updates.slint:106
 msgid "This version"
 msgstr "当前版本"
 
-#: rust/crates/system/ui/updates.slint:127
+#: rust/crates/system/ui/updates.slint:107
 msgid "The version of Telescope you're running"
 msgstr "当前运行的 Telescope 版本"
 
-#: rust/crates/system/ui/updates.slint:130
+#: rust/crates/system/ui/updates.slint:110
 msgctxt "search"
 msgid "current build number"
 msgstr "当前版本号 构建号 内部版本号 current build number"
 
-#: rust/crates/system/ui/updates.slint:155
+#: rust/crates/system/ui/updates.slint:135
 msgid "What's new"
 msgstr "新功能"
 
-#: rust/crates/system/ui/updates.slint:174
+#: rust/crates/system/ui/updates.slint:154
 msgid "Stable is tested more and nightly gets fixes first"
 msgstr "稳定版经过更多测试，Nightly 则能更早获得问题修复"
 
-#: rust/crates/system/ui/updates.slint:177
+#: rust/crates/system/ui/updates.slint:157
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "稳定版 nightly 测试版 发布 通道 构建 测试 stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:189
+#: rust/crates/system/ui/updates.slint:169
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr "每次代码更改后构建。能第一时间获得修复，但测试较少。"
 
-#: rust/crates/system/ui/updates.slint:195
+#: rust/crates/system/ui/updates.slint:175
 msgid "Check daily"
 msgstr "每天检查"
 
-#: rust/crates/system/ui/updates.slint:196
+#: rust/crates/system/ui/updates.slint:176
 msgid "Look for a new version once a day"
 msgstr "每天检查一次新版本"
 
-#: rust/crates/system/ui/updates.slint:197
+#: rust/crates/system/ui/updates.slint:177
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "自动更新 自动检查 每天检查 后台 automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:204 rust/crates/system/ui/updates.slint:206
+#: rust/crates/system/ui/updates.slint:184 rust/crates/system/ui/updates.slint:186
 msgid "Keep this copy where it is"
 msgstr "将此副本保留在原位"
 
-#: rust/crates/system/ui/updates.slint:205
+#: rust/crates/system/ui/updates.slint:185
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr "便携版 绿色版 保持原位 压缩包 文件夹 就地更新 解压 portable keep this copy where it is zip folder in place windows unzipped"
 
-#: rust/crates/system/ui/updates.slint:207
+#: rust/crates/system/ui/updates.slint:187
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr "直接在此解压文件夹中就地更新，而不是为当前用户安装 Telescope。"
-
-#: rust/crates/system/ui/updates.slint:214
-msgid "Older version"
-msgstr "旧版本"
-
-#: rust/crates/system/ui/updates.slint:215
-msgid "Go back to the older Python version of Telescope"
-msgstr "换回旧版 Python Telescope"
-
-#: rust/crates/system/ui/updates.slint:218
-msgctxt "search"
-msgid "go back downgrade python previous old version revert undo rust"
-msgstr "回退 降级 旧版本 上一版本 恢复 撤销 go back downgrade python previous old version revert undo rust"
-
-#: rust/crates/system/ui/updates.slint:222 rust/crates/system/ui/updates.slint:223
-msgid "Go back to the Python version"
-msgstr "回退到 Python 版本"
-
-#: rust/crates/system/ui/updates.slint:248
-msgid "Go back to the Python version?"
-msgstr "要回退到 Python 版本吗？"
 
 #: rust/crates/ui-kit/ui/widgets/colour.slint:253
 msgid "Hex"
@@ -10895,7 +10829,7 @@ msgstr "°C"
 msgid "Add your phone"
 msgstr "添加手机"
 
-#: rust/crates/effects/src/photos.rs:655
+#: rust/crates/effects/src/photos.rs:750
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
@@ -10936,17 +10870,17 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "拉伸 挤压 宽高比 竖屏 比例 stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:474
+#: rust/crates/system/src/updates_plugin.rs:371
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "有新版本：Telescope {version}。"
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "最新 Nightly 构建版本为 {version}。"
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "最新稳定构建版本为 {version}。"
@@ -11002,6 +10936,95 @@ msgstr "已替换"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "无法重启"
+
+#~ msgid "Bracket"
+#~ msgstr "包围设置"
+
+#~ msgid "3 photos, 1 EV apart"
+#~ msgstr "3 张照片，间隔 1 EV"
+
+#~ msgid "3 photos, 2 EV apart"
+#~ msgstr "3 张照片，间隔 2 EV"
+
+#~ msgid "5 photos, 1 EV apart"
+#~ msgstr "5 张照片，间隔 1 EV"
+
+#~ msgid "7 photos, 1 EV apart"
+#~ msgstr "7 张照片，间隔 1 EV"
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+#~ msgstr "无法配置 {version} 所需的 Python 库。这需要网络连接以及 Telescope 具有写入权限的文件夹（{folder}）。未做任何更改。"
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
+#~ msgstr "Telescope 将重启为版本 {version}（最后的 Python 版本）。你的设置和已配对手机将直接保留，当前设置的副本会先保存在 {folder} 中。"
+
+#, python-brace-format
+#~ msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
+#~ msgstr "你将失去自此之后的新功能。使用 Lua 编写的插件无法在 {version} 中运行，当时不存在的设置会直接忽略。"
+
+#, python-brace-format
+#~ msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "{version} 没有自动更新检查，也不会提示换回此版本。你可以在其设置中重新开启此功能。"
+
+#, python-brace-format
+#~ msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
+#~ msgstr "首先会配置 {version} 所需的 Python 库。这需要连接互联网并耗时数分钟。如果配置失败，不会做任何更改。"
+
+#~ msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+#~ msgstr "如果 Python 版本未能启动，重新打开 Telescope 即可恢复此版本。"
+
+#~ msgid "Go back"
+#~ msgstr "回退"
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+#~ msgstr "AppImage 无法直接切换为 Python 版本。请从 {version} 发布页面下载 Telescope-linux.tar.gz，解压归档并运行文件夹中的 start.sh。Python 版本需要 Python 3.12 或更高版本，并使用相同的设置文件夹。"
+
+#, python-brace-format
+#~ msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
+#~ msgstr "Telescope 无法在此替换自身文件，因为所在文件夹不可写。请从 {version} 的发布页面下载并手动安装。"
+
+#, python-brace-format
+#~ msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
+#~ msgstr "{version} 需要带有 venv 的 Python 3.12 或更高版本，而这台电脑尚未安装。请先安装（Debian 或 Ubuntu 上为 python3 和 python3-venv），然后重试。未做任何更改。"
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "手机应用必须与之匹配。较新的手机应用可能无法连接到 {version}。Android 不允许覆盖安装旧版应用。请卸载手机上的 Telescope，从 {version} 发布页面安装 Telescope.apk 并重新配对。"
+
+#~ msgid "A copy of your settings couldn't be saved. Nothing was changed."
+#~ msgstr "无法保存设置副本。未做任何更改。"
+
+#~ msgid "Setting up Python's libraries. This takes a few minutes…"
+#~ msgstr "正在配置 Python 库，需要几分钟时间…"
+
+#~ msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+#~ msgstr "退回 Python 版本失败，因为 Python 版本未能启动。当前版本已重新运行。"
+
+#~ msgid "Stop streaming to go back."
+#~ msgstr "请先停止串流再回退。"
+
+#, python-brace-format
+#~ msgid "Swap this version for the last Python version, {version}."
+#~ msgstr "将当前版本替换为最后一个 Python 版本 {version}。"
+
+#~ msgid "Older version"
+#~ msgstr "旧版本"
+
+#~ msgid "Go back to the older Python version of Telescope"
+#~ msgstr "换回旧版 Python Telescope"
+
+#~ msgctxt "search"
+#~ msgid "go back downgrade python previous old version revert undo rust"
+#~ msgstr "回退 降级 旧版本 上一版本 恢复 撤销 go back downgrade python previous old version revert undo rust"
+
+#~ msgid "Go back to the Python version"
+#~ msgstr "回退到 Python 版本"
+
+#~ msgid "Go back to the Python version?"
+#~ msgstr "要回退到 Python 版本吗？"
 
 #, python-brace-format
 #~ msgid "{name} (not streaming)"

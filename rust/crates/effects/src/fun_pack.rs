@@ -279,6 +279,15 @@ impl CpuStep for FunStep {
         let idle = matches!(effect, "clones" | "cloak") && look.plate.is_none() && look.clones.is_none();
         if idle { Touch::Nothing } else { Touch::Changes }
     }
+
+    fn keeps_geometry(&self) -> bool {
+        keeps_cut_out(&self.frozen.effect)
+    }
+}
+
+/// Whether an effect leaves every pixel where it was, so a cut-out stays true. Light painting only brightens each place from its own history; every other one resamples, warps, shifts, redraws or composes the picture.
+fn keeps_cut_out(effect: &str) -> bool {
+    effect == "light"
 }
 
 impl FunStep {
