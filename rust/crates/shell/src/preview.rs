@@ -6,12 +6,16 @@ pub use slint::wgpu_30::wgpu;
 use std::sync::{Arc, OnceLock};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
-use telescope_core::media::Scaler;
+use telescope_core::media::{PipelineFrame, Scaler};
 use telescope_core::preview::TintSpec;
 use telescope_core::Frame;
 
 /// Draws frames for the preview at the size asked for.
 pub trait Painter {
+    fn paint_picture(&mut self, frame: &PipelineFrame, width: u32, height: u32) -> Option<slint::Image> {
+        self.paint(&frame.land(), width, height)
+    }
+
     /// The picture, or None when it can't be shown (yet).
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image>;
 
@@ -55,6 +59,10 @@ pub trait Painter {
 
 /// Draws frames into textures on the device it was made on (media's scaler, through the app's wiring).
 pub trait TexturePainter {
+    fn paint_picture(&mut self, frame: &PipelineFrame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
+        self.paint(&frame.land(), width, height, tint)
+    }
+
     /// The picture in a texture, with the tools of `tint` on it when there is one.
     fn paint(&mut self, frame: &Frame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture>;
 
@@ -97,6 +105,11 @@ impl GpuPainter {
 }
 
 impl Painter for GpuPainter {
+    fn paint_picture(&mut self, frame: &PipelineFrame, width: u32, height: u32) -> Option<slint::Image> {
+        let tint = self.tint.take();
+        slint::Image::try_from(self.painter.paint_picture(frame, width, height, tint.as_ref())?).map_err(|e| log::warn!("Slint didn't take the preview's texture: {e}")).ok()
+    }
+
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image> {
         // Set again before each paint, so a tint that was switched off isn't painted again
         let tint = self.tint.take();

@@ -553,6 +553,22 @@ impl CardPreview {
 
     /// The frame as a texture of this size, with the tools of `tint` on it when there is one.
     pub fn paint(&mut self, frame: &Frame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
+        self.paint_with(width, height, tint, |gpu, target| gpu.paint(frame, target))
+    }
+
+    /// Draw a pipeline texture on the same device, landing only for a different device.
+    pub fn paint_picture(&mut self, frame: &telescope_core::media::PipelineFrame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
+        self.paint_with(width, height, tint, |gpu, target| {
+            if let Some(card) = frame.picture().and_then(|p| p.as_any().downcast_ref::<CardFrame>()) {
+                if let Some(result) = card.paint(gpu, target) {
+                    return result;
+                }
+            }
+            gpu.paint(&frame.land(), target)
+        })
+    }
+
+    fn paint_with(&mut self, width: u32, height: u32, tint: Option<&TintSpec>, paint: impl FnOnce(&Gpu, &wgpu::Texture) -> Result<(), String>) -> Option<wgpu::Texture> {
         let gpu = self.gpu.clone();
         // Without a scope nothing is read back, so a removed card is looked for here every so often
         self.since_check += 1;
@@ -569,7 +585,7 @@ impl CardPreview {
         let shown = of_size(&mut self.pictures[self.next])?;
         self.next = 1 - self.next;
         let plain = if tint.is_some() { of_size(&mut self.plain)? } else { shown.clone() };
-        let painted = gpu.paint(frame, &plain).and_then(|()| {
+        let painted = paint(&gpu, &plain).and_then(|()| {
             // The scopes judge the picture before any tint, at their own small size
             if self.scope {
                 self.samples.start(&gpu, &plain, self.scope_width);

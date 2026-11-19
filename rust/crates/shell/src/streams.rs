@@ -558,6 +558,10 @@ impl Window {
         self.preview_worker().and_then(|w| w.inner.slot().latest())
     }
 
+    pub(crate) fn preview_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
+        self.preview_worker().and_then(|w| w.inner.slot().latest_picture())
+    }
+
     /// The id of the stream the preview draws, so what's made from its frames isn't taken for another's.
     pub fn preview_source(&self) -> Option<String> {
         self.preview_worker().and_then(|w| w.inner.source_id().map(str::to_string))
@@ -1952,6 +1956,15 @@ impl WakingSlot {
 }
 
 impl FrameSlot for WakingSlot {
+    fn publish_picture_at(&self, frame: telescope_core::media::PipelineFrame, epoch: u64) -> u64 {
+        let number = self.inner.publish_picture_at(frame, epoch);
+        self.wake();
+        number
+    }
+    fn latest_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
+        self.inner.latest_picture()
+    }
+
     fn publish(&self, frame: telescope_core::frame::Frame) -> u64 {
         let number = self.inner.publish(frame);
         self.wake();

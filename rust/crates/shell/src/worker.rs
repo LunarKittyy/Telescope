@@ -927,7 +927,7 @@ impl Shared {
                 self.hidings.fetch_add(1, Ordering::SeqCst);
             }
             // stamped with the epoch it was made under, not the one it comes out in
-            self.slot.publish_at(out, entered);
+            self.slot.publish_picture_at(out, entered);
             *published += 1;
         }
         publish.1 = seq;
@@ -1044,7 +1044,7 @@ impl Shared {
 
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
     /// Hands back the epoch the pipeline was in when the steps began on the frame too.
-    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> (Frame, u64) {
+    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> (telescope_core::media::PipelineFrame, u64) {
         let next_steps = self.next_steps.lock().unwrap().take();
         let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some((steps, epoch)) = next_steps {
@@ -1096,7 +1096,7 @@ impl Shared {
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
         let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered, hurried: false, superseded: None };
-        (pipeline.process(frame, &ctx), entered)
+        (pipeline.process_picture(frame, &ctx), entered)
     }
 
     /// Whether the frame steps and vision are paused: only the main camera's stream, once an app has not read the camera and nothing has
@@ -1109,7 +1109,7 @@ impl Shared {
 
     /// Whether the camera has its first frame and is paused, noting it in the log the first time.
     fn demand_paused(&self) -> bool {
-        if self.slot.latest().is_some() && self.paused() {
+        if self.slot.latest_picture().is_some() && self.paused() {
             if !self.was_paused.swap(true, Ordering::SeqCst) {
                 log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
             }
@@ -1175,7 +1175,7 @@ impl Shared {
             self.count_arrived(first.2, first.1);
             // Run the first frame through the steps so the camera's size accounts for them (a 90° turn swaps sides).
             let seq = self.next_seq();
-            if !self.publish(seq, first.0) || self.slot.latest().is_none() {
+            if !self.publish(seq, first.0) || self.slot.latest_picture().is_none() {
                 drop(cap);
                 self.restart_vcam.wait(RECONNECT_DELAY);
                 self.restart_vcam.clear();
@@ -1469,7 +1469,8 @@ impl Shared {
 
     /// Open the virtual camera at the current size and fps and feed it until a stop or a restart. False if it failed.
     fn run_vcam(&self, reader_done: &Flag) -> bool {
-        let Some((src0, _)) = self.slot.latest() else { return false };
+        let Some((picture, _)) = self.slot.latest_picture() else { return false };
+        let src0 = picture.metadata();
         let cam_w = self.canvas.0.unwrap_or(src0.width);
         let cam_h = self.canvas.1.unwrap_or(src0.height);
         // An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
@@ -1529,7 +1530,7 @@ impl Shared {
             // The count is read with the frame, under the lock publishing takes, or a frame published in between would be counted as skipped now and again when it goes out
             let (latest, published_at, hid) = {
                 let published = self.published.lock().unwrap();
-                (self.slot.latest(), *published, self.hidings.load(Ordering::SeqCst))
+                (self.slot.latest_picture().map(|(f, v)| (f.land_until(&|| self.stopped()), v)), *published, self.hidings.load(Ordering::SeqCst))
             };
             forget_before_hiding(&mut queued, &mut hidings, hid);
             if let Some((src, count)) = latest.filter(|(_, count)| *count != seen) {
@@ -1631,7 +1632,7 @@ impl Shared {
                     self.restart_vcam.set(); // the camera was installed or updated while streaming
                 }
                 let secs = elapsed.as_secs_f64();
-                let (src_w, src_h) = self.slot.latest().map_or((cam_w, cam_h), |(f, _)| (f.width, f.height));
+                let (src_w, src_h) = self.slot.latest_picture().map_or((cam_w, cam_h), |(f, _)| (f.metadata().width, f.metadata().height));
                 // Frames that came from the phone, not what the camera was sent: resends of the last frame padded that out.
                 let recv_now = self.frames_arrived.load(Ordering::Relaxed);
                 let arrival_fps = (recv_now - recv0) as f64 / secs;
@@ -1896,7 +1897,7 @@ mod tests {
             let newest = Newest::default();
             newest.put((seq, Packet { data: vec![5], time_ns: seq }));
             newest.finish();
-            decode_jpegs(&mut decoder, &newest, &broken, &SourceStats::detached(), || slot.latest().is_some() && gate.idle(), |seq, frame| {
+            decode_jpegs(&mut decoder, &newest, &broken, &SourceStats::detached(), || slot.latest_picture().is_some() && gate.idle(), |seq, frame| {
                 slot.publish(frame);
                 published.push(seq);
             });

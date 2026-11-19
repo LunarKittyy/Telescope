@@ -1128,7 +1128,7 @@ pub(crate) mod decode_bench {
         if crate::gpu::Gpu::shared().is_none() {
             return eprintln!("no graphics card for the frame step; skipped");
         }
-        let run = |codec: &mut Codec, packets: &[Vec<u8>]| -> Result<Vec<Costs>, Fault> {
+        let run = |codec: &mut Codec, packets: &[Vec<u8>], preview_only: bool| -> Result<Vec<Costs>, Fault> {
             let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             pipeline.set_steps(vec![StagedStep {
                 owner: "decode measurement".into(), stage: FrameStage::Effects,
@@ -1137,18 +1137,24 @@ pub(crate) mod decode_bench {
                     uniforms: serde_json::json!({}), textures: Vec::new(), keeps_geometry: true,
                 }),
             }]);
+            let mut preview = crate::gpu::CardPreview::new(crate::gpu::Gpu::shared().unwrap(), 256);
             let mut rows = Vec::new();
             for packet in packets {
                 codec.decode_newest(packet)?;
                 let (result, costs) = measure(|| -> Result<bool, Fault> {
                     let Some(frame) = codec.take_newest()? else { return Ok(false) };
-                    let out = pipeline.process(frame, &NoContext);
-                    assert_eq!(out.data.len(), out.format.size(out.width, out.height));
-                    std::hint::black_box(&out.data);
+                    let out = pipeline.process_picture(frame, &NoContext);
+                    if preview_only {
+                        assert!(preview.paint_picture(&out, 640, 360, None).is_some());
+                    } else {
+                        let out = out.land();
+                        assert_eq!(out.data.len(), out.format.size(out.width, out.height));
+                        std::hint::black_box(&out.data);
+                    }
                     Ok(true)
                 });
                 if result? {
-                    assert_eq!((costs.up, costs.down), (1, 1), "the frame must run a card step and land once");
+                    assert_eq!((costs.up, costs.down), (1, u32::from(!preview_only)), "the picture lands only for the RAM reader");
                     rows.push(costs);
                 }
             }
@@ -1159,27 +1165,30 @@ pub(crate) mod decode_bench {
                 eprintln!("no access units in {name}; skipped");
                 continue;
             };
-            let mut measured = None;
-            for hw in [Hw::Vaapi, Hw::D3d11va, Hw::Cuda] {
-                let Ok(mut codec) = Codec::h264(Some(hw)) else { continue };
-                match run(&mut codec, &packets) {
-                    Ok(rows) if !rows.is_empty() && rows.iter().all(|r| r.decoded_down == 1) => {
-                        measured = Some((hw.name(), rows));
-                        break;
+            for preview_only in [false, true] {
+                let reader = if preview_only { "preview" } else { "ram" };
+                let mut measured = None;
+                for hw in [Hw::Vaapi, Hw::D3d11va, Hw::Cuda] {
+                    let Ok(mut codec) = Codec::h264(Some(hw)) else { continue };
+                    match run(&mut codec, &packets, preview_only) {
+                        Ok(rows) if !rows.is_empty() && rows.iter().all(|r| r.decoded_down == 1) => {
+                            measured = Some((hw.name(), rows));
+                            break;
+                        }
+                        _ => eprintln!("{} could not decode {name}; trying the next decoder", hw.name()),
                     }
-                    _ => eprintln!("{} could not decode {name}; trying the next decoder", hw.name()),
                 }
-            }
-            let (decoder, rows) = measured.unwrap_or_else(|| {
-                eprintln!("no hardware decoder for {name}; hardware measurement skipped, using software decode");
-                let mut codec = Codec::h264(None).expect("software H.264 decoder");
-                ("software", run(&mut codec, &packets).expect("software decode"))
-            });
-            assert!(!rows.is_empty(), "{name} produced no frames");
-            println!("clip,decoder,frame,decode_transfer_ms,lift_ms,land_ms,decode_down,up,land_down,total_down");
-            for (i, r) in rows.iter().enumerate() {
-                println!("{name},{decoder},{i},{:.4},{:.4},{:.4},{},{},{},{}", r.transfer_ns as f64 / 1e6,
-                    r.lift_ns as f64 / 1e6, r.land_ns as f64 / 1e6, r.decoded_down, r.up, r.down, r.decoded_down + r.down);
+                let (decoder, rows) = measured.unwrap_or_else(|| {
+                    eprintln!("no hardware decoder for {name}; hardware measurement skipped, using software decode");
+                    let mut codec = Codec::h264(None).expect("software H.264 decoder");
+                    ("software", run(&mut codec, &packets, preview_only).expect("software decode"))
+                });
+                assert!(!rows.is_empty(), "{name} produced no frames");
+                println!("clip,reader,decoder,frame,decode_transfer_ms,lift_ms,land_ms,decode_down,up,land_down,total_down");
+                for (i, r) in rows.iter().enumerate() {
+                    println!("{name},{reader},{decoder},{i},{:.4},{:.4},{:.4},{},{},{},{}", r.transfer_ns as f64 / 1e6,
+                        r.lift_ns as f64 / 1e6, r.land_ns as f64 / 1e6, r.decoded_down, r.up, r.down, r.decoded_down + r.down);
+                }
             }
         }
     }

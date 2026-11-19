@@ -1062,10 +1062,11 @@ impl Window {
         if !crate::preview::wants_frames(popout.is_some(), card, seen) {
             return;
         }
-        let Some((frame, number)) = self.preview_frame() else { return };
+        let Some((picture, number)) = self.preview_picture() else { return };
+        let frame = picture.metadata().clone();
         // The Compare split is only made for a frame that gets painted; a pick under way needs it now
         let picking = !self.state.borrow().overlays.picking().is_empty();
-        let frame = if picking { self.with_colour_split(frame) } else { frame };
+        let frame = if picking { self.with_colour_split(picture.land()) } else { frame };
         self.state.borrow_mut().overlays.shown_frame(&frame);
         if let Some(p) = &popout {
             fit_popout(p, frame.width, frame.height, self.popout_place.borrow().as_deref());
@@ -1138,6 +1139,8 @@ impl Window {
             step => step == crate::preview::Step::Take,
         };
         let tag = crate::preview::paint_tag(self.colour_split_tag(), number);
+        let ram = picking || !on_card || self.state.borrow().colour.split().is_some() || self.passes.borrow().needs_copy(&passes, plan.card);
+        let frame = if ram && !picking { picture.land() } else { frame };
         let frame = if picking || take_only { frame } else { self.with_colour_split(frame) };
         if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
@@ -1184,7 +1187,7 @@ impl Window {
                 let Some(image) = painter.as_mut().and_then(|p| {
                     p.derived_from(tag);
                     p.set_tint(spec, scope);
-                    p.paint(&frame, w, h)
+                    if ram { p.paint(&frame, w, h) } else { p.paint_picture(&picture, w, h) }
                 }) else {
                     return;
                 };

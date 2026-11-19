@@ -8,7 +8,7 @@ use crate::transfers;
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
@@ -82,6 +82,7 @@ pub struct Gpu {
     convert_module: wgpu::ShaderModule,
     /// Download buffers to use again: mapping a new one each frame costs the card a flush.
     downloads: Mutex<Vec<wgpu::Buffer>>,
+    pending: Mutex<Option<wgpu::SubmissionIndex>>,
     /// For plugin shaders: the picture so far, the sampler, the frame's info, the person mask and the step's last frame.
     frame_layout: wgpu::BindGroupLayout,
     linear: wgpu::Sampler,
@@ -217,13 +218,14 @@ fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preferen
     ordered
 }
 
+static SHARED_GPU: Mutex<Option<Option<Arc<Gpu>>>> = Mutex::new(None);
+
 impl Gpu {
     /// The app's one graphics card connection, opened on first use; None when there's no card wgpu can use or
     /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing). One that was lost is opened again by the same path, so a
     /// stream that starts afterwards gets a fresh device and caches; streams still running keep the lost one and stay on the CPU.
     pub fn shared() -> Option<Arc<Gpu>> {
-        static GPU: Mutex<Option<Option<Arc<Gpu>>>> = Mutex::new(None);
-        let mut kept = GPU.lock().unwrap_or_else(|e| e.into_inner());
+        let mut kept = SHARED_GPU.lock().unwrap_or_else(|e| e.into_inner());
         if kept.as_ref().and_then(Option::as_ref).is_some_and(|gpu| gpu.is_lost()) {
             log::warn!("The graphics card was lost; opening it again for the streams that start now");
             *kept = None;
@@ -238,6 +240,13 @@ impl Gpu {
                 None
             }
         }).clone()
+    }
+
+    /// Use the window's connection for new pipelines; existing streams keep their own device.
+    pub fn share_with_streams(gpu: Arc<Gpu>) {
+        if std::env::var_os("TELESCOPE_NO_GPU").is_none() {
+            *SHARED_GPU.lock().unwrap_or_else(|e| e.into_inner()) = Some(Some(gpu));
+        }
     }
 
     pub(crate) fn open() -> Result<Gpu, String> {
@@ -286,7 +295,9 @@ impl Gpu {
 
     /// The same shaders on a device someone else opened (the window's, so the preview can hand its texture to Slint).
     pub fn on_device(device: wgpu::Device, queue: wgpu::Queue) -> Gpu {
-        Gpu::on(device, queue, "the window's device".into(), READBACK_WAIT)
+        let info = device.adapter_info();
+        let limit = if info.device_type == wgpu::DeviceType::Cpu { SOFTWARE_READBACK_WAIT } else { READBACK_WAIT };
+        Gpu::on(device, queue, info.name, limit)
     }
 
     fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String, wait_limit: std::time::Duration) -> Gpu {
@@ -336,6 +347,7 @@ impl Gpu {
             convert: Mutex::default(),
             convert_module,
             downloads: Mutex::default(),
+            pending: Mutex::default(),
             frame_layout,
             linear,
             blank,
@@ -838,6 +850,35 @@ impl Gpu {
         Ok(result)
     }
 
+    /// Submit the recorded steps without copying any pixels to RAM.
+    pub(crate) fn submit_held(&self, held: &mut Held, cancel: &dyn Fn() -> bool) -> Result<(), String> {
+        self.guarded("submitting a card picture", || {
+            // Wait for the previous picture before queuing more work, without holding a lock across the wait.
+            let pending = self.pending.lock().unwrap_or_else(|e| e.into_inner()).take();
+            if let Some(index) = pending {
+                let began = monotonic_ns();
+                self.wait_for(index, cancel)?;
+                held.waited_ns += monotonic_ns().saturating_sub(began);
+            }
+            let index = self.scoped(|| {
+                let enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
+                self.queue.submit([enc.finish()])
+            })?;
+            *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = Some(index);
+            Ok(())
+        })
+    }
+
+    fn paint_held(&self, held: &Held, target: &wgpu::Texture) -> Result<(), String> {
+        self.guarded("painting a card picture", || self.scoped(|| {
+            let mut enc = self.device.create_command_encoder(&Default::default());
+            let views = [held.a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+            let taps = held.width.div_ceil(target.width()).max(held.height.div_ceil(target.height())).clamp(1, 8);
+            self.convert_pass(&mut enc, &views, Mode::Rgba, target, taps, (held.width, held.height));
+            self.queue.submit([enc.finish()]);
+        }))
+    }
+
     /// Done with a held picture: its textures go back for the next frame.
     pub fn put_down(&self, held: Held) {
         let Held { a, b, mut used, .. } = held;
@@ -1036,6 +1077,89 @@ impl Held {
 
     pub fn take_waited(&mut self) -> u64 {
         std::mem::take(&mut self.waited_ns)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum LandingFailure { LastGood, Dark }
+
+/// A submitted pipeline picture with one shared RAM landing, kept entirely in media.
+pub(crate) struct CardFrame {
+    gpu: Arc<Gpu>,
+    held: Mutex<Option<Held>>,
+    landed: OnceLock<Frame>,
+    metadata: Frame,
+    fallback: LandingFailure,
+    failed: Arc<AtomicBool>,
+    balance: Arc<telescope_core::balance::Balance>,
+}
+
+impl CardFrame {
+    pub(crate) fn new(gpu: Arc<Gpu>, held: Held, metadata: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Arc<telescope_core::balance::Balance>) -> Self {
+        Self { gpu, held: Mutex::new(Some(held)), landed: OnceLock::new(), metadata, fallback, failed, balance }
+    }
+
+    fn paint(&self, gpu: &Gpu, target: &wgpu::Texture) -> Option<Result<(), String>> {
+        if self.gpu.device != gpu.device || self.landed.get().is_some() && self.failed.load(Ordering::SeqCst) {
+            return None;
+        }
+        let held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+        Some(gpu.paint_held(held.as_ref()?, target))
+    }
+}
+
+impl telescope_core::media::CardPicture for CardFrame {
+    fn land(&self) -> Frame {
+        self.land_until(&|| false)
+    }
+
+    fn land_until(&self, cancel: &dyn Fn() -> bool) -> Frame {
+        self.landed.get_or_init(|| {
+            let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+            let began = monotonic_ns();
+            let out = catch_unwind(AssertUnwindSafe(|| self.gpu.land_until(held.as_mut().unwrap(), cancel)));
+            transfers::landed();
+            span("readback", began);
+            match out {
+                Ok(Ok(mut frame)) => {
+                    if let Some(alpha) = self.metadata.alpha() {
+                        frame.set_alpha(alpha.clone());
+                    }
+                    self.balance.note_wait(held.as_mut().unwrap().take_waited());
+                    frame
+                }
+                _ => {
+                    if !cancel() {
+                        log::warn!("Couldn't land a card picture; using its safe fallback and moving this stream to the CPU");
+                        self.failed.store(true, Ordering::SeqCst);
+                    }
+                    match self.fallback {
+                        LandingFailure::LastGood => self.metadata.clone(),
+                        LandingFailure::Dark => {
+                            let (w, h, format) = (self.metadata.width, self.metadata.height, self.metadata.format);
+                            let luma = w as usize * h as usize;
+                            let data = match format {
+                                PixelFormat::I420 | PixelFormat::Nv12 => [vec![16; luma], vec![128; format.size(w, h) - luma]].concat(),
+                                _ => [0, 0, 0, 255].repeat(luma),
+                            };
+                            Frame::new(w, h, format, data)
+                        }
+                    }
+                }
+            }
+        }).clone()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl Drop for CardFrame {
+    fn drop(&mut self) {
+        if let Some(held) = self.held.get_mut().unwrap_or_else(|e| e.into_inner()).take() {
+            self.gpu.put_down(held);
+        }
     }
 }
 

@@ -262,6 +262,60 @@ pub struct StagedStep {
     pub step: FrameStep,
 }
 
+/// A media-owned card picture; landing and its cache belong to the implementation.
+pub trait CardPicture: Send + Sync {
+    fn land(&self) -> Frame;
+    fn land_until(&self, _cancel: &dyn Fn() -> bool) -> Frame {
+        self.land()
+    }
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
+/// A finished pipeline picture beside its last RAM frame, which is only metadata until land is called.
+#[derive(Clone)]
+pub struct PipelineFrame {
+    frame: Frame,
+    picture: Option<Arc<dyn CardPicture>>,
+}
+
+impl PipelineFrame {
+    pub fn new(frame: Frame, picture: Option<Arc<dyn CardPicture>>) -> Self {
+        Self { frame, picture }
+    }
+
+    pub fn metadata(&self) -> &Frame {
+        &self.frame
+    }
+
+    pub fn picture(&self) -> Option<&Arc<dyn CardPicture>> {
+        self.picture.as_ref()
+    }
+
+    /// Make the RAM picture at a reader's boundary, keeping the publication's stamps.
+    pub fn land(&self) -> Frame {
+        self.land_until(&|| false)
+    }
+
+    pub fn land_until(&self, cancel: &dyn Fn() -> bool) -> Frame {
+        let mut frame = self.picture.as_ref().map_or_else(|| self.frame.clone(), |p| p.land_until(cancel));
+        frame.number = self.frame.number;
+        frame.time_ns = self.frame.time_ns;
+        frame.capture_ns = self.frame.capture_ns;
+        frame
+    }
+
+    pub fn stamp(&mut self, number: u64, time_ns: u64) {
+        self.frame.number = number;
+        self.frame.time_ns = time_ns;
+    }
+}
+
+impl From<Frame> for PipelineFrame {
+    fn from(frame: Frame) -> Self {
+        Self::new(frame, None)
+    }
+}
+
 /// A stream's frame steps, run in stage order (registration order within a stage); a step that fails passes the frame on unchanged.
 pub trait FramePipeline: Send {
     /// The steps from the next frame on (set_pipeline); give them in registration order.
@@ -269,6 +323,10 @@ pub trait FramePipeline: Send {
     /// `owner`'s steps swapped for these, the others left as they are with what they hold.
     fn replace_steps(&mut self, _owner: &str, _stage: crate::frame::FrameStage, _steps: Vec<crate::frame::FrameStep>) {}
     fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame;
+    /// Keep a card picture when supported; existing pipelines still return their RAM frame.
+    fn process_picture(&mut self, frame: Frame, ctx: &dyn FrameContext) -> PipelineFrame {
+        self.process(frame, ctx).into()
+    }
     /// A frame that already went through process, run through the steps that hide things (stages Privacy and Cover) again: for the frame
     /// a stalled stream keeps sending when those steps just changed. A Background step that wasn't in the steps before can't be run on a finished
     /// picture, so it makes the frame dark instead. None when none of them had anything to hide, or this pipeline can't.
@@ -284,6 +342,14 @@ pub trait FramePipeline: Send {
 
 /// One stream's newest frames: what it made, and what goes out on its virtual camera (which replace_frame can swap).
 pub trait FrameSlot: Send + Sync {
+    /// Publish without asking for RAM when this slot can keep a card picture.
+    fn publish_picture_at(&self, frame: PipelineFrame, epoch: u64) -> u64 {
+        self.publish_at(frame.land(), epoch)
+    }
+    /// The preview may take a card picture; RAM readers keep using latest.
+    fn latest_picture(&self) -> Option<(PipelineFrame, u64)> {
+        self.latest().map(|(f, v)| (f.into(), v))
+    }
     /// Makes frame the stream's newest, numbered after every frame any stream made before; hands back that number.
     fn publish(&self, frame: Frame) -> u64;
     /// The newest frame the stream itself made, numbered, from any thread.

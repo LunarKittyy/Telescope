@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use telescope_core::clock::{ClockSync, PhoneClock};
 use telescope_core::frame::{Frame, StreamFrame};
 use telescope_core::host::FrameStore;
-use telescope_core::media::{FrameSlot, StreamFrames};
+use telescope_core::media::{FrameSlot, PipelineFrame, StreamFrames};
 use telescope_core::time::monotonic_ns;
 
 /// Every frame a stream sends out gets the next number, across all streams, so a number never comes round again.
@@ -30,11 +30,11 @@ pub struct Slot {
 
 #[derive(Default)]
 struct SlotState {
-    published: Option<Frame>,
-    latest: Option<Frame>,
+    published: Option<PipelineFrame>,
+    latest: Option<PipelineFrame>,
     version: u64,
     /// The last few published frames and the epoch each was published under, oldest first, held only while something asked for history (they're shared, not copies).
-    past: VecDeque<(Frame, u64)>,
+    past: VecDeque<(PipelineFrame, u64)>,
 }
 
 impl Slot {
@@ -69,18 +69,17 @@ impl Slot {
 
 impl Slot {
     /// Numbers and keeps a frame; `entered` is the epoch its steps began under, None for the epoch now.
-    fn put_out(&self, mut frame: Frame, entered: Option<u64>) -> u64 {
+    fn put_out(&self, mut frame: PipelineFrame, entered: Option<u64>) -> u64 {
         let mut st = self.state.lock().unwrap();
         // Numbered under the lock, so a stream's numbers only go up in the order its frames come out
         let number = FRAME_NUMBERS.fetch_add(1, Ordering::SeqCst);
-        frame.number = number;
-        frame.time_ns = monotonic_ns();
+        frame.stamp(number, monotonic_ns());
         let keep = self.history.load(Ordering::Relaxed);
         if keep == 0 {
             st.past.clear();
         } else {
             // read under the lock, so a bump that comes after is told from this frame
-            st.past.push_back((frame.clone(), entered.unwrap_or_else(|| self.epoch.load(Ordering::SeqCst))));
+            st.past.push_back((frame.land().into(), entered.unwrap_or_else(|| self.epoch.load(Ordering::SeqCst))));
             while st.past.len() > keep {
                 st.past.pop_front();
             }
@@ -95,15 +94,15 @@ impl Slot {
     /// `replace`, and when `expected` is given only while the camera's frame still has those pixels, checked under the same lock.
     fn replace_when(&self, mut frame: Frame, number: u64, expected: Option<&Arc<Vec<u8>>>) -> bool {
         let mut st = self.state.lock().unwrap();
-        if st.latest.is_none() || st.published.as_ref().map(|f| f.number) != Some(number) {
+        if st.latest.is_none() || st.published.as_ref().map(|f| f.metadata().number) != Some(number) {
             return false;
         }
-        if expected.is_some_and(|e| st.latest.as_ref().is_none_or(|f| !Arc::ptr_eq(&f.data, e))) {
+        if expected.is_some_and(|e| st.latest.as_ref().is_none_or(|f| !Arc::ptr_eq(&f.land().data, e))) {
             return false;
         }
         // Still the frame that went out under this number, so a stream counting what it sends doesn't take it for a new one
         frame.number = number;
-        st.latest = Some(frame);
+        st.latest = Some(frame.into());
         st.version += 1;
         self.changed.notify_all();
         true
@@ -111,12 +110,21 @@ impl Slot {
 }
 
 impl FrameSlot for Slot {
+    fn publish_picture_at(&self, frame: PipelineFrame, epoch: u64) -> u64 {
+        self.put_out(frame, Some(epoch))
+    }
+
+    fn latest_picture(&self) -> Option<(PipelineFrame, u64)> {
+        let st = self.state.lock().unwrap();
+        st.latest.clone().map(|f| (f, st.version))
+    }
+
     fn publish(&self, frame: Frame) -> u64 {
-        self.put_out(frame, None)
+        self.put_out(frame.into(), None)
     }
 
     fn publish_at(&self, frame: Frame, epoch: u64) -> u64 {
-        self.put_out(frame, Some(epoch))
+        self.put_out(frame.into(), Some(epoch))
     }
 
     fn epoch(&self) -> u64 {
@@ -124,7 +132,8 @@ impl FrameSlot for Slot {
     }
 
     fn published(&self) -> Option<Frame> {
-        self.state.lock().unwrap().published.clone()
+        let frame = self.state.lock().unwrap().published.clone();
+        frame.map(|f| f.land())
     }
 
     fn replace(&self, frame: Frame, number: u64) -> bool {
@@ -136,8 +145,7 @@ impl FrameSlot for Slot {
     }
 
     fn latest(&self) -> Option<(Frame, u64)> {
-        let st = self.state.lock().unwrap();
-        st.latest.clone().map(|f| (f, st.version))
+        self.latest_picture().map(|(f, v)| (f.land(), v))
     }
 
     fn set_phone_clock(&self, clock: Option<Arc<PhoneClock>>) {
@@ -147,7 +155,7 @@ impl FrameSlot for Slot {
     /// The phone clock, only while the stream's newest frame carries a capture time: a stream without the phone's stamps (MJPEG, H.264 with no
     /// SEI) has no capture times to be off by anything.
     fn phone_clock(&self) -> Option<Arc<PhoneClock>> {
-        let stamped = self.state.lock().unwrap().published.as_ref().is_some_and(|f| f.capture_ns.is_some());
+        let stamped = self.state.lock().unwrap().published.as_ref().is_some_and(|f| f.metadata().capture_ns.is_some());
         stamped.then(|| self.clock.lock().unwrap().clone()).flatten()
     }
 
@@ -162,7 +170,9 @@ impl FrameSlot for Slot {
         let st = self.state.lock().unwrap();
         let epoch = self.epoch.load(Ordering::SeqCst);
         // Newest first, so of two as near the newer one is the first and wins
-        st.past.iter().rev().filter(|(_, e)| *e >= epoch).filter_map(|(f, _)| f.capture_ns.map(|c| (c.abs_diff(capture_ns), f))).min_by_key(|(gap, _)| *gap).map(|(_, f)| f.clone())
+        let frame = st.past.iter().rev().filter(|(_, e)| *e >= epoch).filter_map(|(f, _)| f.metadata().capture_ns.map(|c| (c.abs_diff(capture_ns), f))).min_by_key(|(gap, _)| *gap).map(|(_, f)| f.clone());
+        drop(st);
+        frame.map(|f| f.land())
     }
 
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
@@ -287,6 +297,35 @@ mod tests {
 
     fn streams(list: &[(&str, &str, &Arc<Slot>)]) -> Vec<(String, String, Arc<dyn FrameSlot>)> {
         list.iter().map(|(s, n, slot)| (s.to_string(), n.to_string(), (*slot).clone() as Arc<dyn FrameSlot>)).collect()
+    }
+
+    #[test]
+    fn slots_keep_card_pictures_until_a_ram_reader_asks_and_replacements_drop_them() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use crate::transfers::measurement::measure;
+        use telescope_core::frame::{FrameStage, FrameStep, ShaderStep};
+        use telescope_core::media::{FramePipeline, StagedStep};
+        let Some(_) = crate::gpu::Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut pipeline = Pipeline::new();
+        pipeline.set_steps(vec![StagedStep {
+            owner: "test".into(), stage: FrameStage::Effects,
+            step: FrameStep::Shader(ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(1.0 - sample(uv).rgb, 1.0); }".into(), uniforms: serde_json::json!({}), textures: vec![], keeps_geometry: true }),
+        }]);
+        let slot = Slot::new();
+        let ((number, picture), costs) = measure(|| {
+            let picture = pipeline.process_picture(frame(100), &NoContext);
+            let number = slot.publish_picture_at(picture, slot.epoch());
+            (number, slot.latest_picture().unwrap().0)
+        });
+        assert_eq!(costs.down, 0);
+        assert!(picture.picture().is_some());
+        let ((published, latest), costs) = measure(|| (slot.published().unwrap(), slot.latest().unwrap().0));
+        assert_eq!(costs.down, 1);
+        assert!(Arc::ptr_eq(&published.data, &latest.data));
+        assert_eq!(published.number, number);
+        assert!(slot.replace_if(frame(9), number, &latest.data));
+        assert!(slot.latest_picture().unwrap().0.picture().is_none());
+        assert_eq!(slot.latest().unwrap().0.data[0], 9);
     }
 
     #[test]
