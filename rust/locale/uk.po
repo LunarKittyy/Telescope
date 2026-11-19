@@ -721,7 +721,7 @@ msgstr "Колір, вибраний із попереднього перегл�
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Клацніть екран позаду вас на попередньому перегляді. Esc скасовує."
 
-#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1863 rust/crates/shell/src/worker.rs:613 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1795 rust/crates/shell/src/window.rs:1863 rust/crates/shell/src/worker.rs:615 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -3121,7 +3121,7 @@ msgstr ""
 msgid "Lucky"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1083
+#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1090
 msgid "Live"
 msgstr "Наживо"
 
@@ -3276,7 +3276,7 @@ msgstr "Червоний/блакитний"
 msgid "Start a second stream to get the 3D picture."
 msgstr "Запустіть другу трансляцію, щоб отримати 3D-картинку."
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1098
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1105
 msgid "Waiting"
 msgstr "Очікування"
 
@@ -4054,7 +4054,7 @@ msgstr "Закрити"
 msgid "Replace layout"
 msgstr "Замінити макет"
 
-#: rust/crates/effects/ui/composite_editor.slint:988 rust/crates/effects/ui/composite_editor.slint:991
+#: rust/crates/effects/ui/composite_editor.slint:988 rust/crates/effects/ui/composite_editor.slint:990
 msgid "Name:"
 msgstr "Назва:"
 
@@ -4902,7 +4902,7 @@ msgstr "Не встигає"
 msgid "Browser"
 msgstr "Браузер"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1756 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Спробувати знову"
 
@@ -5013,70 +5013,75 @@ msgstr "Цей додаток потребує оновлення"
 
 #: rust/crates/link/src/connection.rs:839
 #, python-brace-format
+msgid "Something else on {phone} is answering where Telescope should, probably another Telescope app such as Telescope (dev). Close it there, then try again."
+msgstr ""
+
+#: rust/crates/link/src/connection.rs:840
+#, python-brace-format
 msgid "Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."
 msgstr "Відкрийте Telescope на {phone} і залишайте додаток на екрані. Телефон має перебувати в тій самій мережі, що й цей комп'ютер, або бути підключеним через кабель USB."
 
-#: rust/crates/link/src/connection.rs:841
+#: rust/crates/link/src/connection.rs:842
 #, python-brace-format
 msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."
 msgstr "Ця версія Telescope шифрує з'єднання з {phone}, тому потрібно створити пару заново. Натисніть «Додати пристрій» і скануйте код ще раз."
 
-#: rust/crates/link/src/connection.rs:842
+#: rust/crates/link/src/connection.rs:843
 #, python-brace-format
 msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."
 msgstr "{phone} більше не впізнає цей комп'ютер (його вилучили на телефоні або додаток перевстановили). Натисніть «Додати пристрій», щоб створити пару знову."
 
-#: rust/crates/link/src/connection.rs:844
+#: rust/crates/link/src/connection.rs:845
 #, python-brace-format
 msgid "{phone} only accepts USB while Local only is on in the phone app. Plug it in with a cable, or turn Local only off on the phone."
 msgstr "{phone} приймає лише USB, поки в додатку на телефоні увімкнено «Лише локально». Підключіть його через кабель або вимкніть «Лише локально» на телефоні."
 
-#: rust/crates/link/src/connection.rs:846
+#: rust/crates/link/src/connection.rs:847
 msgid "USB needs adb, which Add device can get."
 msgstr "Для USB потрібен adb, який можна завантажити через «Додати пристрій»."
 
-#: rust/crates/link/src/connection.rs:851
+#: rust/crates/link/src/connection.rs:852
 msgid "the phone isn't answering over USB"
 msgstr "телефон не відповідає через USB"
 
-#: rust/crates/link/src/connection.rs:852
+#: rust/crates/link/src/connection.rs:853
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "Для підключення вибрано «Лише USB»: {why}. Перемкніться на «Автоматично», щоб натомість використовувати Wi-Fi."
 
-#: rust/crates/link/src/connection.rs:854
+#: rust/crates/link/src/connection.rs:855
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "Додаток Telescope на {phone} старіший за цей. Оновіть його на телефоні."
 
-#: rust/crates/link/src/connection.rs:855
+#: rust/crates/link/src/connection.rs:856
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "Додаток Telescope на {phone} новіший за цей. Оновіть Telescope на цьому комп'ютері."
 
-#: rust/crates/link/src/connection.rs:865
+#: rust/crates/link/src/connection.rs:866
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "USB не використовується: {reason}."
 
-#: rust/crates/link/src/connection.rs:874
+#: rust/crates/link/src/connection.rs:875
 msgid "USB cable"
 msgstr "USB-кабель"
 
-#: rust/crates/link/src/connection.rs:882
+#: rust/crates/link/src/connection.rs:883
 #, python-brace-format
 msgid "The phone is streaming to {computer}."
 msgstr "Телефон транслює на {computer}."
 
-#: rust/crates/link/src/connection.rs:883
+#: rust/crates/link/src/connection.rs:884
 msgid "The phone is streaming to another computer."
 msgstr "Телефон транслює на інший комп'ютер."
 
-#: rust/crates/link/src/connection.rs:885
+#: rust/crates/link/src/connection.rs:886
 msgid "Stop the stream there or on the phone, then try again."
 msgstr "Зупиніть трансляцію там або на телефоні, а потім спробуйте ще раз."
 
-#: rust/crates/link/src/connection.rs:891
+#: rust/crates/link/src/connection.rs:892
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -5086,7 +5091,7 @@ msgstr ""
 "\n"
 "Відкрийте додаток на телефоні та надайте дозвіл на доступ до камери."
 
-#: rust/crates/link/src/connection.rs:892
+#: rust/crates/link/src/connection.rs:893
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -5096,7 +5101,7 @@ msgstr ""
 "\n"
 "Спробуйте знову за мить."
 
-#: rust/crates/link/src/connection.rs:893
+#: rust/crates/link/src/connection.rs:894
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -5106,7 +5111,7 @@ msgstr ""
 "\n"
 "Відкрийте Telescope на передньому плані телефону та спробуйте знову."
 
-#: rust/crates/link/src/connection.rs:894 rust/crates/link/src/connection.rs:1001
+#: rust/crates/link/src/connection.rs:895 rust/crates/link/src/connection.rs:1002
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -5116,37 +5121,37 @@ msgstr ""
 "\n"
 "Натисніть «Додати пристрій», щоб створити пару знову."
 
-#: rust/crates/link/src/connection.rs:896
+#: rust/crates/link/src/connection.rs:897
 msgid "unknown error"
 msgstr "невідома помилка"
 
-#: rust/crates/link/src/connection.rs:897
+#: rust/crates/link/src/connection.rs:898
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "Телефон відхилив запит на початок трансляції ({error})."
 
-#: rust/crates/link/src/connection.rs:995 rust/crates/link/src/service.rs:334
+#: rust/crates/link/src/connection.rs:996 rust/crates/link/src/service.rs:334
 msgid "Lost the connection to the phone. Try again."
 msgstr "Втрачено підключення до телефону. Спробуйте знову."
 
-#: rust/crates/link/src/connection.rs:1002
+#: rust/crates/link/src/connection.rs:1003
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "Не вдалося зв'язатися з телефоном. Відкрийте Telescope на ньому та спробуйте знову."
 
-#: rust/crates/link/src/connection.rs:1012
+#: rust/crates/link/src/connection.rs:1013
 msgid "Starting the phone's camera..."
 msgstr "Запуск камери телефону..."
 
-#: rust/crates/link/src/connection.rs:1047 rust/crates/link/src/connection.rs:1056
+#: rust/crates/link/src/connection.rs:1048 rust/crates/link/src/connection.rs:1057
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "Втрачено зв'язок із телефоном під час запуску його камери."
 
-#: rust/crates/link/src/connection.rs:1058
+#: rust/crates/link/src/connection.rs:1059
 #, python-brace-format
 msgid "No answer from the phone for a moment, still waiting... ({seconds}s)"
 msgstr "Від телефону деякий час немає відповіді, очікування триває... ({seconds} с)"
 
-#: rust/crates/link/src/connection.rs:1065
+#: rust/crates/link/src/connection.rs:1066
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -5156,17 +5161,17 @@ msgstr ""
 "\n"
 "Перевірте, чи немає на телефоні запиту дозволу або помилки."
 
-#: rust/crates/link/src/connection.rs:1067
+#: rust/crates/link/src/connection.rs:1068
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "Камера телефону відкривається... ({seconds} с)"
 
-#: rust/crates/link/src/connection.rs:1067
+#: rust/crates/link/src/connection.rs:1068
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "Очікування камери телефону... ({seconds} с)"
 
-#: rust/crates/link/src/connection.rs:1070
+#: rust/crates/link/src/connection.rs:1071
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -5176,27 +5181,27 @@ msgstr ""
 "\n"
 "Спробуйте ще раз. Якщо камері неодноразово не вдається запуститися, відкрийте Telescope на телефоні."
 
-#: rust/crates/link/src/phones.rs:300
+#: rust/crates/link/src/phones.rs:306
 msgid "USB can't be used until adb is installed (Add device can get it)"
 msgstr "USB не можна використовувати, доки не встановлено adb («Додати пристрій» може отримати його)"
 
-#: rust/crates/link/src/phones.rs:301
+#: rust/crates/link/src/phones.rs:307
 msgid "USB can't be used until adb is installed"
 msgstr "USB не можна використовувати, доки не встановлено adb"
 
-#: rust/crates/link/src/phones.rs:302
+#: rust/crates/link/src/phones.rs:308
 msgid "no phone plugged in over USB"
 msgstr "жоден телефон не підключено через USB"
 
-#: rust/crates/link/src/phones.rs:303
+#: rust/crates/link/src/phones.rs:309
 msgid "phone plugged in but USB debugging isn't allowed yet (accept the prompt on the phone)"
 msgstr "телефон підключено, але налагодження через USB ще не дозволено (підтвердьте запит на телефоні)"
 
-#: rust/crates/link/src/phones.rs:304
+#: rust/crates/link/src/phones.rs:310
 msgid "the phone plugged in over USB is a different one"
 msgstr "через USB підключено інший телефон"
 
-#: rust/crates/link/src/phones.rs:305
+#: rust/crates/link/src/phones.rs:311
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "телефон підключено, але на ньому не відкрито Telescope"
 
@@ -5353,7 +5358,7 @@ msgstr "Очікування на {source}"
 msgid "{source}, no pairing needed"
 msgstr "{source}, створення пари не потрібне"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1081
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1088
 msgid "Reconnecting"
 msgstr "Повторне підключення"
 
@@ -5365,7 +5370,7 @@ msgstr "Транслює через USB"
 msgid "Streaming over Wi-Fi"
 msgstr "Транслює через Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1085
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1092
 msgid "Connecting"
 msgstr "Підключення"
 
@@ -5985,8 +5990,8 @@ msgstr "{device} утримується в роздільній здатност
 
 #: rust/crates/outputs/src/v4l2.rs:163
 #, python-brace-format
-msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
-msgstr "Для {device} встановлено формат пікселів {format}, у який Telescope не може писати. Закрийте програми, що його використовують, або перезавантажте v4l2loopback без keep_format."
+msgid "The virtual camera {device} is set to {format}, which Telescope can't write. Close the apps using it, or reload v4l2loopback without keep_format."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen.rs:184
 msgid "Waiting for camera"
@@ -9098,7 +9103,7 @@ msgstr "Трансляція з {size}, доки телефон не охоло�
 msgid "Open Telescope on it."
 msgstr "Відкрийте Telescope на ньому."
 
-#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1669
+#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1676
 msgid "the device"
 msgstr "пристрій"
 
@@ -9126,7 +9131,7 @@ msgstr "Запуск камери телефону…"
 msgid "Couldn't start the phone's camera"
 msgstr "Не вдалося запустити камеру телефону"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1147
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1149
 msgid "Connecting..."
 msgstr "Підключення..."
 
@@ -9196,66 +9201,70 @@ msgstr "Телефону не вдалося зробити фото."
 msgid "The phone is already taking a photo."
 msgstr "Телефон уже робить фото."
 
-#: rust/crates/shell/src/streams.rs:980
+#: rust/crates/shell/src/streams.rs:892
+msgid "Virtual camera problem"
+msgstr ""
+
+#: rust/crates/shell/src/streams.rs:987
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Трансляція з {name} неочікувано зупинилася"
 
-#: rust/crates/shell/src/streams.rs:982
+#: rust/crates/shell/src/streams.rs:989
 msgid "The stream stopped unexpectedly"
 msgstr "Трансляція неочікувано зупинилася"
 
-#: rust/crates/shell/src/streams.rs:984
+#: rust/crates/shell/src/streams.rs:991
 msgid "Copy diagnostics has the details."
 msgstr "У пункті «Скопіювати діагностику» є подробиці."
 
-#: rust/crates/shell/src/streams.rs:1009
+#: rust/crates/shell/src/streams.rs:1016
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "Телефон нагрівся та знизив частоту кадрів до {fps} fps."
 
-#: rust/crates/shell/src/streams.rs:1011
+#: rust/crates/shell/src/streams.rs:1018
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "«Динамічний» знизив частоту кадрів до {fps} fps, щоб підлаштуватися під повільне з'єднання."
 
-#: rust/crates/shell/src/streams.rs:1013
+#: rust/crates/shell/src/streams.rs:1020
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Камера видає менше кадрів, ніж запитано. Тьмяне світло знижує частоту кадрів."
 
-#: rust/crates/shell/src/streams.rs:1015
+#: rust/crates/shell/src/streams.rs:1022
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Камера телефону видає менше кадрів, ніж запитано. Тьмяне світло знижує частоту кадрів."
 
-#: rust/crates/shell/src/streams.rs:1095
+#: rust/crates/shell/src/streams.rs:1102
 msgid "Starting"
 msgstr "Запуск"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1109
+#: rust/crates/shell/src/streams.rs:1116
 #, python-brace-format
 msgid "to {output}"
 msgstr "на {output}"
 
-#: rust/crates/shell/src/streams.rs:1110
+#: rust/crates/shell/src/streams.rs:1117
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "Зупинити трансляцію {name}"
 
-#: rust/crates/shell/src/streams.rs:1490
+#: rust/crates/shell/src/streams.rs:1497
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Телефон надіслав дані, які ця версія не може прочитати. Оновіть обидва додатки до однакової версії."
 
-#: rust/crates/shell/src/streams.rs:1572
+#: rust/crates/shell/src/streams.rs:1579
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "Не вдається зв'язатися з {name}"
 
-#: rust/crates/shell/src/streams.rs:1656
+#: rust/crates/shell/src/streams.rs:1663
 msgid "Lost the phone - reconnecting"
 msgstr "Зв'язок із телефоном втрачено - повторне підключення"
 
-#: rust/crates/shell/src/streams.rs:1848
+#: rust/crates/shell/src/streams.rs:1855
 msgid "Couldn't reach the device."
 msgstr "Не вдалося зв'язатися з пристроєм."
 
@@ -9327,43 +9336,43 @@ msgstr "Почати трансляцію"
 msgid "Stop streaming"
 msgstr "Зупинити трансляцію"
 
-#: rust/crates/shell/src/window.rs:2197 rust/crates/shell/src/worker.rs:1495
+#: rust/crates/shell/src/window.rs:2197 rust/crates/shell/src/worker.rs:1498
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Трансляція {size} з {fps} fps на {camera}"
 
-#: rust/crates/shell/src/worker.rs:603
+#: rust/crates/shell/src/worker.rs:605
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Помилка трансляції: {error}"
 
-#: rust/crates/shell/src/worker.rs:1147
+#: rust/crates/shell/src/worker.rs:1149
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Підключення до {url}..."
 
-#: rust/crates/shell/src/worker.rs:1157
+#: rust/crates/shell/src/worker.rs:1159
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Не вдається отримати трансляцію з телефону. Повторна спроба через {seconds} с…"
 
-#: rust/crates/shell/src/worker.rs:1169
+#: rust/crates/shell/src/worker.rs:1171
 msgid "Waiting for the first frame…"
 msgstr "Очікування першого кадру…"
 
-#: rust/crates/shell/src/worker.rs:1257
+#: rust/crates/shell/src/worker.rs:1259
 msgid "Stream reconnected"
 msgstr "Трансляцію відновлено"
 
-#: rust/crates/shell/src/worker.rs:1362
+#: rust/crates/shell/src/worker.rs:1364
 msgid "The video is paused while the phone takes a photo"
 msgstr "Відео призупинено, поки телефон робить фото"
 
-#: rust/crates/shell/src/worker.rs:1364 rust/crates/shell/src/worker.rs:1370
+#: rust/crates/shell/src/worker.rs:1366 rust/crates/shell/src/worker.rs:1372
 msgid "Stream dropped - reconnecting"
 msgstr "Трансляція обірвалася - повторне підключення"
 
-#: rust/crates/shell/src/worker.rs:1484 rust/crates/shell/src/worker.rs:1593
+#: rust/crates/shell/src/worker.rs:1486 rust/crates/shell/src/worker.rs:1596
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Помилка віртуальної камери: {error}"
@@ -11019,6 +11028,10 @@ msgstr "Замінено"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Не вдалося перезапустити"
+
+#, python-brace-format
+#~ msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
+#~ msgstr "Для {device} встановлено формат пікселів {format}, у який Telescope не може писати. Закрийте програми, що його використовують, або перезавантажте v4l2loopback без keep_format."
 
 #~ msgid "Bracket"
 #~ msgstr "Брекетинг"

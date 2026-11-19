@@ -160,7 +160,7 @@ fn check_format(device: &str, want: (u32, u32, u32, u32), got: &PixFormat) -> st
         return fail(tr("{device} is held at {width}x{height} by an app reading it").field("device", device).field("width", w).field("height", h));
     }
     if got.pixelformat != pixelformat || got.bytesperline != bytesperline {
-        return fail(tr("{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format.")
+        return fail(tr("The virtual camera {device} is set to {format}, which Telescope can't write. Close the apps using it, or reload v4l2loopback without keep_format.")
             .field("device", device).field("format", fourcc(got.pixelformat)));
     }
     Ok(())

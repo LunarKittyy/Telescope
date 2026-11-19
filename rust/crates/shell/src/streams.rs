@@ -887,6 +887,13 @@ impl Window {
                 self.state.borrow_mut().bus.emit(Event::FrameSizeChanged { source_id: source.id_str().into(), width: w, height: h });
             }
             WorkerEvent::Preview(..) => {}
+            WorkerEvent::CameraFailed(why) => {
+                let issue = Issue {
+                    title: tr("Virtual camera problem"), text: why, actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false,
+                };
+                self.state.borrow_mut().banners.show("vcam", issue);
+                self.show_banners();
+            }
         }
         drop(worker);
     }

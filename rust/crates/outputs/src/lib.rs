@@ -136,7 +136,7 @@ fn open_node(device: Option<String>, slot: u32, width: u32, height: u32, fps: u3
     };
     v4l2::VirtualCamera::open(&device, width, height, fps)
         .map(|c| Box::new(V4l2(c)) as Box<dyn VideoOutput>)
-        .map_err(|e| format!("{device}: {e}"))
+        .map_err(|e| if e.raw_os_error().is_some() { format!("{device}: {e}") } else { e.to_string() })
 }
 
 #[cfg(windows)]

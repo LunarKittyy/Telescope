@@ -305,12 +305,15 @@ pub struct Resolution {
     pub udp_dynamic: bool,
     /// NOT_PAIRED because the pairing predates TLS, not because the phone dropped it.
     pub before_tls: bool,
+    /// UNREACHABLE although something answered on the session port that isn't this phone's app (another Telescope build on the phone, say).
+    #[serde(default)]
+    pub other_app: bool,
 }
 
 impl Resolution {
     pub fn new(status: PhoneStatus) -> Resolution {
         Resolution { status, route: None, usb_note: None, streaming: false, busy: false, streaming_for: String::new(),
-                     phone_version: String::new(), udp_dynamic: false, before_tls: false }
+                     phone_version: String::new(), udp_dynamic: false, before_tls: false, other_app: false }
     }
 }
 
