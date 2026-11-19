@@ -157,6 +157,11 @@ fn the_capture_threads_controls_work_on_a_nikon_unchanged() {
     let controls = read_controls(&mut rig);
     let names: Vec<&str> = controls.iter().map(|c| c.name.as_str()).collect();
     assert_eq!(names, vec![FOCUS, APERTURE, EXPOSURE_COMP, WHITE_BALANCE]);
+    let balance = controls.iter().find(|c| c.name == WHITE_BALANCE).unwrap();
+    assert_eq!(balance.unit, "ptp-white-balance");
+    assert_eq!(balance.labels, strings(&["Automatic", "Daylight", "Tungsten", "Cloudy"]));
+    super::super::gphoto_lib::write_choice(&mut rig, WHITE_BALANCE, &balance.labels[3]).unwrap();
+    assert_eq!(mock.state().props[&0x5005].current, Value::Int(0x8010));
     write_control(&mut rig, FOCUS, NEAR).unwrap();
     write_control(&mut rig, FOCUS, FAR).unwrap();
     write_control(&mut rig, FOCUS, AUTOFOCUS).unwrap();

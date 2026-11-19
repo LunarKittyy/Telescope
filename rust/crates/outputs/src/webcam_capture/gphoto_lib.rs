@@ -82,6 +82,8 @@ pub trait Rig: Send {
     /// The next live view frame, a JPEG.
     fn preview(&mut self) -> Result<Vec<u8>, String>;
     fn read(&mut self, name: &str) -> Option<Setting>;
+    /// How to display generated menu labels while keeping the raw choices for writes.
+    fn menu_unit(&self, _name: &str) -> &'static str { "" }
     fn write(&mut self, name: &str, value: &str) -> Result<(), String>;
     /// After the camera ended live view on its own.
     fn restart_live_view(&mut self);
@@ -243,7 +245,7 @@ pub fn read_controls(rig: &mut dyn Rig) -> Vec<Control> {
         out.push(c);
     }
     for (name, gnames) in MENUS {
-        let Some(s) = resolve(rig, gnames).map(|(_, s)| s).filter(|s| usable(s) && matches!(s.kind, Kind::Choice) && s.choices.len() > 1) else { continue };
+        let Some((gname, s)) = resolve(rig, gnames).filter(|(_, s)| usable(s) && matches!(s.kind, Kind::Choice) && s.choices.len() > 1) else { continue };
         let at = s.choices.iter().position(|c| *c == s.value).unwrap_or(0) as i64;
         let mut c = Control::new(name, "menu", 0, s.choices.len() as i64 - 1, 1, at, at);
         c.menu = (0..s.choices.len() as i64).collect();
@@ -253,7 +255,7 @@ pub fn read_controls(rig: &mut dyn Rig) -> Vec<Control> {
         (c.ordered, c.unit) = match name {
             APERTURE => (true, "fstop".into()),
             EXPOSURE_COMP => (true, "ev".into()),
-            _ => (false, String::new()),
+            _ => (false, rig.menu_unit(gname).into()),
         };
         out.push(c);
     }
@@ -799,6 +801,9 @@ mod tests {
         let aperture = &controls[1];
         assert_eq!((aperture.kind.as_str(), aperture.value, aperture.labels.clone()), ("menu", 1, vec!["f/3,5".to_string(), "f/4".into(), "f/5,6".into()]));
         assert!(controls.iter().all(|c| c.transient));
+        let balance = controls.iter().find(|c| c.name == WHITE_BALANCE).unwrap();
+        assert!(balance.unit.is_empty());
+        assert_eq!(balance.labels, ["Automatic", "Daylight"]);
     }
 
     #[test]
