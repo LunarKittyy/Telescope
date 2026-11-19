@@ -516,6 +516,9 @@ impl Window {
         let flow = self.streams.flow.borrow();
         self.stream_snapshot(&flow);
         let s = &flow.sessions;
+        if !s.streams.is_empty() && matches!(self.ui.get_property("streaming"), Ok(SValue::Bool(true))) {
+            self.show_streaming(s.streams.len());
+        }
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
         self.state.borrow().colour.set_streams(s.streams.iter().map(|x| x.id_str()));
         for w in due {
@@ -1762,7 +1765,7 @@ impl FlowHost for Host<'_> {
     }
     fn set_start_button(&mut self, streaming: bool) {
         if streaming {
-            self.w.show_streaming();
+            self.w.show_streaming(1);
         } else {
             self.w.show_idle_button();
         }
