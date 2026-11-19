@@ -86,6 +86,8 @@ pub struct Window {
     preview_timer: slint::Timer,
     /// The number of the frame the preview shows, so a frame isn't painted twice.
     painted: Cell<u64>,
+    /// The number of the picture a thread is reading back from the card for the preview, so one isn't started twice.
+    landing: Cell<u64>,
     /// The size the preview was last painted at, to notice a stage that changed under a stalled stream.
     painted_size: Cell<(u32, u32)>,
     /// The stage the last paint filled, so a resized stage can be told from a frame of another size
@@ -473,6 +475,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         painter: RefCell::default(),
         preview_timer: slint::Timer::default(),
         painted: Cell::new(0),
+        landing: Cell::new(0),
         painted_size: Cell::new((0, 0)),
         painted_stage: Cell::new((0, 0)),
         painted_source: Cell::new(0),
@@ -1096,10 +1099,16 @@ impl Window {
             self.painted.set(0);
             return;
         }
-        let Some((frame, number)) = self.preview_frame() else { return };
+        let Some((picture, number)) = self.preview_picture() else { return };
+        let frame = picture.metadata().clone();
         // The Compare split is only made for a frame that gets painted; a pick under way needs it now
         let picking = !self.state.borrow().overlays.picking().is_empty();
-        let frame = if picking { self.with_colour_split(frame) } else { frame };
+        let frame = if picking {
+            let Some(landed) = self.preview_in_memory(&picture) else { return };
+            self.with_colour_split(landed)
+        } else {
+            frame
+        };
         self.state.borrow_mut().overlays.shown_frame(&frame);
         if let Some(p) = &popout {
             fit_popout(p, frame.width, frame.height, self.popout_place.borrow().as_deref());
@@ -1172,6 +1181,13 @@ impl Window {
             step => step == crate::preview::Step::Take,
         };
         let tag = crate::preview::paint_tag(self.colour_split_tag(), number);
+        let ram = picking || !on_card || self.state.borrow().colour.split().is_some() || self.passes.borrow().needs_copy(&passes, plan.card);
+        let frame = if ram && !picking {
+            let Some(landed) = self.preview_in_memory(&picture) else { return };
+            landed
+        } else {
+            frame
+        };
         let frame = if picking || take_only { frame } else { self.with_colour_split(frame) };
         if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
@@ -1218,8 +1234,12 @@ impl Window {
                 let Some(image) = painter.as_mut().and_then(|p| {
                     p.derived_from(tag);
                     p.set_tint(spec, scope);
-                    p.paint(&frame, w, h)
+                    if ram { p.paint(&frame, w, h) } else { p.paint_picture(&picture, w, h) }
                 }) else {
+                    // A picture the card can't draw from waits for its landing, which is made elsewhere
+                    if !ram {
+                        let _ = self.preview_in_memory(&picture);
+                    }
                     return;
                 };
                 if let Some(copy) = painter.as_mut().and_then(|p| p.take_scope()) {
@@ -1253,6 +1273,30 @@ impl Window {
                 let _ = target.set_property(&name("overlay"), SValue::Image(overlay));
             }
         }
+    }
+
+    /// The preview picture's pixels without waiting for the card: one not landed yet is landed on a thread of its own and painted after, and the stream lands the next ones.
+    fn preview_in_memory(&self, picture: &telescope_core::media::PipelineFrame) -> Option<telescope_core::Frame> {
+        // Asked every time, so the stream keeps landing what it makes for as long as the window paints from memory
+        if let Some(worker) = self.preview_worker() {
+            worker.inner.slot().want_ram();
+        }
+        if let Some(frame) = picture.landed() {
+            return Some(frame);
+        }
+        let number = picture.metadata().number;
+        if self.landing.replace(number) != number {
+            let picture = picture.clone();
+            let started = std::thread::Builder::new().name("preview-landing".into()).spawn(move || {
+                picture.land();
+                let _ = slint::invoke_from_event_loop(|| with_window(|w| w.frame_ready()));
+            });
+            if let Err(e) = started {
+                log::warn!("The preview has no thread to read a picture back on: {e}");
+                self.landing.set(0);
+            }
+        }
+        None
     }
 
     /// The shapes plugins draw on the preview card's picture (add_preview_layer), at the picture's size now.

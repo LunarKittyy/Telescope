@@ -313,6 +313,10 @@ fn start_diagnostics() {
 struct GpuPreview(telescope_media::gpu::CardPreview);
 
 impl telescope_shell::preview::TexturePainter for GpuPreview {
+    fn paint_picture(&mut self, frame: &telescope_core::media::PipelineFrame, width: u32, height: u32, tint: Option<&telescope_core::preview::TintSpec>) -> Option<telescope_shell::preview::wgpu::Texture> {
+        self.0.paint_picture(frame, width, height, tint)
+    }
+
     fn paint(&mut self, frame: &telescope_core::Frame, width: u32, height: u32, tint: Option<&telescope_core::preview::TintSpec>) -> Option<telescope_shell::preview::wgpu::Texture> {
         self.0.paint(frame, width, height, tint)
     }
@@ -625,9 +629,9 @@ fn main() {
         refresh_sign_in_entry(source_build, &autostart::launch_command(&app_dir(), true), &autostart::here());
     }
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {
-        // The second connection to the card opens here, before anything draws: opening it later, from a stream's thread, rescans the Vulkan drivers under the window's rendering
-        let _ = telescope_media::gpu::Gpu::shared();
-        Box::new(GpuPreview(telescope_media::gpu::CardPreview::new(Arc::new(telescope_media::gpu::Gpu::on_device(device, queue)), telescope_effects::scopes::SCOPE_WIDTH as u32)))
+        let gpu = Arc::new(telescope_media::gpu::Gpu::on_device(device, queue));
+        telescope_media::gpu::Gpu::share_with_streams(gpu.clone());
+        Box::new(GpuPreview(telescope_media::gpu::CardPreview::new(gpu, telescope_effects::scopes::SCOPE_WIDTH as u32)))
     }));
     let command = words.first().map(String::as_str);
     if command == Some("scenes") {

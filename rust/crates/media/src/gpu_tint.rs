@@ -553,6 +553,24 @@ impl CardPreview {
 
     /// The frame as a texture of this size, with the tools of `tint` on it when there is one.
     pub fn paint(&mut self, frame: &Frame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
+        self.paint_with(width, height, tint, |gpu, target| gpu.paint(frame, target))
+    }
+
+    /// Draw a pipeline picture on the same device; one for another device, or one the card gave up on, is drawn from memory once landed and is None before.
+    pub fn paint_picture(&mut self, frame: &telescope_core::media::PipelineFrame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
+        let card = frame.picture().and_then(|p| p.as_any().downcast_ref::<CardFrame>()).filter(|c| c.paintable(&self.gpu));
+        let landed = match card {
+            Some(_) => None,
+            None => Some(frame.landed()?),
+        };
+        self.paint_with(width, height, tint, |gpu, target| match (card, &landed) {
+            (Some(card), _) => card.paint(gpu, target).unwrap_or_else(|| Err("the picture is no longer on this card".into())),
+            (None, Some(landed)) => gpu.paint(landed, target),
+            (None, None) => Err("no picture to paint".into()),
+        })
+    }
+
+    fn paint_with(&mut self, width: u32, height: u32, tint: Option<&TintSpec>, paint: impl FnOnce(&Gpu, &wgpu::Texture) -> Result<(), String>) -> Option<wgpu::Texture> {
         let gpu = self.gpu.clone();
         // Without a scope nothing is read back, so a removed card is looked for here every so often
         self.since_check += 1;
@@ -569,7 +587,7 @@ impl CardPreview {
         let shown = of_size(&mut self.pictures[self.next])?;
         self.next = 1 - self.next;
         let plain = if tint.is_some() { of_size(&mut self.plain)? } else { shown.clone() };
-        let painted = gpu.paint(frame, &plain).and_then(|()| {
+        let painted = paint(&gpu, &plain).and_then(|()| {
             // The scopes judge the picture before any tint, at their own small size
             if self.scope {
                 self.samples.start(&gpu, &plain, self.scope_width);

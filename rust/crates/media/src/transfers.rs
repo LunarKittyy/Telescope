@@ -49,6 +49,10 @@ pub(crate) fn frame(up: u32, down: u32) {
     DOWN.fetch_add(down as u64, Ordering::Relaxed);
 }
 
+pub(crate) fn landed() {
+    DOWN.fetch_add(1, Ordering::Relaxed);
+}
+
 pub(crate) fn mask_up() {
     MASK_UP.fetch_add(1, Ordering::Relaxed);
 }

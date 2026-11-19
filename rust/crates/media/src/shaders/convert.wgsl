@@ -23,9 +23,13 @@ fn vs_main(@builtin(vertex_index) i: u32) -> VsOut {
 }
 
 fn yuv_to_rgb(y: f32, u: f32, v: f32) -> vec3<f32> {
-    let c = 1.164383 * (y * 255.0 - 16.0);
-    let d = u * 255.0 - 128.0;
-    let e = v * 255.0 - 128.0;
+    let full = (settings.x & 32u) != 0u;
+    let c = select(1.164383 * (y * 255.0 - 16.0), y * 255.0, full);
+    let d = (u * 255.0 - 128.0) * select(1.0, 224.0 / 255.0, full);
+    let e = (v * 255.0 - 128.0) * select(1.0, 224.0 / 255.0, full);
+    if (settings.x & 16u) != 0u {
+        return clamp(vec3<f32>(c + 1.792741 * e, c - 0.213249 * d - 0.532909 * e, c + 2.112402 * d) / 255.0, vec3<f32>(0.0), vec3<f32>(1.0));
+    }
     return clamp(vec3<f32>(c + 1.596027 * e, c - 0.391762 * d - 0.812968 * e, c + 2.017232 * d) / 255.0, vec3<f32>(0.0), vec3<f32>(1.0));
 }
 

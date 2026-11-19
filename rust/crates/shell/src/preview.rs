@@ -6,12 +6,17 @@ pub use slint::wgpu_30::wgpu;
 use std::sync::{Arc, OnceLock};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
-use telescope_core::media::Scaler;
+use telescope_core::media::{PipelineFrame, Scaler};
 use telescope_core::preview::TintSpec;
 use telescope_core::Frame;
 
 /// Draws frames for the preview at the size asked for.
 pub trait Painter {
+    /// A picture that may still be on the card, drawn once it is in memory: None before, since the window's thread never waits for the card.
+    fn paint_picture(&mut self, frame: &PipelineFrame, width: u32, height: u32) -> Option<slint::Image> {
+        self.paint(&frame.landed()?, width, height)
+    }
+
     /// The picture, or None when it can't be shown (yet).
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image>;
 
@@ -55,6 +60,11 @@ pub trait Painter {
 
 /// Draws frames into textures on the device it was made on (media's scaler, through the app's wiring).
 pub trait TexturePainter {
+    /// As Painter::paint_picture: drawn once it is in memory, None before.
+    fn paint_picture(&mut self, frame: &PipelineFrame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
+        self.paint(&frame.landed()?, width, height, tint)
+    }
+
     /// The picture in a texture, with the tools of `tint` on it when there is one.
     fn paint(&mut self, frame: &Frame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture>;
 
@@ -97,6 +107,11 @@ impl GpuPainter {
 }
 
 impl Painter for GpuPainter {
+    fn paint_picture(&mut self, frame: &PipelineFrame, width: u32, height: u32) -> Option<slint::Image> {
+        let tint = self.tint.take();
+        slint::Image::try_from(self.painter.paint_picture(frame, width, height, tint.as_ref())?).map_err(|e| log::warn!("Slint didn't take the preview's texture: {e}")).ok()
+    }
+
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image> {
         // Set again before each paint, so a tint that was switched off isn't painted again
         let tint = self.tint.take();
@@ -248,6 +263,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
                 gpu_marker::mark(&card);
                 let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                     label: Some("telescope window"),
+            required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
                     required_limits: adapter.limits(),
                     ..Default::default()
                 })).map_err(|e| e.to_string())?;
@@ -278,6 +294,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
         gpu_marker::mark(&card);
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope window"),
+                    required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
             required_limits: adapter.limits(),
             ..Default::default()
         })).map_err(|e| e.to_string())?;

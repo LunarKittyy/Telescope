@@ -399,6 +399,8 @@ struct Shared {
     born: Instant,
     hardware: bool,
     hardware_default: bool,
+    /// Set by the pipeline while its first step runs on the card, which is the only time the decoder may leave a picture there.
+    surface_wish: Option<Arc<AtomicBool>>,
     plugin_source: bool,
     size: Mutex<(Option<u32>, Option<u32>)>,
     fps: AtomicU32,
@@ -423,7 +425,7 @@ struct Shared {
     /// Steps went into the pipeline ahead of a frame (hide_cached), so the next frame still has to be told they were replaced.
     steps_replaced: AtomicBool,
     /// The frame that was out when steps that hide things came in on the window's thread and a dark one went out in its place, until the real run of those steps on it is done or a newer frame comes.
-    replay: Mutex<Option<Frame>>,
+    replay: Mutex<Option<telescope_core::media::PipelineFrame>>,
     /// A frame took steps that came in (the frame path of installing them), so the hiding count goes up with that frame's publish, as hide_cached's does with its own.
     installed: AtomicBool,
     /// How many times steps were handed over to hide_cached: a replay of an earlier hand-over gives up its wait on the card and publishes nothing.
@@ -577,6 +579,7 @@ impl StreamWorker {
         stats.set_target_fps(setup.fps.max(1));
         pipeline.set_stats(stats.clone());
         pipeline.set_steps(setup.steps);
+        let surface_wish = pipeline.surface_wish();
         let tap = media.packet_tap();
         let view_epoch = setup.vision.as_ref().map_or(0, |f| f.service.view_epoch());
         let shared = Arc::new(Shared {
@@ -586,7 +589,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
+            photo_until: Mutex::new(None), surface_wish, publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -854,6 +857,9 @@ impl Shared {
                 }
                 let events = self.events.clone();
                 decoder.on_keyframe_needed(Box::new(move || events(WorkerEvent::NeedsKeyframe)));
+                if let Some(wish) = &self.surface_wish {
+                    decoder.set_surface_wish(wish.clone());
+                }
                 let cell = decoder.target_fps_cell();
                 if let Some(cell) = &cell {
                     cell.store(self.fps.load(Ordering::SeqCst), Ordering::Relaxed);
@@ -916,6 +922,10 @@ impl Shared {
             return false;
         };
         self.newest_arrival.store(arrived, Ordering::Relaxed);
+        // The one place a card picture is read back for the readers of the slot: here, on this thread, before the lock they take
+        if self.slot.ram_wanted() {
+            out.land_until(&|| self.stopped());
+        }
         // A frame made while Stop waited isn't published after it
         if self.stopped() {
             return false;
@@ -929,7 +939,7 @@ impl Shared {
                 self.hidings.fetch_add(1, Ordering::SeqCst);
             }
             // stamped with the epoch it was made under, not the one it comes out in
-            self.slot.publish_at(out, entered);
+            self.slot.publish_picture_at(out, entered);
             *published += 1;
         }
         publish.1 = seq;
@@ -946,7 +956,7 @@ impl Shared {
         }
         let mut publish = self.publish.lock().unwrap();
         // Read under the lock frames are published under, so a newer frame can't be taken for the one that was there
-        let Some((latest, _)) = self.slot.latest() else { return };
+        let Some((latest, _)) = self.slot.latest_picture() else { return };
         let Some((steps, epoch)) = self.next_steps.lock().unwrap().take() else { return };
         self.steps_replaced.store(true, Ordering::SeqCst);
         self.view_epoch.store(epoch, Ordering::SeqCst);
@@ -958,25 +968,27 @@ impl Shared {
         // The frame that was out before a dark one took its place, while its hiding is still to be run for real
         let pending = self.replay.lock().unwrap().take();
         let cached = pending.clone().unwrap_or(latest);
-        // This is the window's thread, which can't wait for the graphics card: a step that needs it makes the frame dark here, and the worker's thread does the real run
+        // This is the window's thread, which can't wait for the graphics card: a step that needs it makes the frame dark here, and a picture still on the card is stood in for by a dark one; the worker's thread does the real run
+        let in_hand = cached.landed_or_dark();
         let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered, hurried: true, superseded: None };
-        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached.clone(), &ctx))).unwrap_or_else(|_| {
+        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(in_hand.clone(), &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
             None
         });
-        let hidden = match (hidden, pending) {
-            (Some(out), _) => Some(out),
+        let (out, changed) = match (hidden, pending) {
+            (Some(out), _) => {
+                let changed = !Arc::ptr_eq(&out.data, &in_hand.data);
+                (telescope_core::media::PipelineFrame::from(out), changed)
+            }
             // Nothing is left to hide, and the dark frame that went out for it isn't needed
-            (None, Some(before)) => Some(before),
-            (None, None) => None,
+            (None, Some(before)) => (before, false),
+            (None, None) => return,
         };
-        let Some(out) = hidden else { return };
-        let changed = !Arc::ptr_eq(&out.data, &cached.data);
         {
             let mut published = self.published.lock().unwrap();
             // Counted under the lock the camera reads frames with, so a frame it already has queued is known to be from before
             self.hidings.fetch_add(1, Ordering::SeqCst);
-            self.slot.publish_at(out, entered);
+            self.slot.publish_picture_at(out, entered);
             *published += 1;
         }
         if changed {
@@ -1015,16 +1027,21 @@ impl Shared {
         if self.stopped() {
             return;
         }
+        // Landed before the pipeline is taken, holding no lock, so the wait on the card doesn't hold up the frames or the window's hand-overs
+        let Some(original) = self.replay.lock().unwrap().clone() else { return };
+        let landed = original.land_until(&|| self.stopped());
         let mut publish = self.publish.lock().unwrap();
         // Gone when a newer frame was published since, or another run took it; and a newer hand-over leaves the frame to its own run
         if self.handed.load(Ordering::SeqCst) != handed || self.stopped() {
             return;
         }
-        let Some(original) = self.replay.lock().unwrap().take() else { return };
+        if self.replay.lock().unwrap().take().is_none() {
+            return;
+        }
         let epoch = self.view_epoch.load(Ordering::SeqCst);
         let entered = self.slot.epoch();
         let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered, hurried: false, superseded: Some((&self.handed, handed)) };
-        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| publish.0.hide_again(original.clone(), &ctx))).unwrap_or_else(|_| {
+        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| publish.0.hide_again(landed, &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
             None
         });
@@ -1046,7 +1063,7 @@ impl Shared {
 
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
     /// Hands back the epoch the pipeline was in when the steps began on the frame too.
-    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> (Frame, u64) {
+    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> (telescope_core::media::PipelineFrame, u64) {
         let next_steps = self.next_steps.lock().unwrap().take();
         let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some((steps, epoch)) = next_steps {
@@ -1088,17 +1105,19 @@ impl Shared {
         }
         // vision looks for people in the frame before the view (view_controller.process_frame)
         if let Some(feed) = self.vision.as_ref().filter(|f| f.service.wants_people()) {
+            frame = frame.materialise();
             let upright = feed.upright.lock().unwrap().for_frame(frame.width, frame.height);
             feed.service.feed_raw(&self.source_id, &frame, upright);
         }
         if let Some(motion) = self.vision.as_ref().and_then(|f| f.motion.as_ref()).filter(|m| m.watching()) {
+            frame = frame.materialise();
             let upright = self.vision.as_ref().map(|f| f.upright.lock().unwrap().for_frame(frame.width, frame.height)).expect("a feed");
             motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
         }
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
         let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered, hurried: false, superseded: None };
-        (pipeline.process(frame, &ctx), entered)
+        (pipeline.process_picture(frame, &ctx), entered)
     }
 
     /// Whether the frame steps and vision are paused: only the main camera's stream, once an app has not read the camera and nothing has
@@ -1111,7 +1130,7 @@ impl Shared {
 
     /// Whether the camera has its first frame and is paused, noting it in the log the first time.
     fn demand_paused(&self) -> bool {
-        if self.slot.latest().is_some() && self.paused() {
+        if self.slot.latest_picture().is_some() && self.paused() {
             if !self.was_paused.swap(true, Ordering::SeqCst) {
                 log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
             }
@@ -1177,7 +1196,7 @@ impl Shared {
             self.count_arrived(first.2, first.1);
             // Run the first frame through the steps so the camera's size accounts for them (a 90° turn swaps sides).
             let seq = self.next_seq();
-            if !self.publish(seq, first.0) || self.slot.latest().is_none() {
+            if !self.publish(seq, first.0) || self.slot.latest_picture().is_none() {
                 drop(cap);
                 self.restart_vcam.wait(RECONNECT_DELAY);
                 self.restart_vcam.clear();
@@ -1471,7 +1490,8 @@ impl Shared {
 
     /// Open the virtual camera at the current size and fps and feed it until a stop or a restart. False if it failed.
     fn run_vcam(&self, reader_done: &Flag) -> bool {
-        let Some((src0, _)) = self.slot.latest() else { return false };
+        let Some((picture, _)) = self.slot.latest_picture() else { return false };
+        let src0 = picture.metadata();
         let cam_w = self.canvas.0.unwrap_or(src0.width);
         let cam_h = self.canvas.1.unwrap_or(src0.height);
         // An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
@@ -1532,8 +1552,11 @@ impl Shared {
             // The count is read with the frame, under the lock publishing takes, or a frame published in between would be counted as skipped now and again when it goes out
             let (latest, published_at, hid) = {
                 let published = self.published.lock().unwrap();
-                (self.slot.latest(), *published, self.hidings.load(Ordering::SeqCst))
+                (self.slot.latest_picture(), *published, self.hidings.load(Ordering::SeqCst))
             };
+            // The camera reads pixels, so the stream lands what it makes before it goes out; a picture that came before this was asked is landed here, with no lock held
+            self.slot.want_ram();
+            let latest = latest.filter(|(_, count)| *count != seen).map(|(picture, count)| (picture.land_until(&|| self.stopped()), count));
             forget_before_hiding(&mut queued, &mut hidings, hid);
             if let Some((src, count)) = latest.filter(|(_, count)| *count != seen) {
                 seen = count;
@@ -1635,7 +1658,7 @@ impl Shared {
                     self.restart_vcam.set(); // the camera was installed or updated while streaming
                 }
                 let secs = elapsed.as_secs_f64();
-                let (src_w, src_h) = self.slot.latest().map_or((cam_w, cam_h), |(f, _)| (f.width, f.height));
+                let (src_w, src_h) = self.slot.latest_picture().map_or((cam_w, cam_h), |(f, _)| (f.metadata().width, f.metadata().height));
                 // Frames that came from the phone, not what the camera was sent: resends of the last frame padded that out.
                 let recv_now = self.frames_arrived.load(Ordering::Relaxed);
                 let arrival_fps = (recv_now - recv0) as f64 / secs;
@@ -1900,7 +1923,7 @@ mod tests {
             let newest = Newest::default();
             newest.put((seq, Packet { data: vec![5], time_ns: seq }));
             newest.finish();
-            decode_jpegs(&mut decoder, &newest, &broken, &SourceStats::detached(), || slot.latest().is_some() && gate.idle(), |seq, frame| {
+            decode_jpegs(&mut decoder, &newest, &broken, &SourceStats::detached(), || slot.latest_picture().is_some() && gate.idle(), |seq, frame| {
                 slot.publish(frame);
                 published.push(seq);
             });
@@ -3175,7 +3198,7 @@ mod tests {
         w.stop();
         assert!(done.load(Ordering::SeqCst), "the replay was still running after Stop returned, where the vision state is let go");
         // One that was waiting for its turn when Stop came does nothing
-        *w.shared.replay.lock().unwrap() = Some(grey(4, 2, 200));
+        *w.shared.replay.lock().unwrap() = Some(grey(4, 2, 200).into());
         w.shared.replay_hidden(w.shared.handed.load(Ordering::SeqCst));
         assert_eq!(runs.load(Ordering::SeqCst), 1);
         assert!(!cams.sent.lock().unwrap().contains(&9));
@@ -3232,6 +3255,90 @@ mod tests {
         // hide_cached runs inside set_steps, on the frame that was out
         assert!(forgot.load(Ordering::SeqCst) >= 1, "frames that went out under the old steps are still in the history");
         w.stop();
+    }
+
+    /// A picture that is still on the card until something lands it.
+    struct Away(std::sync::OnceLock<Frame>);
+
+    impl telescope_core::media::CardPicture for Away {
+        fn land(&self) -> Frame {
+            self.0.get_or_init(|| grey(4, 2, 77)).clone()
+        }
+        fn landed(&self) -> Option<Frame> {
+            self.0.get().cloned()
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    /// Makes every picture on the card.
+    struct OnTheCard;
+
+    impl FramePipeline for OnTheCard {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
+            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(Away(std::sync::OnceLock::new()))))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    /// A slot that notes whether each picture had landed when it reached the slot, and wants pixels or not as the test says.
+    struct Notes(Arc<dyn FrameSlot>, Arc<AtomicBool>, Arc<Mutex<Vec<bool>>>);
+
+    impl FrameSlot for Notes {
+        fn publish_picture_at(&self, frame: telescope_core::media::PipelineFrame, epoch: u64) -> u64 {
+            self.2.lock().unwrap().push(frame.landed().is_some());
+            self.0.publish_at(frame.land(), epoch)
+        }
+        fn ram_wanted(&self) -> bool {
+            self.1.load(Ordering::SeqCst)
+        }
+        fn publish(&self, frame: Frame) -> u64 {
+            self.0.publish(frame)
+        }
+        fn published(&self) -> Option<Frame> {
+            self.0.published()
+        }
+        fn publish_at(&self, frame: Frame, epoch: u64) -> u64 {
+            self.0.publish_at(frame, epoch)
+        }
+        fn replace(&self, frame: Frame, number: u64) -> bool {
+            self.0.replace(frame, number)
+        }
+        fn latest(&self) -> Option<(Frame, u64)> {
+            self.0.latest()
+        }
+        fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
+            self.0.wait_newer(seen, timeout)
+        }
+    }
+
+    fn published_landed(wanted: bool) -> Vec<bool> {
+        let cams = Arc::new(Cams::default());
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10), Step::Pause(Duration::from_millis(40)), Step::Frame(11), Step::Pause(Duration::from_millis(40)), Step::Frame(12), Step::Pause(Duration::from_secs(30))])]);
+        let (seen, notes) = (Arc::new(AtomicBool::new(wanted)), Arc::new(Mutex::new(Vec::new())));
+        let slot: Arc<dyn FrameSlot> = Arc::new(Notes(telescope_media_free_slot(Duration::ZERO), seen, notes.clone()));
+        let media = WithPipeline(Box::new(|| Box::new(OnTheCard)));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(setup(opener), Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| notes.lock().unwrap().len() >= 3);
+        w.stop();
+        let landed = notes.lock().unwrap().clone();
+        landed
+    }
+
+    #[test]
+    fn the_worker_lands_what_readers_want_in_memory_before_publishing_and_leaves_the_rest_on_the_card() {
+        let wanted = published_landed(true);
+        assert!(wanted.iter().all(|landed| *landed), "a slot that wants pixels was handed pictures that had not landed: {wanted:?}");
+        let unwanted = published_landed(false);
+        assert!(unwanted.iter().all(|landed| !*landed), "a picture nobody reads from memory was read back: {unwanted:?}");
     }
 
     #[test]
