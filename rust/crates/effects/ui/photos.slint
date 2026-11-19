@@ -87,9 +87,28 @@ export component PhotosCard inherits Card {
     in property <[string]> slot-options;
     in property <int> slot-index;
     in property <string> slot-tip;
-    in property <[string]> exposure-options;
-    in property <int> exposure-index;
-    in property <string> exposure-tip;
+    // The second tile beside it: a long exposure, or how far apart the photos of an exposure bracket are
+    in property <string> second-key;
+    in property <string> second-label;
+    in property <[string]> second-options;
+    in property <int> second-index;
+    in property <string> second-tip;
+    // How many ticks make a full stop on the second dial, and which tick the first named one is
+    in property <int> second-per: 1;
+    in property <int> second-from: 0;
+    // The ends of a focus bracket on the Camera card's focus scale (0 is infinity, 1000 the nearest), and where the phone is focused now
+    in property <bool> focus-range-shown;
+    in property <float> focus-low;
+    in property <float> focus-high;
+    in property <string> focus-low-text;
+    in property <string> focus-high-text;
+    in property <string> focus-readout;
+    in property <bool> focus-live;
+    in property <float> focus-live-pos;
+    in property <bool> focus-range-enabled;
+    in property <bool> focus-range-changed;
+    in property <string> focus-range-tip;
+    callback focus-range-moved(float, float);
     in property <int> distortion-index;
     in property <bool> distortion-enabled;
     in property <[string]> distortion-tips;
@@ -162,7 +181,7 @@ export component PhotosCard inherits Card {
             enabled: active;
             HorizontalLayout {
                 spacing: Theme.gap;
-                Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-text; tip-detail: take-tip; role: "primary"; hue: root.hue; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
+                Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-text; tip-detail: take-tip; role: "primary"; hue: root.hue; muted: true; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
                 IconButton { raised: true; icon: Icons.folder; label: open-text; tip: open-text; tip-detail: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
             }
         }
@@ -260,33 +279,55 @@ export component PhotosCard inherits Card {
         enabled: active;
         HorizontalLayout {
             spacing: Theme.gap;
-            Stepper {
-                caption: slot-label != "" ? slot-label : @tr("How many");
-                items: slot-options.length > 0 ? slot-options : ["-"];
-                current: slot-index;
-                enabled: active && slot-options.length > 0;
+            Dial {
+                label: slot-label != "" ? slot-label : @tr("How many");
                 tip: slot-label != "" ? slot-label : @tr("How many");
                 tip-detail: slot-tip;
-                previous-label: (slot-label != "" ? slot-label : @tr("How many")) + ": " + root.previous-label;
-                next-label: (slot-label != "" ? slot-label : @tr("How many")) + ": " + root.next-label;
-                step(by) => { root.tile-step(root.slot-key, by); }
-                hold-down(by) => { root.tile-hold-down(root.slot-key, by); }
-                hold-up => { root.tile-hold-up(); }
-                picked(i) => { root.tile-picked(root.slot-key, i); }
+                hue: root.hue;
+                enabled: active && slot-options.length > 1;
+                stops: slot-options.length > 0 ? slot-options : ["-"];
+                current: slot-index;
+                moved(i) => { root.tile-picked(root.slot-key, i); }
             }
-            Stepper {
-                caption: @tr("Exposure");
-                items: exposure-options.length > 0 ? exposure-options : ["-"];
-                current: exposure-index;
-                enabled: active && exposure-options.length > 1;
-                tip: @tr("Exposure");
-                tip-detail: exposure-tip;
-                previous-label: @tr("Exposure") + ": " + root.previous-label;
-                next-label: @tr("Exposure") + ": " + root.next-label;
-                step(by) => { root.tile-step("exposure_s", by); }
-                hold-down(by) => { root.tile-hold-down("exposure_s", by); }
-                hold-up => { root.tile-hold-up(); }
-                picked(i) => { root.tile-picked("exposure_s", i); }
+            Dial {
+                label: second-label;
+                tip: second-label;
+                tip-detail: second-tip;
+                hue: root.hue;
+                enabled: active && second-options.length > 1;
+                stops: second-options.length > 0 ? second-options : ["-"];
+                current: second-index;
+                per-label: second-per;
+                label-from: second-from;
+                moved(i) => { root.tile-picked(root.second-key, i); }
+            }
+        }
+    }
+    Unfolding {
+        open: focus-range-shown;
+        RailRow {
+            icon: Icons.focus;
+            label: @tr("Focus range");
+            hue: root.hue;
+            enabled: active;
+            changed: focus-range-changed;
+            RangeSlider {
+                label: @tr("Focus range");
+                hue: root.hue;
+                enabled: active && focus-range-enabled;
+                minimum: 0;
+                maximum: 1000;
+                step: 1;
+                low: focus-low;
+                high: focus-high;
+                low-text: focus-low-text;
+                high-text: focus-high-text;
+                readout: focus-readout;
+                    has-live: focus-live;
+                live: focus-live-pos;
+                tip: @tr("Focus range");
+                tip-detail: focus-range-tip;
+                moved(lo, hi) => { root.focus-range-moved(lo, hi); }
             }
         }
     }

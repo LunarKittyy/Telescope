@@ -253,6 +253,7 @@ export component NotesCard inherits Card {
                     shortcut: "notes.send";
                     role: "primary";
                     hue: root.hue;
+                    muted: true;
                     enabled: active && send-enabled;
                     clicked => { root.send-clicked(); }
                 }

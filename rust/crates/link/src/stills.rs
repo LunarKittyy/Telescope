@@ -105,6 +105,15 @@ pub struct StillCaps {
     pub hot_pixel_hq: bool,
     pub distortion: bool,
     pub burst_max: i64,
+    /// The fastest shutter, in nanoseconds; 0 when the phone doesn't say (older phones).
+    pub exposure_min_ns: i64,
+    /// The most photos in an exposure bracket and the most EV a photo may be from the middle: what the phone says, else what older phones take.
+    pub bracket_max: i64,
+    pub ev_max: i64,
+    /// The most steps of a focus bracket.
+    pub focus_steps_max: i64,
+    /// The nearest the lens focuses, in diopters (the lens's minFocusDistance); 0 without manual focus.
+    pub focus_near_max: f64,
     /// (mode, (width, height)) for the maker's modes that said their size.
     pub extension_sizes: Vec<(String, (i64, i64))>,
 }
@@ -138,7 +147,15 @@ impl StillCaps {
         }
         let extension_sizes = raw.get("extensionSizes").and_then(Value::as_object).into_iter().flatten()
             .filter_map(|(m, v)| Some((m.clone(), size(v.as_object()?, "width", "height")?))).collect();
+        // A phone that says how many photos a bracket may have also takes the wider spread of EV that goes with them
+        let wide = raw.contains_key("bracketMax");
+        let near = current.get("minFocusDistance").and_then(Value::as_f64).filter(|d| d.is_finite() && *d > 0.0);
         Some(StillCaps {
+            exposure_min_ns: number("exposureMinNs"),
+            bracket_max: if wide { number("bracketMax").clamp(2, 100) } else { 9 },
+            ev_max: if wide { 12 } else { 6 },
+            focus_steps_max: if raw.contains_key("focusStepsMax") { number("focusStepsMax").clamp(2, 100) } else { 30 },
+            focus_near_max: if flag("focusBracketing") { near.unwrap_or(0.0) } else { 0.0 },
             formats, size: size(raw, "width", "height"), max_res: size(raw, "maxResWidth", "maxResHeight"),
             max_res_raw: flag("maxResRaw"), extensions: words("extensions"), extension_sizes,
             exposure_max_ns: number("exposureMaxNs"), bracketing: flag("bracketing"), focus_bracketing: flag("focusBracketing"),
@@ -774,6 +791,26 @@ mod tests {
 
     fn caps(stills: Value) -> Option<StillCaps> {
         StillCaps::from_state(Some(&state_with(stills, Some(1), true)))
+    }
+
+    #[test]
+    fn a_phone_that_says_its_limits_gets_them_and_an_older_one_keeps_the_old_ones() {
+        let old = caps(full()).unwrap();
+        assert_eq!((old.bracket_max, old.ev_max, old.focus_steps_max, old.exposure_min_ns, old.focus_near_max), (9, 6, 30, 0, 0.0));
+        let mut newer = full();
+        newer["bracketMax"] = json!(15);
+        newer["focusStepsMax"] = json!(100);
+        newer["exposureMinNs"] = json!(125_000);
+        let mut state = state_with(newer, Some(1), true);
+        state["cameras"][1]["minFocusDistance"] = json!(10.0);
+        let c = StillCaps::from_state(Some(&state)).unwrap();
+        assert_eq!((c.bracket_max, c.ev_max, c.focus_steps_max, c.exposure_min_ns, c.focus_near_max), (15, 12, 100, 125_000, 10.0));
+        // a limit that makes no sense is fitted
+        let mut odd = full();
+        odd["bracketMax"] = json!(1000);
+        odd["focusStepsMax"] = json!(0);
+        let c = caps(odd).unwrap();
+        assert_eq!((c.bracket_max, c.focus_steps_max), (100, 2));
     }
 
     #[test]

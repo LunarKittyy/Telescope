@@ -135,12 +135,20 @@ export component Button inherits Rectangle {
     // The card's colour, for a primary button inside a card (the new look fills it with this; Classic stays violet)
     in property <color> hue: Theme.fill;
     property <bool> wears-hue: role == "primary" && !Theme.classic && hue != Theme.fill;
+    // A hue-filled button in the quietened hue a slider's fill rests in, with the theme's text on it (higher contrast keeps the full hue)
+    in property <bool> muted;
+    property <bool> dim-fill: muted && wears-hue && !Theme.contrast;
+    // A muted button is in its on state (a mode it started is running): it takes the full hue, even disabled
+    in property <bool> on;
+    property <bool> at-full: dim-fill && on;
+    // The text on a muted fill: the theme's ink at rest, the dark one once the fill has come up towards the full hue (Light's ink is its dark)
+    property <color> ink-on-dim: touch.has-hover || touch.pressed ? (Theme.light ? Theme.ink : Theme.on-hue) : Theme.ink;
     // The raised square (not a filled button): in OLED it is told from the card by its outline
     property <bool> plain: !filled && !wears-hue && !outlined;
     // role "outline": no fill and a thin line in the stage's dark, for a button on a coloured bar (the restart bar); hovered or held it gets a faint dark tint and the thick line
     property <bool> outlined: role == "outline";
     // The text, and the glyph, of a button with a fill of its own
-    property <color> ink-on-fill: role == "go" ? Theme.go-ink : role == "stop" ? Theme.stop-ink : wears-hue ? Theme.on-hue : Theme.on-fill;
+    property <color> ink-on-fill: role == "go" ? Theme.go-ink : role == "stop" ? Theme.stop-ink : at-full ? Theme.on-hue : dim-fill ? ink-on-dim : wears-hue ? Theme.on-hue : Theme.on-fill;
     property <bool> filled: role == "primary" || role == "danger" || role == "go" || role == "stop";
     in property <length> icon-size: Theme.icon-small;
     // A square of colour before the text, as a QPushButton draws a swatch icon
@@ -180,12 +188,13 @@ export component Button inherits Rectangle {
     preferred-width: max(lay.preferred-width, reserved-w, dialog ? Theme.u(40) : 0px);
     border-radius: Theme.r-ctl;
     // Stop streaming's thick outline sits inside the button, so the button keeps its size in both states
-    border-width: !enabled ? Theme.outline-w : outlined ? (touch.has-hover || touch.pressed ? Theme.stroke : 1px) : role == "stop" ? Theme.stop-edge-w : plain ? Theme.ctl-outline-w(touch.has-hover, touch.pressed) : role == "danger" ? Theme.outline-w : 0px;
-    border-color: !enabled ? Theme.dis-outline : outlined ? Theme.stage : role == "stop" ? Theme.stop-edge : plain ? Theme.ctl-outline(touch.has-hover, touch.pressed) : role == "danger" ? Theme.danger-outline : transparent;
-    background: !enabled ? Theme.trough
+    border-width: !enabled && !at-full ? Theme.outline-w : outlined ? (touch.has-hover || touch.pressed ? Theme.stroke : 1px) : role == "stop" ? Theme.stop-edge-w : plain ? Theme.ctl-outline-w(touch.has-hover, touch.pressed) : role == "danger" ? Theme.outline-w : 0px;
+    border-color: !enabled && !at-full ? Theme.dis-outline : outlined ? Theme.stage : role == "stop" ? Theme.stop-edge : plain ? Theme.ctl-outline(touch.has-hover, touch.pressed) : role == "danger" ? Theme.danger-outline : transparent;
+    background: at-full ? hue : !enabled ? Theme.trough
         : outlined ? (touch.pressed ? Theme.stage.transparentize(0.75) : touch.has-hover ? Theme.stage.transparentize(0.88) : transparent)
         : role == "go" ? (touch.pressed ? Theme.go-press : touch.has-hover ? Theme.go-hover : Theme.go-fill)
         : role == "stop" ? (touch.pressed ? Theme.stop-press : touch.has-hover ? Theme.stop-hover : Theme.stop-fill)
+        : dim-fill ? (touch.pressed || touch.has-hover ? Theme.lit(hue, 0.6) : Theme.muted(hue))
         : wears-hue ? (touch.pressed ? hue.mix(Theme.shade, 0.85) : touch.has-hover ? hue.mix(Theme.hue-hover-to, 0.85) : hue)
         : role == "danger" ? (touch.pressed ? Theme.danger-press : touch.has-hover ? Theme.danger-hover : Theme.danger)
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
@@ -227,7 +236,7 @@ export component Button inherits Rectangle {
         height: parent.height;
         border-radius: root.border-radius;
         background: filled || wears-hue ? Theme.shade : outlined ? Theme.stage : Theme.ink;
-        opacity: (filled || wears-hue ? 0.2 : 0.1) * press-t.value;
+        opacity: (dim-fill ? 0 : filled || wears-hue ? 0.2 : 0.1) * press-t.value;
     }
     // Measures the widest text the label can be, out of the way
     Rectangle {
@@ -249,7 +258,7 @@ export component Button inherits Rectangle {
         alignment: center;
         if has-icon: Icon {
             source: icon;
-            tint: !enabled ? Theme.dis : filled ? ink-on-fill : icon-tint;
+            tint: !enabled && !at-full ? Theme.dis : filled ? ink-on-fill : icon-tint;
             animate tint { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
             width: icon-size;
             height: icon-size;
@@ -277,7 +286,7 @@ export component Button inherits Rectangle {
                 font-family: Theme.font;
                 font-size: root.font-size;
                 font-weight: root.font-weight;
-                color: !enabled ? Theme.dis : filled ? ink-on-fill : outlined ? Theme.stage : role == "quiet" ? Theme.ink2 : Theme.ink;
+                color: !enabled && !at-full ? Theme.dis : filled ? ink-on-fill : outlined ? Theme.stage : role == "quiet" ? Theme.ink2 : Theme.ink;
                 animate color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
                 vertical-alignment: center;
             }
