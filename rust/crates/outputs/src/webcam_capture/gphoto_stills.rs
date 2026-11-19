@@ -9,6 +9,7 @@ use super::gphoto_lib::{resolve, stills_of, Incomplete, Kind, Rig, Setting, Shot
 use crate::webcam_controls::shutter_text;
 use crate::webcams::gphoto_port;
 use serde_json::{json, Value};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
@@ -130,12 +131,7 @@ pub fn shutter_label(raw: &str) -> Option<String> {
 
 /// How long a shutter speed in the camera's words keeps the shutter open, in seconds. None for what isn't a time.
 pub fn shutter_seconds(raw: &str) -> Option<f64> {
-    let t = raw.trim().trim_end_matches(['s', 'S', '"']).replace(',', ".");
-    let seconds = match t.split_once('/') {
-        Some((n, d)) => n.trim().parse::<f64>().ok()? / d.trim().parse::<f64>().ok().filter(|d| *d != 0.0)?,
-        None => t.parse::<f64>().ok()?,
-    };
-    (seconds > 0.0 && seconds.is_finite()).then_some(seconds)
+    telescope_core::shot::dslr_shutter_seconds(raw)
 }
 
 /// How long to wait for a photo: `base` for an ordinary one, and for a long exposure (10 s and up) at least twice the exposure and a minute
@@ -217,6 +213,7 @@ pub struct Wish {
     pub iso: Option<String>,
     pub shutter: Option<String>,
     pub timer_s: u64,
+    pub shot: Option<Value>,
 }
 
 impl Wish {
@@ -228,7 +225,7 @@ impl Wish {
             (true, _) => Format::RawJpeg,
             _ => Format::Jpeg,
         };
-        Wish { format, iso: text("iso"), shutter: text("shutter"), timer_s: o.get("timer_s").and_then(Value::as_u64).unwrap_or(0).min(60) }
+        Wish { format, iso: text("iso"), shutter: text("shutter"), shot: o.get("shot").cloned(), timer_s: o.get("timer_s").and_then(Value::as_u64).unwrap_or(0).min(60) }
     }
 }
 
@@ -240,6 +237,8 @@ pub enum Failure {
     Setting(&'static str),
     Bulb,
     Unsupported,
+    Shot(telescope_core::shot::ShotRefused),
+    Restore,
     Camera(String),
     Save,
     Interrupted,
@@ -259,6 +258,8 @@ impl Failure {
             Failure::Setting(_) => "bad_option",
             Failure::Bulb => "bulb",
             Failure::Unsupported => "unsupported",
+            Failure::Shot(why) => why.code,
+            Failure::Restore => "restore",
             Failure::Camera(_) => "failed",
             Failure::Save => "save",
             Failure::Interrupted => "interrupted",
@@ -270,11 +271,16 @@ impl Failure {
     }
 
     fn text(&self) -> String {
+        if let Failure::Shot(why) = self {
+            return why.why.clone();
+        }
         tr(match self {
             Failure::Busy => n_("The camera is busy. Try again in a moment."),
             Failure::Setting(_) => n_("The camera's mode doesn't allow that setting."),
             Failure::Bulb => n_("The camera is on Bulb. Pick a shutter speed first."),
             Failure::Unsupported => n_("This camera can't take that kind of photo."),
+            Failure::Shot(_) => unreachable!(),
+            Failure::Restore => n_("The camera's photo settings could not be restored. Check its ISO and shutter speed."),
             Failure::Camera(_) => n_("The camera couldn't take the photo."),
             Failure::Save => n_("Telescope couldn't save the photo."),
             Failure::Interrupted => n_("The photo was interrupted because the camera stopped."),
@@ -305,13 +311,113 @@ fn put(rig: &mut dyn Rig, menu: Option<&Menu>, want: &str, what: &'static str) -
 /// The shooting itself, on the camera's thread: live view off (a camera won't shoot with it on), the settings, the picture to this
 /// computer, and every file it made. Live view is the caller's to bring back.
 pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> {
-    take_photo_guarded(rig, wish, None)
+    let report = take_photo_guarded(rig, wish, None);
+    if report.restore_errors.is_empty() { report.result } else { Err(Failure::Restore) }
 }
 
 /// `take_photo` that looks at the guard right before the shutter, after every setting: a hidden or stopped stream gets no photo.
-fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> Result<Vec<Shot>, Failure> {
+fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> CaptureReport {
+    let mut transaction = Transaction { rig, changed: Vec::new() };
+    let mut applied = Value::Null;
+    let result = catch_unwind(AssertUnwindSafe(|| take_photo_inner(&mut transaction, wish, guard, &mut applied)))
+        .unwrap_or_else(|_| Err(Failure::Camera("the camera panicked while taking the photo".into())));
+    let mut readback = applied.clone();
+    if catch_unwind(AssertUnwindSafe(|| refresh_applied(transaction.rig, &mut readback))).is_ok() {
+        applied = readback;
+    } else {
+        log::warn!("the camera panicked while reading the photo settings");
+    }
+    let restore_errors = transaction.restore();
+    CaptureReport { result, applied, restore_errors }
+}
+
+fn refresh_applied(rig: &mut dyn Rig, applied: &mut Value) {
+    let Some(values) = applied.as_object_mut() else { return };
+    if values.contains_key("iso") {
+        if let Some(iso) = resolve(rig, &ISO).and_then(|(_, read)| telescope_core::shot::dslr_iso(&read.value)) {
+            values.insert("iso".into(), json!(iso as i64));
+        }
+    }
+    if values.contains_key("shutter_s") {
+        if let Some(seconds) = resolve(rig, &SHUTTER).and_then(|(_, read)| shutter_seconds(&read.value)) {
+            values.insert("shutter_s".into(), json!(seconds));
+        }
+    }
+}
+
+struct Transaction<'a> {
+    rig: &'a mut dyn Rig,
+    changed: Vec<(&'static str, String)>,
+}
+
+impl Transaction<'_> {
+    fn apply(&mut self, changes: Vec<(&'static str, String)>) -> Result<(), Failure> {
+        let mut pending = Vec::new();
+        for (name, want) in changes {
+            let before = self.rig.read(name).ok_or(Failure::Setting(name))?;
+            if before.readonly || !before.choices.contains(&want) {
+                return Err(Failure::Setting(name));
+            }
+            if before.value != want {
+                pending.push((name, before.value, want));
+            }
+        }
+        for (name, before, want) in pending {
+            // Record before writing because a camera may change the value and still report an error.
+            self.changed.push((name, before));
+            self.rig.write(name, &want).map_err(|_| Failure::Setting(name))?;
+        }
+        Ok(())
+    }
+
+    fn restore(&mut self) -> Vec<String> {
+        let mut errors = Vec::new();
+        while let Some((name, before)) = self.changed.pop() {
+            let restored = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
+                self.rig.write(name, &before)?;
+                match self.rig.read(name) {
+                    Some(read) if read.value == before => Ok(()),
+                    _ => Err("the camera did not confirm the restored value".into()),
+                }
+            }));
+            let error = match restored {
+                Ok(Ok(())) => continue,
+                Ok(Err(why)) => why,
+                Err(_) => "the camera panicked while restoring the setting".into(),
+            };
+            log::warn!("couldn't restore camera {name}: {error}");
+            errors.push(format!("{name}: {error}"));
+        }
+        errors
+    }
+}
+
+impl Drop for Transaction<'_> {
+    fn drop(&mut self) {
+        let _ = self.restore();
+    }
+}
+
+fn take_photo_inner(transaction: &mut Transaction<'_>, wish: &Wish, guard: Option<&Guard>, applied: &mut Value) -> Result<Vec<Shot>, Failure> {
+    let rig = &mut *transaction.rig;
     let _ = rig.write("viewfinder", "0");
     let caps = read_photo_caps(rig);
+    let mut options = serde_json::Map::new();
+    if let Some(shot) = &wish.shot {
+        options.insert("shot".into(), shot.clone());
+    }
+    let mapped = telescope_core::shot::apply_to_dslr(&mut options, &telescope_core::shot::dslr_ranges(&caps.json())).map_err(Failure::Shot)?;
+    let mut changes = Vec::new();
+    if let Some(iso) = mapped.get("iso").and_then(Value::as_f64) {
+        let menu = caps.iso.as_ref().ok_or(Failure::Setting("ISO"))?;
+        let raw = menu.values.iter().find(|raw| telescope_core::shot::dslr_iso(raw) == Some(iso)).ok_or(Failure::Setting("ISO"))?;
+        changes.push((menu.name, raw.clone()));
+    }
+    if let Some(seconds) = mapped.get("shutter_s").and_then(Value::as_f64) {
+        let menu = caps.shutter.as_ref().ok_or(Failure::Setting("shutter"))?;
+        let raw = menu.values.iter().find(|raw| shutter_seconds(raw) == Some(seconds)).ok_or(Failure::Setting("shutter"))?;
+        changes.push((menu.name, raw.clone()));
+    }
     let mut expect = 1;
     let mut switched = false;
     if let Some(q) = &caps.quality {
@@ -339,7 +445,7 @@ fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> 
     }
     match &wish.shutter {
         Some(shutter) => put(rig, caps.shutter.as_ref(), shutter, "shutter")?,
-        None if caps.shutter.as_ref().is_some_and(|m| m.bulb) => return Err(Failure::Bulb),
+        None if mapped.get("shutter_s").is_none() && caps.shutter_now.as_ref().is_some_and(|s| s.to_lowercase().contains("bulb")) => return Err(Failure::Bulb),
         None => {}
     }
     // To this computer, not the card
@@ -349,6 +455,22 @@ fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> 
                 log::debug!("couldn't send photos to the computer: {why}");
             }
         }
+    }
+    transaction.apply(changes)?;
+    let rig = &mut *transaction.rig;
+    if wish.shot.is_some() {
+        let mut readback = serde_json::Map::new();
+        if mapped.get("iso").is_some() {
+            let (_, read) = resolve(rig, &ISO).ok_or(Failure::Setting("ISO"))?;
+            let iso = telescope_core::shot::dslr_iso(&read.value).ok_or(Failure::Setting("ISO"))?;
+            readback.insert("iso".into(), json!(iso as i64));
+        }
+        if mapped.get("shutter_s").is_some() {
+            let (_, read) = resolve(rig, &SHUTTER).ok_or(Failure::Setting("shutter"))?;
+            let seconds = shutter_seconds(&read.value).ok_or(Failure::Setting("shutter"))?;
+            readback.insert("shutter_s".into(), json!(seconds));
+        }
+        *applied = Value::Object(readback);
     }
     if let Some(stop) = guard.and_then(Guard::stop) {
         return Err(stop);
@@ -385,7 +507,7 @@ fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> 
 }
 
 /// What to do with a photo that came after its job gave up waiting: save it and say so.
-type Late = Arc<dyn Fn(Result<Vec<Shot>, Failure>) + Send + Sync>;
+type Late = Arc<dyn Fn(CaptureReport) + Send + Sync>;
 
 struct Job {
     wish: Wish,
@@ -424,9 +546,39 @@ impl Guard {
 
 type Outcome = Result<Vec<Shot>, Failure>;
 
+#[derive(Debug)]
+struct CaptureReport {
+    result: Outcome,
+    applied: Value,
+    restore_errors: Vec<String>,
+}
+
+#[cfg(test)]
+impl From<Outcome> for CaptureReport {
+    fn from(result: Outcome) -> Self {
+        Self { result, applied: Value::Null, restore_errors: Vec::new() }
+    }
+}
+
+impl CaptureReport {
+    fn annotate(&self, mut data: Value) -> Value {
+        if !self.applied.is_null() {
+            data["applied"] = self.applied.clone();
+        }
+        data["restore"] = json!({"ok": self.restore_errors.is_empty(), "errors": self.restore_errors});
+        if !self.restore_errors.is_empty() {
+            data["ok"] = json!(false);
+            data["code"] = json!(Failure::Restore.code());
+            let earlier = data.get("error").and_then(Value::as_str).unwrap_or("");
+            data["error"] = json!(if earlier.is_empty() { Failure::Restore.text() } else { format!("{earlier} {}", Failure::Restore.text()) });
+        }
+        data
+    }
+}
+
 enum Slot {
     Waiting,
-    Ready(Outcome),
+    Ready(CaptureReport),
     /// The camera's side was dropped without an answer.
     Closed,
     /// The job stopped waiting, so a photo that comes now goes the late way.
@@ -445,7 +597,7 @@ struct Reply(Arc<Handover>);
 struct Waiter(Arc<Handover>);
 
 enum Wait {
-    Got(Outcome),
+    Got(CaptureReport),
     Timeout,
     Closed,
 }
@@ -457,10 +609,10 @@ fn handover() -> (Reply, Waiter) {
 
 impl Reply {
     /// Gives the photo to the job, or back to the caller when the job has stopped waiting.
-    fn send(self, outcome: Outcome) -> Result<(), Outcome> {
+    fn send(self, outcome: CaptureReport) -> Result<(), Box<CaptureReport>> {
         let mut slot = self.0.slot.lock().unwrap_or_else(|e| e.into_inner());
         if matches!(*slot, Slot::Abandoned) {
-            return Err(outcome);
+            return Err(Box::new(outcome));
         }
         *slot = Slot::Ready(outcome);
         self.0.changed.notify_all();
@@ -499,7 +651,7 @@ impl Waiter {
     }
 
     /// Stops waiting. A photo that came in the meantime is returned; one that comes after this is saved late.
-    fn abandon(&self) -> Option<Outcome> {
+    fn abandon(&self) -> Option<CaptureReport> {
         let mut slot = self.0.slot.lock().unwrap_or_else(|e| e.into_inner());
         match std::mem::replace(&mut *slot, Slot::Abandoned) {
             Slot::Ready(outcome) => Some(outcome),
@@ -558,12 +710,14 @@ impl Shared {
         let Some(job) = self.pending.lock().unwrap().take() else { return false };
         self.capturing.store(true, Ordering::SeqCst);
         let result = take_photo_guarded(rig, &job.wish, job.guard.as_ref());
+        let caps = read_photo_caps(rig);
+        self.set_caps(Some(caps));
         let _ = rig.write("viewfinder", "1");
         self.capturing.store(false, Ordering::SeqCst);
         // The job may have stopped waiting (a timeout, or the stream stopping): what the camera sent after that is not thrown away
         if let Err(result) = job.reply.send(result) {
             if let Some(late) = job.late {
-                late(result);
+                late(*result);
             }
         }
         true
@@ -683,6 +837,9 @@ fn save(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool) -> Result<Vec
 
 /// How long the shutter will stay open for this photo: the speed asked for, else the one the camera is on.
 fn exposure_of(shared: &Shared, wish: &Wish) -> Option<f64> {
+    if let Some(seconds) = wish.shot.as_ref().and_then(|s| s.get("shutter_s")).and_then(Value::as_f64).filter(|s| s.is_finite() && *s > 0.0) {
+        return Some(seconds);
+    }
     if let Some(speed) = &wish.shutter {
         return shutter_seconds(speed);
     }
@@ -754,22 +911,23 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
         }
     };
     let covered = || guard.is_hidden();
-    match outcome {
-        Ok(shots) => match save(folder, &shots, &covered) {
+    let data = match &outcome.result {
+        Ok(shots) => match save(folder, shots, &covered) {
             Ok(files) => result(true, &files, "", ""),
             Err((failure, files)) => failed(&failure, &files),
         },
         // Whatever came of a photo that is only half there is kept, and the card says it is half
         Err(Failure::Partial(shots)) => {
-            let files = match save(folder, &shots, &covered) {
+            let files = match save(folder, shots, &covered) {
                 Ok(files) => files,
-                Err((Failure::Hidden, _)) => return failed(&Failure::Hidden, &[]),
+                Err((Failure::Hidden, _)) => return outcome.annotate(failed(&Failure::Hidden, &[])),
                 Err((_, files)) => files,
             };
-            failed(&Failure::Partial(shots), &files)
+            failed(&Failure::Partial(shots.clone()), &files)
         }
-        Err(failure) => failed(&failure, &[]),
-    }
+        Err(failure) => failed(failure, &[]),
+    };
+    outcome.annotate(data)
 }
 
 /// The Photos card's way to a DSLR: only while the camera streams, since only the stream's thread can talk to it.
@@ -837,15 +995,15 @@ impl GphotoStills {
         let late_folder = folder.clone();
         let late_hidden = hidden.clone();
         let late: Late = Arc::new(move |outcome| {
-            let shots = match outcome {
-                Ok(shots) | Err(Failure::Partial(shots)) => shots,
-                Err(_) => return,
+            let shots = match &outcome.result {
+                Ok(shots) | Err(Failure::Partial(shots)) => shots.as_slice(),
+                Err(_) => &[],
             };
             // A photo that comes late is saved unless the picture is hidden by then
             let covered = || late_hidden.as_ref().is_some_and(|h| h.load(Ordering::SeqCst));
-            let files = save(&late_folder, &shots, &covered).unwrap_or_else(|(_, files)| files);
-            if !files.is_empty() {
-                let said = json!({"state": "late", "files": files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>()});
+            let files = save(&late_folder, shots, &covered).unwrap_or_else(|(_, files)| files);
+            if !files.is_empty() || !outcome.restore_errors.is_empty() {
+                let said = outcome.annotate(json!({"state": "late", "files": files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>() }));
                 (*tell.lock().unwrap_or_else(|e| e.into_inner()))(said);
             }
         });

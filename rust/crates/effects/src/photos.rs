@@ -56,7 +56,7 @@ const BRACKET_GAP_TIP: &str = n_("EV between photos");
 const BURST_TIP: &str = n_("Number of photos in the burst.");
 const SHOTS_TIP: &str = n_("Take one photo, a burst or a set at different exposures or focus distances.");
 const TIMER_TIP: &str = n_("Wait a few seconds before taking the photo.");
-const EXPOSURE_TIP: &str = n_("A long exposure uses the video's ISO and the video stops while the shutter is open.");
+const EXPOSURE_TIP: &str = n_("Set the shutter speed for the photo. ISO is the camera's unless you set it below. The video pauses while the shutter is open.");
 const BEST_TIP: &str = n_("Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer.");
 const BEST_OFF_TIP: &str = n_("This lens and mode have no extra noise reduction or sharpening to offer");
 const QUALITY_CAMERA_TIP: &str = n_("JPEG quality is set by the camera");
@@ -104,6 +104,7 @@ struct Tile {
 
 pub struct PhotosPlugin {
     choices: Choices,
+    customize_open: bool,
     folder: String,
     /// Where photos go until another folder is picked, to tell when one was
     default_folder: String,
@@ -144,6 +145,7 @@ impl PhotosPlugin {
     pub fn new() -> PhotosPlugin {
         PhotosPlugin {
             choices: defaults(),
+            customize_open: false,
             folder: default_folder(),
             default_folder: default_folder(),
             caps: None,
@@ -353,6 +355,14 @@ impl PhotosPlugin {
         });
         if let (Value::Object(all), Value::Object(more)) = (&mut props, range) {
             all.extend(more);
+        }
+        if let Some(all) = props.as_object_mut() {
+            if let Value::Object(more) = shot_control_props(self.caps.as_ref(), &shot_choice(c.get("shot")), false, extension) {
+                all.extend(more);
+            }
+            all.insert("customize-open".into(), json!(self.customize_open));
+            all.insert("customize-shown".into(), json!(!caps.camera));
+            if extension { all.insert("shot-iso-tip".into(), json!(tr("This mode sets its own exposure"))); }
         }
         props
     }
@@ -695,6 +705,11 @@ impl PhotosPlugin {
         }
         let caps: StillCaps = serde_json::from_value(raw).unwrap_or_default();
         let mut options = build_options(&caps, &self.choices, Self::rotation(host));
+        if !caps.camera {
+            let can = offered(&caps, &self.choices);
+            let maker = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes));
+            add_shot(&mut options, &caps, &shot_choice(self.choices.get("shot")), false, maker);
+        }
         if caps.camera {
             camera_options(&mut options, self.camera_picks[0].as_deref(), self.camera_picks[1].as_deref());
         }
@@ -764,6 +779,10 @@ impl PhotosPlugin {
 
     /// The files of a photo that came late: they are saved, and the person is told even with the window in front, since they stopped waiting.
     fn late(&mut self, host: &mut dyn Host, data: &Value) {
+        if data.get("code").and_then(Value::as_str) == Some("restore") {
+            self.done(host, data);
+            return;
+        }
         let files: Vec<String> = data.get("files").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default();
         let Some(first) = files.first() else { return };
         let name = Path::new(first).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
@@ -893,6 +912,19 @@ impl Plugin for PhotosPlugin {
         self.catch_up(host);
         let index = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0).max(0.0) as usize;
         match event.callback.as_str() {
+            "customize-toggled" => {
+                self.customize_open = event.args.first().and_then(Value::as_bool).unwrap_or(false);
+                self.show_choices(host);
+            }
+            "shot-iso-picked" => {
+                let caps = self.effective_caps();
+                let can = offered(&caps, &self.choices);
+                let maker = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes));
+                let mut shot = shot_choice(self.choices.get("shot"));
+                if !caps.camera && pick_shot(&mut shot, &caps, false, index(0), maker) {
+                    self.pick_value(host, "shot", shot.to_options_value());
+                }
+            }
             "take-clicked" => self.take(host),
             "open-clicked" => self.open_folder(host),
             "tile-picked" => self.pick_index(host, event.args.first().and_then(Value::as_str).unwrap_or(""), index(1)),
@@ -1053,6 +1085,9 @@ impl Plugin for PhotosPlugin {
         }
         if !TIMERS.iter().any(|t| *t as f64 == number(&choices, "timer", 0.0)) {
             choices.insert("timer".into(), json!(0));
+        }
+        if let Some(value) = cfg.get("shot") {
+            choices.insert("shot".into(), shot_choice(Some(value)).to_options_value());
         }
         self.choices = choices;
         self.folder = cfg.get("folder").and_then(Value::as_str).filter(|f| !f.is_empty()).map_or_else(default_folder, String::from);

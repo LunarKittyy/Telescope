@@ -11,6 +11,7 @@ export component ShotControls inherits VerticalLayout {
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
     in property <bool> show-shutter: true;
+    in property <bool> iso-only-caption: false;
     in property <[string]> shutter-stops: [@tr("Camera")];
     in property <int> shutter-index;
     in property <bool> shutter-enabled;
@@ -34,7 +35,7 @@ export component ShotControls inherits VerticalLayout {
     spacing: Theme.gap;
     RailRow {
         icon: Icons.exposure;
-        label: @tr("Shutter and ISO");
+        label: root.iso-only-caption ? @tr("ISO") : @tr("Shutter and ISO");
         hue: root.hue;
         enabled: root.enabled && ((root.show-shutter && root.shutter-enabled) || root.iso-enabled);
         changed: (root.show-shutter && root.shutter-index != 0) || root.iso-index != 0;

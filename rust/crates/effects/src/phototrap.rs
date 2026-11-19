@@ -1,7 +1,7 @@
 //! The Phototrap plugin: zones drawn on the preview are watched for movement while it's armed, and each time something moves in one
 //! the phone takes a short burst of photos. Nothing is saved until something sets it off, and only photos, never video.
 
-use crate::stills::{build_options, default_folder, defaults, offered, StillCaps};
+use crate::stills::{build_options, default_folder, defaults, offered, add_shot, pick_shot, shot_choice, shot_control_props, ShotChoice, StillCaps};
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use telescope_core::event::Event;
@@ -106,6 +106,8 @@ pub struct PhototrapPlugin {
     count: u32,
     pause_s: u32,
     night: bool,
+    shot: ShotChoice,
+    customize_open: bool,
     paired: Paired,
     /// The zones and sensitivity the watch on the host runs with, None while there's none.
     watch: Option<(Vec<[f32; 4]>, u32)>,
@@ -158,6 +160,8 @@ impl PhototrapPlugin {
             count: DEFAULT_COUNT,
             pause_s: DEFAULT_PAUSE_S,
             night: false,
+            shot: ShotChoice::default(),
+            customize_open: false,
             paired: Paired::default(),
             watch: None,
             source: None,
@@ -253,7 +257,12 @@ impl PhototrapPlugin {
             choices.insert("mode".into(), json!("night"));
         }
         let rotation = host.view().rotation.filter(|r| [90, 180, 270].contains(r)).unwrap_or(0);
-        build_options(caps, &choices, rotation)
+        let mut options = build_options(caps, &choices, rotation);
+        if caps.camera {
+            if let Some(map) = options.as_object_mut() { map.remove("quality"); }
+        }
+        add_shot(&mut options, caps, &self.shot, true, self.night && self.night_offered());
+        options
     }
 
     // ── What the card shows ───────────────────────────────────────────
@@ -302,7 +311,7 @@ impl PhototrapPlugin {
         let night_offered = self.night_offered();
         let preview = host.has_plugin("preview");
         let here = self.on_armed_source(host);
-        json!({
+        let mut props = json!({
             "active": self.paired.on(), "armed": self.armed, "status": status, "status-kind": kind, "tally": self.tally(),
             "zone-count": self.zones.len(), "draw-enabled": self.zones.len() < MAX_ZONES && preview && here, "clear-enabled": !self.zones.is_empty(),
             "draw-tip": tr(if !preview { DRAW_OFF_TIP } else if !here { DRAW_ELSEWHERE_TIP } else { DRAW_TIP }),
@@ -313,8 +322,12 @@ impl PhototrapPlugin {
             "pause": self.pause_s, "pause-text": tr("{seconds} s").field("seconds", self.pause_s),
             "night": self.night, "night-enabled": night_offered,
             "night-tip": tr(if night_offered { NIGHT_TIP } else { NIGHT_OFF_TIP }),
-            "reset-shown": self.reset_shown(),
-        })
+            "reset-shown": self.reset_shown(), "customize-open": self.customize_open,
+        });
+        if let (Some(all), Value::Object(more)) = (props.as_object_mut(), shot_control_props(self.caps.as_ref(), &self.shot, true, self.night && night_offered)) {
+            all.extend(more);
+        }
+        props
     }
 
     fn all_props(&self, host: &dyn Host) -> Value {
@@ -636,6 +649,10 @@ impl Plugin for PhototrapPlugin {
             host.set_ui_props("card", &json!({"active": on}));
         }
         match event {
+            Event::RequestProgress { data, .. } if data.get("state").and_then(Value::as_str) == Some("late") && data.get("code").and_then(Value::as_str) == Some("restore") => {
+                self.problem = Some(data.get("error").and_then(Value::as_str).filter(|e| !e.is_empty()).map_or_else(|| tr("Couldn't restore the camera settings."), String::from));
+                self.show(host);
+            }
             // Only the stream it was armed on: another phone's movement is nothing to it
             Event::MotionSeen { source_id, owner, zones } if owner == NAME && self.source.as_deref() == Some(source_id.as_str()) => self.motion(host, zones),
             Event::PreviewPicked { owner, pick } if owner == NAME => match pick {
@@ -697,6 +714,19 @@ impl Plugin for PhototrapPlugin {
         let flag = event.args.first().and_then(Value::as_bool).unwrap_or(false);
         let number = event.args.first().and_then(Value::as_f64).unwrap_or(0.0);
         match event.callback.as_str() {
+            "customize-toggled" => {
+                self.customize_open = flag;
+                self.show(host);
+            }
+            "shot-shutter-picked" | "shot-iso-picked" => {
+                let suppressed = self.night && self.night_offered();
+                if let Some(caps) = &self.caps {
+                    if pick_shot(&mut self.shot, caps, event.callback == "shot-shutter-picked", number.max(0.0) as usize, suppressed) {
+                        self.show(host);
+                        host.schedule_save();
+                    }
+                }
+            }
             "switch-toggled-by-hand" => self.arm(host, flag),
             "draw-clicked" => self.draw(host),
             "folder-clicked" => {
@@ -724,6 +754,7 @@ impl Plugin for PhototrapPlugin {
     /// Armed isn't saved, so a restart never starts taking photos.
     fn get_config(&self) -> Value {
         let mut cfg = json!({"zones": self.zones, "sensitivity": self.sensitivity, "count": self.count, "pause": self.pause_s, "night": self.night});
+        if self.shot != ShotChoice::default() { cfg["shot"] = self.shot.to_options_value(); }
         // The zones' orientation, so they follow the view if it's turned another way by the time they're loaded
         if self.orientation != Turn::default() {
             cfg["turn"] = json!(self.orientation);
@@ -746,6 +777,7 @@ impl Plugin for PhototrapPlugin {
         self.count = number("count", DEFAULT_COUNT, 2, 64);
         self.pause_s = number("pause", DEFAULT_PAUSE_S, 1, MAX_PAUSE_S);
         self.night = cfg.get("night") == Some(&Value::Bool(true));
+        self.shot = shot_choice(cfg.get("shot"));
         self.orientation = cfg.get("turn").and_then(|t| serde_json::from_value(t.clone()).ok()).unwrap_or_default();
         self.pending = true;
         Ok(())

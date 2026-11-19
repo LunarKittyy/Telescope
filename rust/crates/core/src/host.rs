@@ -754,10 +754,11 @@ pub trait HostPreview {
     fn preview_composited(&mut self, _owner: &str, _source_id: Option<&str>) {}
 }
 
-/// Full-quality photos taken on the phone.
+/// Full-quality photos from a phone or a camera that supports stills.
 pub trait HostStills {
+    /// Available photo settings, including optional shot ranges and numeric DSLR choices with their raw labels.
     fn still_caps(&self, source_id: Option<&str>) -> Option<Value>;
-    /// Takes a photo with the /v1/still options into folder; None when it can't start. Progress and the result come as events.
+    /// Takes a photo with /v1/still options and optional neutral shot overrides into folder; None when it can't start, otherwise progress and results include applied settings and DSLR restore errors.
     fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId>;
     /// Cancels this plugin's pending photo; its thread discards the result and tells the phone to forget it.
     fn cancel_still(&mut self, request: RequestId);

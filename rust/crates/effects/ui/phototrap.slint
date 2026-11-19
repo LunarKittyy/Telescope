@@ -2,6 +2,23 @@
 // The tally row keeps its place with nothing in it, so a trigger moves nothing.
 
 export component PhototrapCard inherits Card {
+    in property <bool> customize-open;
+    in property <string> shot-summary;
+    in property <[string]> shot-shutter-stops: [@tr("Camera")];
+    in property <int> shot-shutter-index;
+    in property <bool> shot-shutter-enabled;
+    in property <string> shot-shutter-tip;
+    in property <[string]> shot-iso-stops: [@tr("Camera")];
+    in property <int> shot-iso-index;
+    in property <bool> shot-iso-enabled;
+    in property <string> shot-iso-tip;
+    in property <string> shot-focus-tip;
+    in property <float> shot-focus-value;
+    in property <bool> shot-focus-unset: true;
+    in property <string> shot-focus-readout: @tr("Camera");
+    callback customize-toggled(bool);
+    callback shot-shutter-picked(int);
+    callback shot-iso-picked(int);
     in property <bool> active: true;
     idle: !active;
     in property <bool> armed;
@@ -119,6 +136,101 @@ export component PhototrapCard inherits Card {
         default-value: 10;
         moved(v) => { root.pause-moved(v); }
     }
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.camera;
+                label: @tr("Customise camera");
+                hue: root.hue;
+                enabled: active;
+                Rectangle {
+                    horizontal-stretch: 1;
+                    preferred-width: 1000px;
+                    height: Theme.row;
+                    Button {
+                        width: parent.width;
+                        height: parent.height;
+                        shrinks: true;
+                        enabled: active;
+                        tip: @tr("Customise camera");
+                        tip-detail: root.shot-summary;
+                        accessible-label: @tr("Customise camera");
+                        accessible-value: root.shot-summary;
+                        accessible-expandable: true;
+                        accessible-expanded: root.customize-open;
+                        clicked => { root.customize-toggled(!root.customize-open); }
+                    }
+                    HorizontalLayout {
+                        width: parent.width;
+                        height: parent.height;
+                        padding-left: Theme.u(6);
+                        padding-right: Theme.u(6);
+                        spacing: Theme.gap;
+                        if root.width >= Theme.u(200): Text {
+                            text: @tr("Customise camera");
+                            font-family: Theme.font;
+                            font-size: Theme.body;
+                            font-weight: Theme.w-label;
+                            color: active ? Theme.ink : Theme.dis;
+                            vertical-alignment: center;
+                            overflow: elide;
+                            min-width: 0px;
+                            horizontal-stretch: 1;
+                            accessible-role: none;
+                        }
+                        Text {
+                            text: root.shot-summary;
+                            font-family: Theme.font;
+                            font-size: Theme.body;
+                            font-weight: Theme.w-value;
+                            color: active ? Theme.ink : Theme.dis;
+                            vertical-alignment: center;
+                            horizontal-alignment: right;
+                            overflow: elide;
+                            min-width: 0px;
+                            horizontal-stretch: 1;
+                            accessible-role: none;
+                        }
+                        Rectangle {
+                            width: Theme.u(8);
+                            Path {
+                                width: Theme.u(8);
+                                height: Theme.u(8);
+                                y: round((parent.height - self.height) / 2 / 1phx) * 1phx;
+                                viewbox-x: Theme.stroke / 2 / 1px;
+                                viewbox-y: Theme.stroke / 2 / 1px;
+                                viewbox-width: 16 - Theme.stroke / 1px;
+                                viewbox-height: 16 - Theme.stroke / 1px;
+                                commands: root.customize-open ? "M 4.5 9.5 L 8 6 L 11.5 9.5" : "M 4.5 6.5 L 8 10 L 11.5 6.5";
+                                stroke: active ? Theme.ink : Theme.dis;
+                                stroke-width: Theme.stroke;
+                            }
+                        }
+                    }
+                }
+            }
+            Unfolding {
+                open: root.customize-open;
+                ShotControls {
+                    hue: root.hue;
+                    enabled: active;
+                    shutter-stops: root.shot-shutter-stops;
+                    shutter-index: root.shot-shutter-index;
+                    shutter-enabled: root.shot-shutter-enabled;
+                    shutter-tip: root.shot-shutter-tip;
+                    iso-stops: root.shot-iso-stops;
+                    iso-index: root.shot-iso-index;
+                    iso-enabled: root.shot-iso-enabled;
+                    iso-tip: root.shot-iso-tip;
+                    focus-enabled: false;
+                    focus-tip: root.shot-focus-tip;
+                    focus-value: root.shot-focus-value;
+                    focus-unset: root.shot-focus-unset;
+                    focus-readout: root.shot-focus-readout;
+                    shutter-picked(i) => { root.shot-shutter-picked(i); }
+                    iso-picked(i) => { root.shot-iso-picked(i); }
+                }
+            }
+        }
     SwitchRow {
         icon: Icons.moon;
         label: @tr("Night");

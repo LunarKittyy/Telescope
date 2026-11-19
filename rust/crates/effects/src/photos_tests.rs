@@ -1065,3 +1065,48 @@ fn the_focus_range_slider_sets_the_ends_and_both_at_the_ends_is_the_whole_lens()
     none.caps_changed();
     assert_eq!(none.props()["focus-range-shown"], json!(false));
 }
+
+#[test]
+fn shot_iso_keeps_photos_exposure_and_is_suppressed_in_maker_modes() {
+    let mut value = full_json();
+    value["shot"] = json!({"iso": {"min": 100, "max": 800}});
+    let mut rig = Rig::new(Some(value), true);
+    rig.plugin.set_config(&json!({"exposure_s": 8.0, "shot": {"shutter_s": 20.0, "iso": 800}, "folder": "/tmp/photos"})).unwrap();
+    rig.caps_changed();
+    assert_eq!(rig.props()["shot-summary"], "ISO 800");
+    assert_eq!(rig.props()["customize-shown"], true);
+    rig.ui("take-clicked", vec![]);
+    assert_eq!(rig.host.stills_taken[0].0["exposure_ns"], 8_000_000_000i64);
+    assert_eq!(rig.host.stills_taken[0].0["shot"], json!({"iso": 800}));
+    rig.plugin.apply_preset(&mut rig.host, &json!({"mode": "night"})).unwrap();
+    assert_eq!(rig.props()["shot-iso-enabled"], false);
+    rig.ui("shot-iso-picked", vec![json!(0)]);
+    assert_eq!(rig.plugin.get_config()["shot"]["iso"], 800);
+    rig.ui("take-clicked", vec![]);
+    assert!(rig.host.stills_taken[1].0.get("shot").is_none());
+    assert!(rig.host.stills_taken[1].0.get("exposure_ns").is_none());
+}
+
+#[test]
+fn photos_shot_presets_reset_and_dslr_visibility_are_independent() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.plugin.set_config(&json!({"shot": {"iso": 800}, "folder": "/chosen/photos"})).unwrap();
+    rig.caps_changed();
+    rig.plugin.apply_preset(&mut rig.host, &json!({"quality": 90})).unwrap();
+    assert_eq!(rig.plugin.preset_config()["shot"], json!({"iso": 800}));
+    assert!(rig.plugin.preset_config().get("folder").is_none());
+    rig.host.still_caps = Some(json!({"camera": true}));
+    rig.caps_changed();
+    assert_eq!(rig.props()["customize-shown"], false);
+    rig.ui("reset-clicked", vec![]);
+    assert!(rig.plugin.get_config().get("shot").is_none());
+    assert_eq!(rig.plugin.folder, "/chosen/photos");
+}
+
+#[test]
+fn a_late_restore_failure_is_shown_even_without_files() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.event(Event::RequestProgress { request: RequestId(99), data: json!({"state": "late", "code": "restore", "ok": false, "error": "Restore failed", "files": []}) });
+    assert_eq!(rig.props()["status"], "Restore failed");
+    assert_eq!(rig.props()["status-kind"], "status_err");
+}
