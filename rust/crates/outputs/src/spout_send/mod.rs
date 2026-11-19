@@ -53,6 +53,10 @@ pub trait Sender: Send {
     }
     /// The next picture, B, G, R, A per pixel, top row first, at the size the sender was opened with.
     fn send(&mut self, bgra: &[u8]) -> Result<(), String>;
+    /// send for a picture the caller won't keep: the sender may take the buffer and leave another (or an empty one) in its place, which the caller fills with the next picture.
+    fn send_buffer(&mut self, bgra: &mut Vec<u8>) -> Result<(), String> {
+        self.send(bgra)
+    }
 }
 
 /// What this system shares pictures through: Spout on Windows, PipeWire on Linux.

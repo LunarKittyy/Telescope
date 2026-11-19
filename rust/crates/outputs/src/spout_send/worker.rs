@@ -173,7 +173,7 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
             continue;
         }
         if let Some((_, _, sender)) = open.as_mut() {
-            match sender.send(&bytes) {
+            match sender.send_buffer(&mut bytes) {
                 Ok(()) => tell(State::Sending(size.0, size.1)),
                 Err(why) => {
                     log::warn!("the sender {name} stopped: {why}");
