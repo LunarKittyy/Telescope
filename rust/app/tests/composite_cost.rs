@@ -326,7 +326,7 @@ fn start_worker(id: &str, steps: Vec<StagedStep>, stream: Arc<Stream>, balance: 
     let (queue, stopped, slot) = (Arc::new(Queue::default()), Arc::new(AtomicBool::new(false)), Slot::new());
     let (q, s) = (queue.clone(), stopped.clone());
     let opener: Opener = Arc::new(move |_| Ok((Codec::Mjpeg, Box::new(Feed(q.clone(), s.clone())) as Box<dyn VideoFeed>).into()));
-    let setup = WorkerSetup { url: "url".into(), opener, width: None, height: None, fps: FPS as u32, canvas: (None, None), slot: 0, source_id: id.into(),
+    let setup = WorkerSetup { label: String::new(), url: "url".into(), opener, width: None, height: None, fps: FPS as u32, canvas: (None, None), slot: 0, source_id: id.into(),
                               hardware_decode: false, hardware_default: false, plugin_source: false, waiting_text: None, vision: Some(vision), steps, gate: None, idle: None };
     let worker = StreamWorker::start(setup, Arc::new(TestMedia(queue.clone(), balance)), Arc::new(NoCameras), slot.clone() as Arc<dyn FrameSlot>, Arc::new(|_| {})).unwrap();
     Running { stream, slot, worker, queue, stopped, overruns: Arc::new(AtomicU64::new(0)), pacer: None }

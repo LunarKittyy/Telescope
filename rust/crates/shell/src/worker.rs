@@ -97,6 +97,8 @@ impl Opened {
 
 /// What a worker starts with.
 pub struct WorkerSetup {
+    /// What the stream is called in the log: "phone -> Telescope".
+    pub label: String,
     pub url: String,
     pub opener: Opener,
     /// The size frames are scaled to before the plugins, None to pass them through.
@@ -382,6 +384,7 @@ impl Cap {
 }
 
 struct Shared {
+    label: String,
     url: Mutex<String>,
     opener: Mutex<Opener>,
     waiting_text: Option<WaitingText>,
@@ -580,7 +583,7 @@ impl StreamWorker {
         let tap = media.packet_tap();
         let view_epoch = setup.vision.as_ref().map_or(0, |f| f.service.view_epoch());
         let shared = Arc::new(Shared {
-            url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), waiting_text: setup.waiting_text, media, outputs, events,
+            label: setup.label, url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), waiting_text: setup.waiting_text, media, outputs, events,
             slot_number: setup.slot, source_id: setup.source_id, vision: setup.vision, hardware: setup.hardware_decode, hardware_default: setup.hardware_default,
             plugin_source: setup.plugin_source, size: Mutex::new((setup.width, setup.height)),
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
@@ -607,8 +610,9 @@ impl StreamWorker {
             s.join_handover();
             s.join_replays();
             Hub::shared().unregister(&s.stats);
+            log::info!("{}: Stream ended", s.label);
             if let Some(line) = telescope_core::perf::stage_line() {
-                log::info!("Stream ended. {line}");
+                log::info!("{}: {line}", s.label);
             }
             s.forget_in_vision();
             (crate::window::app_hooks().release_memory)();
@@ -2282,7 +2286,7 @@ mod tests {
     }
 
     fn setup(opener: Opener) -> WorkerSetup {
-        WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
+        WorkerSetup { label: String::new(), url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
                       canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, hardware_default: false, waiting_text: None, vision: None,
                       plugin_source: false, steps: Vec::new(), gate: None, idle: None }
     }
@@ -4015,7 +4019,7 @@ mod tests {
         let opener: Opener = Arc::new(move |_| {
             Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
-        let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
+        let setup = WorkerSetup { label: String::new(), url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
                                   source_id: source.into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None, idle: None };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
@@ -4100,7 +4104,7 @@ mod tests {
         let opener: Opener = Arc::new(|_| {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
-        let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
+        let setup = WorkerSetup { label: String::new(), url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
                                   waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision, steps, gate, idle: None };
         StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
                             telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap()
@@ -4112,7 +4116,7 @@ mod tests {
         let opener: Opener = Arc::new(|_| {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
-        let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 60, canvas: (None, None), slot,
+        let setup = WorkerSetup { label: String::new(), url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 60, canvas: (None, None), slot,
                                   waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false,
                                   vision: None, steps: Vec::new(), gate: None, idle: Some(gate) };
         StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
@@ -4405,7 +4409,7 @@ mod tests {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
         let vision = VisionFeed { service: Arc::<Masks>::default(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None, owners: Arc::default(), owner: 1 };
-        let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
+        let setup = WorkerSetup { label: String::new(), url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
                                   waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision: Some(vision), steps: Vec::new(), gate: None, idle: None };
         let (seen, log) = (Arc::new(Seen::default()), Arc::new(Mutex::new(Vec::new())));
         let sink = log.clone();
@@ -4630,7 +4634,7 @@ mod tests {
         // Every other frame is visible to the camera loop a moment before it is counted as published, as it can be on a busy machine
         let slot = telescope_media_free_slot(Duration::from_millis(3));
         let events: Events = Arc::new(|_| {});
-        let w = StreamWorker::start(WorkerSetup { source_id: "steady-test".into(), url: "https://127.0.0.1:40002/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: "steady-test".into(), url: "https://127.0.0.1:40002/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
         wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 60);
         std::thread::sleep(Duration::from_millis(500));
         let snap = Hub::shared().snapshot();
@@ -4649,7 +4653,7 @@ mod tests {
         let cams = Arc::new(Cams::default());
         cams.fail_next_send.store(true, Ordering::SeqCst);
         let events: Events = Arc::new(|_| {});
-        let w = StreamWorker::start(WorkerSetup { source_id: "reopen-test".into(), url: "https://127.0.0.1:40004/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: "reopen-test".into(), url: "https://127.0.0.1:40004/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 200);
         std::thread::sleep(Duration::from_millis(600));
         let snap = Hub::shared().snapshot();
@@ -4665,7 +4669,7 @@ mod tests {
         let (opener, _opens) = scripted(vec![Some(steps)]);
         let cams = Arc::new(Cams::default());
         let events: Events = Arc::new(|_| {});
-        let w = StreamWorker::start(WorkerSetup { source_id: "requested-reopen-test".into(), url: "https://127.0.0.1:40006/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: "requested-reopen-test".into(), url: "https://127.0.0.1:40006/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) >= 30);
         cams.open_delay_ms.store(300, Ordering::SeqCst);
         w.update_output(None, None, Some(15));
@@ -4685,7 +4689,7 @@ mod tests {
         let cams = Arc::new(Cams::default());
         cams.fail_next_send.store(true, Ordering::SeqCst);
         let events: Events = Arc::new(|_| {});
-        let w = StreamWorker::start(WorkerSetup { source_id: "retry-count-test".into(), url: "https://127.0.0.1:40005/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: "retry-count-test".into(), url: "https://127.0.0.1:40005/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         wait_for(|| !cams.sent.lock().unwrap().is_empty());
         std::thread::sleep(Duration::from_millis(300));
         let snap = Hub::shared().snapshot();
@@ -4700,7 +4704,7 @@ mod tests {
         let (opener, _opens) = scripted(vec![Some(steps)]);
         let cams = Arc::new(Cams::default());
         let events: Events = Arc::new(|_| {});
-        let w = StreamWorker::start(WorkerSetup { source_id: id.into(), url: "https://127.0.0.1:40003/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: id.into(), url: "https://127.0.0.1:40003/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         let n = gaps.len() as u64;
         wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == n);
         // A busy machine can still be sending the last frame, so wait until every frame is counted one way or the other
@@ -4772,7 +4776,7 @@ mod tests {
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
         let hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
-        let w = start(WorkerSetup { source_id: "stats-test".into(), url: "https://127.0.0.1:40001/v1/video".into(), ..setup(opener) }, Arc::new(TroubledMedia), &cams, &log);
+        let w = start(WorkerSetup { label: String::new(), source_id: "stats-test".into(), url: "https://127.0.0.1:40001/v1/video".into(), ..setup(opener) }, Arc::new(TroubledMedia), &cams, &log);
         wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 20);
         // Past the end of the packets, long enough for the camera to repeat the last frame
         std::thread::sleep(Duration::from_millis(500));

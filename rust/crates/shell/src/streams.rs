@@ -88,6 +88,8 @@ pub struct Streams {
     /// Whether the idle Start button was last shown for a camera that's off.
     idle_camera_off: Cell<bool>,
     reconnecting: RefCell<Option<(slint::Timer, String, Cell<u32>)>>,
+    /// The last streams summary the log got, so it says it again only when it changes.
+    streams_logged: RefCell<String>,
     /// Takes the red off the frame rate again after a size that didn't land.
     fps_tone_timer: slint::Timer,
     /// By source: how long a resolution change may take before the footer says it didn't land.
@@ -220,6 +222,14 @@ struct Host<'a> {
 
 fn key(id: Option<&str>) -> String {
     id.unwrap_or("").to_string()
+}
+
+/// The "Status:" line for the log, with the stream it is about when there is one.
+fn status_line(source: Option<&SourceRef>, msg: &str) -> String {
+    match source {
+        Some(source) => format!("{}: Status: {msg}", crate::session::stream_label(source)),
+        None => format!("Status: {msg}"),
+    }
 }
 
 fn slot_label(slot: u32) -> String {
@@ -512,10 +522,32 @@ impl Window {
         }
     }
 
+    /// One line for the log whenever the streams, their outputs or One picture change.
+    fn log_streams(&self, flow: &StreamFlow) {
+        let names: Vec<String> = flow.sessions.streams.iter().map(|s| crate::session::stream_label(s)).collect();
+        let mut line = match names.len() {
+            0 => "No streams".to_string(),
+            1 => format!("1 stream: {}", names[0]),
+            n => format!("{n} streams: {}", names.join(", ")),
+        };
+        let one_picture = self.state.try_borrow().ok().and_then(|st| st.plugin_config("composite")).is_some_and(|c| c["on"].as_bool() == Some(true));
+        if one_picture && !names.is_empty() {
+            let phones: Vec<String> = flow.sessions.streams.iter().map(|s| s.kind.name()).collect();
+            line.push_str(&format!("; One picture on ({})", phones.join(", ")));
+        }
+        let mut last = self.streams.streams_logged.borrow_mut();
+        // Nothing to say about a start that has not streamed yet
+        if *last != line && !(last.is_empty() && names.is_empty()) {
+            log::info!("{line}");
+        }
+        *last = line;
+    }
+
     fn sync_streams(self: &Rc<Self>) {
         let flow = self.streams.flow.borrow();
         self.stream_snapshot(&flow);
         let s = &flow.sessions;
+        self.log_streams(&flow);
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
         self.state.borrow().colour.set_streams(s.streams.iter().map(|x| x.id_str()));
         for w in due {
@@ -629,7 +661,10 @@ impl Window {
     /// The Start button: stop everything, or start what's picked.
     pub fn toggle_stream(self: &Rc<Self>) {
         if self.is_streaming() {
-            self.with_flow(|flow, host| flow.stop_all(host, true));
+            self.with_flow(|flow, host| {
+                flow.stop_reason = "the Stop button (all streams)";
+                flow.stop_all(host, true);
+            });
         } else if !self.streams.flow.borrow().sessions.preparing {
             self.with_flow(|flow, host| flow.start(host, true, None));
         }
@@ -849,8 +884,15 @@ impl Window {
     }
 
     pub fn stop_all_streams(self: &Rc<Self>) {
+        self.stop_all_because("a shortcut, the remote or a plugin");
+    }
+
+    pub fn stop_all_because(self: &Rc<Self>, why: &'static str) {
         if self.is_streaming() {
-            self.with_flow(|flow, host| flow.stop_all(host, true));
+            self.with_flow(move |flow, host| {
+                flow.stop_reason = why;
+                flow.stop_all(host, true);
+            });
         }
     }
 
@@ -901,6 +943,11 @@ impl Window {
     /// _on_worker_status: the footer for the shown stream, the tile and recovery for the others.
     pub fn worker_status(self: &Rc<Self>, source: &SourceRef, kind: &str, msg: &str) {
         source.state.borrow_mut().note_status(kind, msg);
+        if matches!(kind, "info" | "ok" | "waiting" | "reconnecting" | "error" | "warn") {
+            // The output is in the label already
+            let msg = if msg.starts_with("Streaming ") { msg.rsplit_once(" fps to ").map_or(msg.to_string(), |(head, _)| format!("{head} fps")) } else { msg.to_string() };
+            log::info!("{}: {msg}", crate::session::stream_label(source));
+        }
         let (active, several) = {
             let flow = self.streams.flow.borrow();
             (crate::session::same(&flow.sessions.focus, source), flow.sessions.streams.len() > 1)
@@ -940,7 +987,7 @@ impl Window {
                 self.on_slow_arrival(source);
             }
             "ok" => {
-                self.set_status(msg, "ok");
+                self.set_status_for(Some(source), msg, "ok");
                 self.set_behind(source, false);
                 let keep_others = |k: &str| k == "h264" || (k.starts_with("stopped:") && k != format!("stopped:{}", source.id_str()));
                 {
@@ -954,14 +1001,14 @@ impl Window {
                 }
                 self.process();
             }
-            "warn" => self.set_status(msg, "warn"),
+            "warn" => self.set_status_for(Some(source), msg, "warn"),
             "waiting" => {
                 // No first frame yet: maybe the route died between waking the phone and now
-                self.set_status(msg, "warn");
+                self.set_status_for(Some(source), msg, "warn");
                 self.with_flow(|flow, host| flow.begin_recovery(host, None));
             }
             "reconnecting" => {
-                self.start_reconnecting_animation(msg);
+                self.start_reconnecting_animation(Some(source), msg);
                 self.with_flow(|flow, host| flow.begin_recovery(host, None));
             }
             "idle" => {
@@ -969,20 +1016,23 @@ impl Window {
                 self.set("fps", "-");
                 self.set("net-tone", "");
                 self.set("net", "-");
-                self.set_status(msg, "dim");
+                self.set_status_for(Some(source), msg, "dim");
                 if source.has_session() {
                     // Stop takes the worker out first, so this is a worker that ended by itself: tidy up like a Stop.
                     self.ended_by_itself(source, false);
                 }
             }
-            _ => self.set_status(msg, "dim"),
+            _ => self.set_status_for(Some(source), msg, "dim"),
         }
     }
 
     fn ended_by_itself(self: &Rc<Self>, source: &SourceRef, background: bool) {
-        log::warn!("The stream worker for {} ended by itself", source.kind.name());
+        log::warn!("{}: The stream worker ended by itself", crate::session::stream_label(source));
         let s = source.clone();
-        self.with_flow(move |flow, host| flow.stop(host, true, Some(s), false));
+        self.with_flow(move |flow, host| {
+            flow.stop_reason = "an error (the worker ended by itself)";
+            flow.stop(host, true, Some(s), false);
+        });
         let title = if background {
             fill(&tr("The stream from {name} stopped unexpectedly"), &[("name", &source.kind.name())])
         } else {
@@ -1047,7 +1097,12 @@ impl Window {
 
     /// _set_status: only trouble gets a colour.
     pub fn set_status(&self, msg: &str, kind: &str) {
-        telescope_core::diagnostics::events().note(&format!("Status: {msg}"));
+        self.set_status_for(None, msg, kind);
+    }
+
+    /// set_status for a stream: the log line says which.
+    pub fn set_status_for(&self, source: Option<&SourceRef>, msg: &str, kind: &str) {
+        telescope_core::diagnostics::events().note(&status_line(source, msg));
         if let Some((timer, _, _)) = self.streams.reconnecting.borrow().as_ref() {
             timer.stop();
         }
@@ -1057,8 +1112,8 @@ impl Window {
     }
 
     /// Reconnecting status with its dots counting up once a second.
-    fn start_reconnecting_animation(self: &Rc<Self>, base: &str) {
-        telescope_core::diagnostics::events().note(&format!("Status: {base}"));
+    fn start_reconnecting_animation(self: &Rc<Self>, source: Option<&SourceRef>, base: &str) {
+        telescope_core::diagnostics::events().note(&status_line(source, base));
         let render = |w: &Window, base: &str, dots: u32| {
             w.set("status-kind", "status_warn");
             w.set("status", format!("{base}{}", ".".repeat(dots as usize)));
@@ -1407,7 +1462,10 @@ impl Window {
             return;
         }
         if self.streams.flow.borrow().sessions.is_streaming_from(Some(id)) {
-            self.with_flow(|flow, host| flow.stop_stream(host, Some(id)));
+            self.with_flow(|flow, host| {
+                flow.stop_reason = "its plugin source going away";
+                flow.stop_stream(host, Some(id));
+            });
         }
         let idle = self.streams.flow.borrow().sessions.streams.is_empty();
         let next = self.streams.plugin_sources.borrow().keys().find(|s| s.as_str() != id).cloned();
@@ -1621,7 +1679,7 @@ impl Window {
     }
 
     pub fn stop_streams_for_quit_by(self: &Rc<Self>, deadline: std::time::Instant) {
-        self.stop_all_streams();
+        self.stop_all_because("quitting");
         for source in self.streams.sources.borrow().values() {
             if let Some(p) = source.kind.as_phone() {
                 p.drain_stops(deadline);
@@ -1660,7 +1718,7 @@ impl SourceHost for Rc<Window> {
         self.with_flow(|flow, host| flow.mic_reconnected(host, source));
     }
     fn lost_contact(&self, source: &SourceRef) {
-        self.start_reconnecting_animation(&tr("Lost the phone - reconnecting"));
+        self.start_reconnecting_animation(Some(source), &tr("Lost the phone - reconnecting"));
         let s = source.clone();
         self.with_flow(move |flow, host| flow.begin_recovery(host, Some(s)));
     }
@@ -1773,7 +1831,10 @@ impl FlowHost for Host<'_> {
     fn source_status(&mut self, source: &SourceRef, msg: &str, kind: &str) {
         // The flow only reports on the source it's starting, which is the one the footer shows
         source.state.borrow_mut().status = (msg.into(), kind.into());
-        self.w.set_status(msg, kind);
+        if msg != tr("Not streaming") {
+            log::info!("{}: {msg}", crate::session::stream_label(source));
+        }
+        self.w.set_status_for(Some(source), msg, kind);
     }
     fn show_stream(&mut self, source: &SourceRef) {
         self.w.clear_pending_resolution(source);
@@ -1858,7 +1919,7 @@ impl FlowHost for Host<'_> {
         // This worker now owns the stream's vision and motion state: an older one for the same source that's slow to end leaves it alone
         self.w.state.borrow().state_owners.claim(source.id_str(), id);
         let vision = self.w.state.borrow().vision_feed().map(|feed| crate::worker::VisionFeed { owner: id, ..feed });
-        let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
+        let setup = WorkerSetup { label: crate::session::stream_label(source), url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
                                   slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware, hardware_default,
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
                                   vision, steps, gate: Some(self.w.state.borrow().vc.gate()), idle: Some(self.w.state.borrow().idle.clone()) };

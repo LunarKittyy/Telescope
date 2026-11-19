@@ -282,6 +282,16 @@ pub struct Sessions {
     pub canvas_restart: bool,
 }
 
+/// The virtual camera's name in the log.
+pub fn output_label(slot: u32) -> String {
+    if slot == 0 { "Telescope".into() } else { format!("Telescope #{}", slot + 1) }
+}
+
+/// A stream as the log names it: "vivo -> Telescope #2".
+pub fn stream_label(source: &Source) -> String {
+    format!("{} -> {}", source.kind.name(), output_label(source.slot()))
+}
+
 pub fn same(a: &Option<SourceRef>, b: &SourceRef) -> bool {
     a.as_ref().is_some_and(|a| Rc::ptr_eq(a, b))
 }

@@ -881,6 +881,7 @@ impl SourceKind for PhoneKind {
         let mut opening = plan.opening.unwrap_or(self.request);
         opening.camera_off = source.camera_off();
         let (link, post, id, sid, stopping) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.stopping.clone());
+        let label = crate::session::stream_label(source);
         std::thread::spawn(move || {
             // A stop still on its way would land after this wake joined the stream it ends, so the wake goes after it
             let after_stop = stopping.finish(STOP_WAIT);
@@ -889,7 +890,7 @@ impl SourceKind for PhoneKind {
             let progress = move |text: &str| progress_post(Report::WakeProgress { source_id: progress_sid.clone(), wake_id, text: text.into() });
             let result = (|| {
                 let target = link.start_route(id.as_deref(), format).map_err(|e| {
-                    log::info!("No route to start on: {e}");
+                    log::info!("{label}: No route to start on: {e}");
                     None
                 })?;
                 let path = video_path(&target.video_url);

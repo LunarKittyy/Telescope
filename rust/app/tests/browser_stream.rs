@@ -106,6 +106,7 @@ fn stream_worker_sends_browser_frames_to_the_virtual_camera() {
         Ok((codec, Box::new(video) as Box<dyn VideoFeed>).into())
     });
     let setup = WorkerSetup {
+        label: String::new(),
         url: "browser:".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, source_id: "browser".into(),
         hardware_decode: false, hardware_default: false, plugin_source: true, waiting_text: None, vision: None, gate: None, idle: None,
         steps: vec![StagedStep { owner: "flip".into(), stage: FrameStage::Effects, step: FrameStep::Cpu(Box::new(Flip(flipped.clone()))) }],
