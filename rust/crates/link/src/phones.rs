@@ -205,6 +205,9 @@ impl RouteResolver {
             old_app.get_or_insert_with(|| serial.to_string());
             return None;
         }
+        if hello.status == HelloStatus::OtherCert {
+            *saw_other = true;
+        }
         if !hello.ok() {
             return None;
         }
@@ -251,7 +254,10 @@ impl RouteResolver {
             }
             _ => {}
         }
-        if !hello.ok() || hello.phone_id != phone.id {
+        if hello.status == HelloStatus::OtherCert || (hello.ok() && hello.phone_id != phone.id) {
+            return Some(Resolution { other_app: true, ..Resolution::new(PhoneStatus::Unreachable) });
+        }
+        if !hello.ok() {
             return None;
         }
         if let Some(mismatch) = version_mismatch(&hello, route.clone()) {
@@ -290,7 +296,7 @@ impl RouteResolver {
                 return answer.clone();
             }
         }
-        Resolution::new(PhoneStatus::Unreachable)
+        Resolution { other_app: answers.iter().any(|a| a.other_app), ..Resolution::new(PhoneStatus::Unreachable) }
     }
 }
 
@@ -323,6 +329,8 @@ pub(crate) mod tests {
         Phone(&'static str, PingStatus, bool, i64),
         /// Answers on the session port, but from before /v1/hello.
         OldApp,
+        /// Answers over TLS with another certificate.
+        OtherCert,
     }
 
     pub fn answers(id: &'static str, status: PingStatus, local_only: bool) -> Answer {
@@ -348,6 +356,9 @@ pub(crate) mod tests {
             let a = self.net.answers.get(&self.base);
             if matches!(a, Some(Answer::OldApp)) {
                 return Hello::status(HelloStatus::Missing);
+            }
+            if matches!(a, Some(Answer::OtherCert)) {
+                return Hello::status(HelloStatus::OtherCert);
             }
             if self.net.usb_only_hello.contains(&self.base) {
                 return Hello::status(HelloStatus::UsbOnly);
@@ -485,6 +496,17 @@ pub(crate) mod tests {
         let mut net = FakeNet::new(&[(WIFI, answers("ph-1", PingStatus::Unreachable, true))]);
         net.usb_only_hello = vec![WIFI.into()];
         assert_eq!(resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto).status, PhoneStatus::Unreachable);
+    }
+
+    #[test]
+    fn another_app_on_the_session_port_is_told_from_nothing_answering() {
+        let net = FakeNet::new(&[(WIFI, Answer::OtherCert)]);
+        let res = resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
+        assert_eq!((res.status, res.other_app), (PhoneStatus::Unreachable, true));
+        let net = FakeNet::new(&[(WIFI, answers("someone-else", PingStatus::Paired, false))]);
+        let res = resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
+        assert_eq!((res.status, res.other_app), (PhoneStatus::Unreachable, true));
+        assert!(!resolver(&FakeNet::default(), &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto).other_app);
     }
 
     #[test]

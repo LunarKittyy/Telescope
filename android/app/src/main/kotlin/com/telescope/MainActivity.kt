@@ -48,6 +48,7 @@ class MainActivity : LookActivity() {
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var cardUpdate: View
+    private lateinit var cardPortBusy: View
     private lateinit var tvUpdateTitle: TextView
     private lateinit var tvUpdateText: TextView
     private lateinit var btnUpdate: MaterialButton
@@ -170,6 +171,7 @@ class MainActivity : LookActivity() {
         // Icon only, so a long press says what it does
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBlackScreen, getString(R.string.black_screen_description))
         cardUpdate    = findViewById(R.id.cardUpdate)
+        cardPortBusy  = findViewById(R.id.cardPortBusy)
         tvUpdateTitle = findViewById<CardHeader>(R.id.headerUpdate).title
         tvUpdateText  = findViewById(R.id.tvUpdateText)
         btnUpdate     = findViewById(R.id.btnUpdate)
@@ -199,6 +201,7 @@ class MainActivity : LookActivity() {
         renderPairing()
         renderUpdate()
         // Reachable while screen is up; service holds reference after screen goes dark
+        SessionEndpoint.portBusyListener = { busy -> runOnUiThread { cardPortBusy.visibility = if (busy) View.VISIBLE else View.GONE } }
         SessionEndpoint.screenStarted(this)
         syncWaitForComputer()
         // Notes the computer sent while the app wasn't on screen, and that weren't closed since
@@ -257,6 +260,7 @@ class MainActivity : LookActivity() {
         Updater.removeListener(updateListener)
         unbind()
         unregisterReceiver(pairReceiver)
+        SessionEndpoint.portBusyListener = null
         SessionEndpoint.screenStopped()
         super.onStop()
     }

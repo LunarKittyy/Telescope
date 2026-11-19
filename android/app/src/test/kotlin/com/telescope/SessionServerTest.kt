@@ -97,6 +97,24 @@ class SessionServerTest {
     }
 
     @Test
+    fun `a port another app holds is reported as busy`() {
+        ServerSocket(0).use { holder ->
+            val server = SessionServer(holder.localPort, { computersOf("t") }, FakeCommands())
+            server.start()
+            assertFalse(server.listening)
+            assertTrue(server.portBusy)
+        }
+        val free = SessionServer(0, { computersOf("t") }, FakeCommands())
+        free.start()
+        try {
+            assertTrue(free.listening)
+            assertFalse(free.portBusy)
+        } finally {
+            free.stop()
+        }
+    }
+
+    @Test
     fun `route maps the two known paths and rejects everything else`() {
         assertEquals(SessionServer.Route.Ping, SessionServer.route("GET", "/v1/ping"))
         assertEquals(SessionServer.Route.Session, SessionServer.route("POST", "/v1/session"))

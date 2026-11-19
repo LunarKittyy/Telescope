@@ -155,7 +155,12 @@ object SessionEndpoint {
             null
         }
         if (server?.listening == true) announcer = LanAnnouncer(app).also { it.start(SessionServer.DEFAULT_PORT) }
+        portBusyListener?.invoke(portBusy)
     }
+
+    // Another app holds the session port: the main screen says so instead of the phone just not answering.
+    @Volatile var portBusyListener: ((Boolean) -> Unit)? = null
+    val portBusy: Boolean @Synchronized get() = server?.portBusy == true
 
     // Local only was toggled: announce or go quiet to match.
     @Synchronized
