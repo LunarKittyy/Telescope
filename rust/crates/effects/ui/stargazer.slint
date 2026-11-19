@@ -151,7 +151,7 @@ export component StargazerCard inherits Card {
         enabled: active;
         HorizontalLayout {
             spacing: Theme.gap;
-            Button { horizontal-stretch: 1; preferred-width: 1000px; text: run-text; reserve: [@tr("Start"), @tr("Stop"), @tr("Stacking")]; role: "primary"; hue: root.hue; enabled: active && run-enabled; clicked => { root.run-clicked(); } }
+            Button { horizontal-stretch: 1; preferred-width: 1000px; text: run-text; reserve: [@tr("Start"), @tr("Stop"), @tr("Stacking")]; role: "primary"; hue: root.hue; muted: true; on: running; enabled: active && run-enabled; clicked => { root.run-clicked(); } }
             if mode-index == 1 || save-enabled: Button { horizontal-stretch: 1; preferred-width: 1000px; text: save-text; enabled: active && save-enabled; clicked => { root.save-clicked(); } }
             if mode-index == 1: Button { horizontal-stretch: 1; preferred-width: 1000px; text: reset-text; enabled: active && reset-enabled; clicked => { root.reset-clicked(); } }
         }
