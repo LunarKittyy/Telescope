@@ -1375,6 +1375,22 @@ fn a_choice_is_sent_by_the_name_the_card_showed_not_by_its_place_in_a_list_that_
 }
 
 #[test]
+fn generated_white_balance_labels_are_shown_separately_from_camera_write_keys() {
+    let (mut env, backend) = dslr_card();
+    {
+        let mut offered = backend.offered.lock().unwrap();
+        let c = offered.iter_mut().find(|c| c.name == "dslr_white_balance").unwrap();
+        c.labels[1] = "Color Temperature".into();
+        c.unit = "ptp-white-balance".into();
+    }
+    env.plugin.read_controls("gphoto2-d5100");
+    let tile = env.plugin.tiles().into_iter().find(|t| t["name"] == "dslr_white_balance").unwrap();
+    assert_eq!(tile["options"][1], "Colour temperature");
+    ui(&mut env, "control-set", vec![json!("dslr_white_balance"), json!(1.0)]);
+    assert_eq!(*backend.labelled.lock().unwrap(), [("dslr_white_balance".to_string(), "Color Temperature".to_string())]);
+}
+
+#[test]
 fn a_choice_the_camera_refuses_leaves_the_card_where_the_camera_is() {
     let (mut env, backend) = dslr_card();
     backend.taking(false);

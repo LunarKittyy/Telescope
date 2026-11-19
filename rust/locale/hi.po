@@ -1444,7 +1444,7 @@ msgid "Black and white"
 msgstr "ब्लैक एंड व्हाइट"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:995 rust/crates/outputs/ui/webcam.slint:137 rust/crates/outputs/ui/webcam.slint:138 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
+#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:995 rust/crates/outputs/src/webcam_controls.rs:154 rust/crates/outputs/ui/webcam.slint:137 rust/crates/outputs/ui/webcam.slint:138 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
 msgid "Auto"
 msgstr "ऑटो"
 
@@ -4966,7 +4966,7 @@ msgstr "जांचें कि फ़ोन उसी नेटवर्क �
 msgid "The stream is still running over {now} and Connect via is still set to {kept}."
 msgstr "स्ट्रीम अभी भी {now} पर चल रही है और 'इसके ज़रिए कनेक्ट करें' अभी भी {kept} पर सेट है."
 
-#: rust/crates/link/src/connection.rs:804 rust/crates/setup/src/setup.rs:401
+#: rust/crates/link/src/connection.rs:804 rust/crates/outputs/src/webcam_controls.rs:155 rust/crates/setup/src/setup.rs:401
 msgid "Automatic"
 msgstr "ऑटोमैटिक"
 
@@ -5788,41 +5788,41 @@ msgstr "{name} चालू नहीं है"
 msgid "Start it again or pick another source."
 msgstr "इसे फिर से शुरू करें या कोई दूसरा सोर्स चुनें."
 
-#: rust/crates/outputs/src/spout_send/mod.rs:249
+#: rust/crates/outputs/src/spout_send/mod.rs:250
 msgid "Sharing pictures isn't available on this system."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:252
+#: rust/crates/outputs/src/spout_send/mod.rs:253
 #, python-brace-format
 msgid "Sharing {size} as {name}"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:254
+#: rust/crates/outputs/src/spout_send/mod.rs:255
 msgid "The sender couldn't be started. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:255
+#: rust/crates/outputs/src/spout_send/mod.rs:256
 msgid "The sender stopped. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:256
+#: rust/crates/outputs/src/spout_send/mod.rs:257
 msgid "This picture can't be shared."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:258
+#: rust/crates/outputs/src/spout_send/mod.rs:259
 #, python-brace-format
 msgid "Shares as {name} while this stream runs"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:307 rust/crates/outputs/ui/spout_send.slint:14
+#: rust/crates/outputs/src/spout_send/mod.rs:320 rust/crates/outputs/ui/spout_send.slint:14
 msgid "Spout send"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:308
+#: rust/crates/outputs/src/spout_send/mod.rs:321
 msgid "Share a stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:309
+#: rust/crates/outputs/src/spout_send/mod.rs:322
 msgid "Without Spout send the Spout send card is gone and no picture is shared."
 msgstr ""
 
@@ -6287,6 +6287,51 @@ msgstr "कैमरा JPEG नहीं ले सकता क्योंक
 msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr "कैमरे ने फ़ोटो का केवल कुछ हिस्सा भेजा. जो हिस्सा प्राप्त हुआ वह सेव कर लिया गया है."
 
+#: rust/crates/outputs/src/webcam_controls.rs:156
+msgid "One-push automatic"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_controls.rs:157
+msgid "Daylight"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_controls.rs:158
+msgid "Cloudy"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_controls.rs:159
+msgid "Tungsten"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_controls.rs:160
+msgid "Fluorescent"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_controls.rs:161
+msgid "Flash"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_controls.rs:162 rust/crates/outputs/ui/webcam.slint:137 rust/crates/outputs/ui/webcam.slint:138 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275
+msgid "Manual"
+msgstr "मैनुअल"
+
+#: rust/crates/outputs/src/webcam_controls.rs:163
+msgid "Shade"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_controls.rs:164
+msgid "Colour temperature"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_controls.rs:165 rust/crates/shell/src/plugins/presets.rs:361
+msgid "Preset"
+msgstr "प्रीसेट"
+
+#: rust/crates/outputs/src/webcam_controls.rs:166
+#, python-brace-format
+msgid "Setting {value}"
+msgstr ""
+
 #: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:868
 msgid "Installed"
 msgstr "इंस्टॉल हो गया"
@@ -6427,10 +6472,6 @@ msgstr "वेबकैम"
 #: rust/crates/outputs/ui/webcam.slint:131 rust/crates/outputs/ui/webcam.slint:139 rust/crates/outputs/ui/webcam.slint:139
 msgid "Let the webcam pick or set it yourself."
 msgstr "वेबकैम को चुनने दें या खुद सेट करें."
-
-#: rust/crates/outputs/ui/webcam.slint:137 rust/crates/outputs/ui/webcam.slint:138 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275
-msgid "Manual"
-msgstr "मैनुअल"
 
 #: rust/crates/outputs/ui/webcam.slint:154
 msgid "Drag to focus. The further you drag, the faster it focuses."
@@ -8428,10 +8469,6 @@ msgstr "प्रीसेट प्लगइन के बिना हेड�
 #: rust/crates/shell/src/plugins/presets.rs:360
 msgid "Apply a preset"
 msgstr "प्रीसेट इस्तेमाल करें"
-
-#: rust/crates/shell/src/plugins/presets.rs:361
-msgid "Preset"
-msgstr "प्रीसेट"
 
 #: rust/crates/shell/src/plugins/presets.rs:364
 msgid "Next or previous preset"
