@@ -187,6 +187,9 @@ pub struct H264 {
     clock: Option<Arc<PhoneClock>>,
     /// When the card gave up, until software has a picture.
     swapped_at: Option<std::time::Instant>,
+    /// Whether the stream's frame steps start on the graphics card, which is what lets a decoded picture stay there (none: always in memory).
+    #[cfg(target_os = "linux")]
+    surface_wish: Option<Arc<AtomicBool>>,
     /// Tests: the next feed fails as a broken driver would.
     #[cfg(test)]
     break_next: bool,
@@ -259,6 +262,8 @@ impl H264 {
             ask_keyframe: None,
             clock: None,
             swapped_at: None,
+            #[cfg(target_os = "linux")]
+            surface_wish: None,
             #[cfg(test)]
             break_next: false,
         }
@@ -546,7 +551,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
 impl Decoder for H264 {
     fn decode(&mut self, packet: &Packet) -> Decoded {
         #[cfg(target_os = "linux")]
-        { self.codec.defer_surfaces = true; }
+        { self.codec.defer_surfaces = self.surface_wish.as_ref().is_some_and(|w| w.load(Ordering::Relaxed)); }
         let (mut newest, count) = self.feed(&packet.data);
         if let Some(f) = newest.as_mut() {
             f.time_ns = packet.time_ns;
@@ -560,6 +565,13 @@ impl Decoder for H264 {
 
     fn set_phone_clock(&mut self, clock: Arc<PhoneClock>) {
         self.clock = Some(clock);
+    }
+
+    fn set_surface_wish(&mut self, wish: Arc<AtomicBool>) {
+        #[cfg(target_os = "linux")]
+        { self.surface_wish = Some(wish); }
+        #[cfg(not(target_os = "linux"))]
+        let _ = wish;
     }
 
     fn on_keyframe_needed(&mut self, ask: Box<dyn Fn() + Send>) {

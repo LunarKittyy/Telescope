@@ -226,6 +226,8 @@ pub struct Pipeline {
     /// the last frame: the pictures that steps keep (denoising over time) no longer line up with the next one, so they start again.
     view_key: Option<u64>,
     forget_due: bool,
+    /// Whether the first step to run does it on the card, for the stream's decoder to read (FramePipeline::surface_wish).
+    surface_wish: Arc<AtomicBool>,
 }
 
 impl Drop for Pipeline {
@@ -251,12 +253,16 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default() }
     }
 
     fn run(&mut self, mut frame: Frame, ctx: &dyn FrameContext, finish: Finish) -> PipelineFrame {
         if self.deferred_failed.load(Ordering::SeqCst) {
             self.lost_card("a deferred landing failed");
+        }
+        // A decoder's picture still on the card is only for a first step that runs there: any other gets the picture in memory, as it always did
+        if frame.surface().is_some() && !self.starts_on_card() {
+            frame = frame.materialise();
         }
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
         let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
@@ -343,6 +349,7 @@ impl Pipeline {
         }
         self.count(chain.ups, chain.downs);
         self.applied = self.hiding.clone();
+        self.note_surface_wish();
         span("pipeline", began);
         PipelineFrame::new(frame, picture)
     }
@@ -477,7 +484,22 @@ impl Pipeline {
     }
 
     /// The steps were changed: what they hide is looked at again, and a step that is gone isn't remembered as on the last frame.
+    /// Whether the first step that will run does it on the card, so a decoder picture still there is taken in by it and not copied to memory first.
+    fn starts_on_card(&self) -> bool {
+        let on_card = self.balance.place() == Place::Card && !self.card_lost;
+        self.steps.iter().find(|e| !e.skipped()).is_some_and(|e| match &e.kind {
+            Kind::Shader(_) => true,
+            Kind::Either(..) => on_card && !e.no_shader,
+            Kind::Cpu(_) => false,
+        })
+    }
+
+    fn note_surface_wish(&self) {
+        self.surface_wish.store(self.starts_on_card(), Ordering::Relaxed);
+    }
+
     fn steps_changed(&mut self) {
+        self.note_surface_wish();
         let mut now = self.hiding_now();
         let mut applied = (*self.applied).clone();
         applied.retain(|a| match now.iter().position(|n| n.owner == a.owner && n.stage == a.stage) {
@@ -860,6 +882,10 @@ impl FramePipeline for Pipeline {
         self.steps.splice(at..at, fresh);
         self.steps_changed();
         self.note_geometry();
+    }
+
+    fn surface_wish(&self) -> Option<Arc<AtomicBool>> {
+        Some(self.surface_wish.clone())
     }
 
     fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame {
@@ -2898,5 +2924,71 @@ pub(crate) mod tests {
         assert!(p.process(grey(8, 8, 100), &NoContext).alpha().is_none(), "a card-only step in Effects may move anything");
         p.set_steps(vec![step("background", FrameStage::Background, Cuts), on_card(FrameStage::Colour)]);
         assert!(p.process(grey(8, 8, 100), &NoContext).alpha().is_none(), "so may a plugin's shader at Colour that doesn't say otherwise");
+    }
+
+    /// A decoder picture still on the card, with this grey as the picture it would land as.
+    #[derive(Debug)]
+    struct OnTheCard(Frame);
+
+    impl telescope_core::frame::DecodedSurface for OnTheCard {
+        fn ram(&self) -> &Frame {
+            &self.0
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    fn surface(w: u32, h: u32, v: u8) -> Frame {
+        Frame::from_surface(w, h, PixelFormat::I420, Arc::new(OnTheCard(grey(w, h, v))))
+    }
+
+    fn wish(p: &Pipeline) -> bool {
+        p.surface_wish().unwrap().load(Ordering::Relaxed)
+    }
+
+    #[test]
+    fn the_decoder_is_only_asked_for_pictures_on_the_card_while_the_first_step_runs_there() {
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        assert!(!wish(&p), "no steps");
+        p.set_steps(vec![shader(INVERT)]);
+        assert!(wish(&p), "a card step first");
+        p.set_steps(vec![step("first", FrameStage::Background, Brightens), shader(INVERT)]);
+        assert!(!wish(&p), "a CPU step first, whatever follows it");
+        p.set_steps(vec![shader(INVERT), step("last", FrameStage::Privacy, Brightens)]);
+        assert!(wish(&p), "a card step first, a CPU step after it");
+        p.set_steps(Vec::new());
+        assert!(!wish(&p), "steps taken off again");
+        let (p, _) = either(Place::Card);
+        assert!(wish(&p), "a step with both ways, with the card ahead");
+        let (p, _) = either(Place::Cpu);
+        assert!(!wish(&p), "a step with both ways, with the CPU ahead");
+    }
+
+    #[test]
+    fn a_stream_with_no_card_step_gets_full_pixels_even_from_a_picture_left_on_the_card() {
+        let mut none = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let out = none.process_picture(surface(8, 8, 90), &NoContext);
+        assert!(out.metadata().surface().is_none(), "the picture came into memory before the steps");
+        assert_eq!(out.land().data, grey(8, 8, 90).data);
+        assert_eq!(none.process(surface(8, 8, 90), &NoContext).data, grey(8, 8, 90).data);
+        let mut cpu = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        cpu.set_steps(vec![step("first", FrameStage::Background, Push(5, Arc::default()))]);
+        let out = cpu.process_picture(surface(8, 8, 90), &NoContext);
+        assert!(out.metadata().surface().is_none());
+        let landed = out.land();
+        assert_eq!(landed.data.len(), PixelFormat::I420.size(8, 8), "the CPU step had a whole picture to work on");
+        assert_eq!((landed.data[0], landed.data[1]), (5, 90));
+    }
+
+    #[test]
+    fn a_picture_left_on_the_card_is_landed_whole_for_a_card_step_and_a_reader_in_memory() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut p = card_pipeline(gpu);
+        let out = p.process_picture(surface(8, 8, 100), &NoContext);
+        let landed = out.land();
+        assert_eq!(landed.data.len(), PixelFormat::I420.size(8, 8));
+        assert!((landed.data[0] as i32 - 151).abs() <= 2, "the card worked on the picture ({})", landed.data[0]);
+        assert!(!p.process(surface(8, 8, 100), &NoContext).data.is_empty());
     }
 }

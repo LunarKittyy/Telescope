@@ -447,4 +447,32 @@ mod tests {
         assert!(next.surface().is_none(), "the decoder kept offering surfaces after fallback");
         assert!(next.data[0].abs_diff(171) <= 3);
     }
+
+    #[test]
+    fn the_decoder_leaves_a_picture_on_the_card_only_while_the_pipeline_wishes_it() {
+        use telescope_core::media::{Decoder, Packet};
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let Ok(mut decoder) = crate::h264::H264::new(true, None) else { return eprintln!("no decoder; skipped") };
+        if decoder.hw().is_none() {
+            return eprintln!("no VA-API device; skipped");
+        }
+        let Some(packets) = testenc::h264(&[70, 120, 180, 120, 70], 256, 144, 1) else { return eprintln!("no H.264 encoder; skipped") };
+        let wish = Arc::new(AtomicBool::new(false));
+        decoder.set_surface_wish(wish.clone());
+        let mut seen = [0, 0];
+        for (i, data) in packets.into_iter().enumerate() {
+            // pictures 1 and 3 are the ones the pipeline wants on the card
+            let wanted = i % 2 == 1;
+            wish.store(wanted, Ordering::Relaxed);
+            let Some(frame) = decoder.decode(&Packet { data, time_ns: 0 }).newest else { continue };
+            assert_eq!(frame.surface().is_some(), wanted && decoder.hardware(), "picture {i}");
+            if !wanted {
+                assert_eq!(frame.data.len(), frame.format.size(frame.width, frame.height), "picture {i}: a RAM reader finds the whole picture");
+            }
+            seen[wanted as usize] += 1;
+        }
+        assert!(seen[0] > 0 && seen[1] > 0, "pictures with and without the wish: {seen:?}");
+    }
 }

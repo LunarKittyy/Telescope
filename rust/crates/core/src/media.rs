@@ -153,6 +153,11 @@ pub trait Decoder: Send {
     fn set_phone_clock(&mut self, clock: std::sync::Arc<crate::clock::PhoneClock>) {
         let _ = clock;
     }
+    /// Where the stream's frame steps say whether they start on the graphics card (FramePipeline::surface_wish). Only while it is set may a decoder
+    /// hand over a picture that still sits on the card instead of one in memory; a decoder with nothing on the card ignores it.
+    fn set_surface_wish(&mut self, wish: std::sync::Arc<std::sync::atomic::AtomicBool>) {
+        let _ = wish;
+    }
 }
 
 /// What a Decoder's timing_probe gives: callable from another thread while the decoder runs.
@@ -338,6 +343,11 @@ pub trait FramePipeline: Send {
     fn forget_history(&mut self) {}
     /// Where to count what each step costs while the stats ask for it (Timers::on); a pipeline that can't just doesn't.
     fn set_stats(&mut self, _stats: Arc<crate::stats::SourceStats>) {}
+    /// Set while the first step to run does it on the graphics card: the only frames a decoder may leave on the card are the ones this wants.
+    /// None for a pipeline that never takes one.
+    fn surface_wish(&self) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        None
+    }
 }
 
 /// One stream's newest frames: what it made, and what goes out on its virtual camera (which replace_frame can swap).
