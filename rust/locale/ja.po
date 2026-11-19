@@ -180,7 +180,7 @@ msgstr "VB-Cableを取得"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "タイピング音、ファン音、室内のノイズを除去します。"
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:975 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -721,7 +721,7 @@ msgstr "プレビューから取得した色です。クリックすると再度
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "プレビュー上の背後のスクリーンをクリックしてください。Escでキャンセルします。"
 
-#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:613 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1795 rust/crates/shell/src/window.rs:1863 rust/crates/shell/src/worker.rs:615 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "ストリーミング停止中"
 
@@ -1326,74 +1326,74 @@ msgstr ""
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:945 rust/crates/effects/src/composite_plugin.rs:949 rust/crates/effects/src/composite_plugin.rs:962 rust/crates/effects/ui/composite.slint:37
+#: rust/crates/effects/src/composite_plugin.rs:636 rust/crates/effects/src/composite_plugin.rs:947 rust/crates/effects/src/composite_plugin.rs:951 rust/crates/effects/src/composite_plugin.rs:964 rust/crates/effects/ui/composite.slint:37
 msgid "One picture"
 msgstr "1画面に統合"
 
-#: rust/crates/effects/src/composite_plugin.rs:726
+#: rust/crates/effects/src/composite_plugin.rs:728
 msgid "Nothing's in the picture yet."
 msgstr "画像にはまだ何もありません。"
 
-#: rust/crates/effects/src/composite_plugin.rs:728
+#: rust/crates/effects/src/composite_plugin.rs:730
 msgid "Active once two streams are running."
 msgstr "2つのストリームが実行されると有効になります。"
 
-#: rust/crates/effects/src/composite_plugin.rs:730
+#: rust/crates/effects/src/composite_plugin.rs:732
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "{camera}に出力するよう設定されていますが、ストリームが実行されていません。"
 
-#: rust/crates/effects/src/composite_plugin.rs:732
+#: rust/crates/effects/src/composite_plugin.rs:734
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "該当のストリームから映像が送信されると、{camera}に出力されます。"
 
-#: rust/crates/effects/src/composite_plugin.rs:734
+#: rust/crates/effects/src/composite_plugin.rs:736
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "{camera}に出力中。"
 
-#: rust/crates/effects/src/composite_plugin.rs:739
+#: rust/crates/effects/src/composite_plugin.rs:741
 msgid "Nothing in it"
 msgstr "中身なし"
 
-#: rust/crates/effects/src/composite_plugin.rs:741 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:720
+#: rust/crates/effects/src/composite_plugin.rs:743 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:720
 msgid "Two streams required"
 msgstr "2つのストリームが必要です"
 
-#: rust/crates/effects/src/composite_plugin.rs:743
+#: rust/crates/effects/src/composite_plugin.rs:745
 msgid "Not going out"
 msgstr "出力なし"
 
-#: rust/crates/effects/src/composite_plugin.rs:745
+#: rust/crates/effects/src/composite_plugin.rs:747
 msgid "Going out"
 msgstr "出力中"
 
-#: rust/crates/effects/src/composite_plugin.rs:811
+#: rust/crates/effects/src/composite_plugin.rs:813
 msgid "Several cameras in one picture"
 msgstr "複数のカメラを1つの画面に統合"
 
-#: rust/crates/effects/src/composite_plugin.rs:812
+#: rust/crates/effects/src/composite_plugin.rs:814
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "実行中の複数のストリームを、1つの仮想カメラ上に並べて、または重ねて配置します。"
 
-#: rust/crates/effects/src/composite_plugin.rs:813
+#: rust/crates/effects/src/composite_plugin.rs:815
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "「複数のカメラを1つの画面に」プラグインがない場合、「1つの画面」カードは表示されず、各ストリームはそれぞれのカメラにのみ出力されます。"
 
-#: rust/crates/effects/src/composite_plugin.rs:950 rust/crates/effects/src/composite_plugin.rs:975
+#: rust/crates/effects/src/composite_plugin.rs:952 rust/crates/effects/src/composite_plugin.rs:977
 msgid "Picture layout"
 msgstr "画面レイアウト"
 
-#: rust/crates/effects/src/composite_plugin.rs:1040
+#: rust/crates/effects/src/composite_plugin.rs:1042
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:1041
+#: rust/crates/effects/src/composite_plugin.rs:1043
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:1041
+#: rust/crates/effects/src/composite_plugin.rs:1043
 msgid "Leave the layout"
 msgstr ""
 
@@ -3117,7 +3117,7 @@ msgstr ""
 msgid "Lucky"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1083
+#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1090
 msgid "Live"
 msgstr "ライブ"
 
@@ -3139,12 +3139,12 @@ msgid "{n} frames"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1825 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1873 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "開始"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1831 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1879 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "停止"
 
@@ -3266,7 +3266,7 @@ msgstr "赤/シアン"
 msgid "Start a second stream to get the 3D picture."
 msgstr "3D映像を取得するには、2つ目のストリームを開始してください。"
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1098
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1105
 msgid "Waiting"
 msgstr "待機中"
 
@@ -4896,7 +4896,7 @@ msgstr "処理が追いつきません"
 msgid "Browser"
 msgstr "ブラウザー"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1756 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "再試行"
 
@@ -5347,7 +5347,7 @@ msgstr "{source}を待機中"
 msgid "{source}, no pairing needed"
 msgstr "{source}（ペアリング不要）"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1081
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1088
 msgid "Reconnecting"
 msgstr "再接続中"
 
@@ -5359,7 +5359,7 @@ msgstr "USB経由でストリーミング中"
 msgid "Streaming over Wi-Fi"
 msgstr "Wi-Fi経由でストリーミング中"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1085
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1092
 msgid "Connecting"
 msgstr "接続中"
 
@@ -5466,7 +5466,7 @@ msgstr "解像度"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "ブラウザーが送信するサイズです。カメラがこのサイズに対応していない場合、カメラが対応するサイズで送信されます。"
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:789
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:793
 msgid "Frame rate"
 msgstr "フレームレート"
 
@@ -5783,41 +5783,41 @@ msgstr "{name}が実行されていません"
 msgid "Start it again or pick another source."
 msgstr "再起動するか、別のソースを選択してください。"
 
-#: rust/crates/outputs/src/spout_send/mod.rs:250
+#: rust/crates/outputs/src/spout_send/mod.rs:258
 msgid "Sharing pictures isn't available on this system."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:253
+#: rust/crates/outputs/src/spout_send/mod.rs:261
 #, python-brace-format
 msgid "Sharing {size} as {name}"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:255
+#: rust/crates/outputs/src/spout_send/mod.rs:263
 msgid "The sender couldn't be started. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:256
+#: rust/crates/outputs/src/spout_send/mod.rs:264
 msgid "The sender stopped. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:257
+#: rust/crates/outputs/src/spout_send/mod.rs:265
 msgid "This picture can't be shared."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:259
+#: rust/crates/outputs/src/spout_send/mod.rs:267
 #, python-brace-format
 msgid "Shares as {name} while this stream runs"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:320 rust/crates/outputs/ui/spout_send.slint:14
+#: rust/crates/outputs/src/spout_send/mod.rs:328 rust/crates/outputs/ui/spout_send.slint:14
 msgid "Spout send"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:321
+#: rust/crates/outputs/src/spout_send/mod.rs:329
 msgid "Share a stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:322
+#: rust/crates/outputs/src/spout_send/mod.rs:330
 msgid "Without Spout send the Spout send card is gone and no picture is shared."
 msgstr ""
 
@@ -5979,8 +5979,8 @@ msgstr "{device}は読み取り中のアプリによって{width}x{height}に固
 
 #: rust/crates/outputs/src/v4l2.rs:163
 #, python-brace-format
-msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
-msgstr "{device}は{format}ピクセル形式に設定されているため、Telescopeから書き込めません。使用中のアプリを閉じるか、keep_formatなしでv4l2loopbackを再ロードしてください。"
+msgid "The virtual camera {device} is set to {format}, which Telescope can't write. Close the apps using it, or reload v4l2loopback without keep_format."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen.rs:184
 msgid "Waiting for camera"
@@ -6971,7 +6971,7 @@ msgstr "手持ちのadbを使用…"
 msgid "Not available yet"
 msgstr "まだ利用できません"
 
-#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:781
+#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:785
 #, python-brace-format
 msgid "{n} fps"
 msgstr "{n} fps"
@@ -7125,7 +7125,7 @@ msgstr "TCP"
 msgid "From the phone"
 msgstr "スマートフォンから"
 
-#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:788
+#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:792
 msgid "Virtual camera"
 msgstr "仮想カメラ"
 
@@ -8481,7 +8481,7 @@ msgstr "スマートフォンのカメラをオフにし、マイクのストリ
 msgid "Start with the phone's camera off and stream only its mic."
 msgstr "スマートフォンのカメラをオフにした状態で開始し、マイクのみをストリーミングします。"
 
-#: rust/crates/shell/src/plugins/preview.rs:139 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:394
+#: rust/crates/shell/src/plugins/preview.rs:139 rust/crates/shell/src/tray.rs:91 rust/crates/shell/ui/settings.slint:394
 msgid "Show"
 msgstr "表示"
 
@@ -9062,7 +9062,7 @@ msgstr "スマートフォンが冷えるまで、{size}でストリーミング
 msgid "Open Telescope on it."
 msgstr "そちらでTelescopeを開いてください。"
 
-#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1669
+#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1676
 msgid "the device"
 msgstr "デバイス"
 
@@ -9090,7 +9090,7 @@ msgstr "スマートフォンのカメラを開始中…"
 msgid "Couldn't start the phone's camera"
 msgstr "スマートフォンのカメラを開始できませんでした"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1139
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1149
 msgid "Connecting..."
 msgstr "接続中..."
 
@@ -9160,66 +9160,70 @@ msgstr "スマートフォンで写真を撮影できませんでした。"
 msgid "The phone is already taking a photo."
 msgstr "スマートフォンで現在写真を撮影中です。"
 
-#: rust/crates/shell/src/streams.rs:980
+#: rust/crates/shell/src/streams.rs:892
+msgid "Virtual camera problem"
+msgstr ""
+
+#: rust/crates/shell/src/streams.rs:987
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "{name}からのストリームが予期せず停止しました"
 
-#: rust/crates/shell/src/streams.rs:982
+#: rust/crates/shell/src/streams.rs:989
 msgid "The stream stopped unexpectedly"
 msgstr "ストリームが予期せず停止しました"
 
-#: rust/crates/shell/src/streams.rs:984
+#: rust/crates/shell/src/streams.rs:991
 msgid "Copy diagnostics has the details."
 msgstr "詳細は「診断情報をコピー」で確認できます。"
 
-#: rust/crates/shell/src/streams.rs:1009
+#: rust/crates/shell/src/streams.rs:1016
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "スマートフォンが高温になったため、フレームレートが{fps} fpsに低下しました。"
 
-#: rust/crates/shell/src/streams.rs:1011
+#: rust/crates/shell/src/streams.rs:1018
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "接続が遅いため、「ダイナミック」がフレームレートを{fps} fpsに下げました。"
 
-#: rust/crates/shell/src/streams.rs:1013
+#: rust/crates/shell/src/streams.rs:1020
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "カメラの生成フレーム数が要求より少なくなっています。薄暗い場所ではフレームレートが低下します。"
 
-#: rust/crates/shell/src/streams.rs:1015
+#: rust/crates/shell/src/streams.rs:1022
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "スマートフォンのカメラの生成フレーム数が要求より少なくなっています。薄暗い場所ではフレームレートが低下します。"
 
-#: rust/crates/shell/src/streams.rs:1095
+#: rust/crates/shell/src/streams.rs:1102
 msgid "Starting"
 msgstr "開始中"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1109
+#: rust/crates/shell/src/streams.rs:1116
 #, python-brace-format
 msgid "to {output}"
 msgstr "出力先: {output}"
 
-#: rust/crates/shell/src/streams.rs:1110
+#: rust/crates/shell/src/streams.rs:1117
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "{name}のストリーミングを停止"
 
-#: rust/crates/shell/src/streams.rs:1490
+#: rust/crates/shell/src/streams.rs:1497
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "スマートフォンからこのバージョンで読み取れないデータが送信されました。両方のアプリを同じバージョンにアップデートしてください。"
 
-#: rust/crates/shell/src/streams.rs:1572
+#: rust/crates/shell/src/streams.rs:1579
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "{name}にアクセスできません"
 
-#: rust/crates/shell/src/streams.rs:1656
+#: rust/crates/shell/src/streams.rs:1663
 msgid "Lost the phone - reconnecting"
 msgstr "スマートフォンとの接続が切れました - 再接続中"
 
-#: rust/crates/shell/src/streams.rs:1848
+#: rust/crates/shell/src/streams.rs:1855
 msgid "Couldn't reach the device."
 msgstr "デバイスに接続できませんでした。"
 
@@ -9243,23 +9247,23 @@ msgstr "Telescope: マイクをストリーミング中、カメラはオフ（�
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: マイクをストリーミング中、カメラはオフ"
 
-#: rust/crates/shell/src/tray.rs:88
+#: rust/crates/shell/src/tray.rs:103
 msgid "Quit"
 msgstr "終了"
 
-#: rust/crates/shell/src/tray.rs:237
+#: rust/crates/shell/src/tray.rs:255
 msgid "Streaming continues in the background."
 msgstr "ストリーミングはバックグラウンドで継続します。"
 
-#: rust/crates/shell/src/tray.rs:237
+#: rust/crates/shell/src/tray.rs:255
 msgid "Streaming starts automatically when needed."
 msgstr "必要なときにストリーミングが自動的に開始されます。"
 
-#: rust/crates/shell/src/tray.rs:238
+#: rust/crates/shell/src/tray.rs:256
 msgid "Right-click the tray icon to quit."
 msgstr "終了するには、システム トレイ アイコンを右クリックしてください。"
 
-#: rust/crates/shell/src/tray.rs:239
+#: rust/crates/shell/src/tray.rs:257
 msgid "Telescope is still running"
 msgstr "Telescopeは実行中です"
 
@@ -9267,67 +9271,67 @@ msgstr "Telescopeは実行中です"
 msgid "Telescope - Video Preview"
 msgstr "Telescope - 映像プレビュー"
 
-#: rust/crates/shell/src/window.rs:692
+#: rust/crates/shell/src/window.rs:696
 msgid "Telescope (dev)"
 msgstr "Telescope（開発版）"
 
-#: rust/crates/shell/src/window.rs:790
+#: rust/crates/shell/src/window.rs:794
 msgid "How much data per second reaches this computer."
 msgstr "1秒あたりにこのコンピューターに届くデータ量です。"
 
-#: rust/crates/shell/src/window.rs:790
+#: rust/crates/shell/src/window.rs:794
 msgid "Throughput"
 msgstr "スループット"
 
-#: rust/crates/shell/src/window.rs:1824 rust/crates/shell/src/window.rs:1825
+#: rust/crates/shell/src/window.rs:1872 rust/crates/shell/src/window.rs:1873
 msgid "Start mic only"
 msgstr "マイクのみ開始"
 
-#: rust/crates/shell/src/window.rs:1824
+#: rust/crates/shell/src/window.rs:1872
 msgid "Start streaming"
 msgstr "ストリーミング開始"
 
-#: rust/crates/shell/src/window.rs:1830
+#: rust/crates/shell/src/window.rs:1878
 msgid "Stop streaming"
 msgstr "ストリーミング停止"
 
-#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1487
+#: rust/crates/shell/src/window.rs:2197 rust/crates/shell/src/worker.rs:1498
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{size}、{fps} fpsで{camera}にストリーミング中"
 
-#: rust/crates/shell/src/worker.rs:603
+#: rust/crates/shell/src/worker.rs:605
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "ストリーム エラー: {error}"
 
-#: rust/crates/shell/src/worker.rs:1139
+#: rust/crates/shell/src/worker.rs:1149
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url}に接続中..."
 
-#: rust/crates/shell/src/worker.rs:1149
+#: rust/crates/shell/src/worker.rs:1159
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "スマートフォンのストリームに接続できません。{seconds}秒後に再試行します…"
 
-#: rust/crates/shell/src/worker.rs:1161
+#: rust/crates/shell/src/worker.rs:1171
 msgid "Waiting for the first frame…"
 msgstr "最初のフレームを待機中…"
 
-#: rust/crates/shell/src/worker.rs:1249
+#: rust/crates/shell/src/worker.rs:1259
 msgid "Stream reconnected"
 msgstr "ストリームが再接続されました"
 
-#: rust/crates/shell/src/worker.rs:1354
+#: rust/crates/shell/src/worker.rs:1364
 msgid "The video is paused while the phone takes a photo"
 msgstr "スマートフォンが写真を撮影している間、映像は一時停止します"
 
-#: rust/crates/shell/src/worker.rs:1356 rust/crates/shell/src/worker.rs:1362
+#: rust/crates/shell/src/worker.rs:1366 rust/crates/shell/src/worker.rs:1372
 msgid "Stream dropped - reconnecting"
 msgstr "ストリームが切断されました - 再接続中"
 
-#: rust/crates/shell/src/worker.rs:1476 rust/crates/shell/src/worker.rs:1585
+#: rust/crates/shell/src/worker.rs:1486 rust/crates/shell/src/worker.rs:1596
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "仮想カメラ エラー: {error}"
@@ -10977,6 +10981,10 @@ msgstr "置き換え完了"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "再起動できませんでした"
+
+#, python-brace-format
+#~ msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
+#~ msgstr "{device}は{format}ピクセル形式に設定されているため、Telescopeから書き込めません。使用中のアプリを閉じるか、keep_formatなしでv4l2loopbackを再ロードしてください。"
 
 #~ msgid "Bracket"
 #~ msgstr "ブラケット"

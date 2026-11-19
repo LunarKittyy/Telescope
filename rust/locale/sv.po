@@ -179,7 +179,7 @@ msgstr "Skaffa VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Ta bort tangentbordsljud, fläktbrus och rumsbrus."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:975 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -720,7 +720,7 @@ msgstr "Färgen som valdes från förhandsvisningen. Klicka för att välja igen
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Klicka på skärmen bakom dig i förhandsvisningen. Esc avbryter."
 
-#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:613 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1795 rust/crates/shell/src/window.rs:1863 rust/crates/shell/src/worker.rs:615 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Strömmar inte"
 
@@ -1325,74 +1325,74 @@ msgstr ""
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:945 rust/crates/effects/src/composite_plugin.rs:949 rust/crates/effects/src/composite_plugin.rs:962 rust/crates/effects/ui/composite.slint:37
+#: rust/crates/effects/src/composite_plugin.rs:636 rust/crates/effects/src/composite_plugin.rs:947 rust/crates/effects/src/composite_plugin.rs:951 rust/crates/effects/src/composite_plugin.rs:964 rust/crates/effects/ui/composite.slint:37
 msgid "One picture"
 msgstr "En bild"
 
-#: rust/crates/effects/src/composite_plugin.rs:726
+#: rust/crates/effects/src/composite_plugin.rs:728
 msgid "Nothing's in the picture yet."
 msgstr "Det finns inget i bilden än."
 
-#: rust/crates/effects/src/composite_plugin.rs:728
+#: rust/crates/effects/src/composite_plugin.rs:730
 msgid "Active once two streams are running."
 msgstr "Aktiv när två strömmar är igång."
 
-#: rust/crates/effects/src/composite_plugin.rs:730
+#: rust/crates/effects/src/composite_plugin.rs:732
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Inställd på att mata ut på {camera}, men ingen ström är igång där."
 
-#: rust/crates/effects/src/composite_plugin.rs:732
+#: rust/crates/effects/src/composite_plugin.rs:734
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Matar ut på {camera} så snart strömmen där skickar en bild."
 
-#: rust/crates/effects/src/composite_plugin.rs:734
+#: rust/crates/effects/src/composite_plugin.rs:736
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Matar ut på {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:739
+#: rust/crates/effects/src/composite_plugin.rs:741
 msgid "Nothing in it"
 msgstr "Inget innehåll"
 
-#: rust/crates/effects/src/composite_plugin.rs:741 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:720
+#: rust/crates/effects/src/composite_plugin.rs:743 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:720
 msgid "Two streams required"
 msgstr "Två strömmar krävs"
 
-#: rust/crates/effects/src/composite_plugin.rs:743
+#: rust/crates/effects/src/composite_plugin.rs:745
 msgid "Not going out"
 msgstr "Sänds inte ut"
 
-#: rust/crates/effects/src/composite_plugin.rs:745
+#: rust/crates/effects/src/composite_plugin.rs:747
 msgid "Going out"
 msgstr "Sänds ut"
 
-#: rust/crates/effects/src/composite_plugin.rs:811
+#: rust/crates/effects/src/composite_plugin.rs:813
 msgid "Several cameras in one picture"
 msgstr "Flera kameror i en bild"
 
-#: rust/crates/effects/src/composite_plugin.rs:812
+#: rust/crates/effects/src/composite_plugin.rs:814
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Placera strömmarna sida vid sida eller inuti varandra på en virtuell kamera."
 
-#: rust/crates/effects/src/composite_plugin.rs:813
+#: rust/crates/effects/src/composite_plugin.rs:815
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Utan tillägget Flera kameror i en bild finns inte kortet En bild och varje ström går bara till sin egen kamera."
 
-#: rust/crates/effects/src/composite_plugin.rs:950 rust/crates/effects/src/composite_plugin.rs:975
+#: rust/crates/effects/src/composite_plugin.rs:952 rust/crates/effects/src/composite_plugin.rs:977
 msgid "Picture layout"
 msgstr "Bildlayout"
 
-#: rust/crates/effects/src/composite_plugin.rs:1040
+#: rust/crates/effects/src/composite_plugin.rs:1042
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:1041
+#: rust/crates/effects/src/composite_plugin.rs:1043
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:1041
+#: rust/crates/effects/src/composite_plugin.rs:1043
 msgid "Leave the layout"
 msgstr ""
 
@@ -3118,7 +3118,7 @@ msgstr ""
 msgid "Lucky"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1083
+#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1090
 msgid "Live"
 msgstr "Live"
 
@@ -3140,12 +3140,12 @@ msgid "{n} frames"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1825 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1873 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Starta"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1831 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1879 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Stoppa"
 
@@ -3270,7 +3270,7 @@ msgstr "Röd/cyan"
 msgid "Start a second stream to get the 3D picture."
 msgstr "Starta en andra ström för att få 3D-bilden."
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1098
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1105
 msgid "Waiting"
 msgstr "Väntar"
 
@@ -4900,7 +4900,7 @@ msgstr "Hinner inte med"
 msgid "Browser"
 msgstr "Webbläsare"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1756 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Försök igen"
 
@@ -5351,7 +5351,7 @@ msgstr "Väntar på {source}"
 msgid "{source}, no pairing needed"
 msgstr "{source}, ingen parkoppling behövs"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1081
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1088
 msgid "Reconnecting"
 msgstr "Återansluter"
 
@@ -5363,7 +5363,7 @@ msgstr "Strömmar via USB"
 msgid "Streaming over Wi-Fi"
 msgstr "Strömmar via Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1085
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1092
 msgid "Connecting"
 msgstr "Ansluter"
 
@@ -5470,7 +5470,7 @@ msgstr "Upplösning"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "Storleken som webbläsaren skickar. Om kameran inte har stöd för den här storleken skickar webbläsaren det kameran klarar av."
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:789
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:793
 msgid "Frame rate"
 msgstr "Bildfrekvens"
 
@@ -5787,41 +5787,41 @@ msgstr "{name} körs inte"
 msgid "Start it again or pick another source."
 msgstr "Starta det igen eller välj en annan källa."
 
-#: rust/crates/outputs/src/spout_send/mod.rs:250
+#: rust/crates/outputs/src/spout_send/mod.rs:258
 msgid "Sharing pictures isn't available on this system."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:253
+#: rust/crates/outputs/src/spout_send/mod.rs:261
 #, python-brace-format
 msgid "Sharing {size} as {name}"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:255
+#: rust/crates/outputs/src/spout_send/mod.rs:263
 msgid "The sender couldn't be started. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:256
+#: rust/crates/outputs/src/spout_send/mod.rs:264
 msgid "The sender stopped. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:257
+#: rust/crates/outputs/src/spout_send/mod.rs:265
 msgid "This picture can't be shared."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:259
+#: rust/crates/outputs/src/spout_send/mod.rs:267
 #, python-brace-format
 msgid "Shares as {name} while this stream runs"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:320 rust/crates/outputs/ui/spout_send.slint:14
+#: rust/crates/outputs/src/spout_send/mod.rs:328 rust/crates/outputs/ui/spout_send.slint:14
 msgid "Spout send"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:321
+#: rust/crates/outputs/src/spout_send/mod.rs:329
 msgid "Share a stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:322
+#: rust/crates/outputs/src/spout_send/mod.rs:330
 msgid "Without Spout send the Spout send card is gone and no picture is shared."
 msgstr ""
 
@@ -5983,8 +5983,8 @@ msgstr "{device} hålls kvar på {width}x{height} av en app som läser från den
 
 #: rust/crates/outputs/src/v4l2.rs:163
 #, python-brace-format
-msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
-msgstr "{device} är inställd på pixelformatet {format}, som Telescope inte kan skriva till den. Stäng apparna som använder den, eller ladda om v4l2loopback utan keep_format."
+msgid "The virtual camera {device} is set to {format}, which Telescope can't write. Close the apps using it, or reload v4l2loopback without keep_format."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen.rs:184
 msgid "Waiting for camera"
@@ -6975,7 +6975,7 @@ msgstr "Använd min egen adb…"
 msgid "Not available yet"
 msgstr "Inte tillgängligt än"
 
-#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:781
+#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:785
 #, python-brace-format
 msgid "{n} fps"
 msgstr "{n} fps"
@@ -7129,7 +7129,7 @@ msgstr "TCP"
 msgid "From the phone"
 msgstr "Från telefonen"
 
-#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:788
+#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:792
 msgid "Virtual camera"
 msgstr "Virtuell kamera"
 
@@ -8485,7 +8485,7 @@ msgstr "Stäng av telefonens kamera och fortsätt strömma dess mikrofon."
 msgid "Start with the phone's camera off and stream only its mic."
 msgstr "Starta med telefonens kamera av och strömma bara dess mikrofon."
 
-#: rust/crates/shell/src/plugins/preview.rs:139 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:394
+#: rust/crates/shell/src/plugins/preview.rs:139 rust/crates/shell/src/tray.rs:91 rust/crates/shell/ui/settings.slint:394
 msgid "Show"
 msgstr "Visa"
 
@@ -9081,7 +9081,7 @@ msgstr "Strömmar i {size} tills telefonen svalnar."
 msgid "Open Telescope on it."
 msgstr "Öppna Telescope på den."
 
-#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1669
+#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1676
 msgid "the device"
 msgstr "enheten"
 
@@ -9109,7 +9109,7 @@ msgstr "Startar telefonens kamera…"
 msgid "Couldn't start the phone's camera"
 msgstr "Kunde inte starta telefonens kamera"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1139
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1149
 msgid "Connecting..."
 msgstr "Ansluter..."
 
@@ -9179,66 +9179,70 @@ msgstr "Telefonen kunde inte ta fotot."
 msgid "The phone is already taking a photo."
 msgstr "Telefonen tar redan ett foto."
 
-#: rust/crates/shell/src/streams.rs:980
+#: rust/crates/shell/src/streams.rs:892
+msgid "Virtual camera problem"
+msgstr ""
+
+#: rust/crates/shell/src/streams.rs:987
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Strömmen från {name} avbröts oväntat"
 
-#: rust/crates/shell/src/streams.rs:982
+#: rust/crates/shell/src/streams.rs:989
 msgid "The stream stopped unexpectedly"
 msgstr "Strömmen avbröts oväntat"
 
-#: rust/crates/shell/src/streams.rs:984
+#: rust/crates/shell/src/streams.rs:991
 msgid "Copy diagnostics has the details."
 msgstr "Detaljerna får du med Kopiera diagnostik."
 
-#: rust/crates/shell/src/streams.rs:1009
+#: rust/crates/shell/src/streams.rs:1016
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "Telefonen blev varm och sänkte bildfrekvensen till {fps} fps."
 
-#: rust/crates/shell/src/streams.rs:1011
+#: rust/crates/shell/src/streams.rs:1018
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "Dynamisk sänkte bildfrekvensen till {fps} fps för att hinna med en långsam anslutning."
 
-#: rust/crates/shell/src/streams.rs:1013
+#: rust/crates/shell/src/streams.rs:1020
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Kameran producerar färre bildrutor än begärt. Svagt ljus sänker bildfrekvensen."
 
-#: rust/crates/shell/src/streams.rs:1015
+#: rust/crates/shell/src/streams.rs:1022
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Telefonens kamera producerar färre bildrutor än begärt. Svagt ljus sänker bildfrekvensen."
 
-#: rust/crates/shell/src/streams.rs:1095
+#: rust/crates/shell/src/streams.rs:1102
 msgid "Starting"
 msgstr "Startar"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1109
+#: rust/crates/shell/src/streams.rs:1116
 #, python-brace-format
 msgid "to {output}"
 msgstr "till {output}"
 
-#: rust/crates/shell/src/streams.rs:1110
+#: rust/crates/shell/src/streams.rs:1117
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "Stoppa strömning från {name}"
 
-#: rust/crates/shell/src/streams.rs:1490
+#: rust/crates/shell/src/streams.rs:1497
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Telefonen skickade data som den här versionen inte kan läsa. Uppdatera båda apparna till samma version."
 
-#: rust/crates/shell/src/streams.rs:1572
+#: rust/crates/shell/src/streams.rs:1579
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "Kan inte nå {name}"
 
-#: rust/crates/shell/src/streams.rs:1656
+#: rust/crates/shell/src/streams.rs:1663
 msgid "Lost the phone - reconnecting"
 msgstr "Tappade kontakten med telefonen - återansluter"
 
-#: rust/crates/shell/src/streams.rs:1848
+#: rust/crates/shell/src/streams.rs:1855
 msgid "Couldn't reach the device."
 msgstr "Kunde inte nå enheten."
 
@@ -9262,23 +9266,23 @@ msgstr "Telescope: strömmar mikrofonen, kameran avstängd (tystad)"
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: strömmar mikrofonen, kameran avstängd"
 
-#: rust/crates/shell/src/tray.rs:88
+#: rust/crates/shell/src/tray.rs:103
 msgid "Quit"
 msgstr "Avsluta"
 
-#: rust/crates/shell/src/tray.rs:237
+#: rust/crates/shell/src/tray.rs:255
 msgid "Streaming continues in the background."
 msgstr "Strömningen fortsätter i bakgrunden."
 
-#: rust/crates/shell/src/tray.rs:237
+#: rust/crates/shell/src/tray.rs:255
 msgid "Streaming starts automatically when needed."
 msgstr "Strömningen startar automatiskt vid behov."
 
-#: rust/crates/shell/src/tray.rs:238
+#: rust/crates/shell/src/tray.rs:256
 msgid "Right-click the tray icon to quit."
 msgstr "Högerklicka på ikonen i meddelandefältet för att avsluta."
 
-#: rust/crates/shell/src/tray.rs:239
+#: rust/crates/shell/src/tray.rs:257
 msgid "Telescope is still running"
 msgstr "Telescope körs fortfarande"
 
@@ -9286,67 +9290,67 @@ msgstr "Telescope körs fortfarande"
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Videoförhandsvisning"
 
-#: rust/crates/shell/src/window.rs:692
+#: rust/crates/shell/src/window.rs:696
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:790
+#: rust/crates/shell/src/window.rs:794
 msgid "How much data per second reaches this computer."
 msgstr "Hur mycket data per sekund som når den här datorn."
 
-#: rust/crates/shell/src/window.rs:790
+#: rust/crates/shell/src/window.rs:794
 msgid "Throughput"
 msgstr "Dataflöde"
 
-#: rust/crates/shell/src/window.rs:1824 rust/crates/shell/src/window.rs:1825
+#: rust/crates/shell/src/window.rs:1872 rust/crates/shell/src/window.rs:1873
 msgid "Start mic only"
 msgstr "Starta bara mikrofonen"
 
-#: rust/crates/shell/src/window.rs:1824
+#: rust/crates/shell/src/window.rs:1872
 msgid "Start streaming"
 msgstr "Starta strömning"
 
-#: rust/crates/shell/src/window.rs:1830
+#: rust/crates/shell/src/window.rs:1878
 msgid "Stop streaming"
 msgstr "Stoppa strömning"
 
-#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1487
+#: rust/crates/shell/src/window.rs:2197 rust/crates/shell/src/worker.rs:1498
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Strömmar {size} i {fps} fps till {camera}"
 
-#: rust/crates/shell/src/worker.rs:603
+#: rust/crates/shell/src/worker.rs:605
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Strömfel: {error}"
 
-#: rust/crates/shell/src/worker.rs:1139
+#: rust/crates/shell/src/worker.rs:1149
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Ansluter till {url}..."
 
-#: rust/crates/shell/src/worker.rs:1149
+#: rust/crates/shell/src/worker.rs:1159
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Kan inte nå telefonens ström. Försöker igen om {seconds} s…"
 
-#: rust/crates/shell/src/worker.rs:1161
+#: rust/crates/shell/src/worker.rs:1171
 msgid "Waiting for the first frame…"
 msgstr "Väntar på den första bildrutan…"
 
-#: rust/crates/shell/src/worker.rs:1249
+#: rust/crates/shell/src/worker.rs:1259
 msgid "Stream reconnected"
 msgstr "Strömmen är återansluten"
 
-#: rust/crates/shell/src/worker.rs:1354
+#: rust/crates/shell/src/worker.rs:1364
 msgid "The video is paused while the phone takes a photo"
 msgstr "Videon är pausad medan telefonen tar ett foto"
 
-#: rust/crates/shell/src/worker.rs:1356 rust/crates/shell/src/worker.rs:1362
+#: rust/crates/shell/src/worker.rs:1366 rust/crates/shell/src/worker.rs:1372
 msgid "Stream dropped - reconnecting"
 msgstr "Strömmen bröts - återansluter"
 
-#: rust/crates/shell/src/worker.rs:1476 rust/crates/shell/src/worker.rs:1585
+#: rust/crates/shell/src/worker.rs:1486 rust/crates/shell/src/worker.rs:1596
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Fel på virtuell kamera: {error}"
@@ -10999,6 +11003,10 @@ msgstr "Ersatt"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Kunde inte starta om"
+
+#, python-brace-format
+#~ msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
+#~ msgstr "{device} är inställd på pixelformatet {format}, som Telescope inte kan skriva till den. Stäng apparna som använder den, eller ladda om v4l2loopback utan keep_format."
 
 #~ msgid "Bracket"
 #~ msgstr "Gaffling"
