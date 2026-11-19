@@ -600,7 +600,16 @@ impl Pipeline {
             }
         }
         self.bring_down(chain, frame, ctx, true);
-        match ask(&mut self.steps[i], frame) {
+        let asked = ask(&mut self.steps[i], frame);
+        // The shader makes no cut-out, so the CPU half gives it now and it comes back with the picture
+        if asked.is_ok() {
+            if let Kind::Either(_, cpu) = &mut self.steps[i].kind {
+                if let Ok(Some(alpha)) = catch_unwind(AssertUnwindSafe(|| cpu.card_cut_out(frame, ctx))) {
+                    frame.set_alpha(alpha);
+                }
+            }
+        }
+        match asked {
             Ok(None) => {
                 self.steps[i].no_textures = true;
                 None
@@ -2656,6 +2665,45 @@ pub(crate) mod tests {
         assert!(!owned(FrameStage::Background, false).drops_alpha(), "the stage that makes the cut-out");
         let (table, cube) = (telescope_core::colour::Baked::Table(vec![0.0; 3 * 256]), telescope_core::colour::Baked::Cube { size: 2, rgb: vec![0.0; 24] });
         assert!(table.shader().keeps_geometry && cube.shader().keeps_geometry, "the built-in colour shaders work on each pixel alone");
+    }
+
+    /// An Either's CPU half whose shader on the card makes no cut-out: it gives the plane itself.
+    struct CutsOnTheCard;
+
+    impl CpuStep for CutsOnTheCard {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn card_textures_offered(&self) -> Option<bool> {
+            Some(true)
+        }
+        fn card_textures(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
+            Some(Vec::new())
+        }
+        fn card_cut_out(&mut self, frame: &Frame, _ctx: &dyn FrameContext) -> Option<Arc<Alpha>> {
+            Some(Arc::new(Alpha::new(frame.width, frame.height, vec![77; frame.width as usize * frame.height as usize], false)))
+        }
+    }
+
+    #[test]
+    fn a_cut_out_an_either_gives_for_its_card_shader_is_on_the_frame_that_comes_down() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let blur = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let background = StagedStep { owner: "background".into(), stage: FrameStage::Background, step: FrameStep::Either(blur, Box::new(CutsOnTheCard)) };
+        let keeping = match shader(INVERT).step {
+            FrameStep::Shader(mut s) => {
+                s.keeps_geometry = true;
+                StagedStep { stage: FrameStage::Colour, step: FrameStep::Shader(s), ..shader(INVERT) }
+            }
+            _ => unreachable!(),
+        };
+        p.set_steps(vec![background, keeping, step("blur", FrameStage::Privacy, Brightens)]);
+        let before = transfers::totals();
+        let out = p.process(grey(8, 8, 100), &NoContext);
+        assert!(transfers::totals().up > before.up, "the frame went to the card");
+        assert_ne!(out.data[0], 100, "the card's work landed");
+        assert_eq!(out.alpha().map(|a| a.data[0]), Some(77), "the plane the CPU half made went down with the picture");
     }
 
     #[test]
