@@ -12,8 +12,9 @@ use crate::imgops::resize_area;
 use crate::pixels::{put_rgb, to_rgb};
 use crate::shared::{no_pictures, PictureReader};
 use crate::transition::{self, Spec};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::time::monotonic_ns;
 
@@ -440,6 +441,142 @@ fn paste(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, content: Content,
     }
 }
 
+/// x / 255 rounded, for x up to 255 * 255.
+fn div255(x: u32) -> u32 {
+    (x + 127) / 255
+}
+
+/// A frame whose colour is multiplied by its alpha, as straight colour: every value divided by its alpha (a colour sample by the mean of its 2 x 2).
+fn unpremultiplied(frame: &Frame, alpha: &telescope_core::frame::Alpha) -> Frame {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let divide = |v: u8, a: u32| (v as u32 * 255 + a / 2).checked_div(a).map_or(0, |q| q.min(255) as u8);
+    let mut out = frame.clone();
+    let data = out.data_mut();
+    let block = |cx: usize, cy: usize| {
+        let (x1, y1) = ((2 * cx + 2).min(w), (2 * cy + 2).min(h));
+        let (mut sum, mut n) = (0u32, 0u32);
+        for y in 2 * cy..y1 {
+            for x in 2 * cx..x1 {
+                sum += alpha.data[y * w + x] as u32;
+                n += 1;
+            }
+        }
+        (sum + n / 2) / n.max(1)
+    };
+    match frame.format {
+        PixelFormat::Rgba | PixelFormat::Bgra => {
+            for (pixel, &a) in data.as_chunks_mut::<4>().0.iter_mut().zip(&alpha.data) {
+                pixel.iter_mut().take(3).for_each(|v| *v = divide(*v, a as u32));
+            }
+        }
+        PixelFormat::I420 | PixelFormat::Nv12 => {
+            let (cw, chh) = (w.div_ceil(2), h.div_ceil(2));
+            for (v, &a) in data[..w * h].iter_mut().zip(&alpha.data) {
+                *v = divide(*v, a as u32);
+            }
+            for cy in 0..chh {
+                for cx in 0..cw {
+                    let a = block(cx, cy);
+                    if frame.format == PixelFormat::Nv12 {
+                        let at = w * h + (cy * cw + cx) * 2;
+                        data[at] = divide(data[at], a);
+                        data[at + 1] = divide(data[at + 1], a);
+                    } else {
+                        let at = w * h + cy * cw + cx;
+                        data[at] = divide(data[at], a);
+                        data[at + cw * chh] = divide(data[at + cw * chh], a);
+                    }
+                }
+            }
+        }
+        other => debug_assert!(false, "no cut-out for {other:?}"),
+    }
+    out
+}
+
+/// A plane's colour values times alpha (one alpha a pixel), the fourth byte of a packed pixel left alone.
+fn multiply(plane: &mut [u8], alpha: &[u8], ch: usize) {
+    for (pixel, &a) in plane.chunks_exact_mut(ch).zip(alpha) {
+        for v in pixel.iter_mut().take(3) {
+            *v = div255(*v as u32 * a as u32) as u8;
+        }
+    }
+}
+
+/// The alpha of each colour sample of a box in I420: the mean of its 2 x 2 luma pixels that are inside the box.
+fn chroma_alpha(luma: &[u8], bx: (usize, usize, usize, usize)) -> Vec<u8> {
+    let (x, y, w, h) = bx;
+    let (cx0, cy0, cx1, cy1) = plane_box(2, bx);
+    let mut out = Vec::with_capacity((cx1 - cx0) * (cy1 - cy0));
+    for cy in cy0..cy1 {
+        for cx in cx0..cx1 {
+            let (mut sum, mut n) = (0u32, 0u32);
+            for ly in 2 * cy..2 * cy + 2 {
+                for lx in 2 * cx..2 * cx + 2 {
+                    if lx >= x && lx < x + w && ly >= y && ly < y + h {
+                        sum += luma[(ly - y) * w + lx - x] as u32;
+                        n += 1;
+                    }
+                }
+            }
+            out.push((sum + n / 2).checked_div(n).map_or(0, |v| v as u8));
+        }
+    }
+    out
+}
+
+/// composite.paste for a cut-out: the premultiplied picture over the canvas, out = picture * coverage + under * (1 - alpha * coverage), the corner curve's coverage mean over a colour sample's 2 x 2 pixels.
+fn paste_over(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, picture: &[Vec<u8>], alpha: &[Vec<u8>], bx: (usize, usize, usize, usize), radius: usize) {
+    let (x, y, w, h) = bx;
+    let r = radius.min(w / 2).min(h / 2);
+    let masks = if r > 0 { Some(corner_masks(r)) } else { None };
+    let empty: CornerMasks = Default::default();
+    let m = masks.as_deref().unwrap_or(&empty);
+    for (p, plane) in planes(kind, cw, chh).into_iter().enumerate() {
+        let full = plane.w == cw;
+        let (px0, py0, px1, py1) = if full { (x, y, x + w, y + h) } else { plane_box(2, bx) };
+        let (bw, ch) = (px1 - px0, plane.ch);
+        let a_plane = &alpha[p.min(1).min(alpha.len() - 1)];
+        let data = &mut canvas[plane.at..plane.at + plane.w * plane.h * ch];
+        for cy in py0..py1 {
+            for cx in px0..px1 {
+                // only a corner square has a curve to look up; a luma pixel or colour sample clear of both bands of one is fully covered
+                let cov = if full {
+                    if (cy >= y + r && cy < y + h - r) || (cx >= x + r && cx < x + w - r) { 1.0 } else { coverage(cx, cy, bx, r, m) }
+                } else if (2 * cy >= y && 2 * cy + 1 < y + h) && (2 * cx >= x && 2 * cx + 1 < x + w)
+                    && ((2 * cy >= y + r && 2 * cy + 1 < y + h - r) || (2 * cx >= x + r && 2 * cx + 1 < x + w - r))
+                {
+                    1.0
+                } else {
+                    let mut sum = 0f32;
+                    let mut n = 0f32;
+                    for ly in (2 * cy..2 * cy + 2).filter(|&v| v < chh) {
+                        for lx in (2 * cx..2 * cx + 2).filter(|&v| v < cw) {
+                            sum += coverage(lx, ly, bx, r, m);
+                            n += 1.0;
+                        }
+                    }
+                    if n > 0.0 { sum / n } else { 0.0 }
+                };
+                if cov <= 0.0 {
+                    continue;
+                }
+                let i = (cy - py0) * bw + (cx - px0);
+                let a = a_plane[i];
+                let at = (cy * plane.w + cx) * ch;
+                for c in 0..ch.min(3) {
+                    let (pm, under) = (picture[p][i * ch + c], data[at + c]);
+                    data[at + c] = if cov >= 1.0 {
+                        (pm as u32 + div255(under as u32 * (255 - a as u32))).min(255) as u8
+                    } else {
+                        (pm as f32 * cov + under as f32 * (1.0 - a as f32 / 255.0 * cov)).round_ties_even().clamp(0.0, 255.0) as u8
+                    };
+                }
+            }
+        }
+    }
+}
+
 // ── Fading and mixing ─────────────────────────────────────────────────────
 
 /// The rows of every plane inside box, to put back (or mix with) after something is drawn over them.
@@ -702,15 +839,30 @@ struct Item<'a> {
     key: usize,
 }
 
-type ScaleKey = (u64, (i64, i64, i64, i64), usize, usize, usize, usize, Kind);
+type ScaleKey = (u64, (i64, i64, i64, i64), usize, usize, usize, usize, Kind, bool);
 type ScaledPlanes = Vec<Vec<u8>>;
+
+/// A tile's scaled picture; with a cut-out its planes are premultiplied once here and `alpha` is the scaled plane (I420 adds the 2 x 2 mean the colour planes share).
+#[derive(Clone)]
+struct Scaled {
+    planes: Arc<ScaledPlanes>,
+    alpha: Option<Arc<ScaledPlanes>>,
+}
+/// Where the last render's time went: scaling the streams, drawing them onto the canvas and getting the canvas ready.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RenderTimes {
+    pub scale: Duration,
+    pub paste: Duration,
+    pub setup: Duration,
+}
+
 type BackgroundKey = (String, String, usize, usize);
 
 /// composite.Compositor: prepare() on the host thread (it may read the background picture), render() on a stream's thread.
 pub struct Compositor {
     plan: Option<Arc<Plan>>,
     /// Tile index: the scaled stream for a frame seen before.
-    scaled: HashMap<usize, (ScaleKey, Arc<ScaledPlanes>)>,
+    scaled: HashMap<usize, (ScaleKey, Scaled)>,
     reader: PictureReader,
     /// The picture as read, so moving a tile doesn't read it again.
     pictures: Option<(String, Arc<Rgb>)>,
@@ -725,7 +877,17 @@ pub struct Compositor {
     spare: Vec<Vec<u8>>,
     /// The columns of a mix, worked out again each plane of each picture into the same room.
     cols: Vec<(usize, usize, u32)>,
+    /// The clock of the picture being drawn (ns).
+    now: u64,
+    /// Cut-out tiles (by source id) drawn without an alpha in this picture, and when each one first was.
+    waiting: HashMap<String, u64>,
+    /// The same as of the picture before, so a tile that has an alpha now or isn't cut out any more starts again next time.
+    waiting_before: HashMap<String, u64>,
+    times: RenderTimes,
 }
+
+/// How long a cut-out tile whose stream has no alpha stays blank before it is drawn plain (ns).
+const MASK_GRACE_NS: u64 = 1_000_000_000;
 
 impl Default for Compositor {
     fn default() -> Self {
@@ -778,7 +940,7 @@ fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
 
 impl Compositor {
     pub fn new(reader: PictureReader) -> Compositor {
-        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new() }
+        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new(), now: 0, waiting: HashMap::new(), waiting_before: HashMap::new(), times: RenderTimes::default() }
     }
 
     pub fn prepare(&mut self, layout: &Layout, size: (u32, u32)) {
@@ -840,6 +1002,22 @@ impl Compositor {
         self.transition.is_some()
     }
 
+    /// The streams of the cut-out tiles a transition under way still draws from the picture it leaves, which the layout no longer has.
+    pub fn leaving_cut_outs(&self) -> BTreeSet<String> {
+        let mut out = BTreeSet::new();
+        let mut from = self.transition.as_ref().map(|a| &a.from);
+        while let Some(start) = from {
+            let (tiles, next): (Vec<&Tile>, _) = match start {
+                Start::Plan(plan) => (plan.layout.tiles.iter().collect(), None),
+                Start::Tiles { tiles, .. } => (tiles.iter().map(|p| &p.tile).collect(), None),
+                Start::Frozen { active, to, .. } => (to.layout.tiles.iter().collect(), Some(&active.from)),
+            };
+            out.extend(tiles.into_iter().filter(|t| t.cut_out).map(|t| t.source_id.clone()));
+            from = next;
+        }
+        out
+    }
+
     fn plan_of(&mut self, layout: &Layout, size: (u32, u32)) -> Arc<Plan> {
         let (width, height) = (size.0.max(1) as usize, size.1.max(1) as usize);
         let background = self.background(layout, width, height);
@@ -898,7 +1076,7 @@ impl Compositor {
     /// The scaled picture kept for the tile at index, for the tests.
     #[cfg(test)]
     pub(crate) fn scaled_of(&self, index: usize) -> Option<Arc<Vec<Vec<u8>>>> {
-        self.scaled.get(&index).map(|(_, s)| s.clone())
+        self.scaled.get(&index).map(|(_, s)| s.planes.clone())
     }
 
     fn background_planes(&mut self, plan: &Plan, kind: Kind) -> Arc<Vec<u8>> {
@@ -925,6 +1103,15 @@ impl Compositor {
 
     /// render() as it is at `now` (ns): partway through a transition, if one is going.
     pub fn render_at(&mut self, frames: &Frames, format: PixelFormat, now: u64) -> Option<Frame> {
+        self.now = now;
+        self.waiting.clear();
+        let out = self.render_picture(frames, format, now);
+        std::mem::swap(&mut self.waiting, &mut self.waiting_before);
+        out
+    }
+
+    fn render_picture(&mut self, frames: &Frames, format: PixelFormat, now: u64) -> Option<Frame> {
+        self.times = RenderTimes::default();
         let plan = self.plan.clone()?;
         let kind = Kind::of(format);
         if let Some(active) = self.transition.as_mut() {
@@ -944,6 +1131,11 @@ impl Compositor {
         Some(Frame::new(plan.size.0 as u32, plan.size.1 as u32, kind.format(), out))
     }
 
+    /// How the last render's time split up.
+    pub fn last_times(&self) -> RenderTimes {
+        self.times
+    }
+
     /// A buffer holding a copy of `from`, one given back before if there is one.
     fn copy_of(&mut self, from: &[u8]) -> Vec<u8> {
         let mut buf = self.spare.pop().unwrap_or_default();
@@ -960,8 +1152,10 @@ impl Compositor {
 
     /// The whole of a plan drawn as it is: the background, then every tile with a frame.
     fn draw_plan(&mut self, plan: &Plan, frames: &Frames, kind: Kind, key_base: usize) -> Vec<u8> {
+        let started = Instant::now();
         let background = self.background_planes(plan, kind);
         let mut out = self.copy_of(&background);
+        self.times.setup += started.elapsed();
         let items: Vec<Item> = plan.layout.tiles.iter().zip(&plan.boxes).enumerate()
             .map(|(i, (tile, placed))| Item { tile: Cow::Borrowed(tile), placed: *placed, alpha: 1.0, key: key_base + i }).collect();
         self.draw_items(&mut out, kind, plan.size, &items, frames);
@@ -976,8 +1170,10 @@ impl Compositor {
         let from_plan = active.from.plan();
         if spec.kind.moves_tiles() {
             let posed = transition::poses_from(spec.kind, &active.from.tiles(), &plan.layout.tiles, t, spec.ease, cw as f64 / chh as f64);
+            let started = Instant::now();
             let background = self.background_planes(plan, kind);
             let mut out = self.copy_of(&background);
+            self.times.setup += started.elapsed();
             // a different background fades from one to the other (the one an interrupted transition left from is part way already)
             let over = match &active.from {
                 Start::Tiles { over: Some((to, w)), .. } => Some((to.clone(), *w)),
@@ -1016,18 +1212,39 @@ impl Compositor {
         for item in items {
             let (tile, placed) = (item.tile.as_ref(), item.placed);
             let Some((frame, number)) = frames.get(&tile.source_id) else { continue };
+            // a cut-out has nothing to show until its stream's alpha arrives, as the whole frame would flash the room; if none comes it is drawn plain
+            if tile.cut_out && frame.alpha().is_none() {
+                let since = *self.waiting.get(&tile.source_id).or(self.waiting_before.get(&tile.source_id)).unwrap_or(&self.now);
+                self.waiting.insert(tile.source_id.clone(), since);
+                if self.now.saturating_sub(since) < MASK_GRACE_NS {
+                    continue;
+                }
+            }
             let (mut x, mut y, mut w, mut h) = placed.bx;
             let under = (item.alpha < 1.0).then(|| save_region(out, kind, cw, chh, (x as usize, y as usize, w as usize, h as usize)));
             if placed.border > 0 {
-                let colour = colour_planes(kind, { let [b, g, r] = bgr(&tile.border_colour); [r, g, b] });
-                paste(out, kind, cw, chh, Content::Colour(colour), (x as usize, y as usize, w as usize, h as usize), placed.radius as usize);
+                // a cut-out has no box for a border to fill, so it keeps the room the border takes and leaves it empty
+                if !tile.cut_out {
+                    let colour = colour_planes(kind, { let [b, g, r] = bgr(&tile.border_colour); [r, g, b] });
+                    let started = Instant::now();
+                    paste(out, kind, cw, chh, Content::Colour(colour), (x as usize, y as usize, w as usize, h as usize), placed.radius as usize);
+                    self.times.paste += started.elapsed();
+                }
                 (x, y, w, h) = (x + placed.border, y + placed.border, w - 2 * placed.border, h - 2 * placed.border);
             }
             if w > 0 && h > 0 {
                 let bx = (x as usize, y as usize, w as usize, h as usize);
-                if let Some(scaled) = self.scale(item.key, tile, frame, *number, bx, kind) {
+                let started = Instant::now();
+                let scaled = self.scale(item.key, tile, frame, *number, bx, kind);
+                self.times.scale += started.elapsed();
+                if let Some(scaled) = scaled {
                     let radius = if placed.border > 0 { placed.inner } else { placed.radius };
-                    paste(out, kind, cw, chh, Content::Picture(&scaled), bx, radius as usize);
+                    let started = Instant::now();
+                    match &scaled.alpha {
+                        Some(alpha) => paste_over(out, kind, cw, chh, &scaled.planes, alpha, bx, radius as usize),
+                        None => paste(out, kind, cw, chh, Content::Picture(&scaled.planes), bx, radius as usize),
+                    }
+                    self.times.paste += started.elapsed();
                 }
             }
             if let Some(under) = under {
@@ -1036,8 +1253,8 @@ impl Compositor {
         }
     }
 
-    /// The tile's crop of frame scaled to its box, plane by plane; kept for a frame that can come again.
-    fn scale(&mut self, index: usize, tile: &Tile, frame: &Frame, number: Option<u64>, bx: (usize, usize, usize, usize), kind: Kind) -> Option<Arc<Vec<Vec<u8>>>> {
+    /// The tile's crop of frame scaled to its box, plane by plane; kept for a frame that can come again, with its alpha plane and premultiplied colour for a cut-out.
+    fn scale(&mut self, index: usize, tile: &Tile, frame: &Frame, number: Option<u64>, bx: (usize, usize, usize, usize), kind: Kind) -> Option<Scaled> {
         let (fw, fh) = (frame.width as i64, frame.height as i64);
         if fw == 0 || fh == 0 {
             return None;
@@ -1045,14 +1262,24 @@ impl Compositor {
         let (_, _, w, h) = bx;
         let crop = crop_px(tile, fw, fh, w as i64, h as i64);
         let (cx0, cy0, cx1, cy1) = plane_box(2, bx);
-        let key = (number.unwrap_or(0), crop, w, h, cx1 - cx0, cy1 - cy0, kind);
+        let cut = if tile.cut_out { frame.alpha().cloned() } else { None };
+        let key = (number.unwrap_or(0), crop, w, h, cx1 - cx0, cy1 - cy0, kind, cut.is_some());
         if let (Some(_), Some((k, cached))) = (number, self.scaled.get(&index)) {
             if *k == key {
                 // a slower stream's frame that hasn't changed since the last picture
                 return Some(cached.clone());
             }
         }
-        let source = converted(frame, kind)?;
+        // premultiplied planes only stay so between frames of the same colour model: through RGB they are made straight first
+        let mut premultiplied = cut.as_ref().is_some_and(|a| a.premultiplied);
+        let straight = match &cut {
+            Some(a) if premultiplied && matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12) != (kind == Kind::I420) => {
+                premultiplied = false;
+                Some(unpremultiplied(frame, a))
+            }
+            _ => None,
+        };
+        let source = converted(straight.as_ref().unwrap_or(frame), kind)?;
         let (x0, y0, x1, y1) = (crop.0 as usize, crop.1 as usize, crop.2 as usize, crop.3 as usize);
         let mut out = Vec::new();
         for plane in planes(kind, fw as usize, fh as usize) {
@@ -1067,12 +1294,30 @@ impl Compositor {
             let region = Region { data, stride: plane.w, ch: plane.ch, x0: rx0, y0: ry0, w: rx1 - rx0, h: ry1 - ry0 };
             out.push(scale_region(region, tw, th));
         }
-        let out = Arc::new(out);
-        self.scaled.insert(index, (key, out.clone()));
-        Some(out)
+        let alpha = cut.map(|a| {
+            let region = Region { data: &a.data, stride: a.w as usize, ch: 1, x0, y0, w: x1 - x0, h: y1 - y0 };
+            let luma = scale_region(region, w, h);
+            let mut alpha = vec![luma];
+            if kind == Kind::I420 {
+                alpha.push(chroma_alpha(&alpha[0], bx));
+            }
+            if !premultiplied {
+                for (p, plane) in out.iter_mut().enumerate() {
+                    multiply(plane, &alpha[p.min(1)], if kind == Kind::I420 { 1 } else { 4 });
+                }
+            }
+            Arc::new(alpha)
+        });
+        let scaled = Scaled { planes: Arc::new(out), alpha };
+        self.scaled.insert(index, (key, scaled.clone()));
+        Some(scaled)
     }
 }
 
 #[cfg(test)]
 #[path = "compositor_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "compositor_speed_tests.rs"]
+mod speed_tests;

@@ -160,3 +160,80 @@ fn a_thread_that_ends_after_its_stream_was_switched_off_leaves_no_state_behind()
     assert!(p.shared.states.lock().unwrap().is_empty(), "{:?}", p.shared.states.lock().unwrap());
     assert_eq!(p.shared.state("phone-a"), State::Idle);
 }
+
+fn cut_out_events(host: &FakeHost) -> Vec<(String, bool)> {
+    host.events.iter().filter_map(|e| if let Event::CutOutWanted { source_id, on } = e { Some((source_id.clone(), *on)) } else { None }).collect()
+}
+
+fn toggle_transparent(p: &mut SpoutSendPlugin, host: &mut FakeHost, on: bool) {
+    p.on_ui(host, &UiEvent { ui: "card".into(), callback: "transparent-toggled".into(), args: vec![json!(on)] });
+}
+
+#[test]
+fn a_transparent_stream_asks_for_its_cut_out_and_stops_asking_when_it_goes() {
+    let (mut p, mut host, _) = plugin();
+    assert_eq!(p.props()["transparent-shown"], json!(false));
+    toggle(&mut p, &mut host, true);
+    assert_eq!(p.props()["transparent-shown"], json!(true));
+    assert!(cut_out_events(&host).is_empty(), "opaque by default");
+    toggle_transparent(&mut p, &mut host, true);
+    assert_eq!(cut_out_events(&host), [("phone-a".to_string(), true)]);
+    assert_eq!(p.props()["transparent"], json!(true));
+    // Told again once the steps that cut out are up, and again when a source is shown
+    p.on_plugins_ready(&mut host);
+    p.on_event(&mut host, &Event::SourceShown { source_id: "phone-a".into() });
+    assert_eq!(cut_out_events(&host).len(), 3);
+    toggle_transparent(&mut p, &mut host, false);
+    assert_eq!(cut_out_events(&host).last(), Some(&("phone-a".to_string(), false)));
+    // Switching sharing off while transparent is a change too
+    toggle_transparent(&mut p, &mut host, true);
+    toggle(&mut p, &mut host, false);
+    assert_eq!(cut_out_events(&host).last(), Some(&("phone-a".to_string(), false)));
+}
+
+#[test]
+fn the_transparent_choice_is_saved_with_the_stream() {
+    let (mut p, mut host, _) = plugin();
+    toggle(&mut p, &mut host, true);
+    toggle_transparent(&mut p, &mut host, true);
+    let saved = p.get_config();
+    assert_eq!(saved["streams"]["phone-a"]["transparent"], json!(true));
+    let (mut q, mut host2, _) = plugin();
+    q.set_config(&saved).unwrap();
+    assert_eq!(q.get_config(), saved);
+    q.on_plugins_ready(&mut host2);
+    assert_eq!(cut_out_events(&host2), [("phone-a".to_string(), true)]);
+}
+
+#[test]
+fn the_cut_out_goes_out_as_alpha_only_for_a_stream_that_asked() {
+    use telescope_core::frame::Alpha;
+    let (mut p, mut host, log) = plugin();
+    toggle(&mut p, &mut host, true);
+    let mut tap = step(&mut p);
+    let cut = |frame: &mut Frame| assert!(frame.set_alpha(Arc::new(Alpha::new(2, 2, vec![0, 64, 128, 255], false))));
+    let mut frame = picture(2, 2, 9);
+    cut(&mut frame);
+    tap.process(&mut frame, &Ctx("phone-a".into()));
+    wait_for("the picture", || !log.sent.lock().unwrap().is_empty());
+    assert!(log.sent.lock().unwrap()[0].as_chunks::<4>().0.iter().all(|px| px[3] == 255), "solid unless asked");
+    toggle_transparent(&mut p, &mut host, true);
+    let before = log.sent.lock().unwrap().len();
+    cut(&mut frame);
+    tap.process(&mut frame, &Ctx("phone-a".into()));
+    wait_for("the second picture", || log.sent.lock().unwrap().len() > before);
+    let sent = log.sent.lock().unwrap().last().cloned().unwrap();
+    assert_eq!(sent.as_chunks::<4>().0.iter().map(|px| px[3]).collect::<Vec<_>>(), [0, 64, 128, 255]);
+    assert_eq!(frame.alpha().map(|a| a.data.clone()), Some(vec![0, 64, 128, 255]), "the frame itself keeps its cut-out for the camera's flatten");
+}
+
+#[test]
+fn switching_the_plugin_off_stops_asking_for_every_cut_out() {
+    let (mut p, mut host, _) = plugin();
+    toggle(&mut p, &mut host, true);
+    toggle_transparent(&mut p, &mut host, true);
+    assert_eq!(cut_out_events(&host), [("phone-a".to_string(), true)]);
+    p.shutdown(&mut host);
+    assert_eq!(cut_out_events(&host).last(), Some(&("phone-a".to_string(), false)));
+    assert!(p.told.is_empty());
+}

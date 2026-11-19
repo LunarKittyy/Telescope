@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Hacer una donación o leer más</a>"
 msgid "No mic"
 msgstr "Sin micro"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:358
 msgid "Downloading…"
 msgstr "Descargando…"
 
@@ -180,7 +180,7 @@ msgstr "Obtener VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Quita el ruido del teclado, del ventilador y el siseo del ambiente."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:869 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:919 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -346,7 +346,7 @@ msgstr "Amarillo: el limitador reduce los picos. Rojo: el sonido se saturó."
 msgid "Click to clear"
 msgstr "Haz clic para limpiar"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
 msgid "Reset"
 msgstr "Restablecer"
 
@@ -370,7 +370,7 @@ msgstr "Reducción de ruido"
 msgid "Noise reduction unavailable"
 msgstr "Reducción de ruido no disponible"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:966 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -548,7 +548,7 @@ msgstr "Actualizaciones y Acerca de"
 msgid "Camera"
 msgstr "Cámara"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/composite_editor.slint:823 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/composite_editor.slint:836 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
 msgid "Look"
 msgstr "Apariencia"
 
@@ -625,7 +625,7 @@ msgstr "Desactivado"
 msgid "Blur"
 msgstr "Desenfoque"
 
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:577 rust/crates/effects/ui/composite_editor.slint:920 rust/crates/effects/ui/composite_editor.slint:922 rust/crates/effects/ui/composite_editor.slint:922
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:583 rust/crates/effects/ui/composite_editor.slint:947 rust/crates/effects/ui/composite_editor.slint:949 rust/crates/effects/ui/composite_editor.slint:949
 msgid "Picture"
 msgstr "Imagen"
 
@@ -657,7 +657,7 @@ msgstr "Elegir una imagen"
 msgid "Can't open that picture"
 msgstr "No se puede abrir esa imagen"
 
-#: rust/crates/effects/src/background.rs:714 rust/crates/effects/src/background.rs:847 rust/crates/effects/src/background.rs:850 rust/crates/effects/src/background.rs:869 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:890
+#: rust/crates/effects/src/background.rs:714 rust/crates/effects/src/background.rs:847 rust/crates/effects/src/background.rs:850 rust/crates/effects/src/background.rs:869 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:917
 msgid "Background"
 msgstr "Fondo"
 
@@ -673,11 +673,11 @@ msgstr "Sin el complemento Fondo no hay tarjeta Fondo y el fondo se muestra tal 
 msgid "Background blur"
 msgstr "Desenfoque de fondo"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:875 rust/crates/effects/ui/composite_editor.slint:906 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:888 rust/crates/effects/ui/composite_editor.slint:933 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "Verde"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:875 rust/crates/effects/ui/composite_editor.slint:906 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:888 rust/crates/effects/ui/composite_editor.slint:933 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "Azul"
 
@@ -685,7 +685,7 @@ msgstr "Azul"
 msgid "Picked"
 msgstr "Elegido"
 
-#: rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:863 rust/crates/effects/ui/composite_editor.slint:894
+#: rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:876 rust/crates/effects/ui/composite_editor.slint:921
 msgid "Colour"
 msgstr "Color"
 
@@ -842,7 +842,7 @@ msgstr "Desfile RGB"
 msgid "Vectorscope"
 msgstr "Vectorescopio"
 
-#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:875 rust/crates/effects/ui/composite_editor.slint:906 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:888 rust/crates/effects/ui/composite_editor.slint:933 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "Rojo"
 
@@ -1002,7 +1002,7 @@ msgstr "Se ve bien"
 msgid "No stream"
 msgstr "Sin transmisión"
 
-#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:923
+#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:950
 msgid "No picture"
 msgstr "Sin imagen"
 
@@ -1270,7 +1270,7 @@ msgstr ""
 msgid "Push"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:50 rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:827 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_plugin.rs:50 rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:840 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "Zoom"
 
@@ -1326,74 +1326,74 @@ msgstr ""
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:588 rust/crates/effects/src/composite_plugin.rs:839 rust/crates/effects/src/composite_plugin.rs:843 rust/crates/effects/src/composite_plugin.rs:856 rust/crates/effects/ui/composite.slint:36
+#: rust/crates/effects/src/composite_plugin.rs:591 rust/crates/effects/src/composite_plugin.rs:889 rust/crates/effects/src/composite_plugin.rs:893 rust/crates/effects/src/composite_plugin.rs:906 rust/crates/effects/ui/composite.slint:36
 msgid "One picture"
 msgstr "Una sola imagen"
 
-#: rust/crates/effects/src/composite_plugin.rs:643
+#: rust/crates/effects/src/composite_plugin.rs:680
 msgid "Nothing's in the picture yet."
 msgstr "Todavía no hay nada en la imagen."
 
-#: rust/crates/effects/src/composite_plugin.rs:645
+#: rust/crates/effects/src/composite_plugin.rs:682
 msgid "Active once two streams are running."
 msgstr "Activo una vez que dos transmisiones estén funcionando."
 
-#: rust/crates/effects/src/composite_plugin.rs:647
+#: rust/crates/effects/src/composite_plugin.rs:684
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Configurado para salir por {camera}, pero no hay ninguna transmisión activa allí."
 
-#: rust/crates/effects/src/composite_plugin.rs:649
+#: rust/crates/effects/src/composite_plugin.rs:686
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Saldrá por {camera} una vez que la transmisión allí envíe una imagen."
 
-#: rust/crates/effects/src/composite_plugin.rs:651
+#: rust/crates/effects/src/composite_plugin.rs:688
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Saliendo por {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:656
+#: rust/crates/effects/src/composite_plugin.rs:693
 msgid "Nothing in it"
 msgstr "Vacío"
 
-#: rust/crates/effects/src/composite_plugin.rs:658 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
+#: rust/crates/effects/src/composite_plugin.rs:695 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:716
 msgid "Two streams required"
 msgstr "Se requieren dos transmisiones"
 
-#: rust/crates/effects/src/composite_plugin.rs:660
+#: rust/crates/effects/src/composite_plugin.rs:697
 msgid "Not going out"
 msgstr "Sin salida"
 
-#: rust/crates/effects/src/composite_plugin.rs:662
+#: rust/crates/effects/src/composite_plugin.rs:699
 msgid "Going out"
 msgstr "En salida"
 
-#: rust/crates/effects/src/composite_plugin.rs:719
+#: rust/crates/effects/src/composite_plugin.rs:756
 msgid "Several cameras in one picture"
 msgstr "Varias cámaras en una sola imagen"
 
-#: rust/crates/effects/src/composite_plugin.rs:720
+#: rust/crates/effects/src/composite_plugin.rs:757
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Coloca las transmisiones que ejecutas una al lado de la otra o una dentro de otra en una cámara virtual."
 
-#: rust/crates/effects/src/composite_plugin.rs:721
+#: rust/crates/effects/src/composite_plugin.rs:758
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Sin el complemento Varias cámaras en una imagen no hay tarjeta Una imagen y cada transmisión solo va a su propia cámara."
 
-#: rust/crates/effects/src/composite_plugin.rs:844 rust/crates/effects/src/composite_plugin.rs:869
+#: rust/crates/effects/src/composite_plugin.rs:894 rust/crates/effects/src/composite_plugin.rs:919
 msgid "Picture layout"
 msgstr "Diseño de la imagen"
 
-#: rust/crates/effects/src/composite_plugin.rs:934
+#: rust/crates/effects/src/composite_plugin.rs:984
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:935
+#: rust/crates/effects/src/composite_plugin.rs:985
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:935
+#: rust/crates/effects/src/composite_plugin.rs:985
 msgid "Leave the layout"
 msgstr ""
 
@@ -3210,7 +3210,7 @@ msgstr "Descarta la curva de color que generó Igualar y deja la exposición de 
 msgid "3D"
 msgstr "3D"
 
-#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:606
+#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:612
 msgid "Side by side"
 msgstr "Lado a lado"
 
@@ -3412,11 +3412,11 @@ msgstr "Panorámica izquierda/derecha"
 msgid "Pan up/down"
 msgstr "Panorámica arriba/abajo"
 
-#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:752 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
+#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:765 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
 msgid "Width"
 msgstr "Ancho"
 
-#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:760 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:773 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "Alto"
 
@@ -3644,7 +3644,7 @@ msgstr "Curva"
 msgid "All"
 msgstr "Todos"
 
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:173 rust/crates/system/ui/updates.slint:184
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:153 rust/crates/system/ui/updates.slint:164
 msgid "Channel"
 msgstr "Canal"
 
@@ -3692,15 +3692,15 @@ msgstr "Reemplazar"
 msgid "Clear the current layout without touching saved layouts."
 msgstr "Borra el diseño actual sin modificar los diseños guardados."
 
-#: rust/crates/effects/ui/composite.slint:55 rust/crates/effects/ui/composite.slint:62 rust/crates/effects/ui/composite.slint:66 rust/crates/effects/ui/composite_editor.slint:628 rust/crates/effects/ui/composite_editor.slint:640 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:55 rust/crates/effects/ui/composite.slint:62 rust/crates/effects/ui/composite.slint:66 rust/crates/effects/ui/composite_editor.slint:634 rust/crates/effects/ui/composite_editor.slint:646 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "Diseño"
 
-#: rust/crates/effects/ui/composite.slint:75 rust/crates/effects/ui/composite_editor.slint:641
+#: rust/crates/effects/ui/composite.slint:75 rust/crates/effects/ui/composite_editor.slint:647
 msgid "Not saved"
 msgstr "No guardado"
 
-#: rust/crates/effects/ui/composite.slint:90 rust/crates/effects/ui/composite.slint:91 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
+#: rust/crates/effects/ui/composite.slint:90 rust/crates/effects/ui/composite.slint:91 rust/crates/effects/ui/composite_editor.slint:463 rust/crates/effects/ui/composite_editor.slint:575
 msgid "Edit picture"
 msgstr "Editar imagen"
 
@@ -3756,279 +3756,287 @@ msgstr "desde arriba"
 msgid "Arrow keys move the picked picture a little, Shift with an arrow moves it further."
 msgstr "Las flechas mueven un poco la imagen seleccionada; Shift con una flecha la mueve más."
 
-#: rust/crates/effects/ui/composite_editor.slint:394
+#: rust/crates/effects/ui/composite_editor.slint:396
 msgid "In the picture"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:394
+#: rust/crates/effects/ui/composite_editor.slint:396
 msgid "Not in the picture"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:395
+#: rust/crates/effects/ui/composite_editor.slint:397
 msgid "Take this stream out of the picture."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:395
+#: rust/crates/effects/ui/composite_editor.slint:397
 msgid "Put this stream in the picture."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:405
+#: rust/crates/effects/ui/composite_editor.slint:407
 msgid "Lock"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:406
+#: rust/crates/effects/ui/composite_editor.slint:408
 msgid "Locked"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:406
+#: rust/crates/effects/ui/composite_editor.slint:408
 msgid "Unlocked"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:407
+#: rust/crates/effects/ui/composite_editor.slint:409
 msgid "Let this stream be moved and changed again."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:407
+#: rust/crates/effects/ui/composite_editor.slint:409
 msgid "Pin this stream so it can't be moved or changed until it is unlocked."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:578
+#: rust/crates/effects/ui/composite_editor.slint:584
 msgid "Drag a stream to move it. Hold Ctrl to move it without snapping. The arrow keys move it a pixel and Shift with them ten."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:605
+#: rust/crates/effects/ui/composite_editor.slint:611
 msgid "Start from"
 msgstr "Comenzar desde"
 
-#: rust/crates/effects/ui/composite_editor.slint:606
+#: rust/crates/effects/ui/composite_editor.slint:612
 msgid "Big and small"
 msgstr "Grande y pequeño"
 
-#: rust/crates/effects/ui/composite_editor.slint:606
+#: rust/crates/effects/ui/composite_editor.slint:612
 msgid "Grid"
 msgstr "Cuadrícula"
 
-#: rust/crates/effects/ui/composite_editor.slint:610
+#: rust/crates/effects/ui/composite_editor.slint:616
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "Inicia un diseño nuevo con las transmisiones activas acomodadas así."
 
-#: rust/crates/effects/ui/composite_editor.slint:632
+#: rust/crates/effects/ui/composite_editor.slint:638
 msgid "Save as"
 msgstr "Guardar como"
 
-#: rust/crates/effects/ui/composite_editor.slint:633
+#: rust/crates/effects/ui/composite_editor.slint:639
 msgid "Save this layout under a new name."
 msgstr "Guarda este diseño con un nombre nuevo."
 
-#: rust/crates/effects/ui/composite_editor.slint:647 rust/crates/effects/ui/composite_editor.slint:647 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:189 rust/crates/shell/src/plugins/presets.rs:220
+#: rust/crates/effects/ui/composite_editor.slint:653 rust/crates/effects/ui/composite_editor.slint:653 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:189 rust/crates/shell/src/plugins/presets.rs:220
 msgid "Rename"
 msgstr "Cambiar nombre"
 
-#: rust/crates/effects/ui/composite_editor.slint:647
+#: rust/crates/effects/ui/composite_editor.slint:653
 msgid "Rename this layout."
 msgstr "Cambiar el nombre de este diseño."
 
-#: rust/crates/effects/ui/composite_editor.slint:648 rust/crates/effects/ui/composite_editor.slint:648 rust/crates/shell/src/plugins/presets.rs:189
+#: rust/crates/effects/ui/composite_editor.slint:654 rust/crates/effects/ui/composite_editor.slint:654 rust/crates/shell/src/plugins/presets.rs:189
 msgid "Delete"
 msgstr "Eliminar"
 
-#: rust/crates/effects/ui/composite_editor.slint:648
+#: rust/crates/effects/ui/composite_editor.slint:654
 msgid "Delete this layout."
 msgstr "Eliminar este diseño."
 
-#: rust/crates/effects/ui/composite_editor.slint:652
+#: rust/crates/effects/ui/composite_editor.slint:658
 msgid "Streams"
 msgstr "Transmisiones"
 
-#: rust/crates/effects/ui/composite_editor.slint:706
+#: rust/crates/effects/ui/composite_editor.slint:719
 msgid "Picked stream"
 msgstr "Transmisión seleccionada"
 
-#: rust/crates/effects/ui/composite_editor.slint:710
+#: rust/crates/effects/ui/composite_editor.slint:723
 msgid "Fit its shape"
 msgstr "Ajustar a su forma"
 
-#: rust/crates/effects/ui/composite_editor.slint:711
+#: rust/crates/effects/ui/composite_editor.slint:724
 msgid "Give the box the stream's original shape again, without cropping or stretching."
 msgstr "Devuelve al recuadro la proporción original de la transmisión, sin recortar ni estirar."
 
-#: rust/crates/effects/ui/composite_editor.slint:716
+#: rust/crates/effects/ui/composite_editor.slint:729
 msgid "Locked. Unlock it in the Streams list to change it."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:728
+#: rust/crates/effects/ui/composite_editor.slint:741
 msgid "Place"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:732
+#: rust/crates/effects/ui/composite_editor.slint:745
 msgid "X"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:733
+#: rust/crates/effects/ui/composite_editor.slint:746
 msgid "Left"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:734
+#: rust/crates/effects/ui/composite_editor.slint:747
 msgid "How far the left edge of the stream is from the left edge of the picture, in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:740
+#: rust/crates/effects/ui/composite_editor.slint:753
 msgid "Y"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:741
+#: rust/crates/effects/ui/composite_editor.slint:754
 msgid "Top"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:742
+#: rust/crates/effects/ui/composite_editor.slint:755
 msgid "How far the top edge of the stream is from the top of the picture, in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:751
+#: rust/crates/effects/ui/composite_editor.slint:764
 msgid "W"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:753
+#: rust/crates/effects/ui/composite_editor.slint:766
 msgid "The width of the stream's box in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:759
+#: rust/crates/effects/ui/composite_editor.slint:772
 msgid "H"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:761
+#: rust/crates/effects/ui/composite_editor.slint:774
 msgid "The height of the stream's box in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:769 rust/crates/effects/ui/composite_editor.slint:774
+#: rust/crates/effects/ui/composite_editor.slint:782 rust/crates/effects/ui/composite_editor.slint:787
 msgid "Swap with"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:770
+#: rust/crates/effects/ui/composite_editor.slint:783
 msgid "Swap with…"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:775
+#: rust/crates/effects/ui/composite_editor.slint:788
 msgid "Trade this stream's place and size with another stream's."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:780
+#: rust/crates/effects/ui/composite_editor.slint:793
 msgid "Send back"
 msgstr "Enviar atrás"
 
-#: rust/crates/effects/ui/composite_editor.slint:781
+#: rust/crates/effects/ui/composite_editor.slint:794
 msgid "Bring forward"
 msgstr "Traer adelante"
 
-#: rust/crates/effects/ui/composite_editor.slint:783
+#: rust/crates/effects/ui/composite_editor.slint:796
 msgid "Crop in %"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:787
+#: rust/crates/effects/ui/composite_editor.slint:800
 msgid "L"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:788
+#: rust/crates/effects/ui/composite_editor.slint:801
 msgid "Crop left"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:789
+#: rust/crates/effects/ui/composite_editor.slint:802
 msgid "How much of the stream is cut off at its left side, in percent of its width."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:795
+#: rust/crates/effects/ui/composite_editor.slint:808
 msgid "T"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:796
+#: rust/crates/effects/ui/composite_editor.slint:809
 msgid "Crop top"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:797
+#: rust/crates/effects/ui/composite_editor.slint:810
 msgid "How much of the stream is cut off at its top, in percent of its height."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:806 rust/crates/ui-kit/ui/widgets/colour.slint:259
+#: rust/crates/effects/ui/composite_editor.slint:819 rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "R"
 msgstr "R"
 
-#: rust/crates/effects/ui/composite_editor.slint:807
+#: rust/crates/effects/ui/composite_editor.slint:820
 msgid "Crop right"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:808
+#: rust/crates/effects/ui/composite_editor.slint:821
 msgid "How much of the stream is cut off at its right side, in percent of its width."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:814 rust/crates/ui-kit/ui/widgets/colour.slint:259
+#: rust/crates/effects/ui/composite_editor.slint:827 rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "B"
 msgstr "B"
 
-#: rust/crates/effects/ui/composite_editor.slint:815
+#: rust/crates/effects/ui/composite_editor.slint:828
 msgid "Crop bottom"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:816
+#: rust/crates/effects/ui/composite_editor.slint:829
 msgid "How much of the stream is cut off at its bottom, in percent of its height."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:822
+#: rust/crates/effects/ui/composite_editor.slint:835
 msgid "Reset crop"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:828
+#: rust/crates/effects/ui/composite_editor.slint:841
 msgid "Scroll to zoom and drag with the right mouse button to move. Double-click to reset."
 msgstr "Usa la rueda del ratón para hacer zoom y arrastra con el botón derecho para mover. Doble clic para restablecer."
 
-#: rust/crates/effects/ui/composite_editor.slint:840 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
+#: rust/crates/effects/ui/composite_editor.slint:853 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
 msgid "Corners"
 msgstr "Esquinas"
 
-#: rust/crates/effects/ui/composite_editor.slint:844
+#: rust/crates/effects/ui/composite_editor.slint:857
 msgid "How round the corners are."
 msgstr "Qué tan redondeadas son las esquinas."
 
-#: rust/crates/effects/ui/composite_editor.slint:852
+#: rust/crates/effects/ui/composite_editor.slint:865
 msgid "Border"
 msgstr "Borde"
 
-#: rust/crates/effects/ui/composite_editor.slint:856
+#: rust/crates/effects/ui/composite_editor.slint:869
 msgid "How thick the border is."
 msgstr "Qué tan grueso es el borde."
 
-#: rust/crates/effects/ui/composite_editor.slint:865
+#: rust/crates/effects/ui/composite_editor.slint:878
 msgid "Border colour"
 msgstr "Color del borde"
 
-#: rust/crates/effects/ui/composite_editor.slint:896
+#: rust/crates/effects/ui/composite_editor.slint:902 rust/crates/effects/ui/composite_editor.slint:906
+msgid "Cut out"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:907
+msgid "Show only the person, using this stream's Background or Chroma key"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:923
 msgid "Background colour"
 msgstr "Color de fondo"
 
-#: rust/crates/effects/ui/composite_editor.slint:922
+#: rust/crates/effects/ui/composite_editor.slint:949
 msgid "Show a picture behind the streams instead of the colour."
 msgstr "Muestra una imagen detrás de las transmisiones en lugar del color."
 
-#: rust/crates/effects/ui/composite_editor.slint:942 rust/crates/link/ui/connection.slint:686
+#: rust/crates/effects/ui/composite_editor.slint:969 rust/crates/link/ui/connection.slint:686
 msgid "Close"
 msgstr "Cerrar"
 
-#: rust/crates/effects/ui/composite_editor.slint:953
+#: rust/crates/effects/ui/composite_editor.slint:980
 msgid "Replace layout"
 msgstr "Reemplazar diseño"
 
-#: rust/crates/effects/ui/composite_editor.slint:956 rust/crates/effects/ui/composite_editor.slint:959
+#: rust/crates/effects/ui/composite_editor.slint:983 rust/crates/effects/ui/composite_editor.slint:986
 msgid "Name:"
 msgstr "Nombre:"
 
-#: rust/crates/effects/ui/composite_editor.slint:967 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1105 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:994 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1105 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "Aceptar"
 
-#: rust/crates/effects/ui/composite_editor.slint:976 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:1003 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "No"
 
-#: rust/crates/effects/ui/composite_editor.slint:977 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:1004 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "Sí"
 
@@ -4860,7 +4868,7 @@ msgstr "No puede mantener el ritmo"
 msgid "Browser"
 msgstr "Navegador"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Reintentar"
 
@@ -5747,41 +5755,41 @@ msgstr "{name} no se está ejecutando"
 msgid "Start it again or pick another source."
 msgstr "Inícialo de nuevo o elige otra fuente."
 
-#: rust/crates/outputs/src/spout_send/mod.rs:222
+#: rust/crates/outputs/src/spout_send/mod.rs:249
 msgid "Sharing pictures isn't available on this system."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:225
+#: rust/crates/outputs/src/spout_send/mod.rs:252
 #, python-brace-format
 msgid "Sharing {size} as {name}"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:227
+#: rust/crates/outputs/src/spout_send/mod.rs:254
 msgid "The sender couldn't be started. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:228
+#: rust/crates/outputs/src/spout_send/mod.rs:255
 msgid "The sender stopped. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:229
+#: rust/crates/outputs/src/spout_send/mod.rs:256
 msgid "This picture can't be shared."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:231
+#: rust/crates/outputs/src/spout_send/mod.rs:258
 #, python-brace-format
 msgid "Shares as {name} while this stream runs"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:258 rust/crates/outputs/ui/spout_send.slint:11
+#: rust/crates/outputs/src/spout_send/mod.rs:304 rust/crates/outputs/ui/spout_send.slint:14
 msgid "Spout send"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:259
+#: rust/crates/outputs/src/spout_send/mod.rs:305
 msgid "Share a stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:260
+#: rust/crates/outputs/src/spout_send/mod.rs:306
 msgid "Without Spout send the Spout send card is gone and no picture is shared."
 msgstr ""
 
@@ -6323,16 +6331,24 @@ msgstr "Transmite desde programas en esta computadora que compartan su imagen me
 msgid "Sender"
 msgstr "Emisor"
 
-#: rust/crates/outputs/ui/spout_send.slint:12 rust/crates/outputs/ui/spout_send.slint:18
+#: rust/crates/outputs/ui/spout_send.slint:15 rust/crates/outputs/ui/spout_send.slint:23
 msgid "Share this stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:17
+#: rust/crates/outputs/ui/spout_send.slint:22
 msgid "Share this stream"
 msgstr ""
 
+#: rust/crates/outputs/ui/spout_send.slint:31
+msgid "Transparent background"
+msgstr ""
+
 #: rust/crates/outputs/ui/spout_send.slint:32
-msgid "Status"
+msgid "Cut yourself out and share the picture with a see-through background, for programs that can lay it over something."
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:33
+msgid "It uses the person cut-out of Background or Chroma key. For the stream you are looking at it switches Background to Blur while nothing else uses it. Another stream only has a see-through background while Background or Chroma key is on for it."
 msgstr ""
 
 #: rust/crates/outputs/ui/stream_output.slint:52
@@ -8240,7 +8256,7 @@ msgstr "Distancia de enfoque"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Instala el paquete v4l2loopback. Fedora y Nobara: v4l2loopback (desde RPM Fusion). Debian, Ubuntu y Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:365
 msgid "Checking…"
 msgstr "Verificando…"
 
@@ -8260,7 +8276,7 @@ msgstr "Instalada."
 msgid "Check again"
 msgstr "Verificar de nuevo"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:360
 msgid "Installing…"
 msgstr "Instalando…"
 
@@ -9575,67 +9591,6 @@ msgstr "No se pudo configurar Telescope para que se abra al iniciar sesión: {er
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "No se pudo evitar que Telescope se abra al iniciar sesión: {error}"
 
-#: rust/crates/system/src/going_back.rs:113
-#, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
-msgstr "No se pudieron configurar las bibliotecas de Python que {version} necesita. Eso requiere una conexión a internet y una carpeta en la que Telescope pueda escribir ({folder}). No se modificó nada."
-
-#: rust/crates/system/src/going_back.rs:227
-#, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
-msgstr "Telescope se reinicia como versión {version}, la última versión de Python. Tu configuración y tus teléfonos vinculados se conservan, con una copia de tu configuración actual guardada primero en {folder}."
-
-#: rust/crates/system/src/going_back.rs:229
-#, python-brace-format
-msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
-msgstr "Perderás las novedades introducidas desde entonces. Los complementos escritos en Lua no se ejecutan en {version} y se ignora la configuración que no existía en ese momento."
-
-#: rust/crates/system/src/going_back.rs:231
-#, python-brace-format
-msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
-msgstr "{version} no tiene comprobación automática de actualizaciones ni ofrece volver a esta versión. Puedes activarla de nuevo en su configuración."
-
-#: rust/crates/system/src/going_back.rs:234
-#, python-brace-format
-msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
-msgstr "Primero se configuran las bibliotecas de Python que necesita {version}. Esto requiere internet y toma unos minutos. No se modifica nada si eso falla."
-
-#: rust/crates/system/src/going_back.rs:236
-msgid "If the Python version doesn't start, opening Telescope again brings this version back."
-msgstr "Si la versión de Python no se inicia, abrir Telescope de nuevo recupera esta versión."
-
-#: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
-msgid "Go back"
-msgstr "Volver"
-
-#: rust/crates/system/src/going_back.rs:242
-#, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
-msgstr "Un AppImage no se puede sustituir por la versión de Python. Descarga Telescope-linux.tar.gz del lanzamiento de {version}, descomprime el archivo y ejecuta start.sh en la carpeta. La versión de Python necesita Python 3.12 o superior y usa la misma carpeta de configuración."
-
-#: rust/crates/system/src/going_back.rs:244
-#, python-brace-format
-msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
-msgstr "Telescope no puede reemplazar sus propios archivos aquí porque no se puede escribir en su carpeta. Descarga {version} desde su página de versiones e instálala tú."
-
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:529
-msgid "Open download page"
-msgstr "Abrir página de descarga"
-
-#: rust/crates/system/src/going_back.rs:258
-#, python-brace-format
-msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
-msgstr "{version} necesita Python 3.12 o superior con venv y esta computadora no lo tiene. Instálalo primero (python3 y python3-venv en Debian o Ubuntu) y luego intenta de nuevo. No se modificó nada."
-
-#: rust/crates/system/src/going_back.rs:262
-#, python-brace-format
-msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "La app del teléfono debe coincidir. Una app del teléfono más reciente podría no conectarse a {version}. Android no instalará una app más antigua sobre una más nueva. Desinstala Telescope en el teléfono, instala Telescope.apk del lanzamiento de {version} y vincula de nuevo."
-
-#: rust/crates/system/src/going_back.rs:282
-msgid "A copy of your settings couldn't be saved. Nothing was changed."
-msgstr "No se pudo guardar una copia de tu configuración. No se modificó nada."
-
 #: rust/crates/system/src/hotkeys_portal.rs:117
 msgid "Not available on this desktop"
 msgstr "No disponible en este entorno de escritorio"
@@ -10330,99 +10285,86 @@ msgstr "No se pudieron reemplazar los archivos de Telescope: {error}"
 msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr "La actualización no se instaló mientras {file} esté en uso. Intenta de nuevo tras reiniciar."
 
-#: rust/crates/system/src/updates.rs:596
+#: rust/crates/system/src/updates.rs:591
 #, python-brace-format
 msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr "Telescope no puede actualizarse en esta ubicación porque esta carpeta también contiene un elemento tuyo llamado {name}. Descomprime la descarga en una carpeta separada."
 
-#: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:98 rust/crates/system/src/updates_plugin.rs:169 rust/crates/system/src/updates_plugin.rs:241 rust/crates/system/src/updates_plugin.rs:623 rust/crates/system/src/updates_plugin.rs:829
+#: rust/crates/system/src/updates.rs:656 rust/crates/system/src/updates_plugin.rs:142 rust/crates/system/src/updates_plugin.rs:612
 msgid "The update failed."
 msgstr "Falló la actualización."
 
-#: rust/crates/system/src/updates.rs:692
+#: rust/crates/system/src/updates.rs:683
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "Esta actualización no se instaló porque no puede iniciarse en esta computadora."
 
-#: rust/crates/system/src/updates_plugin.rs:31
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Stable"
 msgstr "Estable"
 
-#: rust/crates/system/src/updates_plugin.rs:31 rust/crates/system/ui/updates.slint:188
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:168
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:356
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Descargando {percent} %…"
 
-#: rust/crates/system/src/updates_plugin.rs:460
-msgid "Setting up Python's libraries. This takes a few minutes…"
-msgstr "Preparando las bibliotecas de Python. Esto tarda unos minutos…"
-
-#: rust/crates/system/src/updates_plugin.rs:461
+#: rust/crates/system/src/updates_plugin.rs:361
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Actualizado. Telescope se reiniciará cuando detengas la transmisión."
 
-#: rust/crates/system/src/updates_plugin.rs:471
-msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
-msgstr "El regreso a la versión de Python falló porque la versión de Python no se inició. Esta versión se está ejecutando de nuevo."
-
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "Actualizar también lo instala para tu usuario con una entrada en el menú Inicio y elimina esta copia descomprimida. La configuración y los teléfonos vinculados se conservan."
 
-#: rust/crates/system/src/updates_plugin.rs:482
+#: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."
 msgstr "Detén la transmisión para actualizar."
 
-#: rust/crates/system/src/updates_plugin.rs:494
+#: rust/crates/system/src/updates_plugin.rs:391
 msgid "This is a source checkout. Update Telescope with git."
 msgstr "Esta es una versión obtenida del código fuente. Actualiza Telescope con git."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no nightly release yet."
 msgstr "Aún no hay una versión nightly disponible."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no stable release yet."
 msgstr "Aún no hay una versión disponible en el canal estable."
 
-#: rust/crates/system/src/updates_plugin.rs:504
+#: rust/crates/system/src/updates_plugin.rs:401
 msgid "You have the latest version."
 msgstr "Tienes la última versión."
 
-#: rust/crates/system/src/updates_plugin.rs:508
+#: rust/crates/system/src/updates_plugin.rs:405
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} está disponible"
 
-#: rust/crates/system/src/updates_plugin.rs:529
+#: rust/crates/system/src/updates_plugin.rs:426
+msgid "Open download page"
+msgstr "Abrir página de descarga"
+
+#: rust/crates/system/src/updates_plugin.rs:426
 msgid "Update and restart"
 msgstr "Actualizar y reiniciar"
 
-#: rust/crates/system/src/updates_plugin.rs:533
-msgid "Stop streaming to go back."
-msgstr "Detén la transmisión para volver."
-
-#: rust/crates/system/src/updates_plugin.rs:533
-#, python-brace-format
-msgid "Swap this version for the last Python version, {version}."
-msgstr "Cambia esta versión por la última versión en Python, {version}."
-
-#: rust/crates/system/src/updates_plugin.rs:722
+#: rust/crates/system/src/updates_plugin.rs:509
 msgid "Couldn't check for updates."
 msgstr "No se pudieron buscar actualizaciones."
 
-#: rust/crates/system/src/updates_plugin.rs:879
+#: rust/crates/system/src/updates_plugin.rs:659
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Actualizado. Cierra y vuelve a abrir Telescope para terminar."
 
-#: rust/crates/system/src/updates_plugin.rs:895
+#: rust/crates/system/src/updates_plugin.rs:675
 msgid "Updates"
 msgstr "Actualizaciones"
 
-#: rust/crates/system/src/updates_plugin.rs:896
+#: rust/crates/system/src/updates_plugin.rs:676
 msgid "Check for new versions of Telescope and install them."
 msgstr "Busca nuevas versiones de Telescope e instálalas."
 
@@ -10658,103 +10600,82 @@ msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "notificacion notificar alerta emergente mensaje notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:107
+#: rust/crates/system/ui/updates.slint:87
 msgid "Check for new versions and install them."
 msgstr "Busca versiones nuevas e instálalas."
 
-#: rust/crates/system/ui/updates.slint:108
+#: rust/crates/system/ui/updates.slint:88
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "actualizar actualizacion nueva version version descargar instalar ultima update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:113 rust/crates/system/ui/updates.slint:114
+#: rust/crates/system/ui/updates.slint:93 rust/crates/system/ui/updates.slint:94
 msgid "Check now"
 msgstr "Buscar ahora"
 
-#: rust/crates/system/ui/updates.slint:115
+#: rust/crates/system/ui/updates.slint:95
 msgid "Look for a new version of Telescope."
 msgstr "Busca una nueva versión de Telescope."
 
-#: rust/crates/system/ui/updates.slint:120
+#: rust/crates/system/ui/updates.slint:100
 msgid "Set the update channel and automatic checking back to default."
 msgstr "Restablece el canal de actualización y la comprobación automática a los valores predeterminados."
 
-#: rust/crates/system/ui/updates.slint:126
+#: rust/crates/system/ui/updates.slint:106
 msgid "This version"
 msgstr "Esta versión"
 
-#: rust/crates/system/ui/updates.slint:127
+#: rust/crates/system/ui/updates.slint:107
 msgid "The version of Telescope you're running"
 msgstr "La versión de Telescope que estás ejecutando"
 
-#: rust/crates/system/ui/updates.slint:130
+#: rust/crates/system/ui/updates.slint:110
 msgctxt "search"
 msgid "current build number"
 msgstr "numero compilacion actual build version current build number"
 
-#: rust/crates/system/ui/updates.slint:155
+#: rust/crates/system/ui/updates.slint:135
 msgid "What's new"
 msgstr "Novedades"
 
-#: rust/crates/system/ui/updates.slint:174
+#: rust/crates/system/ui/updates.slint:154
 msgid "Stable is tested more and nightly gets fixes first"
 msgstr "Estable está más probada y Nightly recibe las correcciones primero"
 
-#: rust/crates/system/ui/updates.slint:177
+#: rust/crates/system/ui/updates.slint:157
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "estable nightly beta version canal compilaciones pruebas testing stable release track builds"
 
-#: rust/crates/system/ui/updates.slint:189
+#: rust/crates/system/ui/updates.slint:169
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr "Se compila con cada cambio. Recibe correcciones antes, pero está menos probada."
 
-#: rust/crates/system/ui/updates.slint:195
+#: rust/crates/system/ui/updates.slint:175
 msgid "Check daily"
 msgstr "Buscar todos los días"
 
-#: rust/crates/system/ui/updates.slint:196
+#: rust/crates/system/ui/updates.slint:176
 msgid "Look for a new version once a day"
 msgstr "Busca una nueva versión una vez al día"
 
-#: rust/crates/system/ui/updates.slint:197
+#: rust/crates/system/ui/updates.slint:177
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "actualizaciones automaticas buscar todos los dias segundo plano auto automatic updates check every day background"
 
-#: rust/crates/system/ui/updates.slint:204 rust/crates/system/ui/updates.slint:206
+#: rust/crates/system/ui/updates.slint:184 rust/crates/system/ui/updates.slint:186
 msgid "Keep this copy where it is"
 msgstr "Mantener esta copia donde está"
 
-#: rust/crates/system/ui/updates.slint:205
+#: rust/crates/system/ui/updates.slint:185
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr "portable mantener esta copia donde está carpeta zip en su lugar windows descomprimido keep this copy where it is folder in place unzipped"
 
-#: rust/crates/system/ui/updates.slint:207
+#: rust/crates/system/ui/updates.slint:187
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr "Actualiza esta carpeta descomprimida en su lugar en vez de instalar Telescope para tu usuario."
-
-#: rust/crates/system/ui/updates.slint:214
-msgid "Older version"
-msgstr "Versión anterior"
-
-#: rust/crates/system/ui/updates.slint:215
-msgid "Go back to the older Python version of Telescope"
-msgstr "Vuelve a la versión anterior de Telescope en Python"
-
-#: rust/crates/system/ui/updates.slint:218
-msgctxt "search"
-msgid "go back downgrade python previous old version revert undo rust"
-msgstr "volver regresar versión anterior antigua python revertir deshacer rust go back downgrade previous old version revert undo"
-
-#: rust/crates/system/ui/updates.slint:222 rust/crates/system/ui/updates.slint:223
-msgid "Go back to the Python version"
-msgstr "Volver a la versión en Python"
-
-#: rust/crates/system/ui/updates.slint:248
-msgid "Go back to the Python version?"
-msgstr "¿Quieres volver a la versión en Python?"
 
 #: rust/crates/ui-kit/ui/widgets/colour.slint:253
 msgid "Hex"
@@ -10831,6 +10752,10 @@ msgstr "La descarga se descomprime en un tamaño mayor al esperado y no se usó.
 #: rust/crates/vision/src/pack.rs:399
 msgid "The download contains unexpected paths and wasn't used."
 msgstr "La descarga contiene rutas inesperadas y no se usó."
+
+#: rust/crates/link/src/https.rs:646
+msgid "Status"
+msgstr ""
 
 #: rust/crates/shell/ui/specimen.slint:303
 msgid "Type or paste your notes."
@@ -10939,17 +10864,17 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "estirar encoger comprimir aspecto alto vertical stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:474
+#: rust/crates/system/src/updates_plugin.rs:371
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} está disponible."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "La última compilación nightly es {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "La última compilación estable es {version}."
@@ -11005,6 +10930,80 @@ msgstr "Reemplazado"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "No se pudo reiniciar"
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+#~ msgstr "No se pudieron configurar las bibliotecas de Python que {version} necesita. Eso requiere una conexión a internet y una carpeta en la que Telescope pueda escribir ({folder}). No se modificó nada."
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
+#~ msgstr "Telescope se reinicia como versión {version}, la última versión de Python. Tu configuración y tus teléfonos vinculados se conservan, con una copia de tu configuración actual guardada primero en {folder}."
+
+#, python-brace-format
+#~ msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
+#~ msgstr "Perderás las novedades introducidas desde entonces. Los complementos escritos en Lua no se ejecutan en {version} y se ignora la configuración que no existía en ese momento."
+
+#, python-brace-format
+#~ msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "{version} no tiene comprobación automática de actualizaciones ni ofrece volver a esta versión. Puedes activarla de nuevo en su configuración."
+
+#, python-brace-format
+#~ msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
+#~ msgstr "Primero se configuran las bibliotecas de Python que necesita {version}. Esto requiere internet y toma unos minutos. No se modifica nada si eso falla."
+
+#~ msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+#~ msgstr "Si la versión de Python no se inicia, abrir Telescope de nuevo recupera esta versión."
+
+#~ msgid "Go back"
+#~ msgstr "Volver"
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+#~ msgstr "Un AppImage no se puede sustituir por la versión de Python. Descarga Telescope-linux.tar.gz del lanzamiento de {version}, descomprime el archivo y ejecuta start.sh en la carpeta. La versión de Python necesita Python 3.12 o superior y usa la misma carpeta de configuración."
+
+#, python-brace-format
+#~ msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
+#~ msgstr "Telescope no puede reemplazar sus propios archivos aquí porque no se puede escribir en su carpeta. Descarga {version} desde su página de versiones e instálala tú."
+
+#, python-brace-format
+#~ msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
+#~ msgstr "{version} necesita Python 3.12 o superior con venv y esta computadora no lo tiene. Instálalo primero (python3 y python3-venv en Debian o Ubuntu) y luego intenta de nuevo. No se modificó nada."
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "La app del teléfono debe coincidir. Una app del teléfono más reciente podría no conectarse a {version}. Android no instalará una app más antigua sobre una más nueva. Desinstala Telescope en el teléfono, instala Telescope.apk del lanzamiento de {version} y vincula de nuevo."
+
+#~ msgid "A copy of your settings couldn't be saved. Nothing was changed."
+#~ msgstr "No se pudo guardar una copia de tu configuración. No se modificó nada."
+
+#~ msgid "Setting up Python's libraries. This takes a few minutes…"
+#~ msgstr "Preparando las bibliotecas de Python. Esto tarda unos minutos…"
+
+#~ msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+#~ msgstr "El regreso a la versión de Python falló porque la versión de Python no se inició. Esta versión se está ejecutando de nuevo."
+
+#~ msgid "Stop streaming to go back."
+#~ msgstr "Detén la transmisión para volver."
+
+#, python-brace-format
+#~ msgid "Swap this version for the last Python version, {version}."
+#~ msgstr "Cambia esta versión por la última versión en Python, {version}."
+
+#~ msgid "Older version"
+#~ msgstr "Versión anterior"
+
+#~ msgid "Go back to the older Python version of Telescope"
+#~ msgstr "Vuelve a la versión anterior de Telescope en Python"
+
+#~ msgctxt "search"
+#~ msgid "go back downgrade python previous old version revert undo rust"
+#~ msgstr "volver regresar versión anterior antigua python revertir deshacer rust go back downgrade previous old version revert undo"
+
+#~ msgid "Go back to the Python version"
+#~ msgstr "Volver a la versión en Python"
+
+#~ msgid "Go back to the Python version?"
+#~ msgstr "¿Quieres volver a la versión en Python?"
 
 #, python-brace-format
 #~ msgid "{name} (not streaming)"

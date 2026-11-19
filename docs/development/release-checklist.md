@@ -65,12 +65,11 @@ The APK signing key lives in the repository secrets (see [Packaging and CI](pack
 
 ### Updates and settings from older versions
 
-<!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt android/app/src/main/kotlin/com/telescope/UpdateInstall.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs rust/crates/system/src/going_back.rs rust/crates/system/src/going_back_tests.rs rust/crates/system/src/going_back_python_tests.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt android/app/src/main/kotlin/com/telescope/UpdateInstall.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs -->
 
 - [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it reopens on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
 - [ ] AppImage on the previous nightly: Update and restart replaces the file in place, it reopens on the new version and the app menu entry still starts it.
 - [ ] Update is refused while streaming, on both apps.
-- [ ] Go back to the Python version, on a Linux tarball, on an installed Windows copy and on an unzipped one: the question names what's lost, Go back restarts into 4.4.2 with the stream and a phone working, a dated copy of the settings sits next to the settings and Check daily is off in 4.4.2. A source build doesn't show the button, an AppImage only opens the 4.4.2 page, and a Linux box without Python 3.12 gets the question with Go back switched off.
 - [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope and the installed app shows the new version.
 - [ ] Phone app older than the desktop with a different session protocol, plugged in: the Connection panel shows the mismatch and Update over USB installs the bundled APK.
 - [ ] Settings are preserved across a restart, including each phone's own after switching between phones. A config from the previous version carries over the global settings and asks to pair again.
@@ -201,6 +200,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: rust/crates/outputs/src/spout/** rust/crates/outputs/src/spout_shared/** rust/crates/outputs/src/pipewire/** rust/crates/outputs/ui/spout.slint rust/crates/outputs/src/spout_send/** rust/crates/outputs/ui/spout_send.slint -->
 
 - [ ] Spout send (Lab, Streaming and devices). With a stream running, **Share this stream** on the Spout send card makes a sender called Telescope and the phone's name. On Windows OBS's Spout source and a Spout demo receiver show the picture and follow a size change, on Linux OBS's PipeWire capture lists it as a camera. Switching it off or stopping the stream removes it within a few seconds. With Several cameras on, the stream going to the Telescope camera shares the combined picture
+- [ ] Spout send's **Transparent background** shares a cut-out stream. A program that lays pictures over others shows the person with nothing behind them. The virtual camera still shows the normal picture. Switching it off returns Background to what it was
 - [ ] Windows with Spout capture switched on. A Spout sender (OBS with its Spout output, or Spout2's demo sender) shows in the device picker under its own name. Start streams it at the frame rate on the card with the right colours. Background works on it.
 - [ ] Closing the sender mid-stream shows the wait screen and opening it again picks the stream up. Stop is instant.
 - [ ] On Linux a Windows game or program sending Spout under Proton with Spout2PW shows in the picker and streams the same way. With PipeWire stopped when Telescope starts and started later, the sender still shows up.
