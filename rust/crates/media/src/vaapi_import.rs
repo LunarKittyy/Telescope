@@ -408,7 +408,7 @@ mod tests {
         let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
         codec.defer_surfaces = true;
         for (y, u, v, matrix, range) in [(70, 112, 145, "smpte170m", "tv"), (170, 150, 110, "bt709", "tv"), (110, 100, 152, "bt709", "pc")] {
-            let Some(packets) = testenc::h264_yuv(y, u, v, 64, 48, matrix, range) else { return eprintln!("no H.264 encoder; skipped") };
+            let Some(packets) = testenc::h264_yuv(y, u, v, 256, 144, matrix, range) else { return eprintln!("no H.264 encoder; skipped") };
             let frame = decode_surface(&mut codec, &packets).expect("a decoded frame");
             assert!(frame.data.is_empty(), "decode downloaded pixels before a RAM reader");
             let surface = frame.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap();
@@ -432,7 +432,7 @@ mod tests {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
         let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
         codec.defer_surfaces = true;
-        let Some(packets) = testenc::h264(&[70, 120, 180], 64, 48, 1) else { return eprintln!("no H.264 encoder; skipped") };
+        let Some(packets) = testenc::h264(&[70, 120, 180], 256, 144, 1) else { return eprintln!("no H.264 encoder; skipped") };
         let first = decode_surface(&mut codec, &packets[..1]).expect("a frame");
         let surface = first.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap();
         *surface.stream.forced.lock().unwrap() = Some("forced modifier refusal");
@@ -440,10 +440,11 @@ mod tests {
         assert!(!held.was_imported());
         let out = gpu.land(&mut held).unwrap();
         gpu.put_down(held);
-        assert!(out.data[0].abs_diff(70) <= 3, "fallback lost the original pixels");
+        // the encoder gets greys in limited range, so luma 70 is 76 and 180 is 171
+        assert!(out.data[0].abs_diff(76) <= 3, "fallback lost the original pixels");
         assert!(!surface.stream.enabled());
         let next = decode_surface(&mut codec, &packets[1..]).expect("another frame");
         assert!(next.surface().is_none(), "the decoder kept offering surfaces after fallback");
-        assert!(next.data[0].abs_diff(180) <= 3);
+        assert!(next.data[0].abs_diff(171) <= 3);
     }
 }
