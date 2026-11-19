@@ -72,6 +72,8 @@ export component StartButton inherits Rectangle {
     in property <bool> enabled: true;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    in property <string> tip;
+    in property <string> tip-detail;
     callback clicked;
     height: Theme.u(18);
     // Start and Stop are the same size: the width never drops below what "Start streaming" and "Stop streaming" take
@@ -90,6 +92,8 @@ export component StartButton inherits Rectangle {
         gap: Theme.u(4);
         enabled: root.enabled;
         shortcut: root.shortcut;
+        tip: root.tip;
+        tip-detail: root.tip-detail;
         clicked => { root.clicked(); }
     }
 }

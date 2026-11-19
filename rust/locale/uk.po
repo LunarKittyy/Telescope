@@ -721,7 +721,7 @@ msgstr "Колір, вибраний із попереднього перегл�
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Клацніть екран позаду вас на попередньому перегляді. Esc скасовує."
 
-#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1795 rust/crates/shell/src/window.rs:1863 rust/crates/shell/src/worker.rs:615 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:725 rust/crates/shell/src/streams.rs:1803 rust/crates/shell/src/window.rs:1907 rust/crates/shell/src/worker.rs:618 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -2428,7 +2428,7 @@ msgstr "Збій вебхука «В ефірі»"
 msgid "The webhook returned: {error}"
 msgstr "Вебхук повернув: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:485 rust/crates/shell/src/doc.rs:486 rust/crates/shell/src/doc.rs:974
+#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:488 rust/crates/shell/src/doc.rs:489 rust/crates/shell/src/doc.rs:979
 msgid "Settings"
 msgstr "Налаштування"
 
@@ -2634,7 +2634,7 @@ msgstr "Якість JPEG встановлюється камерою"
 msgid "RAW photos have no quality setting"
 msgstr "Для фото у форматі RAW немає налаштування якості"
 
-#: rust/crates/effects/src/photos.rs:64 rust/crates/shell/src/streams.rs:845
+#: rust/crates/effects/src/photos.rs:64 rust/crates/shell/src/streams.rs:853
 msgid "The camera is already taking a photo."
 msgstr "Камера вже робить фото."
 
@@ -3121,7 +3121,7 @@ msgstr ""
 msgid "Lucky"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1090
+#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1098
 msgid "Live"
 msgstr "Наживо"
 
@@ -3143,12 +3143,12 @@ msgid "{n} frames"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1873 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1917 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Старт"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1879 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1927 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Стоп"
 
@@ -3276,7 +3276,7 @@ msgstr "Червоний/блакитний"
 msgid "Start a second stream to get the 3D picture."
 msgstr "Запустіть другу трансляцію, щоб отримати 3D-картинку."
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1105
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1113
 msgid "Waiting"
 msgstr "Очікування"
 
@@ -4902,7 +4902,7 @@ msgstr "Не встигає"
 msgid "Browser"
 msgstr "Браузер"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1756 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1764 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Спробувати знову"
 
@@ -5358,7 +5358,7 @@ msgstr "Очікування на {source}"
 msgid "{source}, no pairing needed"
 msgstr "{source}, створення пари не потрібне"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1088
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1096
 msgid "Reconnecting"
 msgstr "Повторне підключення"
 
@@ -5370,7 +5370,7 @@ msgstr "Транслює через USB"
 msgid "Streaming over Wi-Fi"
 msgstr "Транслює через Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1092
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1100
 msgid "Connecting"
 msgstr "Підключення"
 
@@ -5383,7 +5383,7 @@ msgstr "Оновлення додатка на телефоні через USB�
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Додаток Telescope на {phone} старіший за цей."
 
-#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:720 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:728 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "Скопіювати команду"
 
@@ -5477,7 +5477,7 @@ msgstr "Роздільна здатність"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "Розмір, який надсилає браузер. Якщо камера не підтримує цей розмір, браузер надішле те, що підтримує камера."
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:793
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:796
 msgid "Frame rate"
 msgstr "Кадрів/с"
 
@@ -6277,7 +6277,7 @@ msgstr "Зйомку фото перервано, оскільки камера 
 msgid "The camera took too long to take the photo. The photo is saved and you get a notification if it still arrives."
 msgstr "Камера занадто довго робила фото. Фото збережеться, і ви отримаєте сповіщення, якщо воно все ж надійде."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:282 rust/crates/shell/src/streams.rs:797
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:282 rust/crates/shell/src/streams.rs:805
 msgid "No photo was taken while part of the picture is hidden."
 msgstr ""
 
@@ -6950,7 +6950,7 @@ msgstr "Перезавантаження loopback..."
 msgid "Restarting stream..."
 msgstr "Перезапуск трансляції..."
 
-#: rust/crates/setup/src/setup.rs:911 rust/crates/shell/src/streams.rs:721
+#: rust/crates/setup/src/setup.rs:911 rust/crates/shell/src/streams.rs:729
 msgid "Resize the virtual camera"
 msgstr "Змінити розмір віртуальної камери"
 
@@ -6982,7 +6982,7 @@ msgstr "Використати власний adb…"
 msgid "Not available yet"
 msgstr "Ще недоступно"
 
-#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:785
+#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:788
 #, python-brace-format
 msgid "{n} fps"
 msgstr "{n} fps"
@@ -7136,7 +7136,7 @@ msgstr "TCP"
 msgid "From the phone"
 msgstr "З телефону"
 
-#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:792
+#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:795
 msgid "Virtual camera"
 msgstr "Віртуальна камера"
 
@@ -8059,15 +8059,15 @@ msgstr "Трансляція зупиниться на час перезапус
 msgid "Restart to apply changes."
 msgstr "Перезапустіть, щоб застосувати зміни."
 
-#: rust/crates/shell/src/doc.rs:495 rust/crates/shell/src/doc.rs:496
+#: rust/crates/shell/src/doc.rs:498 rust/crates/shell/src/doc.rs:499
 msgid "Add camera"
 msgstr "Додати камеру"
 
-#: rust/crates/shell/src/doc.rs:497
+#: rust/crates/shell/src/doc.rs:500
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr "Транслювати ще одну камеру одночасно на окрему віртуальну камеру."
 
-#: rust/crates/shell/src/doc.rs:1012 rust/crates/shell/src/doc.rs:1013
+#: rust/crates/shell/src/doc.rs:1017 rust/crates/shell/src/doc.rs:1018
 msgid "Search settings"
 msgstr "Пошук у налаштуваннях"
 
@@ -9103,7 +9103,7 @@ msgstr "Трансляція з {size}, доки телефон не охоло�
 msgid "Open Telescope on it."
 msgstr "Відкрийте Telescope на ньому."
 
-#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1676
+#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1684
 msgid "the device"
 msgstr "пристрій"
 
@@ -9131,7 +9131,7 @@ msgstr "Запуск камери телефону…"
 msgid "Couldn't start the phone's camera"
 msgstr "Не вдалося запустити камеру телефону"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1149
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1168
 msgid "Connecting..."
 msgstr "Підключення..."
 
@@ -9159,112 +9159,112 @@ msgstr "Увімкнення камери телефону…"
 msgid "Streaming the mic, camera off"
 msgstr "Транслює мікрофон, камеру вимкнено"
 
-#: rust/crates/shell/src/streams.rs:666
+#: rust/crates/shell/src/streams.rs:674
 msgid "Stop all but one camera first, then apply again"
 msgstr "Спочатку зупиніть усі камери, крім однієї, а потім застосуйте знову"
 
-#: rust/crates/shell/src/streams.rs:680
+#: rust/crates/shell/src/streams.rs:688
 msgid "Reloading v4l2loopback…"
 msgstr "Перезавантаження v4l2loopback…"
 
-#: rust/crates/shell/src/streams.rs:680
+#: rust/crates/shell/src/streams.rs:688
 msgid "Restarting stream…"
 msgstr "Перезапуск трансляції…"
 
-#: rust/crates/shell/src/streams.rs:710
+#: rust/crates/shell/src/streams.rs:718
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "Loopback перезавантажено: {message}"
 
-#: rust/crates/shell/src/streams.rs:710
+#: rust/crates/shell/src/streams.rs:718
 msgid "Canvas updated"
 msgstr "Полотно оновлено"
 
-#: rust/crates/shell/src/streams.rs:715
+#: rust/crates/shell/src/streams.rs:723
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "Помилка перезавантаження: {message}"
 
-#: rust/crates/shell/src/streams.rs:736
+#: rust/crates/shell/src/streams.rs:744
 msgid "Stop the streams going to them first"
 msgstr "Спочатку зупиніть трансляції, що йдуть на них"
 
-#: rust/crates/shell/src/streams.rs:736
+#: rust/crates/shell/src/streams.rs:744
 msgid "There are none to remove"
 msgstr "Немає чого вилучати"
 
-#: rust/crates/shell/src/streams.rs:809 rust/crates/shell/src/streams.rs:810
+#: rust/crates/shell/src/streams.rs:817 rust/crates/shell/src/streams.rs:818
 msgid "The phone couldn't take the photo."
 msgstr "Телефону не вдалося зробити фото."
 
-#: rust/crates/shell/src/streams.rs:847
+#: rust/crates/shell/src/streams.rs:855
 msgid "The phone is already taking a photo."
 msgstr "Телефон уже робить фото."
 
-#: rust/crates/shell/src/streams.rs:892
+#: rust/crates/shell/src/streams.rs:900
 msgid "Virtual camera problem"
 msgstr ""
 
-#: rust/crates/shell/src/streams.rs:987
+#: rust/crates/shell/src/streams.rs:995
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Трансляція з {name} неочікувано зупинилася"
 
-#: rust/crates/shell/src/streams.rs:989
+#: rust/crates/shell/src/streams.rs:997
 msgid "The stream stopped unexpectedly"
 msgstr "Трансляція неочікувано зупинилася"
 
-#: rust/crates/shell/src/streams.rs:991
+#: rust/crates/shell/src/streams.rs:999
 msgid "Copy diagnostics has the details."
 msgstr "У пункті «Скопіювати діагностику» є подробиці."
 
-#: rust/crates/shell/src/streams.rs:1016
+#: rust/crates/shell/src/streams.rs:1024
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "Телефон нагрівся та знизив частоту кадрів до {fps} fps."
 
-#: rust/crates/shell/src/streams.rs:1018
+#: rust/crates/shell/src/streams.rs:1026
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "«Динамічний» знизив частоту кадрів до {fps} fps, щоб підлаштуватися під повільне з'єднання."
 
-#: rust/crates/shell/src/streams.rs:1020
+#: rust/crates/shell/src/streams.rs:1028
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Камера видає менше кадрів, ніж запитано. Тьмяне світло знижує частоту кадрів."
 
-#: rust/crates/shell/src/streams.rs:1022
+#: rust/crates/shell/src/streams.rs:1030
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Камера телефону видає менше кадрів, ніж запитано. Тьмяне світло знижує частоту кадрів."
 
-#: rust/crates/shell/src/streams.rs:1102
+#: rust/crates/shell/src/streams.rs:1110
 msgid "Starting"
 msgstr "Запуск"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1116
+#: rust/crates/shell/src/streams.rs:1124
 #, python-brace-format
 msgid "to {output}"
 msgstr "на {output}"
 
-#: rust/crates/shell/src/streams.rs:1117
+#: rust/crates/shell/src/streams.rs:1125
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "Зупинити трансляцію {name}"
 
-#: rust/crates/shell/src/streams.rs:1497
+#: rust/crates/shell/src/streams.rs:1505
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Телефон надіслав дані, які ця версія не може прочитати. Оновіть обидва додатки до однакової версії."
 
-#: rust/crates/shell/src/streams.rs:1579
+#: rust/crates/shell/src/streams.rs:1587
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "Не вдається зв'язатися з {name}"
 
-#: rust/crates/shell/src/streams.rs:1663
+#: rust/crates/shell/src/streams.rs:1671
 msgid "Lost the phone - reconnecting"
 msgstr "Зв'язок із телефоном втрачено - повторне підключення"
 
-#: rust/crates/shell/src/streams.rs:1855
+#: rust/crates/shell/src/streams.rs:1863
 msgid "Couldn't reach the device."
 msgstr "Не вдалося зв'язатися з пристроєм."
 
@@ -9308,71 +9308,83 @@ msgstr "Клацніть правою кнопкою миші піктограм
 msgid "Telescope is still running"
 msgstr "Telescope досі працює"
 
-#: rust/crates/shell/src/window.rs:139
+#: rust/crates/shell/src/window.rs:141
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Попередній перегляд відео"
 
-#: rust/crates/shell/src/window.rs:696
+#: rust/crates/shell/src/window.rs:699
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:794
+#: rust/crates/shell/src/window.rs:797
 msgid "How much data per second reaches this computer."
 msgstr "Скільки даних за секунду надходить на цей комп'ютер."
 
-#: rust/crates/shell/src/window.rs:794
+#: rust/crates/shell/src/window.rs:797
 msgid "Throughput"
 msgstr "Пропускна здатність"
 
-#: rust/crates/shell/src/window.rs:1872 rust/crates/shell/src/window.rs:1873
+#: rust/crates/shell/src/window.rs:1916 rust/crates/shell/src/window.rs:1917
 msgid "Start mic only"
 msgstr "Запустити лише мікрофон"
 
-#: rust/crates/shell/src/window.rs:1872
+#: rust/crates/shell/src/window.rs:1916
 msgid "Start streaming"
 msgstr "Почати трансляцію"
 
-#: rust/crates/shell/src/window.rs:1878
+#: rust/crates/shell/src/window.rs:1926 rust/crates/shell/src/window.rs:1928
+msgid "Stop all streams"
+msgstr ""
+
+#: rust/crates/shell/src/window.rs:1926
 msgid "Stop streaming"
 msgstr "Зупинити трансляцію"
 
-#: rust/crates/shell/src/window.rs:2197 rust/crates/shell/src/worker.rs:1498
+#: rust/crates/shell/src/window.rs:1927
+msgid "Stop all"
+msgstr ""
+
+#: rust/crates/shell/src/window.rs:1929
+msgid "Stops every stream you have running."
+msgstr ""
+
+#: rust/crates/shell/src/window.rs:2247 rust/crates/shell/src/worker.rs:1518
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Трансляція {size} з {fps} fps на {camera}"
 
-#: rust/crates/shell/src/worker.rs:605
+#: rust/crates/shell/src/worker.rs:608
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Помилка трансляції: {error}"
 
-#: rust/crates/shell/src/worker.rs:1149
+#: rust/crates/shell/src/worker.rs:1168
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Підключення до {url}..."
 
-#: rust/crates/shell/src/worker.rs:1159
+#: rust/crates/shell/src/worker.rs:1178
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Не вдається отримати трансляцію з телефону. Повторна спроба через {seconds} с…"
 
-#: rust/crates/shell/src/worker.rs:1171
+#: rust/crates/shell/src/worker.rs:1190
 msgid "Waiting for the first frame…"
 msgstr "Очікування першого кадру…"
 
-#: rust/crates/shell/src/worker.rs:1259
+#: rust/crates/shell/src/worker.rs:1278
 msgid "Stream reconnected"
 msgstr "Трансляцію відновлено"
 
-#: rust/crates/shell/src/worker.rs:1364
+#: rust/crates/shell/src/worker.rs:1383
 msgid "The video is paused while the phone takes a photo"
 msgstr "Відео призупинено, поки телефон робить фото"
 
-#: rust/crates/shell/src/worker.rs:1366 rust/crates/shell/src/worker.rs:1372
+#: rust/crates/shell/src/worker.rs:1385 rust/crates/shell/src/worker.rs:1391
 msgid "Stream dropped - reconnecting"
 msgstr "Трансляція обірвалася - повторне підключення"
 
-#: rust/crates/shell/src/worker.rs:1486 rust/crates/shell/src/worker.rs:1596
+#: rust/crates/shell/src/worker.rs:1506 rust/crates/shell/src/worker.rs:1619
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Помилка віртуальної камери: {error}"
@@ -9552,23 +9564,23 @@ msgstr "Відкрити попередній перегляд в окремом
 msgid "Switches the lens outlines and skeleton off and stops smoothing."
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:156 rust/crates/shell/ui/frame.slint:162
+#: rust/crates/shell/ui/frame.slint:160 rust/crates/shell/ui/frame.slint:166
 msgid "More"
 msgstr "Ще"
 
-#: rust/crates/shell/ui/frame.slint:205
+#: rust/crates/shell/ui/frame.slint:209
 msgid "Unpin"
 msgstr "Відкріпити"
 
-#: rust/crates/shell/ui/frame.slint:416 rust/crates/shell/ui/frame.slint:417
+#: rust/crates/shell/ui/frame.slint:420 rust/crates/shell/ui/frame.slint:421
 msgid "Dismiss"
 msgstr "Закрити"
 
-#: rust/crates/shell/ui/frame.slint:470
+#: rust/crates/shell/ui/frame.slint:474
 msgid "Show settings"
 msgstr "Показати налаштування"
 
-#: rust/crates/shell/ui/frame.slint:470
+#: rust/crates/shell/ui/frame.slint:474
 msgid "Show this stream's settings in the cards."
 msgstr "Показати налаштування цієї трансляції в картках."
 
@@ -10872,7 +10884,7 @@ msgid "Light"
 msgstr "Освітлення"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:456
+#: rust/app/src/main.rs:460
 msgid ", "
 msgstr ", "
 

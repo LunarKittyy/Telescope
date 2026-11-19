@@ -1915,12 +1915,18 @@ impl Window {
         let camera_off = self.state.borrow().streams.camera_off;
         self.set("start-text", if camera_off { tr("Start mic only") } else { tr("Start streaming") });
         self.set("start-short", if camera_off { tr("Start mic only") } else { tr("Start") });
+        self.set("start-tip", "");
+        self.set("start-tip-detail", "");
         let _ = self.ui.set_property("streaming", SValue::Bool(false));
     }
 
-    pub(crate) fn show_streaming(&self) {
-        self.set("start-text", tr("Stop streaming"));
-        self.set("start-short", tr("Stop"));
+    /// The start button while streaming: with more than one stream live it says it stops them all.
+    pub(crate) fn show_streaming(&self, live: usize) {
+        let many = live > 1;
+        self.set("start-text", if many { tr("Stop all streams") } else { tr("Stop streaming") });
+        self.set("start-short", if many { tr("Stop all") } else { tr("Stop") });
+        self.set("start-tip", if many { tr("Stop all streams") } else { String::new() });
+        self.set("start-tip-detail", if many { tr("Stops every stream you have running.") } else { String::new() });
         let _ = self.ui.set_property("streaming", SValue::Bool(true));
     }
 
