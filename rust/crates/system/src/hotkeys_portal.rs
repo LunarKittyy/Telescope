@@ -511,8 +511,10 @@ mod tests {
                 accept, version, triggers: triggers.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect(), ..Default::default()
             }));
             let (c, st) = (conn.clone(), state.clone());
+            // Made before the thread starts: a call that arrives while nobody listens yet is dropped
+            let incoming = MessageIterator::from(&c);
             std::thread::spawn(move || {
-                for msg in MessageIterator::from(&c).flatten() {
+                for msg in incoming.flatten() {
                     if msg.message_type() == Type::MethodCall {
                         serve(&c, &st, &msg);
                     }
