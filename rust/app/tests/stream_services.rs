@@ -544,7 +544,7 @@ fn a_preview_frame_from_the_last_stream_isnt_shown_on_the_next() {
     r.worker(0).slot().publish(rig::frame()); // came in before the switch
     r.w.with_flow(|flow, host| flow.focus_stream(host, "oneplus"));
     r.pump();
-    assert!(r.w.preview_frame().is_none());
+    assert!(r.w.preview_picture().is_none());
 }
 
 #[test]

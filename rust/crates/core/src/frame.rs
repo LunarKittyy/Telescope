@@ -35,7 +35,7 @@ pub struct Frame {
     pub width: u32,
     pub height: u32,
     pub format: PixelFormat,
-    /// Packed planes, no row padding.
+    /// Packed planes, no row padding; a decoder surface has metadata here until materialise is called.
     pub data: Arc<Vec<u8>>,
     /// Goes up with every frame any stream makes, so a different number is a different frame.
     pub number: u64,
@@ -168,7 +168,15 @@ impl Drop for LazyBgr {
 #[derive(Clone, Debug)]
 struct Decoded {
     of: Weak<Vec<u8>>,
-    picture: Arc<LazyBgr>,
+    picture: Option<Arc<LazyBgr>>,
+    surface: Option<Arc<dyn DecodedSurface>>,
+    size: (u32, u32, PixelFormat),
+}
+
+/// A decoder-owned surface; media supplies its import and its cached RAM copy.
+pub trait DecodedSurface: std::fmt::Debug + Send + Sync {
+    fn ram(&self) -> &Frame;
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// The same picture as the frame's pixels, so it never decides whether two frames are equal.
@@ -179,6 +187,42 @@ impl PartialEq for Decoded {
 }
 
 impl Frame {
+    /// Metadata for a decoder surface. Call materialise before reading the public data field.
+    pub fn from_surface(width: u32, height: u32, format: PixelFormat, surface: Arc<dyn DecodedSurface>) -> Frame {
+        let data = Arc::new(Vec::new());
+        let decoded = Some(Decoded { of: Arc::downgrade(&data), picture: None, surface: Some(surface), size: (width, height, format) });
+        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, decoded, alpha: None }
+    }
+
+    /// A flat dark picture: black luma and neutral chroma for the YUV formats, opaque black for the others.
+    pub fn dark(width: u32, height: u32, format: PixelFormat) -> Frame {
+        let (luma, all) = (width as usize * height as usize, format.size(width, height));
+        let data = match format {
+            PixelFormat::I420 | PixelFormat::Nv12 => [vec![16; luma], vec![128; all - luma]].concat(),
+            _ => [0, 0, 0, 255].repeat(luma),
+        };
+        Frame::new(width, height, format, data)
+    }
+
+    /// The frame's size, format and stamps with no pixels and no hold on a decoder surface, for a record of a picture that is kept elsewhere.
+    pub fn without_pixels(&self) -> Frame {
+        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, decoded: None, alpha: self.alpha.clone() }
+    }
+
+    /// The surface while the frame still names the decoder's original picture.
+    pub fn surface(&self) -> Option<&Arc<dyn DecodedSurface>> {
+        self.decoded.as_ref().filter(|d| Weak::as_ptr(&d.of) == Arc::as_ptr(&self.data) && d.size == (self.width, self.height, self.format))?.surface.as_ref()
+    }
+
+    /// The packed RAM picture, made once by media when first needed, with this frame's stamps.
+    pub fn materialise(&self) -> Frame {
+        let Some(surface) = self.surface() else { return self.clone() };
+        let mut frame = surface.ram().clone();
+        (frame.number, frame.time_ns, frame.capture_ns) = (self.number, self.time_ns, self.capture_ns);
+        frame.alpha = self.alpha.clone();
+        frame
+    }
+
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
         Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, decoded: None, alpha: None }
@@ -220,6 +264,9 @@ impl Frame {
 
     /// The frame with its alpha put over a flat background of this R, G, B colour, so nothing is left transparent. A frame with no alpha comes back as it is, sharing its pixels.
     pub fn flattened(&self, background: [u8; 3]) -> Frame {
+        if self.surface().is_some() {
+            return self.materialise().flattened(background);
+        }
         let Some(alpha) = self.alpha().cloned() else { return self.clone() };
         if self.data.len() != self.format.size(self.width, self.height) {
             return self.clone();
@@ -280,6 +327,9 @@ impl Frame {
 
     /// The pixels to change, copied first if anything else still holds them.
     pub fn data_mut(&mut self) -> &mut Vec<u8> {
+        if self.surface().is_some() {
+            *self = self.materialise();
+        }
         self.decoded = None;
         Arc::make_mut(&mut self.data)
     }
@@ -316,12 +366,12 @@ impl Frame {
 
     /// The frame with a BGR that is made when something first reads it, and shared by every clone of the frame.
     pub fn with_lazy_bgr(mut self, picture: Arc<LazyBgr>) -> Frame {
-        self.decoded = Some(Decoded { of: Arc::downgrade(&self.data), picture });
+        self.decoded = Some(Decoded { of: Arc::downgrade(&self.data), picture: Some(picture), surface: None, size: (self.width, self.height, self.format) });
         self
     }
 
     fn decoded_picture(&self) -> Option<&LazyBgr> {
-        self.decoded.as_ref().filter(|d| Weak::as_ptr(&d.of) == Arc::as_ptr(&self.data)).map(|d| &*d.picture)
+        self.decoded.as_ref().filter(|d| Weak::as_ptr(&d.of) == Arc::as_ptr(&self.data)).and_then(|d| d.picture.as_deref())
     }
 
     /// Whether the frame has a BGR its pixels were made from, without making it if it isn't yet.
@@ -336,6 +386,9 @@ impl Frame {
 
     /// The I420 planes (Y, U, V); None for other formats.
     pub fn i420_planes(&self) -> Option<(&[u8], &[u8], &[u8])> {
+        if let Some(surface) = self.surface() {
+            return surface.ram().i420_planes();
+        }
         if self.format != PixelFormat::I420 {
             return None;
         }
@@ -528,6 +581,9 @@ pub struct ShaderStep {
 
 impl Serialize for Frame {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        if self.surface().is_some() {
+            return self.materialise().serialize(s);
+        }
         use serde::ser::SerializeStruct;
         let mut st = s.serialize_struct("Frame", 4)?;
         st.serialize_field("width", &self.width)?;

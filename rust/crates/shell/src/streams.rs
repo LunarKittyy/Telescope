@@ -147,7 +147,8 @@ struct ThumbWaiting {
 }
 
 struct ThumbJob {
-    frame: telescope_core::Frame,
+    /// The picture as the slot keeps it: this thread lands it if it is still on the card, so the window's never does.
+    picture: telescope_core::media::PipelineFrame,
     number: u64,
     /// The run of the stream's id the frame is from.
     run: u64,
@@ -175,7 +176,7 @@ impl ThumbWorker {
                 let (w, h) = job.size;
                 let mut buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(w, h);
                 // A scaler that panics costs that one picture, not every tile's updates from then on
-                let scaled = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scaler.rgb_into(&job.frame, w, h, buffer.make_mut_bytes())));
+                let scaled = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scaler.rgb_into(&job.picture.land(), w, h, buffer.make_mut_bytes())));
                 match scaled {
                     Ok(true) => {
                         work.finished.lock().unwrap_or_else(|e| e.into_inner()).insert(id, (buffer, job.number, job.run));
@@ -548,6 +549,9 @@ impl Window {
         self.stream_snapshot(&flow);
         let s = &flow.sessions;
         self.log_streams(&flow);
+        if !s.streams.is_empty() && matches!(self.ui.get_property("streaming"), Ok(SValue::Bool(true))) {
+            self.show_streaming(s.streams.len());
+        }
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
         self.state.borrow().colour.set_streams(s.streams.iter().map(|x| x.id_str()));
         for w in due {
@@ -572,7 +576,7 @@ impl Window {
 
     /// The worker whose picture the preview draws: the one the panels show, or the stream a plugin asked it to follow (Host::preview_follows)
     /// while that stream runs.
-    fn preview_worker(&self) -> Option<Rc<ShellWorker>> {
+    pub(crate) fn preview_worker(&self) -> Option<Rc<ShellWorker>> {
         let workers = self.streams.workers.borrow();
         let shown = workers.iter().find(|w| w.live.get())?;
         let target = shown.inner.source_id().and_then(|id| self.state.borrow().preview_target(id).map(str::to_string));
@@ -585,9 +589,9 @@ impl Window {
         self.streams.workers.borrow().iter().find(|w| w.live.get()).and_then(|w| w.inner.source_id().map(str::to_string))
     }
 
-    /// The newest frame of the stream the preview draws (the one the panels show, or the one it follows), and its number.
-    pub fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
-        self.preview_worker().and_then(|w| w.inner.slot().latest())
+    /// The newest picture of the stream the preview draws (the one the panels show, or the one it follows), and its number; the card isn't read back.
+    pub fn preview_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
+        self.preview_worker().and_then(|w| w.inner.slot().latest_picture())
     }
 
     /// The id of the stream the preview draws, so what's made from its frames isn't taken for another's.
@@ -1210,7 +1214,7 @@ impl Window {
         let flow = self.streams.flow.borrow();
         for src in &flow.sessions.streams {
             let Some(stream) = self.worker_of(src) else { continue };
-            let Some((frame, number)) = stream.inner.slot().latest() else { continue };
+            let Some((picture, number)) = stream.inner.slot().latest_picture() else { continue };
             let id = src.id_str().to_string();
             let shown = self.streams.thumbs.borrow().get(&id).is_some_and(|(_, shown)| *shown == number);
             if shown || self.streams.thumb_asked.borrow().get(&id) == Some(&number) {
@@ -1218,12 +1222,12 @@ impl Window {
             }
             let scale = window.scale_factor();
             let room = ((THUMB.0 * scale).round() as u32, (THUMB.1 * scale).round() as u32);
-            let size = crate::preview::fit_within((frame.width, frame.height), room);
+            let size = crate::preview::fit_within((picture.metadata().width, picture.metadata().height), room);
             let run = *self.streams.thumb_runs.borrow_mut().entry(id.clone()).or_insert_with(|| {
                 self.streams.thumb_run_count.set(self.streams.thumb_run_count.get() + 1);
                 self.streams.thumb_run_count.get()
             });
-            worker.ask(id.clone(), ThumbJob { frame, number, run, size });
+            worker.ask(id.clone(), ThumbJob { picture, number, run, size });
             self.streams.thumb_asked.borrow_mut().insert(id, number);
         }
     }
@@ -1820,7 +1824,7 @@ impl FlowHost for Host<'_> {
     }
     fn set_start_button(&mut self, streaming: bool) {
         if streaming {
-            self.w.show_streaming();
+            self.w.show_streaming(1);
         } else {
             self.w.show_idle_button();
         }
@@ -2020,6 +2024,21 @@ impl WakingSlot {
 }
 
 impl FrameSlot for WakingSlot {
+    fn publish_picture_at(&self, frame: telescope_core::media::PipelineFrame, epoch: u64) -> u64 {
+        let number = self.inner.publish_picture_at(frame, epoch);
+        self.wake();
+        number
+    }
+    fn latest_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
+        self.inner.latest_picture()
+    }
+    fn ram_wanted(&self) -> bool {
+        self.inner.ram_wanted()
+    }
+    fn want_ram(&self) {
+        self.inner.want_ram();
+    }
+
     fn publish(&self, frame: telescope_core::frame::Frame) -> u64 {
         let number = self.inner.publish(frame);
         self.wake();
@@ -2221,7 +2240,7 @@ mod thumb_tests {
     }
 
     fn job(grey: u8, number: u64) -> ThumbJob {
-        ThumbJob { frame: telescope_core::Frame::new(2, 2, PixelFormat::Rgba, vec![grey; 16]), number, run: 1, size: (2, 1) }
+        ThumbJob { picture: telescope_core::Frame::new(2, 2, PixelFormat::Rgba, vec![grey; 16]).into(), number, run: 1, size: (2, 1) }
     }
 
     fn wait_for(what: &str, cond: impl Fn() -> bool) {

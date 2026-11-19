@@ -167,6 +167,15 @@ pub struct Codec {
     // Copies of the bytes handed to FFmpeg with the zeroed tail its bitstream readers may read into
     parse_buf: Vec<u8>,
     unit_buf: Vec<u8>,
+    #[cfg(target_os = "linux")]
+    defer_surfaces: bool,
+    /// Whether the decoder's pool has room for pictures kept on the card (set before its first picture, see surfaces).
+    #[cfg(target_os = "linux")]
+    surface_room: bool,
+    #[cfg(target_os = "linux")]
+    import: std::sync::Arc<crate::vaapi_import::Stream>,
+    #[cfg(target_os = "linux")]
+    import_node: Option<String>,
 }
 
 /// Copies data into buf followed by the AV_INPUT_BUFFER_PADDING_SIZE zero bytes FFmpeg requires after any input.
@@ -184,6 +193,21 @@ impl Codec {
     /// H.264 with low delay, in software (two slice threads) or on hw with no software fallback.
     pub fn h264(hw: Option<Hw>) -> Result<Codec, String> {
         Codec::open(ff::AVCodecID::AV_CODEC_ID_H264, hw, true)
+    }
+
+    /// Whether the next pictures may stay on the card for import (VA-API only); the pool is sized at the first picture, so a decoder started without the wish copies to memory until it is opened again.
+    #[cfg(target_os = "linux")]
+    pub(crate) fn surfaces(&mut self, wish: bool) {
+        if wish && !self.surface_room && self.hw == Some(Hw::Vaapi) {
+            // SAFETY: the context is live, and the pool isn't made yet while it holds no hardware frames context
+            unsafe {
+                if (*self.ctx).hw_frames_ctx.is_null() {
+                    (*self.ctx).extra_hw_frames = 1 + crate::vaapi_import::MAX_SURFACES as i32;
+                    self.surface_room = true;
+                }
+            }
+        }
+        self.defer_surfaces = wish && self.surface_room;
     }
 
     pub fn mjpeg() -> Result<Codec, String> {
@@ -234,6 +258,14 @@ impl Codec {
                 sws_out: Padded::default(),
                 parse_buf: Vec::new(),
                 unit_buf: Vec::new(),
+                #[cfg(target_os = "linux")]
+                defer_surfaces: false,
+                #[cfg(target_os = "linux")]
+                surface_room: false,
+                #[cfg(target_os = "linux")]
+                import: std::sync::Arc::default(),
+                #[cfg(target_os = "linux")]
+                import_node: None,
             };
             if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || c.held.is_null() || (parse && c.parser.is_null()) {
                 return Err("out of memory opening a decoder".into());
@@ -279,6 +311,7 @@ impl Codec {
                     #[cfg(all(target_os = "linux", ffmpeg))]
                     if let (Some((_, path)), true) = (&node, on_picked) {
                         log::info!("Hardware decode runs on render node {path}");
+                        c.import_node = Some(path.clone());
                     }
                     #[cfg(windows)]
                     if h == Hw::D3d11va {
@@ -494,6 +527,19 @@ impl Codec {
     unsafe fn take_frame(&mut self) -> Result<(Frame, Option<i64>), Fault> {
         // Read off the decoder's own frame (on a card that's the surface, which the copy to memory leaves be)
         let pts = Some((*self.frame).pts).filter(|&p| p != ff::AV_NOPTS_VALUE);
+        #[cfg(target_os = "linux")]
+        if self.defer_surfaces && self.forced.is_none() && (*self.frame).format == ff::AVPixelFormat::AV_PIX_FMT_VAAPI as i32 && self.import.enabled() {
+            match crate::vaapi_import::Surface::capture(self.frame, self.import.clone(), self.import_node.clone()) {
+                Ok(Some(surface)) => {
+                    let frame = Frame::from_surface((*self.frame).width as u32, (*self.frame).height as u32, PixelFormat::I420, surface);
+                    ff::av_frame_unref(self.frame);
+                    self.pictures = self.pictures.saturating_add(1);
+                    return Ok((frame, pts));
+                }
+                Ok(None) => {}
+                Err(why) => self.import.disable(&why),
+            }
+        }
         let mut src = self.frame;
         if Hw::from_pixel_format((*src).format).is_some() {
             self.copy_off_the_card()?;
@@ -578,6 +624,18 @@ impl Codec {
             Some(bgr) => frame.with_lazy_bgr(bgr),
             None => frame,
         }, pts))
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn download_surface(&mut self, surface: *const ff::AVFrame) -> Result<Frame, Fault> {
+        // SAFETY: the caller keeps surface alive under its mutex; this codec is a separate, serialised download context.
+        unsafe {
+            ff::av_frame_unref(self.frame);
+            if ff::av_frame_ref(self.frame, surface) < 0 {
+                return Err(Fault::Broken("couldn't retain a decoded surface".into()));
+            }
+            self.take_frame().map(|(frame, _)| frame)
+        }
     }
 }
 
@@ -1115,6 +1173,7 @@ pub(crate) mod decode_bench {
     }
 
     /// TELESCOPE_BENCH_CLIPS=<folder> cargo test --release -p telescope-media decode_lift_land_per_frame -- --ignored --nocapture --test-threads=1
+    /// BENCH_CLIP (p1080 or p4k), BENCH_READER (ram or preview) and BENCH_MODE (transfer or import) each pick one case.
     #[test]
     #[ignore = "a measurement, needs recorded H.264 clips and a graphics card"]
     fn decode_lift_land_per_frame() {
@@ -1128,7 +1187,12 @@ pub(crate) mod decode_bench {
         if crate::gpu::Gpu::shared().is_none() {
             return eprintln!("no graphics card for the frame step; skipped");
         }
-        let run = |codec: &mut Codec, packets: &[Vec<u8>]| -> Result<Vec<Costs>, Fault> {
+        let run = |codec: &mut Codec, packets: &[Vec<u8>], preview_only: bool, import: bool| -> Result<Vec<Costs>, Fault> {
+            #[cfg(target_os = "linux")]
+            {
+                codec.surfaces(import);
+            }
+            let _ = import;
             let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             pipeline.set_steps(vec![StagedStep {
                 owner: "decode measurement".into(), stage: FrameStage::Effects,
@@ -1137,50 +1201,106 @@ pub(crate) mod decode_bench {
                     uniforms: serde_json::json!({}), textures: Vec::new(), keeps_geometry: true,
                 }),
             }]);
+            let mut preview = crate::gpu::CardPreview::new(crate::gpu::Gpu::shared().unwrap(), 256);
             let mut rows = Vec::new();
             for packet in packets {
                 codec.decode_newest(packet)?;
                 let (result, costs) = measure(|| -> Result<bool, Fault> {
                     let Some(frame) = codec.take_newest()? else { return Ok(false) };
-                    let out = pipeline.process(frame, &NoContext);
-                    assert_eq!(out.data.len(), out.format.size(out.width, out.height));
-                    std::hint::black_box(&out.data);
+                    let out = pipeline.process_picture(frame, &NoContext);
+                    if preview_only {
+                        assert!(preview.paint_picture(&out, 640, 360, None).is_some());
+                    } else {
+                        let out = out.land();
+                        assert_eq!(out.data.len(), out.format.size(out.width, out.height));
+                        std::hint::black_box(&out.data);
+                    }
                     Ok(true)
                 });
                 if result? {
-                    assert_eq!((costs.up, costs.down), (1, 1), "the frame must run a card step and land once");
+                    assert_eq!((costs.up, costs.down), (1, u32::from(!preview_only)), "the picture lands only for the RAM reader");
                     rows.push(costs);
                 }
             }
             Ok(rows)
         };
+        let wanted = |var: &str, value: &str| std::env::var(var).map_or(true, |v| v == value);
         for name in ["p1080.h264", "p4k.h264"] {
+            if !wanted("BENCH_CLIP", name.trim_end_matches(".h264")) {
+                continue;
+            }
             let Some(packets) = packets(name).filter(|p| !p.is_empty()) else {
                 eprintln!("no access units in {name}; skipped");
                 continue;
             };
-            let mut measured = None;
-            for hw in [Hw::Vaapi, Hw::D3d11va, Hw::Cuda] {
-                let Ok(mut codec) = Codec::h264(Some(hw)) else { continue };
-                match run(&mut codec, &packets) {
-                    Ok(rows) if !rows.is_empty() && rows.iter().all(|r| r.decoded_down == 1) => {
-                        measured = Some((hw.name(), rows));
-                        break;
+            for (preview_only, import) in [(false, false), (true, false), (false, true), (true, true)] {
+                let reader = if preview_only { "preview" } else { "ram" };
+                let mode = if import { "import" } else { "transfer" };
+                if !wanted("BENCH_READER", reader) || !wanted("BENCH_MODE", mode) {
+                    continue;
+                }
+                let mut measured = None;
+                for hw in [Hw::Vaapi, Hw::D3d11va, Hw::Cuda] {
+                    let Ok(mut codec) = Codec::h264(Some(hw)) else { continue };
+                    // A picture that went into Vulkan has no decode download; one that fell back has it inside the lift
+                    match run(&mut codec, &packets, preview_only, import) {
+                        Ok(rows) if !rows.is_empty() && (import || rows.iter().all(|r| r.decoded_down == 1)) => {
+                            let imported = rows.iter().filter(|r| r.decoded_down == 0).count();
+                            eprintln!("{name} {reader} {mode} on {}: {imported} of {} pictures needed no decode download", hw.name(), rows.len());
+                            measured = Some((hw.name(), rows));
+                            break;
+                        }
+                        _ => eprintln!("{} could not decode {name}; trying the next decoder", hw.name()),
                     }
-                    _ => eprintln!("{} could not decode {name}; trying the next decoder", hw.name()),
+                }
+                let (decoder, rows) = measured.unwrap_or_else(|| {
+                    eprintln!("no hardware decoder for {name}; hardware measurement skipped, using software decode");
+                    let mut codec = Codec::h264(None).expect("software H.264 decoder");
+                    ("software", run(&mut codec, &packets, preview_only, false).expect("software decode"))
+                });
+                assert!(!rows.is_empty(), "{name} produced no frames");
+                println!("clip,reader,mode,decoder,frame,decode_transfer_ms,lift_ms,land_ms,decode_down,up,land_down,total_down");
+                for (i, r) in rows.iter().enumerate() {
+                    println!("{name},{reader},{mode},{decoder},{i},{:.4},{:.4},{:.4},{},{},{},{}", r.transfer_ns as f64 / 1e6,
+                        r.lift_ns as f64 / 1e6, r.land_ns as f64 / 1e6, r.decoded_down, r.up, r.down, r.decoded_down + r.down);
                 }
             }
-            let (decoder, rows) = measured.unwrap_or_else(|| {
-                eprintln!("no hardware decoder for {name}; hardware measurement skipped, using software decode");
-                let mut codec = Codec::h264(None).expect("software H.264 decoder");
-                ("software", run(&mut codec, &packets).expect("software decode"))
-            });
-            assert!(!rows.is_empty(), "{name} produced no frames");
-            println!("clip,decoder,frame,decode_transfer_ms,lift_ms,land_ms,decode_down,up,land_down,total_down");
-            for (i, r) in rows.iter().enumerate() {
-                println!("{name},{decoder},{i},{:.4},{:.4},{:.4},{},{},{},{}", r.transfer_ns as f64 / 1e6,
-                    r.lift_ns as f64 / 1e6, r.land_ns as f64 / 1e6, r.decoded_down, r.up, r.down, r.decoded_down + r.down);
+        }
+    }
+
+    /// Pictures of the real clips through the import and through the transfer, landed and compared.
+    /// TELESCOPE_BENCH_CLIPS=<folder> cargo test --release -p telescope-media --lib -- --ignored --nocapture imported_pictures_match_the_transfer_on_real_clips
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "a measurement, needs recorded H.264 clips, a VA-API card and Vulkan"]
+    fn imported_pictures_match_the_transfer_on_real_clips() {
+        let gpu = crate::gpu::Gpu::shared().expect("a graphics card");
+        for name in ["p1080.h264", "p4k.h264"] {
+            let Some(packets) = packets(name) else { continue };
+            let mut codec = Codec::h264(Some(Hw::Vaapi)).expect("VA-API");
+            codec.surfaces(true);
+            let (mut compared, mut worst, mut total, mut bytes) = (0, 0u8, 0u64, 0u64);
+            for packet in packets.iter().take(60) {
+                codec.decode_newest(packet).unwrap();
+                let Some(frame) = codec.take_newest().unwrap() else { continue };
+                let mut imported = gpu.lift_with(&frame, true).unwrap();
+                assert!(imported.was_imported(), "{name}: the picture was not imported");
+                let imported_pixels = gpu.land(&mut imported).unwrap();
+                gpu.put_down(imported);
+                let mut uploaded = gpu.lift_with(&frame.materialise(), true).unwrap();
+                let transferred = gpu.land(&mut uploaded).unwrap();
+                gpu.put_down(uploaded);
+                assert_eq!(imported_pixels.data.len(), transferred.data.len());
+                for (a, b) in imported_pixels.data.iter().zip(transferred.data.iter()) {
+                    let d = a.abs_diff(*b);
+                    worst = worst.max(d);
+                    total += d as u64;
+                }
+                bytes += transferred.data.len() as u64;
+                compared += 1;
             }
+            println!("{name}: {compared} pictures, worst level difference {worst}, mean {:.4}", total as f64 / bytes.max(1) as f64);
+            assert!(compared > 0 && worst <= 8, "{name}: imported pictures differ from the transfer by {worst} levels");
         }
     }
 

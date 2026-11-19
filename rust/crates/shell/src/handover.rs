@@ -47,6 +47,8 @@ fn grey(frame: &Frame, x: usize, y: usize) -> f32 {
 
 /// _thumb: every fourth pixel averaged down to THUMB, then cv2.GaussianBlur's 5 x 5.
 pub fn thumb(frame: &Frame) -> Thumb {
+    // A decoder's picture still on the card has no pixels here yet
+    let frame = &frame.materialise();
     let (w, h) = (frame.width as usize, frame.height as usize);
     let (tw, th) = THUMB;
     let (sw, sh) = (w.div_ceil(SKIP).max(1), h.div_ceil(SKIP).max(1));
@@ -311,5 +313,32 @@ impl ViewGate {
             inner.shown = Some(view.clone());
             view
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use telescope_core::frame::{DecodedSurface, PixelFormat};
+
+    #[derive(Debug)]
+    struct OnTheCard(Frame);
+
+    impl DecodedSurface for OnTheCard {
+        fn ram(&self) -> &Frame {
+            &self.0
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn a_picture_still_on_the_card_has_the_thumb_of_its_pixels() {
+        let (w, h) = (64, 48);
+        let grey = Frame::new(w, h, PixelFormat::I420, vec![120; PixelFormat::I420.size(w, h)]);
+        let on_card = Frame::from_surface(w, h, PixelFormat::I420, Arc::new(OnTheCard(grey.clone())));
+        assert_eq!(thumb(&on_card), thumb(&grey));
     }
 }

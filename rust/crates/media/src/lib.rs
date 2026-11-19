@@ -30,6 +30,8 @@ mod stamp;
 pub mod transfers;
 #[cfg(ffmpeg)]
 mod yuv;
+#[cfg(all(target_os = "linux", ffmpeg))]
+mod vaapi_import;
 #[cfg(test)]
 mod guard_alloc;
 #[cfg(all(test, ffmpeg, target_os = "linux"))]
