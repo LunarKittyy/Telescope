@@ -1,0 +1,96 @@
+// The settings of one photo, with Camera as the unset choice for each control.
+
+import { Theme } from "../theme.slint";
+import { Icons } from "../icons.slint";
+import { RailRow } from "card.slint";
+import { Dial } from "dial.slint";
+import { Slider } from "slider.slint";
+
+export component ShotControls inherits VerticalLayout {
+    out property <string> control-kind: "shot";
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    in property <bool> show-shutter: true;
+    in property <[string]> shutter-stops: [@tr("Camera")];
+    in property <int> shutter-index;
+    in property <bool> shutter-enabled;
+    in property <string> shutter-tip;
+    in property <[string]> iso-stops: [@tr("Camera")];
+    in property <int> iso-index;
+    in property <int> iso-per: 3;
+    in property <int> iso-from: 1;
+    in property <bool> iso-enabled;
+    in property <string> iso-tip;
+    in property <bool> focus-enabled;
+    in property <string> focus-tip;
+    in property <float> focus-value;
+    in property <bool> focus-unset: true;
+    in property <string> focus-readout: @tr("Camera");
+    in property <bool> focus-live;
+    in property <float> focus-live-pos;
+    callback shutter-picked(int);
+    callback iso-picked(int);
+    callback focus-moved(float);
+    callback focus-reset();
+
+    spacing: Theme.gap;
+    RailRow {
+        icon: Icons.exposure;
+        label: @tr("Shutter and ISO");
+        hue: root.hue;
+        enabled: root.enabled && ((root.show-shutter && root.shutter-enabled) || root.iso-enabled);
+        changed: (root.show-shutter && root.shutter-index != 0) || root.iso-index != 0;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            if root.show-shutter: Dial {
+                label: @tr("Shutter");
+                hue: root.hue;
+                enabled: root.enabled && root.shutter-enabled;
+                tip: @tr("Shutter speed");
+                tip-detail: !root.shutter-enabled ? root.shutter-tip : root.shutter-index == 0 ? @tr("Like the camera") : root.shutter-tip;
+                stops: root.shutter-stops;
+                current: root.shutter-index;
+                moved(i) => { root.shutter-picked(i); }
+            }
+            Dial {
+                label: @tr("ISO");
+                hue: root.hue;
+                enabled: root.enabled && root.iso-enabled;
+                tip: @tr("ISO");
+                tip-detail: !root.iso-enabled ? root.iso-tip : root.iso-index == 0 ? @tr("Like the camera") : root.iso-tip;
+                stops: root.iso-stops;
+                current: root.iso-index;
+                per-label: root.iso-per;
+                label-from: root.iso-from;
+                moved(i) => { root.iso-picked(i); }
+            }
+        }
+    }
+    RailRow {
+        icon: Icons.focus;
+        label: @tr("Focus");
+        hue: root.hue;
+        enabled: root.enabled && root.focus-enabled;
+        changed: !root.focus-unset;
+        Slider {
+            label: @tr("Focus");
+            tip: @tr("Focus");
+            tip-detail: root.focus-tip;
+            hue: root.hue;
+            enabled: root.enabled && root.focus-enabled;
+            minimum: 0;
+            maximum: 1000;
+            step: 1;
+            readout-width: Theme.u(28);
+            has-default: true;
+            default-value: 0;
+            value: root.focus-value;
+            unset: root.focus-unset;
+            readout: root.focus-readout;
+            has-live: root.focus-live;
+            live: root.focus-live-pos;
+            reset => { root.focus-reset(); }
+            moved(v) => { root.focus-moved(v); }
+        }
+    }
+}

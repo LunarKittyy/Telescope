@@ -17,7 +17,9 @@ use telescope_shell::offscreen;
 use telescope_shell::plugins::camera_control::CameraControl;
 use telescope_shell::source::to_property;
 
-const WIDTH: f32 = 406.0;
+fn width() -> f32 {
+    std::env::var("CARD_SHOTS_WIDTH").ok().and_then(|w| w.parse().ok()).unwrap_or(406.0)
+}
 
 /// A card's source with the Theme global let out, so a picture can be asked for in either look.
 fn card_of(plugin: &mut dyn Plugin, group: &str) -> (String, String, Json) {
@@ -49,14 +51,14 @@ fn shoot_marked(dir: &std::path::Path, name: &str, card: &(String, String, Json)
                 ui.set_property(key, to_property(&ui, key, value)).unwrap_or_else(|e| panic!("{key}: {e:?}"));
             }
         }
-        ui.window().set_size(slint::LogicalSize::new(WIDTH, 2000.0));
+        ui.window().set_size(slint::LogicalSize::new(width(), 2000.0));
         ui.show().unwrap();
         offscreen::pump();
         let height = match ui.get_property("shot-height") {
             Ok(Value::Number(h)) => h as f32,
             other => panic!("no preferred height: {other:?}"),
         };
-        let pic = offscreen::draw(ui.window(), WIDTH, height.ceil(), 2.0).expect("a picture");
+        let pic = offscreen::draw(ui.window(), width(), height.ceil(), 2.0).expect("a picture");
         pic.save_png(&dir.join(format!("{name}{}-{}.png", if dot { "-dot" } else { "" }, if classic { "classic" } else { "new" }))).unwrap();
         ui.hide().unwrap();
     }
@@ -160,14 +162,21 @@ fn stargazer_shots() {
     let Some(dir) = out() else { return };
     let _english = language("en");
     let sky = card_of(&mut StargazerPlugin::new(), "camera");
-    let items = json!(["Lucky", "Live", "Trails"]);
+    let items = json!(["Lucky", "Live", "Trails", "Night"]);
     let ready = json!({"active": true, "mode-items": items, "run-enabled": true, "status": "Ready", "focus-text": "Now 12.4, best 15.8", "camera-name": "Show the stack on the camera",
         "save-text": "Save", "reset-text": "Reset", "open-text": "Open folder", "frames-text": "300 frames", "keep-text": "10 %", "trail-text": "5 s"});
     shoot(&dir, "stargazer-lucky", &sky, &[ready.clone(), json!({"mode-index": 0, "running": true, "run-text": "Stop", "status": "Collecting frame 120 of 300", "status-kind": "status_ok",
         "tally": "In the stack: 30, refused: 0, time: 0:36"})]);
     shoot(&dir, "stargazer-live", &sky, &[ready.clone(), json!({"mode-index": 1, "save-enabled": true, "reset-enabled": true, "run-text": "Start", "status": "Stopped. Reset starts a new stack",
         "status-kind": "status_ok", "tally": "In the stack: 412, refused: 5, time: 6:52", "camera": true, "saved": "Saved stargazer_20261118_214503.png", "open-enabled": true})]);
-    shoot(&dir, "stargazer-trails", &sky, &[ready, json!({"mode-index": 2, "running": true, "run-text": "Stop", "status": "Recording the trails", "status-kind": "status_ok", "tally": "In the stack: 84, refused: 0, time: 7:00"})]);
+    shoot(&dir, "stargazer-trails", &sky, &[ready.clone(), json!({"mode-index": 2, "running": true, "run-text": "Stop", "status": "Recording the trails", "status-kind": "status_ok", "tally": "In the stack: 84, refused: 0, time: 7:00"})]);
+    let night = json!({"mode-index": 3, "run-text": "Start", "shot-summary": "10 s · ISO 800 · focus ∞",
+        "shutter-stops": ["Camera", "1 s", "2 s", "4 s", "8 s", "10 s", "15 s", "20 s"], "shutter-index": 5, "shutter-enabled": true,
+        "iso-stops": ["Camera", "100", "125", "160", "200", "250", "320", "400", "500", "640", "800", "1000", "1250", "1600"], "iso-index": 10,
+        "iso-enabled": true, "iso-per": 3, "iso-from": 1, "focus-enabled": false, "focus-unset": false, "focus-readout": "∞"});
+    shoot(&dir, "stargazer-night-closed", &sky, &[ready.clone(), night.clone()]);
+    shoot(&dir, "stargazer-night-open", &sky, &[ready.clone(), night.clone(), json!({"customize-open": true})]);
+    shoot(&dir, "stargazer-night-taking", &sky, &[ready, night, json!({"running": true, "run-enabled": false, "run-text": "Taking", "status": "Exposing, the video is paused", "status-kind": "status_ok"})]);
 }
 
 #[test]
