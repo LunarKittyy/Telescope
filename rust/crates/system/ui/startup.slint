@@ -19,9 +19,9 @@ export component StartupSettings inherits Card {
     reset-detail: @tr("Stop Telescope from opening when you sign in.");
     reset => { root.reset-clicked(); }
     keywords: @tr("search" => "login boot autostart run on startup tray minimized");
-    icon: Icons.monitor;
+    icon: Icons.power;
     SwitchRow {
-        icon: Icons.monitor;
+        icon: Icons.power;
         label: @tr("Open Telescope when I sign in");
         keywords: @tr("search" => "autostart login log in boot startup run on startup launch computer starts tray");
         hue: root.hue;

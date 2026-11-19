@@ -414,7 +414,7 @@ export component ColourGradingCard inherits Card {
                     }
                     if lut-loaded: IconButton {
                         raised: true;
-                        icon: Icons.x;
+                        icon: Icons.trash;
                         label: @tr("Remove LUT");
                         tip: @tr("Remove LUT");
                         clicked => { root.clear-clicked(); }
@@ -425,7 +425,7 @@ export component ColourGradingCard inherits Card {
             Unfolding {
                 open: lut-loaded;
                 RailSlider {
-                icon: Icons.gauge;
+                icon: Icons.strength;
                 enabled: active;
                 label: @tr("Strength");
                 tip: @tr("Strength");
