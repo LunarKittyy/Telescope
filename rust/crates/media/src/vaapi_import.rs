@@ -4,7 +4,6 @@ use ash::vk;
 use ffmpeg_sys_next as ff;
 use std::os::fd::{BorrowedFd, OwnedFd};
 use std::os::unix::fs::MetadataExt;
-use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{DecodedSurface, Frame, PixelFormat};
@@ -94,7 +93,7 @@ impl Surface {
             let bt709 = std::slice::from_raw_parts(ff::sws_getCoefficients(1), 4);
             let colour = if coefficients == bt601 { 0 } else if coefficients == bt709 { 16 } else { return Err("unsupported surface colour matrix".into()) }
                 | if (*frame).color_range == ff::AVColorRange::AVCOL_RANGE_JPEG { 32 } else { 0 };
-            if stream.live.fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < MAX_SURFACES).then_some(n + 1)).is_err() {
+            if stream.live.try_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < MAX_SURFACES).then_some(n + 1)).is_err() {
                 return Ok(None);
             }
             (((*frame).width as u32, (*frame).height as u32), colour, ff::av_frame_clone(frame))
