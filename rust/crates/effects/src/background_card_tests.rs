@@ -266,6 +266,26 @@ fn the_balance_can_still_move_the_step_to_the_cpu_where_it_gives_the_cpu_picture
 }
 
 #[test]
+fn the_blur_on_the_card_still_gives_a_stream_its_cut_out() {
+    if !real_card() {
+        return;
+    }
+    let (w, h) = (640, 360);
+    let mask = person(w, h);
+    let frame = room(w, h, &mask);
+    let ctx = Ctx::new(Some(mask));
+    let mut p = plugin(6, 3);
+    p.wanted.set("phone", true);
+    let (card, cpu) = both(&mut p, &frame, &ctx);
+    let (on_card, on_cpu) = (card.alpha().expect("the card's frame has the cut-out"), cpu.alpha().expect("the CPU's frame has it"));
+    assert_eq!(on_card.data, on_cpu.data);
+    assert!(on_card.data.contains(&255) && on_card.data.contains(&0), "a person and a room");
+    // a stream that doesn't ask gets none
+    let mut p = plugin(6, 3);
+    assert!(both(&mut p, &frame, &ctx).0.alpha().is_none());
+}
+
+#[test]
 fn picture_mode_stays_on_the_cpu() {
     let mut p = BackgroundPlugin::new();
     p.set_config(&json!({"mode": "picture", "blur": 6})).unwrap();

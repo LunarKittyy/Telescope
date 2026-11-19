@@ -706,6 +706,15 @@ impl CompositePlugin {
         self.show_editor(host);
     }
 
+    /// A reader of how the last picture's time split up (scaling, drawing, canvas setup) and whether a transition was playing, for the speed tests.
+    pub fn render_times(&self) -> impl Fn() -> (crate::compositor::RenderTimes, bool) + Send + Sync + 'static {
+        let shared = self.shared.clone();
+        move || {
+            let hub = shared.hub();
+            (hub.compositor.last_times(), hub.compositor.has_transition())
+        }
+    }
+
     /// draw_stalled at now (monotonic nanoseconds): what the clock does while the target stream stalls.
     pub fn draw_stalled(&self, now: u64) -> bool {
         self.shared.draw_stalled(now)

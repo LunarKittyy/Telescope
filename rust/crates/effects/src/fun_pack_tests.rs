@@ -689,3 +689,34 @@ fn reset_switches_the_effect_off_and_puts_the_sliders_back() {
 fn the_declared_settings_round_trip() {
     telescope_core::testing::settings_round_trip(&mut FunPackPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
+
+/// The step the plugin hands out for an effect, put through the pipeline on the CPU after a cut-out was made, and whether the frame still carries it.
+fn keeps_cut_out_through(effect: &str) -> bool {
+    use telescope_core::balance::{Balance, Place};
+    use telescope_core::frame::Alpha;
+    use telescope_core::media::FramePipeline;
+    let mut r = Rig::new();
+    r.pick(effect);
+    let step = r.plugin.frame_step().expect("a step");
+    if let FrameStep::Shader(shader) = &step {
+        return shader.keeps_geometry;
+    }
+    let mut pipeline = telescope_media::pipeline::Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Cpu)));
+    pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Effects, step }]);
+    let mut frame = frame_of(&room());
+    assert!(frame.set_alpha(Arc::new(Alpha::new(frame.width, frame.height, vec![200; W * H], false))));
+    pipeline.process(frame, &Ctx("phone")).alpha().is_some()
+}
+
+#[test]
+fn light_painting_only_brightens_places_so_a_cut_out_goes_through_it() {
+    assert!(keeps_cut_out_through("light"));
+}
+
+#[test]
+fn the_effects_that_move_or_redraw_pixels_take_the_cut_out_off_the_frame() {
+    // slit-scan shifts bands in time, stick figure and ASCII redraw, webcam and VHS resample and shift, CRT bulges the picture, Game Boy pixelates it
+    for effect in ["slit", "stick", "webcam", "vhs", "crt", "ascii", "game_boy"] {
+        assert!(!keeps_cut_out_through(effect), "{effect}");
+    }
+}

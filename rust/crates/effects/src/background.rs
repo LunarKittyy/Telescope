@@ -225,6 +225,31 @@ struct Derived {
     alpha: Option<Arc<Alpha>>,
 }
 
+impl Derived {
+    /// The feathered mask as the frame's alpha plane.
+    fn alpha(&mut self) -> Arc<Alpha> {
+        let (w, h) = self.size;
+        let edges = &self.soft.as_ref().unwrap().1;
+        self.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, edges.data.clone(), false))).clone()
+    }
+}
+
+impl Quarter {
+    /// The feathered mask scaled up to a frame of this size, None while nobody is in it.
+    fn wide(&mut self, (w, h): (usize, usize)) -> Option<&Wide> {
+        let (qw, qh) = self.size;
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        let soft = self.soft.as_ref().map(|(_, g)| g).filter(|g| g.data.iter().any(|&v| v != 0))?;
+        Some(self.wide.get_or_insert_with(|| Wide { luma: resize_linear_fixed(&soft.data, qw, qh, 1, w, h), chroma: resize_linear_fixed(&soft.data, qw, qh, 1, cw, ch) }))
+    }
+
+    /// The feathered mask as the frame's alpha plane: nobody in it is all zero.
+    fn alpha(&mut self, (w, h): (usize, usize)) -> Arc<Alpha> {
+        let luma = self.wide((w, h)).map_or_else(|| vec![0; w * h], |wide| wide.luma.clone());
+        self.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, luma, false))).clone()
+    }
+}
+
 impl CpuStep for Step {
     fn hides(&self) -> bool {
         true
@@ -246,6 +271,35 @@ impl CpuStep for Step {
 
     fn card_textures_offered(&self) -> Option<bool> {
         Some(true)
+    }
+
+    /// The cut-out for a stream that wants it, made on the CPU the way `run` makes it, since the card's blur never gives the frame one.
+    fn card_cut_out(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Arc<Alpha>> {
+        if self.settings.mode == 0 || !self.wants_cut_out(frame, ctx) {
+            return None;
+        }
+        let (w, h) = (frame.width as usize, frame.height as usize);
+        let by_planes = frame.format == PixelFormat::I420 && w >= 2 && h >= 2 && frame.i420_planes().is_some();
+        let mask = if by_planes {
+            self.quarter_mask(frame, ctx, ((w / 4).max(1), (h / 4).max(1)))
+        } else if self.settings.high_quality {
+            mask_shared_hq(ctx, frame)
+        } else {
+            mask_shared(ctx, frame)
+        };
+        // No mask yet is nobody to cut out, the same as `run` gives
+        let Some(mask) = mask else { return Some(Arc::new(Alpha::new(w as u32, h as u32, vec![0; w * h], false))) };
+        if by_planes {
+            let mut q = self.derive(mask, (w, h), true);
+            let alpha = q.alpha((w, h));
+            self.quarter = Some(q);
+            Some(alpha)
+        } else {
+            let mut derived = self.derived_for(mask, (w, h));
+            let alpha = derived.alpha();
+            self.derived = Some(derived);
+            Some(alpha)
+        }
     }
 
     /// The cutout and the share of the room the blur may take from, made from the mask the way the CPU way makes them for this frame's format (a quarter-size mask for planes, the full-size one otherwise); with no mask or nobody in it they're left out, which the shader reads as no cutout and a plain blur.
@@ -353,21 +407,11 @@ impl Step {
             return;
         };
         let size = (rgb.w, rgb.h);
-        let mut derived = match self.derived.take() {
-            Some(d) if Arc::ptr_eq(&d.src, &mask) && d.size == size => d,
-            _ => Derived { src: mask, size, soft: None, rest: None, alpha: None },
-        };
-        let src = derived.src.clone();
-        let whole = || Gray { w: size.0, h: size.1, data: src.to_vec() };
-        let shaping = (self.settings.edges, self.settings.cut_in);
-        if derived.soft.as_ref().is_none_or(|(e, _)| *e != shaping) {
-            derived.soft = Some((shaping, whole().soften_cut(shaping.0, shaping.1)));
-            derived.alpha = None;
-        }
+        let mut derived = self.derived_for(mask, size);
         match self.backdrop() {
             Backdrop::Blur => {
                 if derived.rest.is_none() {
-                    derived.rest = Some(whole().shrink((rgb.w / BLUR_SMALL).max(1), (rgb.h / BLUR_SMALL).max(1)));
+                    derived.rest = Some(Gray { w: rgb.w, h: rgb.h, data: derived.src.to_vec() }.shrink((rgb.w / BLUR_SMALL).max(1), (rgb.h / BLUR_SMALL).max(1)));
                 }
                 let edges = &derived.soft.as_ref().unwrap().1;
                 compose(&rgb, edges, &blurred_by(&rgb, self.settings.blur, derived.rest.as_ref(), rgb.w, rgb.h)).write_to(frame);
@@ -378,11 +422,24 @@ impl Step {
             }
         }
         if want {
-            let edges = &derived.soft.as_ref().unwrap().1;
-            let alpha = derived.alpha.get_or_insert_with(|| Arc::new(Alpha::new(rgb.w as u32, rgb.h as u32, edges.data.clone(), false))).clone();
-            frame.set_alpha(alpha);
+            frame.set_alpha(derived.alpha());
         }
         self.derived = Some(derived);
+    }
+
+    /// What the full-size mask leads to for these settings, the last frame's where the mask is the same one.
+    fn derived_for(&mut self, mask: Arc<Vec<u8>>, size: (usize, usize)) -> Derived {
+        let mut derived = match self.derived.take() {
+            Some(d) if Arc::ptr_eq(&d.src, &mask) && d.size == size => d,
+            _ => Derived { src: mask, size, soft: None, rest: None, alpha: None },
+        };
+        let shaping = (self.settings.edges, self.settings.cut_in);
+        if derived.soft.as_ref().is_none_or(|(e, _)| *e != shaping) {
+            let whole = Gray { w: size.0, h: size.1, data: derived.src.to_vec() };
+            derived.soft = Some((shaping, whole.soften_cut(shaping.0, shaping.1)));
+            derived.alpha = None;
+        }
+        derived
     }
 
     /// Whether this frame's stream asked for its cut-out and no step before this one gave it one.
@@ -472,9 +529,7 @@ impl Step {
             out.copy_from_slice(&self.covered_yuv.as_ref().unwrap().1);
         }
         if let Some(q) = quarter.as_mut() {
-            let soft = q.soft.as_ref().map(|(_, g)| g).filter(|g| g.data.iter().any(|&v| v != 0));
-            if let (Some(soft), Some((sy, su, sv))) = (soft, frame.i420_planes()) {
-                let wide = q.wide.get_or_insert_with(|| Wide { luma: resize_linear_fixed(&soft.data, qw, qh, 1, w, h), chroma: resize_linear_fixed(&soft.data, qw, qh, 1, cw, ch) });
+            if let (Some(wide), Some((sy, su, sv))) = (q.wide((w, h)), frame.i420_planes()) {
                 let (oy, chroma) = out.split_at_mut(w * h);
                 let (ou, ov) = chroma.split_at_mut(cw * ch);
                 lay_over(sy, &wide.luma, oy, w);
@@ -486,7 +541,7 @@ impl Step {
         // The alpha is the mask the frame was laid over the background with: nobody in it, or no mask yet, is all zero
         if want {
             let alpha = match quarter.as_mut() {
-                Some(q) => q.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, q.wide.as_ref().map_or_else(|| vec![0; w * h], |wide| wide.luma.clone()), false))).clone(),
+                Some(q) => q.alpha((w, h)),
                 None => Arc::new(Alpha::new(w as u32, h as u32, vec![0; w * h], false)),
             };
             frame.set_alpha(alpha);
