@@ -783,13 +783,14 @@ export component CompositeEditor inherits Window {
                             }
                             ChoiceField {
                                 compact: true;
-                                caption: @tr("Swap with");
-                                placeholder: @tr("Swap with…");
+                                name: @tr("Trade places with");
+                                placeholder: @tr("Trade places with");
                                 items: swap-items;
                                 current: -1;
+                                follows: true;
                                 enabled: swap-enabled;
-                                tip: @tr("Swap with");
-                                tip-detail: @tr("Trade this stream's place and size with another stream's.");
+                                tip: @tr("Trade places with");
+                                tip-detail: @tr("Swaps position and size with the stream you pick.");
                                 picked(i) => { root.swap-picked(i); }
                             }
                             HorizontalLayout {
