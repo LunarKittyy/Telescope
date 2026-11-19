@@ -1226,3 +1226,67 @@ mod transitions {
         }
     }
 }
+
+#[test]
+fn direct_scaling_preserves_pixels_outside_the_destination_and_matches_the_plane_scaler() {
+    let cases = [((17usize, 13usize), (17usize, 13usize)), ((64, 48), (32, 24)), ((65, 49), (8, 6)), ((200, 121), (33, 20)), ((15, 9), (37, 23)), ((1100, 800), (257, 301))];
+    for ch in [1, 3, 4] {
+        for (i, &((w, h), (tw, th))) in cases.iter().enumerate() {
+            let data = noise(w + 7, h + 4, ch, (i * 31 + ch) as u64);
+            let region = Region { data: &data, stride: w + 7, ch, x0: 3, y0: 2, w, h };
+            let (stride, left) = ((tw + 9) * ch, 3 * ch);
+            let mut out = vec![213; stride * (th + 2)];
+            scale_region_into(region, tw, th, &mut out[stride..stride * (th + 1)], stride, left);
+            let scaled = scale_reference(region, tw, th);
+            let mut expected = vec![213; out.len()];
+            for y in 0..th {
+                expected[(y + 1) * stride + left..(y + 1) * stride + left + tw * ch].copy_from_slice(&scaled[y * tw * ch..(y + 1) * tw * ch]);
+            }
+            assert_eq!(out, expected, "{ch} channels {w}x{h} to {tw}x{th}");
+        }
+    }
+}
+
+#[test]
+fn plain_unnumbered_tiles_draw_the_same_bytes_directly_as_the_cached_plane_path() {
+    for format in [PixelFormat::Bgra, PixelFormat::Rgba, PixelFormat::I420, PixelFormat::Nv12] {
+        for size in [(100, 80), (101, 81)] {
+            for tile in [Tile::new("a"), t("a", 0.2, 0.2, 0.4, 0.4), t("a", 0.01, 0.0125, 0.5, 0.5), Tile { border: 54, ..Tile::new("a") }] {
+                let layout = Layout::of(vec![Tile { crop_l: 0.13, crop_b: 0.17, zoom: 1.3, ..tile }]);
+                let frame = Frame::new(193, 129, format, noise(format.size(193, 129), 1, 1, 23));
+                let fresh = frames(vec![("a", frame.clone(), None)]);
+                let cached = frames(vec![("a", frame, Some(41))]);
+                let mut direct = Compositor::default();
+                direct.prepare(&layout, size);
+                let mut reference = Compositor::default();
+                reference.prepare(&layout, size);
+                assert_eq!(direct.render(&fresh, format).unwrap().data, reference.render(&cached, format).unwrap().data, "{format:?} {size:?}");
+                assert!(reference.scaled_of(0).is_some());
+                if Kind::of(format) != Kind::I420 || (layout.tiles[0].x == 0.0 && layout.tiles[0].border == 0) {
+                    assert!(direct.scaled_of(0).is_none(), "plain tile should draw directly");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn scaled_plane_buffers_return_to_the_pool_only_after_the_last_owner_releases_them() {
+    let mut held = Vec::new();
+    with_spares(&mut held, || {
+        let plane = spare_bytes(65_536);
+        let alpha = spare_bytes(65_536);
+        let (plane_at, alpha_at) = (plane.as_ptr(), alpha.as_ptr());
+        let scaled = Scaled { planes: Arc::new(vec![plane]), alpha: Some(Arc::new(vec![alpha])) };
+        let shared = scaled.clone();
+        drop(scaled);
+        assert_eq!(shared.planes[0].as_ptr(), plane_at);
+        assert_eq!(shared.alpha.as_ref().unwrap()[0].as_ptr(), alpha_at);
+        drop(shared);
+        let first = spare_bytes(65_536);
+        let second = spare_bytes(65_536);
+        assert!(first.as_ptr() == plane_at || first.as_ptr() == alpha_at);
+        assert!(second.as_ptr() == plane_at || second.as_ptr() == alpha_at);
+        assert_ne!(first.as_ptr(), second.as_ptr());
+    });
+}

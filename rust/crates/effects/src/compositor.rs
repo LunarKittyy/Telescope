@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::image::{halve_2x2, keep_bytes, over_rows, resample_box};
+use telescope_core::image::{halve_2x2, halve_2x2_into, keep_bytes, over_rows, resample_box, resample_box_into, spare_bytes, with_spares};
 use telescope_core::time::monotonic_ns;
 
 /// The frames to draw from: each stream's newest, with its number when the same frame can come again (None: always fresh).
@@ -94,10 +94,11 @@ impl Region<'_> {
     }
 
     fn copy(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(self.w * self.h * self.ch);
+        let mut out = spare_bytes(self.w * self.h * self.ch);
         for y in 0..self.h {
             let start = ((self.y0 + y) * self.stride + self.x0) * self.ch;
-            out.extend_from_slice(&self.data[start..start + self.w * self.ch]);
+            let row = self.w * self.ch;
+            out[y * row..(y + 1) * row].copy_from_slice(&self.data[start..start + row]);
         }
         out
     }
@@ -152,6 +153,43 @@ fn halves_then_linear(src: Region, w: usize, h: usize) -> Vec<u8> {
     let out = linear(Region { data: &image, stride: iw, ch: src.ch, x0: 0, y0: 0, w: iw, h: ih }, w, h);
     keep_bytes(image);
     out
+}
+
+/// scale_region into complete destination rows, using the same halves and fixed-point taps.
+fn scale_region_into(src: Region, w: usize, h: usize, out: &mut [u8], stride: usize, left: usize) {
+    if (src.w, src.h) == (w, h) {
+        over_rows(out, stride, |y, row| {
+            if y < h {
+                let at = ((src.y0 + y) * src.stride + src.x0) * src.ch;
+                row[left..left + w * src.ch].copy_from_slice(&src.data[at..at + w * src.ch]);
+            }
+        });
+        return;
+    }
+    if src.w < 2 * w || src.h < 2 * h {
+        let (xs, ys) = (linear_taps(src.w, w), linear_taps(src.h, h));
+        resample_box_into(src.data, (src.stride, src.ch), (src.x0, src.y0, src.w, src.h), &xs, &ys, out, (stride, left));
+        return;
+    }
+    if (src.w / 2, src.h / 2) == (w, h) {
+        halve_2x2_into(src.data, src.stride, src.ch, (src.x0, src.y0, src.w, src.h), out, (stride, left));
+        return;
+    }
+    let mut image = halve_2x2(src.data, src.stride, src.ch, (src.x0, src.y0, src.w, src.h));
+    let (mut iw, mut ih) = (src.w / 2, src.h / 2);
+    while iw >= 2 * w && ih >= 2 * h {
+        if (iw / 2, ih / 2) == (w, h) {
+            halve_2x2_into(&image, iw, src.ch, (0, 0, iw, ih), out, (stride, left));
+            keep_bytes(image);
+            return;
+        }
+        let next = halve_2x2(&image, iw, src.ch, (0, 0, iw, ih));
+        keep_bytes(std::mem::replace(&mut image, next));
+        (iw, ih) = (iw / 2, ih / 2);
+    }
+    let (xs, ys) = (linear_taps(iw, w), linear_taps(ih, h));
+    resample_box_into(&image, (iw, src.ch), (0, 0, iw, ih), &xs, &ys, out, (stride, left));
+    keep_bytes(image);
 }
 
 /// composite.scale_to on a whole w x h picture of ch bytes a pixel.
@@ -440,7 +478,7 @@ fn multiply(plane: &mut [u8], alpha: &[u8], ch: usize) {
 fn chroma_alpha(luma: &[u8], bx: (usize, usize, usize, usize)) -> Vec<u8> {
     let (x, y, w, h) = bx;
     let (cx0, cy0, cx1, cy1) = plane_box(2, bx);
-    let mut out = Vec::with_capacity((cx1 - cx0) * (cy1 - cy0));
+    let mut out = spare_bytes((cx1 - cx0) * (cy1 - cy0));
     for cy in cy0..cy1 {
         for cx in cx0..cx1 {
             let (mut sum, mut n) = (0u32, 0u32);
@@ -452,7 +490,7 @@ fn chroma_alpha(luma: &[u8], bx: (usize, usize, usize, usize)) -> Vec<u8> {
                     }
                 }
             }
-            out.push((sum + n / 2).checked_div(n).map_or(0, |v| v as u8));
+            out[(cy - cy0) * (cx1 - cx0) + cx - cx0] = (sum + n / 2).checked_div(n).map_or(0, |v| v as u8);
         }
     }
     out
@@ -878,6 +916,17 @@ struct Scaled {
     planes: Arc<ScaledPlanes>,
     alpha: Option<Arc<ScaledPlanes>>,
 }
+
+impl Drop for Scaled {
+    fn drop(&mut self) {
+        if let Some(planes) = Arc::get_mut(&mut self.planes) {
+            std::mem::take(planes).into_iter().for_each(keep_bytes);
+        }
+        if let Some(alpha) = self.alpha.as_mut().and_then(Arc::get_mut) {
+            std::mem::take(alpha).into_iter().for_each(keep_bytes);
+        }
+    }
+}
 /// Where the last render's time went: scaling the streams, drawing them onto the canvas and getting the canvas ready.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RenderTimes {
@@ -905,6 +954,7 @@ pub struct Compositor {
     transition: Option<Active>,
     /// Buffers of whole pictures to draw into again, so a transition's frames don't ask for new ones.
     spare: Vec<Vec<u8>>,
+    plane_spares: Vec<Vec<u8>>,
     /// The columns of a mix, worked out again each plane of each picture into the same room.
     cols: Vec<(usize, usize, u32)>,
     /// The clock of the picture being drawn (ns).
@@ -952,6 +1002,31 @@ fn converted(frame: &Frame, kind: Kind) -> Option<Frame> {
     Some(out)
 }
 
+/// An unrounded plain tile into the canvas, when every touched chroma sample belongs wholly to the tile.
+fn scale_plain_into(out: &mut [u8], kind: Kind, (cw, chh): (usize, usize), tile: &Tile, frame: &Frame, bx: (usize, usize, usize, usize)) {
+    let (fw, fh) = (frame.width as usize, frame.height as usize);
+    if fw == 0 || fh == 0 {
+        return;
+    }
+    let Some(source) = converted(frame, kind) else { return };
+    let crop = crop_px(tile, fw as i64, fh as i64, bx.2 as i64, bx.3 as i64);
+    let (x0, y0, x1, y1) = (crop.0 as usize, crop.1 as usize, crop.2 as usize, crop.3 as usize);
+    for (plane, target) in planes(kind, fw, fh).into_iter().zip(planes(kind, cw, chh)) {
+        let full = plane.w == fw;
+        let (rx0, ry0, rx1, ry1) = if full {
+            (x0, y0, x1, y1)
+        } else {
+            (x0 / 2, y0 / 2, x1.div_ceil(2).min(plane.w).max(x0 / 2 + 1), y1.div_ceil(2).min(plane.h).max(y0 / 2 + 1))
+        };
+        let (tx0, ty0, tx1, ty1) = if target.w == cw { (bx.0, bx.1, bx.0 + bx.2, bx.1 + bx.3) } else { plane_box(2, bx) };
+        let data = &source.data[plane.at..plane.at + plane.w * plane.h * plane.ch];
+        let region = Region { data, stride: plane.w, ch: plane.ch, x0: rx0, y0: ry0, w: rx1 - rx0, h: ry1 - ry0 };
+        let stride = target.w * target.ch;
+        let rows = &mut out[target.at + ty0 * stride..target.at + ty1 * stride];
+        scale_region_into(region, tx1 - tx0, ty1 - ty0, rows, stride, tx0 * target.ch);
+    }
+}
+
 /// NV12 as I420: the luma as it is and the interleaved colour pairs split into their two planes, with no trip through RGB.
 fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
     let (w, h) = (frame.width as usize, frame.height as usize);
@@ -970,7 +1045,7 @@ fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
 
 impl Compositor {
     pub fn new(reader: PictureReader) -> Compositor {
-        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new(), now: 0, waiting: HashMap::new(), waiting_before: HashMap::new(), times: RenderTimes::default() }
+        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), plane_spares: Vec::new(), cols: Vec::new(), now: 0, waiting: HashMap::new(), waiting_before: HashMap::new(), times: RenderTimes::default() }
     }
 
     pub fn prepare(&mut self, layout: &Layout, size: (u32, u32)) {
@@ -1135,7 +1210,9 @@ impl Compositor {
     pub fn render_at(&mut self, frames: &Frames, format: PixelFormat, now: u64) -> Option<Frame> {
         self.now = now;
         self.waiting.clear();
-        let out = self.render_picture(frames, format, now);
+        let mut spares = std::mem::take(&mut self.plane_spares);
+        let out = with_spares(&mut spares, || self.render_picture(frames, format, now));
+        self.plane_spares = spares;
         std::mem::swap(&mut self.waiting, &mut self.waiting_before);
         out
     }
@@ -1264,11 +1341,21 @@ impl Compositor {
             }
             if w > 0 && h > 0 {
                 let bx = (x as usize, y as usize, w as usize, h as usize);
+                let radius = if placed.border > 0 { placed.inner } else { placed.radius };
+                let whole_samples = kind != Kind::I420 || (x % 2 == 0 && y % 2 == 0
+                    && ((x + w) % 2 == 0 || x + w == cw as i64) && ((y + h) % 2 == 0 || y + h == chh as i64));
                 let started = Instant::now();
-                let scaled = self.scale(item.key, tile, frame, *number, bx, kind);
+                // Numbered streams keep their scaled tiles so a slower stream does not get scaled on every picture.
+                let direct = number.is_none() && !tile.cut_out && radius == 0 && whole_samples;
+                let scaled = if direct {
+                    self.scaled.remove(&item.key);
+                    scale_plain_into(out, kind, (cw, chh), tile, frame, bx);
+                    None
+                } else {
+                    self.scale(item.key, tile, frame, *number, bx, kind)
+                };
                 self.times.scale += started.elapsed();
                 if let Some(scaled) = scaled {
-                    let radius = if placed.border > 0 { placed.inner } else { placed.radius };
                     let started = Instant::now();
                     match &scaled.alpha {
                         Some(alpha) => paste_over(out, kind, cw, chh, &scaled.planes, alpha, bx, radius as usize),
@@ -1300,6 +1387,7 @@ impl Compositor {
                 return Some(cached.clone());
             }
         }
+        self.scaled.remove(&index);
         // premultiplied planes only stay so between frames of the same colour model: through RGB they are made straight first
         let mut premultiplied = cut.as_ref().is_some_and(|a| a.premultiplied);
         let straight = match &cut {
