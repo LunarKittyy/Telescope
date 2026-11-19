@@ -710,6 +710,8 @@ fn a_moving_person_is_never_more_than_a_frame_or_so_behind() {
             let edge = row.iter().position(|v| *v > 128).unwrap();
             worst = worst.max(at.abs_diff(edge));
         }
+        // The model has this frame by the time the next one comes, however busy the machine is: how far behind the mask is must not depend on the scheduler
+        wait(|| v.stream("a").newest.lock().unwrap().done > seq as u64);
         std::thread::sleep(Duration::from_millis(33));
     }
     assert!(worst > 0 && worst <= 2 * STEP, "{worst} pixels behind, moving {STEP} a frame");
