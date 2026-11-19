@@ -79,19 +79,11 @@ export component WebcamCard inherits Card {
     title: @tr("Webcam");
     tip: @tr("Stream from webcams and capture cards plugged into this computer.");
     icon: Icons.video;
+    header-status: root.status-text;
+    header-status-detail: root.status-tip;
+    header-status-label: @tr("Camera");
+    header-status-kind: root.status-kind == "status_ok" ? "ok" : root.status-kind == "status_warn" ? "warn" : root.status-kind == "status_err" ? "err" : "";
 
-    Text {
-        height: Theme.u(9);
-        text: root.status-text;
-        overflow: elide;
-        vertical-alignment: center;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        accessible-label: @tr("Camera");
-        accessible-description: root.status-tip;
-        color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
-            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
-    }
     RailRow {
         icon: Icons.grid;
         label: @tr("Resolution");

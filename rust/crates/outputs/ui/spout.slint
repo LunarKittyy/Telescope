@@ -14,18 +14,10 @@ export component SpoutCard inherits Card {
     title: @tr("Spout capture");
     tip: @tr("Stream from programs on this computer that share their picture through Spout.");
     icon: Icons.monitor;
+    header-status: root.status-text;
+    header-status-label: @tr("Sender");
+    header-status-kind: root.status-kind == "status_ok" ? "ok" : root.status-kind == "status_warn" ? "warn" : root.status-kind == "status_err" ? "err" : "";
 
-    Text {
-        height: Theme.u(9);
-        text: root.status-text;
-        overflow: elide;
-        vertical-alignment: center;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        accessible-label: @tr("Sender");
-        color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
-            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
-    }
     RailRow {
         icon: Icons.film;
         label: @tr("Frame rate");
