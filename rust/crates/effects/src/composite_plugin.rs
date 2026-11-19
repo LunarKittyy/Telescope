@@ -14,6 +14,7 @@ use crate::shared::{no_pictures, PictureReader};
 use crate::transition::{Ease, Kind as TransitionKind, Spec};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -91,6 +92,8 @@ pub(crate) struct Shared {
     pub(crate) hub: Mutex<Hub>,
     /// A copy of the hub's (on, target), so touch() never waits for a drawing that holds the hub.
     gate: RwLock<(bool, Option<String>)>,
+    /// When the target stream's frame last reached the step or left it, so the clock doesn't draw over a frame that is on its way.
+    fed_at: AtomicU64,
     wake: Condvar,
     store: Mutex<Arc<dyn FrameStore>>,
 }
@@ -162,6 +165,8 @@ impl Shared {
     /// The frame step of whichever stream source_id is: the picture in place of the target stream's frame.
     fn step(&self, frame: &mut Frame, source_id: &str) {
         let mut hub = self.hub();
+        // the lock goes back only after this, so the clock waiting for it sees the frame just handed on
+        let _fed = Fed(&self.fed_at);
         if !hub.on || hub.target.as_deref() != Some(source_id) {
             return;
         }
@@ -185,6 +190,8 @@ impl Shared {
     pub(crate) fn draw_stalled(&self, now: u64) -> bool {
         let mut hub = self.hub();
         let (Some(target), Some((main, at))) = (hub.target.clone(), hub.main_frame.clone()) else { return false };
+        // a frame that reached the step but still waits for the lock or its drawing counts as new
+        let at = at.max(self.fed_at.load(Ordering::Relaxed));
         if !hub.on || now.saturating_sub(at) < 2_000_000_000 / FALLBACK_FPS {
             return false;
         }
@@ -227,7 +234,8 @@ impl Shared {
                     continue;
                 }
                 hub.ticks += 1;
-                let wait = Self::clock_wait(hub.main_frame.as_ref().map(|(_, at)| *at), monotonic_ns(), period);
+                let last = hub.main_frame.as_ref().map(|(_, at)| (*at).max(self.fed_at.load(Ordering::Relaxed)));
+                let wait = Self::clock_wait(last, monotonic_ns(), period);
                 // the wake lets shutdown cut the sleep short
                 let (hub, _) = self.wake.wait_timeout(hub, Duration::from_nanos(wait)).unwrap_or_else(|e| e.into_inner());
                 if hub.shut {
@@ -256,11 +264,25 @@ mod editor;
 #[path = "composite_director.rs"]
 pub mod director;
 
+/// Stamps the time it is dropped at, in the target stream's fed_at.
+struct Fed<'a>(&'a AtomicU64);
+
+impl Drop for Fed<'_> {
+    fn drop(&mut self) {
+        self.0.store(monotonic_ns(), Ordering::Relaxed);
+    }
+}
+
 struct CompositeStep(Arc<Shared>);
 
 impl CpuStep for CompositeStep {
     fn touch(&self, ctx: &dyn FrameContext) -> Touch {
-        if self.0.is_target(ctx.source_id()) { Touch::Changes } else { Touch::Nothing }
+        if self.0.is_target(ctx.source_id()) {
+            self.0.fed_at.store(monotonic_ns(), Ordering::Relaxed);
+            Touch::Changes
+        } else {
+            Touch::Nothing
+        }
     }
 
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
@@ -321,7 +343,7 @@ impl CompositePlugin {
             on: false, target: None, main_frame: None, handed: None, last_picture_at: None, fallback_key: None,
             compositor: Compositor::new(reader.clone()), shut: false, ticks: 0,
         };
-        let shared = Arc::new(Shared { hub: Mutex::new(hub), gate: RwLock::new((false, None)), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
+        let shared = Arc::new(Shared { hub: Mutex::new(hub), gate: RwLock::new((false, None)), fed_at: AtomicU64::new(0), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,

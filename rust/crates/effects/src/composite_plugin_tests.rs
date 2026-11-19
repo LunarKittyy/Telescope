@@ -227,6 +227,24 @@ fn the_clock_rests_while_no_stream_goes_to_the_telescope_camera() {
 }
 
 #[test]
+fn the_clock_leaves_a_frame_that_reached_the_step_alone() {
+    let mut r = rig();
+    r.plugin.shutdown(&mut r.host);
+    r.two_streams(0.0);
+    let main = solid([255, 0, 0], (90, 160));
+    let t0 = monotonic_ns().saturating_sub(SECOND);
+    let sent = numbered(r.process(&main, "a"), 1, t0);
+    r.store.set(0, stream("a", "Phone A", sent));
+    r.set_main(&main, t0);
+    // the frame behind it is waiting for the lock: a picture drawn now would only make it wait longer
+    let Some(FrameStep::Cpu(step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+    let seen = monotonic_ns();
+    assert_eq!(step.touch(&Ctx("a".into())), Touch::Changes);
+    assert!(!r.draw_stalled(seen + SECOND * 3 / 100));
+    assert!(r.draw_stalled(seen + SECOND / 5));
+}
+
+#[test]
 fn while_the_telescope_stream_stalls_the_others_keep_moving() {
     let mut r = rig();
     // the real clock would draw first on a slow machine; this test moves the time itself
@@ -400,8 +418,11 @@ fn a_slow_main_stream_does_not_hold_back_a_faster_one() {
     r.plugin.shutdown(&mut r.host);
     r.two_streams(0.0);
     let main = solid([255, 0, 0], (90, 160));
-    let (period, t0) = (SECOND / 30, monotonic_ns());
-    let sent = numbered(r.process(&main, "a"), 1, t0);
+    let period = SECOND / 30;
+    let handed = r.process(&main, "a");
+    // the step stamps the time it handed the frame on, so the clock counts from there
+    let t0 = monotonic_ns();
+    let sent = numbered(handed, 1, t0);
     r.store.set(0, stream("a", "Phone A", sent));
     r.set_main(&main, t0);
     // 12 fps main: the clock wakes when its frame is two periods old, before the next one is due
