@@ -1914,9 +1914,6 @@ impl FlowHost for Host<'_> {
     }
     fn end_worker(&mut self, worker: Rc<dyn Worker>) {
         let Some(w) = self.w.shell_worker(&worker) else { return };
-        if let Some(source) = w.inner.source_id() {
-            self.w.state.borrow_mut().let_go_of_photos(Some(source));
-        }
         self.w.streams.workers.borrow_mut().retain(|x| x.id != w.id);
         let inner = w.inner.clone();
         // Vision and motion state goes after the worker has stopped, not before: a frame still in flight would make it again

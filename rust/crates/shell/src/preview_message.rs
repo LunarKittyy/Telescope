@@ -6,6 +6,7 @@ use telescope_core::host::{PreviewMessage, RequestId};
 use telescope_core::i18n::{tr, Fields};
 
 const CORE: &str = "core";
+const PREVIEW: &str = "preview";
 
 struct Entry {
     owner: String,
@@ -157,7 +158,7 @@ impl Photo {
 
 impl State {
     pub(crate) fn set_preview_message(&mut self, owner: &str, source: Option<&str>, message: Option<PreviewMessage>) {
-        if !self.index("preview").is_some_and(|i| self.slots[i].stopped.is_none()) {
+        if !self.index(PREVIEW).is_some_and(|i| self.slots[i].stopped.is_none()) {
             return;
         }
         let Some(source) = source.map(str::to_string).or_else(|| self.streams.source_id.clone()) else { return };
@@ -171,7 +172,12 @@ impl State {
     }
 
     pub(crate) fn drop_owner_messages(&mut self, owner: &str) {
-        let ended = self.preview_messages.drop_where(|e| e.owner == owner || owner == "preview");
+        // The Preview itself going down takes every message with it, any other plugin only its own
+        let ended = if owner == PREVIEW {
+            self.preview_messages.drop_where(|_| true)
+        } else {
+            self.preview_messages.drop_where(|e| e.owner == owner)
+        };
         self.messages_ended(ended);
     }
 

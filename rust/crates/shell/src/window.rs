@@ -103,6 +103,7 @@ pub struct Window {
     logged: Cell<bool>,
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
+    message_shown: Cell<bool>,
     cadence: RefCell<crate::preview::Cadence>,
     /// It's been fitted to the screen, which it only is as it first opens.
     pub(crate) fitted: Cell<bool>,
@@ -506,6 +507,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
         popout: RefCell::default(),
+        message_shown: Cell::new(false),
         cadence: RefCell::default(),
         fitted: Cell::new(false),
         place: crate::screen::Placement::new(crate::screen::Limits::main()),
@@ -1414,6 +1416,11 @@ impl Window {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
         let source = self.preview_focus_id();
         let drawing = self.state.borrow().preview_messages.drawing(source.as_deref(), std::time::Instant::now());
+        // Nothing shown now and nothing shown last time leaves the properties as they are
+        if !drawing.visible && !self.message_shown.replace(false) {
+            return;
+        }
+        self.message_shown.set(drawing.visible);
         let text = |s: &str| SValue::String(s.into());
         let props = [
             ("message-visible", SValue::Bool(drawing.visible)),
