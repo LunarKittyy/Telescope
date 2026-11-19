@@ -1131,8 +1131,66 @@ fn orientation_exif(segment: &[u8]) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// Only one merge works at a time: each takes hundreds of megabytes on a big photo.
-static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+// Capacity includes captures still arriving, queued merges and the merge in progress.
+const MERGE_CAPACITY: usize = 2;
+
+#[derive(Clone)]
+struct MergeQueue {
+    tx: std::sync::mpsc::SyncSender<MergeJob>,
+    used: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+pub struct Reservation {
+    queue: MergeQueue,
+}
+
+impl Drop for Reservation {
+    fn drop(&mut self) {
+        self.queue.used.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+struct MergeJob {
+    _reservation: Reservation,
+    poster: std::sync::Arc<dyn Poster>,
+    files: Vec<String>,
+    quality: u8,
+    keep_frames: bool,
+    kind: Kind,
+    request: u64,
+    expected: usize,
+}
+
+impl MergeJob {
+    fn run(self) {
+        let mut result = std::panic::catch_unwind(|| merge_files(&self.files, self.quality, self.keep_frames, self.kind, self.expected)).unwrap_or_else(|_| json!({"ok": false, "error": "it stopped unexpectedly"}));
+        result["request"] = json!(self.request);
+        self.poster.post("merged", result);
+    }
+}
+
+impl MergeQueue {
+    fn new(work: impl Fn(MergeJob) + Send + 'static) -> Option<Self> {
+        let (tx, rx) = std::sync::mpsc::sync_channel(MERGE_CAPACITY);
+        std::thread::Builder::new().name("bracket-merge".into()).spawn(move || {
+            while let Ok(job) = rx.recv() {
+                work(job);
+            }
+        }).ok()?;
+        Some(Self { tx, used: std::sync::Arc::default() })
+    }
+
+    fn reserve(&self) -> Option<Reservation> {
+        self.used.try_update(std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst, |n| (n < MERGE_CAPACITY).then_some(n + 1)).ok()?;
+        Some(Reservation { queue: self.clone() })
+    }
+}
+
+/// Reserves merge capacity before asking the camera for a bracket.
+pub fn reserve() -> Option<Reservation> {
+    static QUEUE: std::sync::OnceLock<Option<MergeQueue>> = std::sync::OnceLock::new();
+    QUEUE.get_or_init(|| MergeQueue::new(MergeJob::run)).as_ref()?.reserve()
+}
 
 /// What changed in a file if it did: its size and when it was written.
 fn stamp(path: &Path) -> Option<(u64, std::time::SystemTime)> {
@@ -1187,17 +1245,14 @@ pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind,
     json!({"ok": true, "path": path.display().to_string(), "frames": expected.max(jpegs.len()), "used": used, "removed": removed, "left": left, "kept": !keep_frames && !complete})
 }
 
-/// Merges on a thread of its own and posts "merged" with what merge_files said and the request the photos came from.
-pub fn spawn(poster: std::sync::Arc<dyn Poster>, files: Vec<String>, quality: u8, keep_frames: bool, kind: Kind, request: u64, expected: usize) {
-    let post = poster.clone();
-    let started = std::thread::Builder::new().name("bracket-merge".into()).spawn(move || {
-        let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
-        let mut result = std::panic::catch_unwind(|| merge_files(&files, quality, keep_frames, kind, expected)).unwrap_or_else(|_| json!({"ok": false, "error": "it stopped unexpectedly"}));
-        result["request"] = json!(request);
-        post.post("merged", result);
-    });
-    if started.is_err() {
-        poster.post("merged", json!({"ok": false, "error": "no thread to merge on", "request": request}));
+impl Reservation {
+    /// Queues a reserved bracket without waiting for the worker.
+    pub fn submit(self, poster: std::sync::Arc<dyn Poster>, files: Vec<String>, quality: u8, keep_frames: bool, kind: Kind, request: u64, expected: usize) {
+        let tx = self.queue.tx.clone();
+        let job = MergeJob { _reservation: self, poster, files, quality, keep_frames, kind, request, expected };
+        if let Err(std::sync::mpsc::TrySendError::Full(job) | std::sync::mpsc::TrySendError::Disconnected(job)) = tx.try_send(job) {
+            job.poster.post("merged", json!({"ok": false, "error": "no worker to merge on", "request": job.request}));
+        }
     }
 }
 

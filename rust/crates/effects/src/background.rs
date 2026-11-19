@@ -245,6 +245,9 @@ impl Quarter {
 
     /// The feathered mask as the frame's alpha plane: nobody in it is all zero.
     fn alpha(&mut self, (w, h): (usize, usize)) -> Arc<Alpha> {
+        if let Some(alpha) = &self.alpha {
+            return alpha.clone();
+        }
         let luma = self.wide((w, h)).map_or_else(|| vec![0; w * h], |wide| wide.luma.clone());
         self.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, luma, false))).clone()
     }
@@ -582,7 +585,7 @@ pub struct BackgroundPlugin {
     told_hiding: Option<bool>,
     /// A new camera's settings or the shown camera changed: what it hides is told again even if it matches what was told last.
     retell_hiding: bool,
-    /// The streams whose cut-out is wanted (Event::CutOutWanted), which the steps read
+    /// The streams whose cut-out is wanted (Event::CutOutWantedBy), which the steps read
     wanted: Wanted,
     /// Blur was switched on by a stream wanting its cut-out while the mode was Off, not picked on the card: it goes back to Off with the last stream's, and is saved as Off meanwhile.
     auto_on: bool,
@@ -718,8 +721,8 @@ impl BackgroundPlugin {
     }
 
     /// A stream's picture is asked to carry its cut-out, or no longer.
-    fn cut_out_wanted(&mut self, host: &mut dyn Host, source_id: &str, on: bool) {
-        if self.wanted.set(source_id, on).0 {
+    fn cut_out_wanted(&mut self, host: &mut dyn Host, owner: &str, source_id: &str, on: bool) {
+        if self.wanted.set_by(owner, source_id, on).0 {
             host.refresh_frame_step();
         }
         self.settle_auto(host);
@@ -806,7 +809,8 @@ impl Plugin for BackgroundPlugin {
             self.report_hiding(host);
         }
         match event {
-            Event::CutOutWanted { source_id, on } => self.cut_out_wanted(host, source_id, *on),
+            Event::CutOutWanted { source_id, on } => self.cut_out_wanted(host, "", source_id, *on),
+            Event::CutOutWantedBy { owner, source_id, on } => self.cut_out_wanted(host, owner, source_id, *on),
             Event::SharedChanged { key } if key == "chroma_key.keying" => self.settle_auto(host),
             Event::SourceShown { .. } => self.settle_auto(host),
             _ => {}

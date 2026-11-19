@@ -302,6 +302,62 @@ fn the_held_bubbles_top_edge_is_one_pixel_row_from_end_to_end_at_every_scale() {
     }
 }
 
+const HEADER_STATUS: &str = r#"
+import { Card, Icons, TipLayer, Tips, Theme } from "@ui-kit/ui-kit.slint";
+export { Tips }
+export component T inherits Window {
+    in property <length> w: 340px;
+    in property <string> detail;
+    width: root.w;
+    height: 120px;
+    background: Theme.card;
+    Card { width: root.w; title: "Phototrap"; icon: Icons.sun; header-status: "Armed and watching the whole picture"; header-status-kind: "ok"; header-status-detail: root.detail; }
+    TipLayer { }
+}
+"#;
+
+fn tip_says(ui: &slint_interpreter::ComponentInstance) -> Option<String> {
+    match (ui.get_global_property("Tips", "shown"), ui.get_global_property("Tips", "says")) {
+        (Ok(Value::Bool(true)), Ok(Value::String(s))) => Some(s.to_string()),
+        _ => None,
+    }
+}
+
+fn rest_on_status(ui: &slint_interpreter::ComponentInstance, x: f32) {
+    pointer_to(ui, x, 4.0);
+    pointer_to(ui, x, 20.0);
+    for _ in 0..60 {
+        step(FRAME);
+        offscreen::draw(ui.window(), 340.0, 120.0, 1.0).unwrap();
+    }
+}
+
+#[test]
+fn a_card_header_status_that_is_cut_short_says_its_whole_text_in_a_tooltip() {
+    let _still = offscreen::freeze_clock();
+    // Narrow: cut with an ellipsis, so the pointer resting on it shows the whole text
+    let ui = make(HEADER_STATUS, 340.0, 120.0);
+    rest_on_status(&ui, 300.0);
+    assert_eq!(tip_says(&ui).as_deref(), Some("Armed and watching the whole picture"));
+    // A card that passes its own detail still shows the text, with the detail under it
+    set(&ui, "detail", Value::String("Another sentence".into()));
+    ui.invoke_global("Tips", "dismiss", &[]).unwrap();
+    pointer_to(&ui, 200.0, 110.0);
+    rest_on_status(&ui, 300.0);
+    assert_eq!(ui.get_global_property("Tips", "detail").unwrap(), Value::String("Another sentence".into()));
+    // Wide: it fits, so no tooltip comes up
+    let wide = make(HEADER_STATUS, 700.0, 120.0);
+    set(&wide, "w", Value::Number(700.0));
+    step(FRAME);
+    pointer_to(&wide, 640.0, 4.0);
+    pointer_to(&wide, 640.0, 20.0);
+    for _ in 0..60 {
+        step(FRAME);
+        offscreen::draw(wide.window(), 700.0, 120.0, 1.0).unwrap();
+    }
+    assert_eq!(tip_says(&wide), None, "the whole text is showing, nothing to add");
+}
+
 const PAGES: &str = r#"
 import { Switch, TipLayer, Tips, Theme } from "@ui-kit/ui-kit.slint";
 export { Tips }

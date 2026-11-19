@@ -2,6 +2,7 @@
 //! card. Only what the camera reports is offered, with its own range, step and default. Linux asks V4L2 directly.
 
 use crate::webcams::{put_u32, u32_at, Ioctl};
+use telescope_core::i18n::{tr, Fields};
 
 /// Auto switches and the manual control each one greys out while it's on.
 pub const AUTO_OF: [(&str, &str); 3] = [("exposure_time", "exposure_auto"), ("white_balance", "white_balance_auto"), ("focus", "focus_auto")];
@@ -149,6 +150,21 @@ pub fn choice_text(control: &Control, entry: usize) -> String {
     match control.unit.as_str() {
         "ev" => ev_text(&raw),
         "fstop" => fstop_text(&raw),
+        "ptp-white-balance" => match raw.as_str() {
+            "Auto" => tr("Auto"),
+            "Automatic" => tr("Automatic"),
+            "One-push Automatic" => tr("One-push automatic"),
+            "Daylight" => tr("Daylight"),
+            "Cloudy" => tr("Cloudy"),
+            "Tungsten" => tr("Tungsten"),
+            "Fluorescent" => tr("Fluorescent"),
+            "Flash" => tr("Flash"),
+            "Manual" => tr("Manual"),
+            "Shade" => tr("Shade"),
+            "Color Temperature" => tr("Colour temperature"),
+            "Preset" => tr("Preset"),
+            _ => raw.strip_prefix("Setting ").map(|value| tr("Setting {value}").field("value", value)).unwrap_or(raw),
+        },
         _ => raw,
     }
 }
@@ -765,6 +781,18 @@ pub(crate) mod tests {
         // A menu without the camera's words shows its numbers
         let flicker = Control { menu: vec![0, 1, 2], ..Control::new("anti_flicker", "menu", 0, 2, 1, 2, 2) };
         assert_eq!(choice_text(&flicker, 2), "2");
+    }
+
+    #[test]
+    fn only_generated_white_balance_labels_are_translated_and_raw_choices_are_kept() {
+        let mut c = Control::new("dslr_white_balance", "menu", 0, 2, 1, 0, 0);
+        c.labels = vec!["Color Temperature".into(), "Daylight".into(), "Setting 99".into()];
+        assert_eq!(choice_text(&c, 0), "Color Temperature");
+        c.unit = "ptp-white-balance".into();
+        assert_eq!(choice_text(&c, 0), "Colour temperature");
+        assert_eq!(choice_text(&c, 1), "Daylight");
+        assert_eq!(choice_text(&c, 2), "Setting 99");
+        assert_eq!(c.labels, ["Color Temperature", "Daylight", "Setting 99"]);
     }
 
     #[test]

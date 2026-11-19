@@ -12,6 +12,7 @@ export component CompositeCard inherits Card {
     in property <bool> edit-shown;
     in property <string> status;
     in property <string> status-detail;
+    in property <string> status-kind: "status_dim";
     callback switch-toggled-by-hand(bool);
     callback layout-picked(int);
     callback edit-clicked;
@@ -36,6 +37,9 @@ export component CompositeCard inherits Card {
     title: @tr("One picture");
     tip: @tr("Combine the running streams into one picture.");
     icon: Icons.layout;
+    header-status: status;
+    header-status-detail: status-detail;
+    header-status-kind: status-kind == "status_ok" ? "ok" : status-kind == "status_warn" ? "warn" : status-kind == "status_err" ? "err" : "";
     has-switch: true;
     switch-shortcut: "composite.on";
     switch-checked: on;
@@ -160,6 +164,5 @@ export component CompositeCard inherits Card {
                 }
             }
         }
-        StatusUnfold { text: status; detail: status-detail; }
     }
 }

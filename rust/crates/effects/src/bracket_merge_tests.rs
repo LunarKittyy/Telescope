@@ -385,8 +385,6 @@ fn the_strips_that_go_through_the_photos_together_fit_the_memory_the_merge_may_u
     }
     assert_eq!(together.iter().map(|(a, b)| b - a).sum::<usize>(), rows.len());
     assert_eq!(groups(&strip_rows(480), 640, 480, 600 << 20).len(), 1);
-    // two merges back to back take turns
-    assert!(ONE_AT_A_TIME.try_lock().is_ok());
 }
 
 #[test]
@@ -502,4 +500,64 @@ fn render_the_merges() {
     let ghost = [exposure(-2.0, None), exposure(0.0, None), exposure(2.0, Some((160, 240)))];
     std::fs::write(format!("{out}/exposure-ghost-photo.jpg"), encode_jpeg(&ghost[2], 92, None).unwrap()).unwrap();
     std::fs::write(format!("{out}/exposure-ghost-merged.jpg"), encode_jpeg(&fused(&ghost, 0), 92, None).unwrap()).unwrap();
+}
+
+#[derive(Default)]
+struct MergePoster(std::sync::Mutex<Vec<Value>>);
+
+impl Poster for MergePoster {
+    fn post(&self, token: &str, data: Value) {
+        assert_eq!(token, "merged");
+        self.0.lock().unwrap().push(data);
+    }
+}
+
+#[test]
+fn merge_admission_is_bounded_across_capture_queue_and_worker() {
+    let (started, starts) = std::sync::mpsc::channel();
+    let (release, released) = std::sync::mpsc::channel();
+    let (finished, finishes) = std::sync::mpsc::channel();
+    let queue = MergeQueue::new(move |job| {
+        let request = job.request;
+        started.send(request).unwrap();
+        if released.recv().is_err() {
+            return;
+        }
+        drop(job);
+        finished.send(request).unwrap();
+    }).unwrap();
+    let poster = std::sync::Arc::new(MergePoster::default());
+    let first = queue.reserve().unwrap();
+    let second = queue.reserve().unwrap();
+    assert!(queue.reserve().is_none(), "captures reserve capacity before their files arrive");
+    first.submit(poster.clone(), vec![], 95, true, Kind::Focus, 1, 2);
+    assert_eq!(starts.recv_timeout(std::time::Duration::from_secs(5)).unwrap(), 1);
+    assert!(queue.reserve().is_none(), "the working merge still occupies its slot");
+    second.submit(poster, vec![], 95, true, Kind::Focus, 2, 2);
+    assert!(starts.try_recv().is_err(), "one worker processes the queue in order");
+    assert!(queue.reserve().is_none(), "a queued merge occupies its slot too");
+    release.send(()).unwrap();
+    assert_eq!(finishes.recv_timeout(std::time::Duration::from_secs(5)).unwrap(), 1);
+    assert_eq!(starts.recv_timeout(std::time::Duration::from_secs(5)).unwrap(), 2);
+    let cancelled = queue.reserve().expect("completion frees one slot");
+    assert!(queue.reserve().is_none());
+    drop(cancelled);
+    assert!(queue.reserve().is_some(), "a cancelled or refused capture frees its reservation");
+    release.send(()).unwrap();
+    assert_eq!(finishes.recv_timeout(std::time::Duration::from_secs(5)).unwrap(), 2);
+    assert_eq!(queue.used.load(std::sync::atomic::Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_disconnected_merge_worker_reports_failure_and_releases_capacity() {
+    let (tx, rx) = std::sync::mpsc::sync_channel(MERGE_CAPACITY);
+    drop(rx);
+    let queue = MergeQueue { tx, used: std::sync::Arc::default() };
+    let poster = std::sync::Arc::new(MergePoster::default());
+    queue.reserve().unwrap().submit(poster.clone(), vec![], 95, true, Kind::Focus, 7, 2);
+    let posted = poster.0.lock().unwrap();
+    assert_eq!(posted.len(), 1);
+    assert_eq!(posted[0]["request"], 7);
+    assert_eq!(posted[0]["ok"], false);
+    assert_eq!(queue.used.load(std::sync::atomic::Ordering::SeqCst), 0);
 }

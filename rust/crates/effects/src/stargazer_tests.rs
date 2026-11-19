@@ -747,3 +747,36 @@ fn reset_waits_for_a_run_to_end() {
     assert_eq!(rig.plugin.frames, 900, "a run keeps the settings it began with");
     assert_eq!(rig.plugin.phase, Phase::Collecting);
 }
+
+#[test]
+fn idle_focus_analysis_only_reads_frames_with_the_card_visible() {
+    let mut rig = Rig::new("focus-visible", config("live"));
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Reads);
+    rig.event(Event::CardFolded { key: "other/Card".into(), folded: true });
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Reads);
+    rig.event(Event::CardFolded { key: "stargazer/Stargazer".into(), folded: true });
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Nothing);
+    rig.feed(field(2.0));
+    assert!(rig.plugin.focus.is_none());
+    rig.event(Event::WindowShown { shown: false });
+    rig.event(Event::CardFolded { key: "stargazer/Stargazer".into(), folded: false });
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Nothing);
+    rig.event(Event::WindowShown { shown: true });
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Reads);
+    rig.feed(field(2.0));
+    assert!(rig.plugin.focus.is_some());
+}
+
+#[test]
+fn stacking_keeps_reading_frames_with_the_card_and_window_hidden() {
+    let mut rig = Rig::new("stack-hidden", config("live"));
+    rig.event(Event::WindowShown { shown: false });
+    rig.event(Event::CardFolded { key: "stargazer/Stargazer".into(), folded: true });
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Reads);
+    rig.feed(field(2.0));
+    assert!(rig.plugin.focus.is_none());
+    assert!(rig.host.frames_wanted.contains(NAME));
+    rig.click("run-clicked", Value::Null);
+    assert!(rig.plugin.count > 0);
+}

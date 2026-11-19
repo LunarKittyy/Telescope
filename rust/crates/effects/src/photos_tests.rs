@@ -349,6 +349,19 @@ fn a_photo_the_host_wont_start_says_the_phone_is_busy() {
 }
 
 #[test]
+fn a_bracket_refused_while_the_merge_queue_is_full_says_it_is_merging() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    // Two brackets already hold the merge queue
+    let held = (crate::bracket_merge::reserve().expect("first slot"), crate::bracket_merge::reserve().expect("second slot"));
+    rig.ui("tile-picked", vec![json!("shots"), json!(3)]);
+    rig.ui("tile-picked", vec![json!("bracket_merge"), json!(2)]);
+    rig.ui("take-clicked", vec![]);
+    assert!(rig.host.stills_taken.is_empty(), "nothing is asked of the camera while the queue is full");
+    assert_eq!((rig.props()["status"].clone(), rig.props()["status-kind"].clone()), (json!("Still merging the last brackets. Try again in a moment."), json!("status_err")));
+    drop(held);
+}
+
+#[test]
 fn the_button_waits_while_any_plugin_takes_a_photo() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     rig.host.still_busy = true;

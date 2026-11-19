@@ -68,6 +68,69 @@ fn nothing_is_shared_until_a_stream_is_switched_on_and_the_step_is_not_there_eit
 }
 
 #[test]
+fn sharing_needs_frames_and_status_polling_until_the_last_stream_is_switched_off() {
+    let (mut p, mut host, _) = plugin();
+    assert!(!host.frames_wanted.contains(NAME));
+    assert!(!host.is_scheduled(T_STATUS));
+    toggle(&mut p, &mut host, true);
+    assert!(host.frames_wanted.contains(NAME));
+    assert!(host.is_scheduled(T_STATUS));
+    p.on_focus_gained(&mut host, &StreamInfo { source_id: "phone-b".into(), url: "u".into(), session: 2 });
+    toggle(&mut p, &mut host, true);
+    toggle(&mut p, &mut host, false);
+    assert!(host.frames_wanted.contains(NAME));
+    assert!(host.is_scheduled(T_STATUS));
+    p.on_focus_gained(&mut host, &StreamInfo { source_id: "phone-a".into(), url: "u".into(), session: 1 });
+    toggle(&mut p, &mut host, false);
+    assert!(!host.frames_wanted.contains(NAME));
+    assert!(!host.is_scheduled(T_STATUS));
+    host.calls.clear();
+    p.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_STATUS.into() });
+    assert!(!host.is_scheduled(T_STATUS));
+    assert!(host.calls.is_empty());
+}
+
+#[test]
+fn loaded_sharing_settings_restore_demand_and_polling_and_shutdown_releases_them() {
+    let (mut p, mut host, _) = plugin();
+    p.set_config(&json!({"streams": {"phone-a": {"name": "Phone"}}})).unwrap();
+    p.on_plugins_ready(&mut host);
+    assert!(host.frames_wanted.contains(NAME));
+    assert!(host.is_scheduled(T_STATUS));
+    assert!(host.calls.iter().any(|c| c == &format!("set_ui_props card {}", p.props())));
+    p.apply_preset(&mut host, &json!({})).unwrap();
+    assert!(!host.frames_wanted.contains(NAME));
+    assert!(!host.is_scheduled(T_STATUS));
+    p.set_config(&json!({"streams": {"phone-a": {"name": "Phone"}}})).unwrap();
+    p.on_profile_applied(&mut host);
+    assert!(host.frames_wanted.contains(NAME));
+    assert!(host.is_scheduled(T_STATUS));
+    p.shutdown(&mut host);
+    assert!(!host.frames_wanted.contains(NAME));
+    assert!(!host.is_scheduled(T_STATUS));
+    p.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_STATUS.into() });
+    assert!(!host.is_scheduled(T_STATUS));
+}
+
+#[test]
+fn a_status_tick_refreshes_worker_state_and_reschedules_only_while_sharing() {
+    let (mut p, mut host, _) = plugin();
+    toggle(&mut p, &mut host, true);
+    p.shared.states.lock().unwrap().insert("phone-a".into(), State::Sending(640, 480));
+    host.cancel_schedule(T_STATUS);
+    host.calls.clear();
+    p.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_STATUS.into() });
+    assert!(host.is_scheduled(T_STATUS));
+    assert!(host.calls.iter().any(|c| c == &format!("set_ui_props card {}", p.props())));
+    assert_eq!(p.props()["status-kind"], json!("status_ok"));
+    p.set_config(&json!({})).unwrap();
+    p.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_STATUS.into() });
+    assert!(!host.frames_wanted.contains(NAME));
+    assert!(!host.is_scheduled(T_STATUS));
+    assert_eq!(p.props()["checked"], json!(false));
+}
+
+#[test]
 fn the_step_hands_the_pictures_of_a_shared_stream_to_a_sender_and_skips_the_others() {
     let (mut p, mut host, log) = plugin();
     toggle(&mut p, &mut host, true);
@@ -162,7 +225,7 @@ fn a_thread_that_ends_after_its_stream_was_switched_off_leaves_no_state_behind()
 }
 
 fn cut_out_events(host: &FakeHost) -> Vec<(String, bool)> {
-    host.events.iter().filter_map(|e| if let Event::CutOutWanted { source_id, on } = e { Some((source_id.clone(), *on)) } else { None }).collect()
+    host.events.iter().filter_map(|e| if let Event::CutOutWantedBy { owner, source_id, on } = e { assert_eq!(owner, NAME); Some((source_id.clone(), *on)) } else { None }).collect()
 }
 
 fn toggle_transparent(p: &mut SpoutSendPlugin, host: &mut FakeHost, on: bool) {

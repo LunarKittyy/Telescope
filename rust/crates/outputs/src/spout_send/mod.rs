@@ -4,7 +4,7 @@
 //!
 //! The step only copies a handle to the picture and leaves it for a thread of the stream's own, so a slow program reading the sender never holds the stream up. The sender is
 //! made when the first picture comes and goes when they stop. Pictures leave opaque unless a stream is switched to Transparent: then the steps that cut a person out are
-//! asked to (Event::CutOutWanted) and the alpha they leave on the frame goes out as the picture's alpha.
+//! asked to (Event::CutOutWantedBy) and the alpha they leave on the frame goes out as the picture's alpha.
 
 #[cfg(target_os = "linux")]
 pub mod pipewire;
@@ -219,13 +219,14 @@ pub struct SpoutSendPlugin {
     /// The stream the panels show, which the card's switch is for.
     shown: String,
     stopped: bool,
-    /// The streams the producers of the cut-out have been told to cut out for (Event::CutOutWanted), so a change is told once.
+    config_changed: bool,
+    /// The streams the producers of the cut-out have been told to cut out for (Event::CutOutWantedBy), so a change is told once.
     told: std::collections::BTreeSet<String>,
 }
 
 impl SpoutSendPlugin {
     pub fn new(backend: Option<Arc<dyn Backend>>) -> SpoutSendPlugin {
-        SpoutSendPlugin { shared: Shared::new(backend), shown: String::new(), stopped: false, told: Default::default() }
+        SpoutSendPlugin { shared: Shared::new(backend), shown: String::new(), stopped: false, config_changed: false, told: Default::default() }
     }
 
     pub fn system() -> SpoutSendPlugin {
@@ -272,13 +273,16 @@ impl SpoutSendPlugin {
     fn tell_cut_outs(&mut self, host: &mut dyn Host, again: bool) {
         let now = self.shared.transparent();
         for id in now.difference(&self.told).cloned().collect::<Vec<_>>() {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: id.clone(), on: true });
             host.emit(Event::CutOutWanted { source_id: id, on: true });
         }
         for id in self.told.difference(&now).cloned().collect::<Vec<_>>() {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: id.clone(), on: false });
             host.emit(Event::CutOutWanted { source_id: id, on: false });
         }
         if again {
             for id in now.intersection(&self.told).cloned().collect::<Vec<_>>() {
+                host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: id.clone(), on: true });
                 host.emit(Event::CutOutWanted { source_id: id, on: true });
             }
         }
@@ -287,6 +291,18 @@ impl SpoutSendPlugin {
 
     fn render(&self, host: &mut dyn Host) {
         host.set_ui_props("card", &self.props());
+    }
+
+    fn sync_sharing(&mut self, host: &mut dyn Host) {
+        let on = !self.stopped && self.shared.any();
+        host.want_frames(NAME, on);
+        if on {
+            host.schedule(STATUS_MS, T_STATUS);
+        } else {
+            host.cancel_schedule(T_STATUS);
+        }
+        self.config_changed = false;
+        host.refresh_frame_step();
     }
 
     fn follow(&mut self, host: &mut dyn Host, source: &str) {
@@ -314,15 +330,17 @@ impl Plugin for SpoutSendPlugin {
     }
 
     fn setup(&mut self, host: &mut dyn Host) {
-        host.schedule(STATUS_MS, T_STATUS);
+        self.sync_sharing(host);
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.stopped = true;
+        host.want_frames(NAME, false);
         host.cancel_schedule(T_STATUS);
         self.shared.stop_all();
         // The steps that cut a person out stop doing it, and Background goes back from the Blur it was given for this
         for id in std::mem::take(&mut self.told) {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: id.clone(), on: false });
             host.emit(Event::CutOutWanted { source_id: id, on: false });
         }
     }
@@ -336,9 +354,12 @@ impl Plugin for SpoutSendPlugin {
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        if self.config_changed {
+            self.on_profile_applied(host);
+        }
         match event {
             Event::TimerFired { owner, token } if owner == NAME && token == T_STATUS => {
-                if !self.stopped {
+                if !self.stopped && self.shared.any() {
                     self.tell_cut_outs(host, false);
                     self.render(host);
                     host.schedule(STATUS_MS, T_STATUS);
@@ -351,14 +372,34 @@ impl Plugin for SpoutSendPlugin {
     }
 
     fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        self.sync_sharing(host);
         self.tell_cut_outs(host, true);
+        self.render(host);
+    }
+
+    fn on_profile_applied(&mut self, host: &mut dyn Host) {
+        self.sync_sharing(host);
+        self.tell_cut_outs(host, false);
+        self.render(host);
+    }
+
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        self.set_config(cfg)?;
+        self.on_profile_applied(host);
+        Ok(())
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
+        if self.config_changed {
+            self.on_profile_applied(host);
+        }
         self.follow(host, &stream.source_id);
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
+        if self.config_changed {
+            self.on_profile_applied(host);
+        }
         if self.shown.is_empty() {
             return;
         }
@@ -367,7 +408,7 @@ impl Plugin for SpoutSendPlugin {
             "toggled" => {
                 let stream = Self::stream_name(host, &self.shown).unwrap_or_default();
                 if self.shared.set(&self.shown, &stream, on) {
-                    host.refresh_frame_step();
+                    self.sync_sharing(host);
                     host.schedule_save();
                     self.tell_cut_outs(host, false);
                 }
@@ -395,6 +436,7 @@ impl Plugin for SpoutSendPlugin {
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
+        self.config_changed = true;
         self.shared.stop_all();
         if let Some(streams) = cfg.get("streams").and_then(Value::as_object) {
             for (id, entry) in streams {

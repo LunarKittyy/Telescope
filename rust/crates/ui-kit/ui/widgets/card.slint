@@ -124,6 +124,9 @@ export component Card inherits Rectangle {
     // A line of state at the right of the title row ("Sharing 1920 × 1080 as ..."), cut short with an ellipsis before it would push the title. `header-status-kind` is "ok", "warn", "err" or blank.
     in property <string> header-status;
     in property <string> header-status-kind;
+    // The whole text when the status is cut short (a tooltip), and the name a screen reader gives it instead of the text
+    in property <string> header-status-detail;
+    in property <string> header-status-label;
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
     // The window lists the card in its Card order dialog: a right-click on the header offers "Reorder cards"
@@ -262,6 +265,8 @@ export component Card inherits Rectangle {
                     height: parent.height;
                     text: root.header-status;
                     kind: root.header-status-kind;
+                    detail: root.header-status-detail;
+                    name: root.header-status-label;
                     // Regular weight, so it doesn't compete with the title
                     font-weight: 400;
                     horizontal: "end";

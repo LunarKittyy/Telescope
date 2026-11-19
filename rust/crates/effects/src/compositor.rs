@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::image::{halve_2x2, keep_bytes, resample_box};
+use telescope_core::image::{halve_2x2, keep_bytes, over_rows, resample_box};
 use telescope_core::time::monotonic_ns;
 
 /// The frames to draw from: each stream's newest, with its number when the same frame can come again (None: always fresh).
@@ -460,6 +460,103 @@ fn chroma_alpha(luma: &[u8], bx: (usize, usize, usize, usize)) -> Vec<u8> {
 
 /// composite.paste for a cut-out: the premultiplied picture over the canvas, out = picture * coverage + under * (1 - alpha * coverage), the corner curve's coverage mean over a colour sample's 2 x 2 pixels.
 fn paste_over(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, picture: &[Vec<u8>], alpha: &[Vec<u8>], bx: (usize, usize, usize, usize), radius: usize) {
+    let (x, y, w, h) = bx;
+    let r = radius.min(w / 2).min(h / 2);
+    let masks = if r > 0 { Some(corner_masks(r)) } else { None };
+    let empty: CornerMasks = Default::default();
+    let m = masks.as_deref().unwrap_or(&empty);
+    for (p, plane) in planes(kind, cw, chh).into_iter().enumerate() {
+        let full = plane.w == cw;
+        let (px0, py0, px1, py1) = if full { (x, y, x + w, y + h) } else { plane_box(2, bx) };
+        let (bw, ch) = (px1 - px0, plane.ch);
+        let a_plane = &alpha[p.min(1).min(alpha.len() - 1)];
+        let data = &mut canvas[plane.at..plane.at + plane.w * plane.h * ch];
+        let stride = plane.w * ch;
+        over_rows(&mut data[py0 * stride..py1 * stride], stride, |row, line| {
+            let cy = py0 + row;
+            let (solid0, solid1) = if full {
+                if cy >= y + r && cy < y + h - r { (px0, px1) } else { (x + r, x + w - r) }
+            } else if 2 * cy < y || 2 * cy + 1 >= y + h {
+                (px0, px0)
+            } else if 2 * cy >= y + r && 2 * cy + 1 < y + h - r {
+                (x.div_ceil(2), (x + w) / 2)
+            } else {
+                ((x + r).div_ceil(2), (x + w - r) / 2)
+            };
+            let first = row * bw;
+            let alphas = &a_plane[first..first + bw];
+            let source = &picture[p][first * ch..(first + bw) * ch];
+            let mut cx = px0;
+            while cx < px1 {
+                let a = alphas[cx - px0];
+                if a == 0 {
+                    let start = cx;
+                    // Non-zero premultiplied colour at zero alpha must still follow the original blend.
+                    while cx < px1 && alphas[cx - px0] == 0
+                        && source[(cx - px0) * ch..(cx - px0) * ch + ch.min(3)].iter().all(|&v| v == 0)
+                    {
+                        cx += 1;
+                    }
+                    if cx > start {
+                        continue;
+                    }
+                } else if a == 255 && cx >= solid0 && cx < solid1 {
+                    let start = cx;
+                    while cx < solid1 && alphas[cx - px0] == 255 {
+                        cx += 1;
+                    }
+                    let from = &source[(start - px0) * ch..(cx - px0) * ch];
+                    let to = &mut line[start * ch..cx * ch];
+                    if ch == 1 {
+                        to.copy_from_slice(from);
+                    } else {
+                        // Packed pixels keep the canvas's fourth byte, as the scalar blend does.
+                        for (to, from) in to.chunks_exact_mut(ch).zip(from.chunks_exact(ch)) {
+                            to[..3].copy_from_slice(&from[..3]);
+                        }
+                    }
+                    continue;
+                }
+                // only a corner square has a curve to look up; a luma pixel or colour sample clear of both bands of one is fully covered
+                let cov = if full {
+                    if (cy >= y + r && cy < y + h - r) || (cx >= x + r && cx < x + w - r) { 1.0 } else { coverage(cx, cy, bx, r, m) }
+                } else if (2 * cy >= y && 2 * cy + 1 < y + h) && (2 * cx >= x && 2 * cx + 1 < x + w)
+                    && ((2 * cy >= y + r && 2 * cy + 1 < y + h - r) || (2 * cx >= x + r && 2 * cx + 1 < x + w - r))
+                {
+                    1.0
+                } else {
+                    let mut sum = 0f32;
+                    let mut n = 0f32;
+                    for ly in (2 * cy..2 * cy + 2).filter(|&v| v < chh) {
+                        for lx in (2 * cx..2 * cx + 2).filter(|&v| v < cw) {
+                            sum += coverage(lx, ly, bx, r, m);
+                            n += 1.0;
+                        }
+                    }
+                    if n > 0.0 { sum / n } else { 0.0 }
+                };
+                if cov <= 0.0 {
+                    cx += 1;
+                    continue;
+                }
+                let i = cx - px0;
+                let at = cx * ch;
+                for c in 0..ch.min(3) {
+                    let (pm, under) = (source[i * ch + c], line[at + c]);
+                    line[at + c] = if cov >= 1.0 {
+                        (pm as u32 + div255(under as u32 * (255 - a as u32))).min(255) as u8
+                    } else {
+                        (pm as f32 * cov + under as f32 * (1.0 - a as f32 / 255.0 * cov)).round_ties_even().clamp(0.0, 255.0) as u8
+                    };
+                }
+                cx += 1;
+            }
+        });
+    }
+}
+
+#[cfg(test)]
+fn paste_over_reference(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, picture: &[Vec<u8>], alpha: &[Vec<u8>], bx: (usize, usize, usize, usize), radius: usize) {
     let (x, y, w, h) = bx;
     let r = radius.min(w / 2).min(h / 2);
     let masks = if r > 0 { Some(corner_masks(r)) } else { None };

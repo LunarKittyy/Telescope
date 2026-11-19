@@ -478,6 +478,30 @@ fn up_and_down_in_the_list_move_the_pick_and_the_list_follows_the_preview() {
 }
 
 #[test]
+fn the_list_pick_skips_a_stream_with_no_tile_and_copes_with_the_picked_one_going() {
+    let mut r = open();
+    // b is streaming but has no tile: it is a row the pick passes over
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0)]);
+    let rows = r.props()["streams"].clone();
+    assert_eq!((rows[0]["layer"].clone(), rows[1]["layer"].clone()), (json!(true), json!(false)));
+    r.ui("stream-picked", json!([0]));
+    r.ui("stream-step", json!([1]));
+    assert_eq!(r.props()["selected"], json!(0), "nothing below a but a stream without a tile");
+    r.ui("stream-step", json!([-1]));
+    assert_eq!(r.props()["selected"], json!(0));
+    // the picked stream leaves the picture while it is picked: the next step starts from the top
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    r.ui("stream-picked", json!([0]));
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0)]);
+    r.ui("stream-step", json!([1]));
+    assert_eq!(r.props()["selected"], json!(0));
+    // no tiles at all
+    r.picture(Vec::new());
+    r.ui("stream-step", json!([1]));
+    assert_eq!(r.props()["selected"], json!(-1));
+}
+
+#[test]
 fn the_cut_out_switch_sets_the_picked_tile_and_the_card_shows_it() {
     let mut r = open();
     r.ui("stream-picked", json!([0]));
