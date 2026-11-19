@@ -517,6 +517,9 @@ impl Window {
         let flow = self.streams.flow.borrow();
         self.stream_snapshot(&flow);
         let s = &flow.sessions;
+        if !s.streams.is_empty() && matches!(self.ui.get_property("streaming"), Ok(SValue::Bool(true))) {
+            self.show_streaming(s.streams.len());
+        }
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
         self.state.borrow().colour.set_streams(s.streams.iter().map(|x| x.id_str()));
         for w in due {
@@ -554,12 +557,8 @@ impl Window {
         self.streams.workers.borrow().iter().find(|w| w.live.get()).and_then(|w| w.inner.source_id().map(str::to_string))
     }
 
-    /// The newest frame of the stream the preview draws (the one the panels show, or the one it follows), and its number; reads the card back on the caller's thread if need be, so the window paints from preview_picture.
-    pub fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
-        self.preview_worker().and_then(|w| w.inner.slot().latest())
-    }
-
-    pub(crate) fn preview_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
+    /// The newest picture of the stream the preview draws (the one the panels show, or the one it follows), and its number; the card isn't read back.
+    pub fn preview_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
         self.preview_worker().and_then(|w| w.inner.slot().latest_picture())
     }
 
@@ -1789,7 +1788,7 @@ impl FlowHost for Host<'_> {
     }
     fn set_start_button(&mut self, streaming: bool) {
         if streaming {
-            self.w.show_streaming();
+            self.w.show_streaming(1);
         } else {
             self.w.show_idle_button();
         }

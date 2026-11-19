@@ -43,8 +43,8 @@ fn focus(r: &Rig, id: &str) {
 }
 
 fn drawn(r: &Rig) -> (u32, u32) {
-    let (frame, _) = r.w.preview_frame().expect("a picture");
-    (frame.width, frame.height)
+    let (picture, _) = r.w.preview_picture().expect("a picture");
+    (picture.metadata().width, picture.metadata().height)
 }
 
 #[test]
