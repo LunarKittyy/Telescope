@@ -724,7 +724,7 @@ impl Plugin for StreamOutputPlugin {
             about: n_("Set the resolution, frame rate and format of the stream.").into(),
             when_off: n_("Without the Stream output plugin there's no Stream output card and streams use whatever size and format the phone picks.").into(),
             category: "streaming".into(),
-            icon: "stream".into(),
+            icon: "broadcast".into(),
             pinned: true,
             in_presets: true,
             device_local: true,

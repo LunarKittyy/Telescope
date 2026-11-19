@@ -5433,7 +5433,7 @@ msgstr "分辨率"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "浏览器发送的画面尺寸。如果相机不支持此尺寸，浏览器会按相机支持的尺寸发送。"
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:789
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:27 rust/crates/outputs/ui/spout.slint:32 rust/crates/outputs/ui/spout.slint:33 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:789
 msgid "Frame rate"
 msgstr "帧率"
 
@@ -6322,7 +6322,7 @@ msgstr "正在下载驱动程序文件..."
 msgid "Stream from programs on this computer that share their picture through Spout."
 msgstr "从这台电脑上通过 Spout 共享画面的程序串流。"
 
-#: rust/crates/outputs/ui/spout.slint:18
+#: rust/crates/outputs/ui/spout.slint:19
 msgid "Sender"
 msgstr "发送端"
 

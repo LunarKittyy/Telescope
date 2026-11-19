@@ -620,7 +620,7 @@ impl Plugin for SpoutPlugin {
             optional: true,
             lab: true,
             category: "streaming".into(),
-            icon: "monitor".into(),
+            icon: "arrow_in".into(),
             pinned: true,
             in_presets: true,
             ..PluginInfo::default()

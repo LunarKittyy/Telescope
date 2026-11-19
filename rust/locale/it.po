@@ -5438,7 +5438,7 @@ msgstr "Risoluzione"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "La risoluzione inviata dal browser. Se la fotocamera non la supporta, il browser invia quella disponibile."
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:789
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:27 rust/crates/outputs/ui/spout.slint:32 rust/crates/outputs/ui/spout.slint:33 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:789
 msgid "Frame rate"
 msgstr "Frame rate"
 
@@ -6327,7 +6327,7 @@ msgstr "Download dei file del driver in corso..."
 msgid "Stream from programs on this computer that share their picture through Spout."
 msgstr "Trasmetti in streaming da programmi su questo computer che condividono la propria immagine tramite Spout."
 
-#: rust/crates/outputs/ui/spout.slint:18
+#: rust/crates/outputs/ui/spout.slint:19
 msgid "Sender"
 msgstr "Mittente"
 
