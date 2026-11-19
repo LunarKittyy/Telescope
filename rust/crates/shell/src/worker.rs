@@ -1100,19 +1100,27 @@ impl Shared {
     }
 
     /// Whether the frame steps and vision are paused: only the main camera's stream, once an app has not read the camera and nothing has
-    /// needed frames for a while (idle.rs), and never in a stream's first moments. Decoding goes on, and the camera keeps sending the last
-    /// picture, which an app that opens it sees until the next frame is made, a frame time or so after it appears.
+    /// needed frames for a while (idle.rs), and never in a stream's first moments. H.264 decoding goes on (its pictures depend on each other), JPEGs
+    /// aren't decoded at all, and the camera keeps sending the last picture, which an app that opens it sees until the next frame is made, a frame time or so after it appears.
     fn paused(&self) -> bool {
         let Some(gate) = self.idle.as_ref().filter(|_| self.slot_number == 0) else { return false };
         gate.idle() && self.born.elapsed().as_nanos() as u64 >= gate.quiet_needed_ns() && !self.stopped()
     }
 
-    /// A decoded frame from the steps thread or a reconnect, dropped while paused unless the camera still waits for its first frame to be sized: whether it went out.
-    fn accept(&self, seq: u64, frame: Frame) -> bool {
+    /// Whether the camera has its first frame and is paused, noting it in the log the first time.
+    fn demand_paused(&self) -> bool {
         if self.slot.latest().is_some() && self.paused() {
             if !self.was_paused.swap(true, Ordering::SeqCst) {
                 log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
             }
+            return true;
+        }
+        false
+    }
+
+    /// A decoded frame from the steps thread or a reconnect, dropped while paused unless the camera still waits for its first frame to be sized: whether it went out.
+    fn accept(&self, seq: u64, frame: Frame) -> bool {
+        if self.demand_paused() {
             return false;
         }
         self.publish(seq, frame)
@@ -1306,7 +1314,7 @@ impl Shared {
             let (s, newest, frames, broken, handed) = (self.clone(), newest.clone(), frames.clone(), broken.clone(), handed.clone());
             std::thread::spawn(move || {
                 let _counting = telescope_core::stats::bind(&s.stats);
-                decode_jpegs(decoder.as_mut(), &newest, &broken, &s.stats, |seq, frame| {
+                decode_jpegs(decoder.as_mut(), &newest, &broken, &s.stats, || s.demand_paused(), |seq, frame| {
                     let mut handed = handed.lock().unwrap();
                     if seq < *handed {
                         s.shed(1);
@@ -1723,10 +1731,13 @@ impl Pacer {
 }
 
 /// Decodes the newest packets until the feed is finished. A packet that makes the decoder panic is dropped; a few in a row set broken and end the thread.
-fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core::media::Packet)>, broken: &AtomicBool, stats: &SourceStats, mut publish: impl FnMut(u64, Frame)) {
+fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core::media::Packet)>, broken: &AtomicBool, stats: &SourceStats, mut paused: impl FnMut() -> bool, mut publish: impl FnMut(u64, Frame)) {
     const MAX_CRASHES_IN_A_ROW: u32 = 3;
     let mut crashes = 0;
     while let Some((seq, packet)) = newest.take() {
+        if paused() {
+            continue;
+        }
         // The decoders time themselves (perf's "decode"), so this doesn't
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| decoder.decode(&packet))) {
             Ok(decoded) => {
@@ -1863,6 +1874,39 @@ mod tests {
     }
 
     #[test]
+    fn paused_jpegs_skip_decoding_and_resume_on_the_next_packet() {
+        struct Counted(usize);
+        impl Decoder for Counted {
+            fn decode(&mut self, packet: &Packet) -> Decoded {
+                self.0 += 1;
+                Jpeg.decode(packet)
+            }
+            fn hardware(&self) -> bool {
+                false
+            }
+        }
+        let gate = crate::idle::IdleGate::after(0);
+        gate.reliable(true);
+        let slot = telescope_media_free_slot(Duration::ZERO);
+        let (mut decoder, mut published) = (Counted(0), Vec::new());
+        let broken = AtomicBool::new(false);
+        // Even while idle, an empty slot needs its first picture.
+        for (seq, watched, want_decoded) in [(1, false, 1), (2, false, 1), (3, true, 2), (4, false, 2), (5, true, 3)] {
+            gate.watched(watched);
+            let newest = Newest::default();
+            newest.put((seq, Packet { data: vec![5], time_ns: seq }));
+            newest.finish();
+            decode_jpegs(&mut decoder, &newest, &broken, &SourceStats::detached(), || slot.latest().is_some() && gate.idle(), |seq, frame| {
+                slot.publish(frame);
+                published.push(seq);
+            });
+            assert_eq!(decoder.0, want_decoded);
+        }
+        assert_eq!(published, [1, 3, 5]);
+        assert!(!broken.load(Ordering::SeqCst));
+    }
+
+    #[test]
     fn a_decoder_that_panics_on_a_packet_is_contained() {
         use telescope_core::media::{Decoded, Packet};
         struct Flaky(u32);
@@ -1882,7 +1926,7 @@ mod tests {
         let mut flaky = Flaky(0);
         newest.put((1, Packet { data: vec![0], time_ns: 0 }));
         newest.finish();
-        decode_jpegs(&mut flaky, &newest, &broken, &SourceStats::detached(), |seq, _| published.lock().unwrap().push(seq));
+        decode_jpegs(&mut flaky, &newest, &broken, &SourceStats::detached(), || false, |seq, _| published.lock().unwrap().push(seq));
         assert!(!broken.load(Ordering::SeqCst) && published.lock().unwrap().is_empty());
         // A decoder that crashes every time ends its thread and says so
         struct Dead;
@@ -1905,7 +1949,7 @@ mod tests {
                 newest.finish();
             })
         };
-        decode_jpegs(&mut Dead, &newest, &broken, &SourceStats::detached(), |_, _| {});
+        decode_jpegs(&mut Dead, &newest, &broken, &SourceStats::detached(), || false, |_, _| {});
         assert!(broken.load(Ordering::SeqCst));
         feeder.join().unwrap();
     }
