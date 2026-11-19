@@ -264,7 +264,7 @@ fn relative(mut f: impl FnMut()) -> f64 {
     };
     f();
     let (mut best_f, mut best_ref) = (f64::MAX, f64::MAX);
-    for _ in 0..5 {
+    for _ in 0..9 {
         let start = Instant::now();
         reference();
         best_ref = best_ref.min(start.elapsed().as_secs_f64());

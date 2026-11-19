@@ -32,3 +32,8 @@ test-group = "spout-list"
 [[profile.default.overrides]]
 filter = "test(file_dialog)"
 slow-timeout = { period = "15s", terminate-after = 2 }
+
+# The compositor draws on several threads and is timed against a single-threaded yardstick, so other tests sharing the cores skew the ratio: it gets the whole machine
+[[profile.default.overrides]]
+filter = "test(four_1080p_streams_draw_quickly)"
+threads-required = "num-cpus"
