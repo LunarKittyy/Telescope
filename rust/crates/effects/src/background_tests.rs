@@ -553,6 +553,21 @@ fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
 }
 
 #[test]
+fn a_late_mask_is_applied_to_the_current_picture_without_freezing_or_blacking_it() {
+    let (w, h) = (64, 36);
+    let held = Held(Arc::new(half_mask(w, h).data.clone()).into());
+    let mut step = step_in("picture", 4, 0);
+    step.settings.picture = Some(Arc::new(Rgb::filled(w, h, [20, 30, 200])));
+    for colour in [[200, 30, 40], [30, 180, 70]] {
+        let mut frame = frame_of(&Rgb::filled(w, h, colour));
+        step.process(&mut frame, &held);
+        let out = Rgb::from_frame(&frame).unwrap();
+        assert_eq!(&out.data[(18 * w + 8) * 3..][..3], &colour, "the held mask keeps the current person");
+        assert_eq!(&out.data[(18 * w + 56) * 3..][..3], &[20, 30, 200], "the held mask keeps the background effect");
+    }
+}
+
+#[test]
 fn a_kept_mask_gives_the_same_picture_as_working_it_out_each_frame() {
     let (w, h) = (96, 54);
     let source = stripes(w, h);
@@ -1268,23 +1283,42 @@ fn the_declared_settings_round_trip() {
 }
 
 #[test]
-fn the_host_is_told_when_the_room_starts_and_stops_being_hidden() {
+fn background_never_blocks_unattended_phone_photos() {
     let mut rig = Rig::new(None, "ready");
     assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)), "off hides nothing");
     rig.set_mode("blur");
-    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     let told = rig.host.hiding.len();
     rig.set_mode("picture");
-    assert_eq!(rig.host.hiding.len(), told, "still hiding: not said again");
+    assert_eq!(rig.host.hiding.len(), told, "still a comfort effect: not said again");
     rig.set_mode("off");
     assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
 }
 
 #[test]
-fn shutdown_stops_hiding_so_the_host_isnt_left_thinking_the_picture_is_covered() {
+fn background_settings_refreshes_keep_frames_non_black_without_a_new_mask() {
+    let mut rig = Rig::new(Some(half_mask(64, 36)), vision::READY);
+    rig.set_mode("blur");
+    let source = Rgb::filled(64, 36, [80, 120, 180]);
+    for (callback, value) in [("blur-moved", json!(8)), ("edges-moved", json!(7)), ("cut-in-moved", json!(2)), ("high-quality-toggled", json!(true)), ("mode-picked", json!(2))] {
+        rig.ui(callback, vec![value]);
+        let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = rig.plugin.frame_step() else { panic!("Background step") };
+        assert!(!step.hides(), "{callback}: Background must not trigger a pipeline blackout");
+        for context in [&rig.ctx, &Ctx(None, Default::default())] {
+            let mut frame = frame_of(&source);
+            step.process(&mut frame, context);
+            let rgb = Rgb::from_frame(&frame).unwrap();
+            assert!(rgb.data.iter().all(|&v| v > 0), "{callback}: the current frame remains visible");
+        }
+        assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+    }
+}
+
+#[test]
+fn shutdown_does_not_change_the_background_capture_status() {
     let mut rig = Rig::new(None, "ready");
     rig.set_mode("blur");
-    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     let told = rig.host.hiding.len();
@@ -1302,7 +1336,7 @@ fn the_host_hears_again_when_the_panels_move_to_a_camera_with_the_same_settings(
     rig.plugin.set_config(&cfg).unwrap();
     rig.event(Event::PhonesChanged { count: 1 });
     assert_eq!(rig.host.hiding.len(), told + 1, "the new camera's settings are told");
-    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     // A camera shown again with nothing else changing is told too
     rig.event(Event::SourceShown { source_id: "b".into() });
     assert_eq!(rig.host.hiding.len(), told + 2);
@@ -1469,7 +1503,7 @@ fn wanting_a_cut_out_switches_blur_on_and_the_last_stream_letting_go_puts_it_bac
     assert!(matches!(rig.plugin.frame_step(), Some(FrameStep::Either(..))));
     assert_eq!(rig.shown("mode"), json!(1));
     assert!(rig.host.calls.iter().filter(|c| *c == "refresh_frame_step").count() > told, "the stream is given the step");
-    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     // it isn't what was chosen, so it isn't what is saved, and a second stream changes nothing
     assert_eq!(rig.plugin.get_config()["mode"], json!("off"));
     rig.event(Event::CutOutWanted { source_id: "b".into(), on: true });

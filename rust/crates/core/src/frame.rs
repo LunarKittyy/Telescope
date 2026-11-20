@@ -44,6 +44,8 @@ pub struct Frame {
     /// When the camera took the picture, on this computer's monotonic clock (crate::time::monotonic_ns), for a stream whose phone says so and whose
     /// clock offset is known; None otherwise. Every step that makes a new frame from another keeps it.
     pub capture_ns: Option<u64>,
+    /// The view in full source coordinates, for remapping a held person mask; None is the unchanged source.
+    pub geometry: Option<Box<crate::view::Geometry>>,
     decoded: Option<Decoded>,
     /// How much of each pixel is the picture, for a frame whose background was cut out; None for a frame that is all picture, which is every frame today.
     alpha: Option<Arc<Alpha>>,
@@ -191,7 +193,7 @@ impl Frame {
     pub fn from_surface(width: u32, height: u32, format: PixelFormat, surface: Arc<dyn DecodedSurface>) -> Frame {
         let data = Arc::new(Vec::new());
         let decoded = Some(Decoded { of: Arc::downgrade(&data), picture: None, surface: Some(surface), size: (width, height, format) });
-        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, decoded, alpha: None }
+        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, decoded, alpha: None }
     }
 
     /// A flat dark picture: black luma and neutral chroma for the YUV formats, opaque black for the others.
@@ -206,7 +208,7 @@ impl Frame {
 
     /// The frame's size, format and stamps with no pixels and no hold on a decoder surface, for a record of a picture that is kept elsewhere.
     pub fn without_pixels(&self) -> Frame {
-        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, decoded: None, alpha: self.alpha.clone() }
+        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, geometry: self.geometry.clone(), decoded: None, alpha: self.alpha.clone() }
     }
 
     /// The surface while the frame still names the decoder's original picture.
@@ -219,13 +221,14 @@ impl Frame {
         let Some(surface) = self.surface() else { return self.clone() };
         let mut frame = surface.ram().clone();
         (frame.number, frame.time_ns, frame.capture_ns) = (self.number, self.time_ns, self.capture_ns);
+        frame.geometry = self.geometry.clone();
         frame.alpha = self.alpha.clone();
         frame
     }
 
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
-        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, decoded: None, alpha: None }
+        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, decoded: None, alpha: None }
     }
 
     /// The alpha plane, while it is the size of the picture: one left behind by a step that changed the size reads as none.
@@ -499,6 +502,13 @@ pub trait FrameContext {
     fn person_mask_hq_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
         self.person_mask_at(frame, w, h)
     }
+    /// Background's comfort cutout: keep the last mask while a fresh one is being made, mapped to this frame's crop.
+    fn background_mask_at(&self, frame: &Frame, w: usize, h: usize, high_quality: bool) -> Option<Arc<Vec<u8>>> {
+        if (w, h) == (frame.width as usize, frame.height as usize) {
+            return if high_quality { self.person_mask_hq(frame) } else { self.person_mask(frame) };
+        }
+        if high_quality { self.person_mask_hq_at(frame, w, h) } else { self.person_mask_at(frame, w, h) }
+    }
     /// For a final-stage step: the frame as the preview shows it, with a colour_split drawn in.
     fn colour_preview(&self, frame: &Frame) -> Frame;
 }
@@ -632,6 +642,27 @@ impl std::fmt::Debug for FrameStep {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_source_geometry_stays_with_frame_metadata() {
+        #[derive(Debug)]
+        struct Surface(Frame);
+
+        impl DecodedSurface for Surface {
+            fn ram(&self) -> &Frame { &self.0 }
+            fn as_any(&self) -> &dyn std::any::Any { self }
+        }
+
+        let geometry = Some(Box::new(crate::view::Geometry { zoom: 2.0, pan_x: 0.5, ..Default::default() }));
+        let pixels = Frame::new(2, 2, PixelFormat::I420, vec![1; 6]);
+        let mut frame = Frame::from_surface(2, 2, PixelFormat::I420, Arc::new(Surface(pixels)));
+        frame.geometry = geometry.clone();
+        assert_eq!(frame.clone().geometry, geometry);
+        assert_eq!(frame.without_pixels().geometry, geometry);
+        assert_eq!(frame.materialise().geometry, geometry);
+        let json = serde_json::to_value(&frame).unwrap();
+        assert!(json.get("geometry").is_none(), "source coordinates stay inside the frame pipeline");
+    }
 
     #[test]
     fn changing_a_shared_frame_copies_it() {

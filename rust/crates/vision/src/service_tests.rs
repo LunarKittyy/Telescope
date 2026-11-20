@@ -971,3 +971,68 @@ fn a_first_mask_that_doesnt_come_doesnt_hold_the_stream_up_for_long() {
     assert!(v.newest_mask("a", 1, 256, 144, Box::new(|| None)).is_none());
     assert!(began.elapsed() < Duration::from_millis(100), "{:?}", began.elapsed());
 }
+
+#[test]
+fn background_keeps_a_late_mask_while_privacy_still_rejects_it() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let geometry = Some(Geometry::default());
+    let comfort = MaskView { geometry, keep_late: true };
+    let first = v.newest_normal_for("a", true, 1, 256, 144, Box::new(|| Some(someone_at(50))), v.view_epoch(), comfort).unwrap();
+    age_newest(&v, MASK_MAX_AGE_S * 2.0);
+    let held = v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), comfort).unwrap();
+    assert!(Arc::ptr_eq(&first, &held), "Background keeps the last good cutout without holding the picture");
+    let privacy = MaskView { keep_late: false, ..comfort };
+    assert!(v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), privacy).is_none());
+}
+
+#[test]
+fn a_moving_crop_remaps_the_held_mask_and_queues_the_cropped_picture() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let old = MaskView { geometry: Some(Geometry::default()), keep_late: true };
+    v.newest_normal_for("a", true, 1, 256, 144, Box::new(|| Some(someone_at(50))), v.view_epoch(), old).unwrap();
+    let new = MaskView { geometry: Some(Geometry { zoom: 2.0, ..Default::default() }), ..old };
+    let (started, seen) = mpsc::channel();
+    let (release, finish) = mpsc::channel();
+    let held = v.newest_normal_for("a", false, 2, 256, 144, Box::new(move || {
+        started.send(()).unwrap();
+        finish.recv_timeout(Duration::from_secs(5)).unwrap();
+        Some(someone_at(150))
+    }), v.view_epoch(), new).unwrap();
+    seen.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(held[80 * 256 + 40] > 128, "the old silhouette moved with the current crop");
+    assert_eq!(held[80 * 256 + 140], 0, "the silhouette was not stretched over its old coordinates");
+    let cached = v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), new).unwrap();
+    assert!(Arc::ptr_eq(&held, &cached), "an unchanged crop reuses its remapping");
+    release.send(()).unwrap();
+    wait(|| v.stream("a").newest.lock().unwrap().done >= 2);
+    let fresh = v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), new).unwrap();
+    assert_eq!(fresh[80 * 256 + 40], 0, "a new crop does not blend in a silhouette from the old coordinates");
+    assert!(fresh[80 * 256 + 180] > 128, "the newly cropped picture replaces the held mask");
+}
+
+#[test]
+fn remapping_a_mask_lines_up_with_pixels_cropped_from_the_same_source() {
+    use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
+    use telescope_core::host::View;
+    struct Context;
+    impl FrameContext for Context {
+        fn source_id(&self) -> &str { "a" }
+        fn person_mask(&self, _: &Frame) -> Option<Arc<Vec<u8>>> { None }
+        fn colour_preview(&self, frame: &Frame) -> Frame { frame.clone() }
+    }
+    let (w, h) = (32, 24);
+    let mask: Vec<u8> = (0..h).flat_map(|y| (0..w).map(move |x| ((x + y) * 2) as u8)).collect();
+    let source = Frame::new(w as u32, h as u32, PixelFormat::Rgba, mask.iter().flat_map(|&v| [v, v, v, 255]).collect());
+    for view in [View { zoom: 2.0, pan_x: -1.0, ..Default::default() }, View { zoom: 2.0, pan_x: 1.0, ..Default::default() },
+                 View { zoom: 2.0, pan_y: 0.5, rotation: Some(90), flip_h: true, ..Default::default() }] {
+        let mut picture = source.clone();
+        for step in telescope_core::view_step::steps(&view) {
+            let FrameStep::Cpu(mut step) = step else { panic!("view steps run on the CPU") };
+            step.process(&mut picture, &Context);
+        }
+        let remapped = remap_mask(&mask, w, h, picture.width as usize, picture.height as usize, &Geometry::default(), &picture.geometry.unwrap());
+        for (&mask, pixel) in remapped.iter().zip(picture.data.as_chunks::<4>().0) {
+            assert!(mask.abs_diff(pixel[0]) <= 1, "{view:?}: mask {mask}, picture {}", pixel[0]);
+        }
+    }
+}

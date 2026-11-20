@@ -13,6 +13,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::thread::JoinHandle;
 use telescope_core::pose::Person;
+use telescope_core::view::{shown_to_view, view_to_shown, Geometry};
 use telescope_core::vision::{Upright, FAILED, LOADING, MISSING, OFF, READY};
 
 /// How often people are looked for while something moves (about 12 a second); framing smooths in between.
@@ -144,10 +145,30 @@ pub(crate) struct MaskState {
     turns: u64,
     /// Failed runs since the last good one.
     pub(crate) fails: u32,
+    geometry: Option<Geometry>,
+}
+
+impl MaskState {
+    fn geometry(&mut self, geometry: Option<Geometry>) {
+        if self.geometry != geometry {
+            self.geometry = geometry;
+            (self.seq, self.mask, self.small, self.motion) = (None, None, None, Motion::default());
+            if let Some(segment) = self.segment.as_mut() {
+                segment.reset();
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+pub(crate) struct MaskView {
+    pub(crate) geometry: Option<Geometry>,
+    pub(crate) keep_late: bool,
 }
 
 /// A frame the mask thread hasn't got to: only the newest one waits.
 struct MaskJob {
+    geometry: Option<Geometry>,
     seq: u64,
     size: (usize, usize),
     picture: Picture,
@@ -159,17 +180,24 @@ struct MaskJob {
 
 /// The newest mask a frame step can get at once.
 struct MadeMask {
+    geometry: Option<Geometry>,
     w: usize,
     h: usize,
     mask: Arc<Vec<u8>>,
     /// When its frame was handed over.
     at: f64,
     /// The same mask at other sizes asked for since, dropped with it when the next one comes.
-    sizes: Vec<(usize, usize, Arc<Vec<u8>>)>,
+    sizes: Vec<MaskSize>,
     /// Which inference this is, so a size made outside the lock is only kept if it still belongs.
     generation: u64,
     /// The view's turns its picture was made under: only a frame made under the same count is handed it.
     epoch: u64,
+}
+
+struct MaskSize {
+    size: (usize, usize),
+    geometry: Option<Geometry>,
+    mask: Arc<Vec<u8>>,
 }
 
 impl MadeMask {
@@ -248,7 +276,7 @@ impl StreamVision {
     fn new() -> StreamVision {
         StreamVision {
             mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0,
-                                         motion: Motion::default(), asked: 0.0, turns: 0, fails: 0 }),
+                                         motion: Motion::default(), asked: 0.0, turns: 0, fails: 0, geometry: None }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
             mask_done: Condvar::new(),
@@ -506,15 +534,28 @@ impl Vision {
 
     #[allow(clippy::too_many_arguments)]
     fn newest_normal(&self, key: &str, wait: bool, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        self.newest_normal_for(key, wait, seq, w, h, picture, epoch, MaskView::default())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn newest_normal_for(&self, key: &str, wait: bool, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64, view: MaskView) -> Option<Arc<Vec<u8>>> {
         if self.inner.masks_wait.load(Ordering::SeqCst) {
             let mut picture = Some(picture);
-            return self.person_mask_in(key, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
+            let Some(backend) = self.ready() else {
+                self.load();
+                return None;
+            };
+            let sv = self.stream(key);
+            let mut m = sv.mask.lock().unwrap();
+            m.geometry(view.geometry);
+            m.asked = monotonic();
+            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
         }
         let Some(backend) = self.ready() else {
             self.load();
             return None;
         };
-        self.newest_from(key, backend, Which::Normal, wait, seq, w, h, picture, epoch)
+        self.newest_from(key, backend, Which::Normal, wait, seq, w, h, picture, epoch, view)
     }
 
     /// The high quality cutout's way in, the same as newest_mask from its own model and thread, and never waiting: None while it isn't
@@ -525,6 +566,11 @@ impl Vision {
 
     /// newest_cutout for a picture made when the view had turned `epoch` times (see newest_mask_in).
     pub fn newest_cutout_in(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        self.newest_cutout_for(key, seq, w, h, picture, epoch, MaskView::default())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn newest_cutout_for(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64, view: MaskView) -> Option<Arc<Vec<u8>>> {
         let Some(backend) = self.cutout_ready() else {
             self.load_cutout();
             return None;
@@ -535,13 +581,14 @@ impl Vision {
             let sv = self.stream(&key);
             let mut m = sv.mask.lock().unwrap();
             m.asked = monotonic();
+            m.geometry(view.geometry);
             return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
         }
-        self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, picture, epoch)
+        self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, picture, epoch, view)
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn newest_from(&self, key: &str, backend: Arc<dyn Backend>, which: Which, wait: bool, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64)
+    fn newest_from(&self, key: &str, backend: Arc<dyn Backend>, which: Which, wait: bool, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64, view: MaskView)
                    -> Option<Arc<Vec<u8>>> {
         let sv = self.stream(key);
         let mut n = sv.newest.lock().unwrap();
@@ -551,14 +598,15 @@ impl Vision {
         }
         if n.asked != Some(seq) {
             n.asked = Some(seq);
-            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic(), epoch });
+            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic(), epoch, geometry: view.geometry });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2, which)).is_ok();
             }
             sv.mask_wanted.notify_all();
         }
-        let usable = |n: &NewestMask| n.mask.as_ref().is_some_and(|m| m.epoch == epoch && m.usable(w, h));
+        let usable = |n: &NewestMask| n.mask.as_ref().is_some_and(|m| m.epoch == epoch
+            && (view.keep_late || m.usable(w, h)) && compatible_geometry(m.geometry, view.geometry));
         if wait && !usable(&n) && !n.gave_up {
             let (done, until) = (n.done, std::time::Instant::now() + std::time::Duration::from_secs_f64(FIRST_MASK_WAIT_S));
             while !usable(&n) && n.done == done {
@@ -569,23 +617,30 @@ impl Vision {
                 n = sv.mask_done.wait_timeout(n, left).unwrap().0;
             }
         }
-        let made = n.mask.as_ref().filter(|m| m.epoch == epoch && m.usable(w, h))?;
-        if (made.w, made.h) == (w, h) {
+        if !usable(&n) {
+            return None;
+        }
+        let made = n.mask.as_ref()?;
+        if (made.w, made.h) == (w, h) && made.geometry == view.geometry {
             return Some(made.mask.clone());
         }
-        // One of another size until the thread has this size's: the picture changed size, or two steps look at different ones
-        if let Some((_, _, m)) = made.sizes.iter().find(|(sw, sh, _)| (*sw, *sh) == (w, h)) {
-            return Some(m.clone());
+        if let Some(m) = made.sizes.iter().find(|m| m.size == (w, h) && m.geometry == view.geometry) {
+            return Some(m.mask.clone());
         }
-        let (base, (bw, bh), generation) = (made.mask.clone(), (made.w, made.h), made.generation);
+        let (base, (bw, bh), geometry, generation) = (made.mask.clone(), (made.w, made.h), made.geometry, made.generation);
         drop(n);
-        let resized = Arc::new(mask_resized(&base, bw, bh, w, h));
+        let resized = Arc::new(match (geometry, view.geometry) {
+            (Some(old), Some(new)) if old != new => remap_mask(&base, bw, bh, w, h, &old, &new),
+            _ => mask_resized(&base, bw, bh, w, h),
+        });
         let mut n = sv.newest.lock().unwrap();
         if let Some(made) = n.mask.as_mut().filter(|m| m.generation == generation) {
-            match made.sizes.iter().find(|(sw, sh, _)| (*sw, *sh) == (w, h)) {
-                Some((_, _, m)) => return Some(m.clone()),
-                None => made.sizes.push((w, h, resized.clone())),
+            if let Some(m) = made.sizes.iter().find(|m| m.size == (w, h) && m.geometry == view.geometry) {
+                return Some(m.mask.clone());
             }
+            // Moving crops must not keep a resized mask for every position they pass.
+            made.sizes.truncate(3);
+            made.sizes.insert(0, MaskSize { size: (w, h), geometry: view.geometry, mask: resized.clone() });
         }
         Some(resized)
     }
@@ -1004,6 +1059,39 @@ fn tidy_loop(inner: Weak<Inner>, stopped: Receiver<()>) {
 }
 
 /// A stream's masks: only ever the newest frame waiting, so when the model falls behind it skips frames instead of queueing them.
+fn compatible_geometry(old: Option<Geometry>, new: Option<Geometry>) -> bool {
+    match (old, new) {
+        (Some(old), Some(new)) => old.distortion == new.distortion,
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+// Sample the held mask in its original crop, so repeated moves never resample an already resampled mask.
+fn remap_mask(src: &[u8], w: usize, h: usize, out_w: usize, out_h: usize, old: &Geometry, new: &Geometry) -> Vec<u8> {
+    let mut out = vec![0; out_w * out_h];
+    if w == 0 || h == 0 || out_w == 0 || out_h == 0 || src.len() != w * h {
+        return out;
+    }
+    for (y, row) in out.chunks_exact_mut(out_w).enumerate() {
+        for (x, pixel) in row.iter_mut().enumerate() {
+            let (u, v) = shown_to_view((x as f64 + 0.5) / out_w as f64, (y as f64 + 0.5) / out_h as f64, new);
+            let (u, v) = view_to_shown(u, v, old);
+            if !(0.0..=1.0).contains(&u) || !(0.0..=1.0).contains(&v) {
+                continue;
+            }
+            let (sx, sy) = ((u * w as f64 - 0.5).clamp(0.0, (w - 1) as f64), (v * h as f64 - 0.5).clamp(0.0, (h - 1) as f64));
+            let (x0, y0) = (sx.floor() as usize, sy.floor() as usize);
+            let (x1, y1) = ((x0 + 1).min(w - 1), (y0 + 1).min(h - 1));
+            let (fx, fy) = (sx - x0 as f64, sy - y0 as f64);
+            let top = src[y0 * w + x0] as f64 * (1.0 - fx) + src[y0 * w + x1] as f64 * fx;
+            let bottom = src[y1 * w + x0] as f64 * (1.0 - fx) + src[y1 * w + x1] as f64 * fx;
+            *pixel = (top * (1.0 - fy) + bottom * fy).round() as u8;
+        }
+    }
+    out
+}
+
 fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>, which: Which) {
     let vision = Vision { inner };
     loop {
@@ -1020,10 +1108,11 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
                 }
             }
         };
-        let MaskJob { seq, size: (w, h), picture, at, epoch } = job;
+        let MaskJob { seq, size: (w, h), picture, at, epoch, geometry } = job;
         let mut picture = Some(picture);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
+        m.geometry(geometry);
         let mask = vision.mask(&mut m, &*backend, which, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
         if sv.stopping.load(Ordering::SeqCst) {
             m.segment = None;
@@ -1033,7 +1122,7 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         n.done += 1;
         // Without one the last stays until it's too old: a failed frame now and then doesn't show. One of a picture from before a turn of the view is dropped, whenever the turn came.
         if let Some(mask) = mask.filter(|_| vision.inner.turns.load(Ordering::SeqCst) == epoch) {
-            n.mask = Some(MadeMask { w, h, mask, at, sizes: Vec::new(), generation: n.done, epoch });
+            n.mask = Some(MadeMask { w, h, mask, at, sizes: Vec::new(), generation: n.done, epoch, geometry });
             n.gave_up = false;
         }
         sv.mask_done.notify_all();

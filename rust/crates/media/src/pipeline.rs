@@ -302,6 +302,7 @@ impl Pipeline {
             if chain.withheld && self.restores_pixels(i) {
                 continue;
             }
+            let geometry = frame.geometry.clone();
             let step_began = timing.then(monotonic_ns);
             let down_before = chain.down_ns;
             let either = matches!(self.steps[i].kind, Kind::Either(..)) && !self.steps[i].no_shader && !self.card_lost;
@@ -320,6 +321,9 @@ impl Pipeline {
             }
             frame.number = number;
             frame.capture_ns = capture_ns;
+            if self.steps[i].stage != FrameStage::View {
+                frame.geometry = geometry;
+            }
         }
         let mut picture = None;
         if matches!(finish, Finish::Card) && !chain.ahead.is_empty() && !ctx.stopped() {
@@ -386,12 +390,14 @@ impl Pipeline {
             let down_began = chain.timing.then(monotonic_ns);
             // The card gives back a new frame, so the cut-out the one in hand carries goes onto it
             let alpha = frame.alpha().cloned();
+            let geometry = frame.geometry.clone();
             let landed = self.pool.scope(cap, || gpu.land_until(held, &|| ctx.stopped()).map(|out| std::mem::replace(frame, out).recycle()));
             if let Some(began) = down_began {
                 chain.down_ns += monotonic_ns().saturating_sub(began);
             }
             match landed {
                 Ok(()) => {
+                    frame.geometry = geometry;
                     if let Some(alpha) = alpha {
                         frame.set_alpha(alpha);
                     }
@@ -849,6 +855,7 @@ impl Drop for Trial {
 fn neutral((w, h): (u32, u32), format: PixelFormat, stands_for: &Frame) -> Frame {
     let mut out = Frame::dark(w, h, format);
     (out.number, out.time_ns, out.capture_ns) = (stands_for.number, stands_for.time_ns, stands_for.capture_ns);
+    out.geometry = stands_for.geometry.clone();
     out
 }
 
@@ -2676,6 +2683,38 @@ pub(crate) mod tests {
         assert!(began.elapsed() < std::time::Duration::from_secs(5));
         assert_eq!(out.data[0], 16, "dark, not the frame without what the card was doing for it");
         assert!(!p.card_lost, "a stop isn't the card failing");
+    }
+
+    #[test]
+    fn a_comfort_background_refresh_keeps_the_current_picture_showing() {
+        struct Comfort;
+        impl CpuStep for Comfort {
+            fn process(&mut self, _: &mut Frame, _: &dyn FrameContext) {}
+        }
+        let mut pipeline = Pipeline::default();
+        pipeline.gpu = Some(None);
+        let step = || StagedStep { owner: "background".into(), stage: FrameStage::Background, step: FrameStep::Cpu(Box::new(Comfort)) };
+        pipeline.set_steps(vec![step()]);
+        let current = pipeline.process(grey(8, 8, 100), &NoContext);
+        pipeline.set_steps(vec![step()]);
+        assert!(pipeline.hide_again(current.clone(), &NoContext).is_none(), "comfort settings do not blank a stalled picture");
+        assert_eq!(pipeline.process(grey(8, 8, 150), &NoContext).data[0], 150, "the current frame keeps moving");
+    }
+
+    #[test]
+    fn source_geometry_survives_a_step_that_rebuilds_the_frame() {
+        struct Rebuild;
+        impl CpuStep for Rebuild {
+            fn process(&mut self, frame: &mut Frame, _: &dyn FrameContext) {
+                *frame = Frame::new(frame.width, frame.height, frame.format, frame.data.to_vec());
+            }
+        }
+        let mut pipeline = Pipeline::default();
+        pipeline.gpu = Some(None);
+        pipeline.set_steps(vec![StagedStep { owner: "filter".into(), stage: FrameStage::Effects, step: FrameStep::Cpu(Box::new(Rebuild)) }]);
+        let mut frame = grey(8, 8, 100);
+        frame.geometry = Some(Box::new(telescope_core::view::Geometry { zoom: 2.0, pan_x: 0.5, ..Default::default() }));
+        assert_eq!(pipeline.process(frame.clone(), &NoContext).geometry, frame.geometry);
     }
 
     #[test]

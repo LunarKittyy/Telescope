@@ -229,7 +229,7 @@ struct Inner {
     handover: Option<Handover>,
     /// That stream's last frame, small, while something steers.
     last: Option<Thumb>,
-    shown: Option<View>,
+    shown: Option<(View, (f64, f64, f64))>,
 }
 
 /// Shared by the window, which starts and ends handovers, and the workers, which see the frames.
@@ -273,6 +273,21 @@ impl ViewGate {
         self.0.lock().unwrap().handover.as_ref().filter(|h| !h.arrived).map(Handover::view)
     }
 
+    /// The phone crop that the waiting view is drawn from, in the full lens's coordinates.
+    pub fn waiting_window(&self) -> Option<(f64, f64, f64)> {
+        self.0.lock().unwrap().handover.as_ref().filter(|h| !h.arrived).map(|h| phone_window(Some(&h.share(h.progress))))
+    }
+
+    /// The phone crop inferred from this stream's latest frame, including an in-flight handover.
+    pub fn source_window(&self, source: &str) -> Option<(f64, f64, f64)> {
+        let inner = self.0.lock().unwrap();
+        if inner.source.as_deref() != Some(source) {
+            return None;
+        }
+        let h = inner.handover.as_ref()?;
+        Some(phone_window(Some(&h.share(if h.arrived { 1.0 } else { h.progress }))))
+    }
+
     /// The old share while still waiting for `sent` to show up (_still_handing_over); None when that's over.
     pub fn still_for(&self, sent: Option<PhoneZoom>, steering: bool, now: f64) -> Option<PhoneZoom> {
         let inner = self.0.lock().unwrap();
@@ -309,8 +324,10 @@ impl ViewGate {
             }
         }
         let view = h.view();
-        (replaced || inner.shown.as_ref() != Some(&view)).then(|| {
-            inner.shown = Some(view.clone());
+        let source_crop = phone_window(Some(&h.share(if h.arrived { 1.0 } else { h.progress })));
+        let shown = (view.clone(), source_crop);
+        (replaced || inner.shown.as_ref() != Some(&shown)).then(|| {
+            inner.shown = Some(shown);
             view
         })
     }
@@ -332,6 +349,38 @@ mod tests {
         fn as_any(&self) -> &dyn std::any::Any {
             self
         }
+    }
+
+    #[test]
+    fn mask_source_coordinates_follow_the_phone_crop_through_a_handover() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"), true);
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.4, y: 0.5 };
+        let new = PhoneZoom { ratio: 1.0, crop: 4.0, x: 0.6, y: 0.5 };
+        gate.begin(old, new, (View::default(), View::default()), &View::default(), 0.0);
+        assert_eq!(gate.waiting_window(), Some(phone_window(Some(&old))));
+        assert_eq!(gate.source_window("other"), None);
+        gate.0.lock().unwrap().handover.as_mut().unwrap().progress = 0.5;
+        let middle = phone_window(Some(&along(&old, &new, 0.5)));
+        assert_eq!(gate.waiting_window(), Some(middle));
+        assert_eq!(gate.source_window("a"), Some(middle));
+        gate.0.lock().unwrap().handover.as_mut().unwrap().arrived = true;
+        assert_eq!(gate.waiting_window(), None);
+        assert_eq!(gate.source_window("a"), Some(phone_window(Some(&new))));
+    }
+
+    #[test]
+    fn a_phone_crop_move_refreshes_mask_geometry_even_when_the_desktop_crop_is_unchanged() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"), false);
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 4.0, ..old };
+        gate.begin(old, new, (View::default(), View::default()), &View::default(), 0.0);
+        let frame = Frame::new(8, 8, PixelFormat::I420, vec![120; 96]);
+        assert_eq!(gate.for_frame("a", &frame, 0.0, false), Some(View::default()));
+        assert_eq!(gate.for_frame("a", &frame, 0.0, false), None);
+        gate.0.lock().unwrap().handover.as_mut().unwrap().progress = 0.5;
+        assert_eq!(gate.for_frame("a", &frame, 0.0, false), Some(View::default()));
     }
 
     #[test]

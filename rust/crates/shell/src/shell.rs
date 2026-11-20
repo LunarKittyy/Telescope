@@ -195,10 +195,15 @@ impl Effect {
     }
 }
 
+/// Stage-level hiding remains the default except for the built-in Background comfort effect.
+fn stage_hides(info: &PluginInfo, stage: telescope_core::frame::FrameStage) -> bool {
+    stage.hides() && !(stage == telescope_core::frame::FrameStage::Background && !info.added && info.name == "background")
+}
+
 /// Whether a plugin's step hides something, asked inside the panic guard: a step that panics answering is the plugin's error, not the window's.
-fn step_hides(stage: telescope_core::frame::FrameStage, step: &telescope_core::frame::FrameStep) -> Result<bool, String> {
-    use telescope_core::frame::{FrameStage, FrameStep};
-    if matches!(stage, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover) {
+fn step_hides(info: &PluginInfo, stage: telescope_core::frame::FrameStage, step: &telescope_core::frame::FrameStep) -> Result<bool, String> {
+    use telescope_core::frame::FrameStep;
+    if stage_hides(info, stage) {
         return Ok(true);
     }
     match step {
@@ -792,8 +797,7 @@ impl State {
         let Some(slot) = self.slots.get_mut(i) else { return };
         let name = slot.info.name.clone();
         // One that hides things (or is there to, before its first step) can't be trusted to go on hiding them, nor can a picture without it
-        use telescope_core::frame::FrameStage;
-        if !slot.starting && (slot.hides || matches!(slot.info.frame_stage, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover)) {
+        if !slot.starting && (slot.hides || stage_hides(&slot.info, slot.info.frame_stage)) {
             slot.hides = true;
             (self.hiding_panic)(&name, why);
             return;
@@ -1467,7 +1471,7 @@ impl State {
         use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
         // The window's own steps: its view first, and the colour pipeline's LUT after the effects
-        for step in telescope_core::view_step::steps(&self.vc.frame_view(&self.view)) {
+        for step in telescope_core::view_step::steps_in(&self.vc.frame_view(&self.view), self.vc.frame_window()) {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step });
         }
         let colour = self.colour.step(source_id);
@@ -1484,7 +1488,8 @@ impl State {
         let mut plugin_steps = Vec::new();
         let mut failed = Vec::new();
         for i in 0..self.slots.len() {
-            let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);
+            let info = self.slots[i].info.clone();
+            let (owner, stage) = (info.name.clone(), info.frame_stage);
             if self.slots[i].stopped.is_some() {
                 continue;
             }
@@ -1493,7 +1498,7 @@ impl State {
             match telescope_core::diagnostics::catch_plugin(|| p.frame_step()) {
                 Ok(Some(step)) => {
                     let hides = matches!(stage, FrameStage::Privacy | FrameStage::Cover);
-                    match step_hides(stage, &step) {
+                    match step_hides(&info, stage, &step) {
                         Ok(h) => hid_any |= h,
                         Err(why) => {
                             failed.push((i, why));
@@ -1522,7 +1527,7 @@ impl State {
             match telescope_core::diagnostics::catch_plugin(|| p.staged_frame_steps()) {
                 Ok(more) => {
                     for (stage, step) in more {
-                        match step_hides(stage, &step) {
+                        match step_hides(&info, stage, &step) {
                             Ok(h) => hid_any |= h,
                             Err(why) => failed.push((i, why)),
                         }
@@ -1545,7 +1550,9 @@ impl State {
         if unwatched || background {
             self.colour_before.lock().unwrap().clear();
         }
-        let hiders = plugin_steps.iter().filter(|st| step_hides(st.stage, &st.step).unwrap_or(true)).map(|st| st.owner.clone()).collect();
+        let hiders = plugin_steps.iter().filter(|st| {
+            self.slots.iter().find(|s| s.info.name == st.owner).is_none_or(|s| step_hides(&s.info, st.stage, &st.step).unwrap_or(true))
+        }).map(|st| st.owner.clone()).collect();
         self.hiding_steps.insert(source_id.unwrap_or("").to_string(), hiders);
         self.sync_hidden_flags();
         if let Some(step) = colour {
@@ -3643,6 +3650,49 @@ mod tests {
         hidden.streams.source_id = Some("phone".into());
         let ctx = crate::host::Ctx { state: &mut hidden, me: "phototrap".into() };
         assert!(ctx.picture_hidden(Some("phone")) && ctx.picture_hidden(None));
+    }
+
+    #[test]
+    fn only_the_built_in_background_is_exempt_from_stage_hiding() {
+        use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+        struct Comfort;
+        impl CpuStep for Comfort {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        }
+        struct Gives(PluginInfo);
+        impl Plugin for Gives {
+            fn info(&self) -> PluginInfo {
+                self.0.clone()
+            }
+            fn setup(&mut self, host: &mut dyn telescope_core::Host) {
+                host.set_hiding(&self.0.name, None, false);
+            }
+            fn frame_step(&mut self) -> Option<FrameStep> {
+                Some(FrameStep::Cpu(Box::new(Comfort)))
+            }
+        }
+        for (name, added, stage, hidden) in [
+            ("background", false, FrameStage::Background, false),
+            ("background", true, FrameStage::Background, true),
+            ("chroma_key", false, FrameStage::Background, true),
+            ("privacy", false, FrameStage::Privacy, true),
+            ("cover", false, FrameStage::Cover, true),
+        ] {
+            let mut s = state();
+            s.hiding_panic = record_close;
+            CLOSED.with(|c| c.borrow_mut().clear());
+            s.streams.source_id = Some("a".into());
+            s.register(Box::new(Gives(PluginInfo { name: name.into(), added, device_local: true, frame_stage: stage, ..Default::default() }))).unwrap();
+            s.pipeline_steps(None);
+            s.pipeline_steps(Some("b"));
+            assert!(!s.picture_hidden_for("a"), "{name}: the shown stream explicitly reported false");
+            assert_eq!(s.picture_hidden_for("b"), hidden, "{name}: another stream has not reported");
+            assert_eq!(s.hidden_flag("b").load(std::sync::atomic::Ordering::SeqCst), hidden, "{name}: capture flag");
+            assert_eq!(s.still_skipped(&json!({"skip_if_hidden": true}), "b"), hidden, "{name}: unattended photo");
+            s.stop_after_panic(0, "boom");
+            assert_eq!(CLOSED.with(|c| !c.borrow().is_empty()), hidden, "{name}: panic fallback");
+            assert_eq!(s.stopped().contains_key(name), !hidden, "{name}: comfort effects stop normally");
+        }
     }
 
     #[test]

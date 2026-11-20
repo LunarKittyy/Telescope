@@ -104,6 +104,11 @@ impl ViewController {
         self.gate.waiting_view().unwrap_or_else(|| self.shown(view))
     }
 
+    /// The phone crop the current desktop view reads, matching the handover's inferred progress.
+    pub fn frame_window(&self) -> (f64, f64, f64) {
+        self.gate.waiting_window().unwrap_or_else(|| telescope_core::view::phone_window(self.sent.as_ref()))
+    }
+
     pub fn set_view(&mut self, view: &mut View, change: &ViewChange, now: f64) -> Vec<Said> {
         self.manual = apply(&self.manual, change, true);
         let free = self.owner.is_empty();
