@@ -79,6 +79,27 @@ impl LinkService {
                       presence: crate::presence::Presence::start(), searches: Mutex::default() }
     }
 
+    fn apply_presence_events(&self, events: Vec<crate::presence::PresenceEvent>) -> Vec<PresenceUpdate> {
+        let mut searches = self.searches.lock().unwrap();
+        events.into_iter().filter_map(|event| match event {
+            crate::presence::PresenceEvent::Probe { phone_id } => {
+                let search = searches.get_mut(&phone_id)?;
+                search.generation = search.generation.wrapping_add(1);
+                Some(PresenceUpdate::Probe { phone_id })
+            }
+            crate::presence::PresenceEvent::Reachable { phone_id, address, addresses, version } => {
+                let search = searches.get_mut(&phone_id)?;
+                search.generation = search.generation.wrapping_add(1);
+                search.last_udp = Some(self.shared.now());
+                search.addresses = crate::net::presence_addresses(std::iter::once(address.clone()).chain(addresses.iter().cloned()));
+                self.shared.presence_version(&phone_id, &version);
+                Some(PresenceUpdate::Reachable { phone_id, address, addresses })
+            }
+            crate::presence::PresenceEvent::Degraded(why) => Some(PresenceUpdate::Degraded(why)),
+            crate::presence::PresenceEvent::Restored => Some(PresenceUpdate::Restored),
+        }).collect()
+    }
+
     fn checked_capability(&self, phone: &PairedPhone, res: &Resolution) {
         if matches!(res.status, PhoneStatus::Ready | PhoneStatus::LocalOnly | PhoneStatus::NotPaired) {
             let capable = res.status == PhoneStatus::Ready && res.presence;
@@ -180,24 +201,7 @@ impl Link for LinkService {
     fn presence_hint(&self) { self.presence.hint(); }
 
     fn presence_updates(&self) -> Vec<PresenceUpdate> {
-        let events = self.presence.take_events();
-        let mut searches = self.searches.lock().unwrap();
-        events.into_iter().filter_map(|event| match event {
-            crate::presence::PresenceEvent::Probe { phone_id } => {
-                let search = searches.get_mut(&phone_id)?;
-                search.generation = search.generation.wrapping_add(1);
-                Some(PresenceUpdate::Probe { phone_id })
-            }
-            crate::presence::PresenceEvent::Reachable { phone_id, address, addresses, .. } => {
-                let search = searches.get_mut(&phone_id)?;
-                search.generation = search.generation.wrapping_add(1);
-                search.last_udp = Some(self.shared.now());
-                search.addresses = crate::net::presence_addresses(std::iter::once(address.clone()).chain(addresses.iter().cloned()));
-                Some(PresenceUpdate::Reachable { phone_id, address, addresses })
-            }
-            crate::presence::PresenceEvent::Degraded(why) => Some(PresenceUpdate::Degraded(why)),
-            crate::presence::PresenceEvent::Restored => Some(PresenceUpdate::Restored),
-        }).collect()
+        self.apply_presence_events(self.presence.take_events())
     }
 
     fn presence_generation(&self, phone_id: &str) -> Option<u64> {
@@ -334,6 +338,10 @@ impl Link for LinkService {
 
     fn adopt_route(&self, source_id: Option<&str>, route: &RouteSpec) -> Option<String> {
         self.shared.adopt_route(source_id, route)
+    }
+
+    fn accept_recovery(&self, source_id: Option<&str>, res: &Resolution) {
+        self.shared.accept_recovery(source_id, res);
     }
 
     fn show_problem(&self, source_id: Option<&str>, res: &Resolution) {
@@ -583,6 +591,25 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
     use std::net::TcpStream;
+
+    #[test]
+    fn validated_presence_updates_the_streaming_phones_version_without_changing_its_route() {
+        let link = LinkService::with_discovery(LanDiscovery::default());
+        let phone = PairedPhone { id: "p".into(), name: "Phone".into(), token: "token".into(), ips: vec![], active_ip: None, cert_sha256: String::new() };
+        link.shared.conn().on_phone_paired(phone.clone(), |_| false);
+        link.shared.conn().mark_selected(Some(&phone.id));
+        link.configure_presence("desktop", "5.1.4", &[phone]);
+        let original = Resolution { phone_version: "5.1.3".into(), route: Some(RouteSpec::Usb { serial: "usb".into() }),
+            ..Resolution::new(PhoneStatus::Ready) };
+        link.shared.conn().apply_resolution(original.clone());
+        link.shared.conn().streaming = true;
+        assert!(link.shared.conn().check_status(0.0).is_none());
+        let updates = link.apply_presence_events(vec![crate::presence::PresenceEvent::Reachable {
+            phone_id: "p".into(), address: "192.168.1.2".into(), addresses: vec![], version: "5.1.4".into(),
+        }]);
+        assert!(matches!(&updates[..], [PresenceUpdate::Reachable { phone_id, .. }] if phone_id == "p"));
+        assert_eq!(link.shared.conn().resolution, Some(Resolution { phone_version: "5.1.4".into(), ..original }));
+    }
 
     #[test]
     fn a_delayed_check_cannot_change_a_repaired_phones_capability() {

@@ -197,6 +197,22 @@ impl Shared {
         }
     }
 
+    pub fn accept_recovery(&self, pid: Option<&str>, res: &Resolution) {
+        if res.status != PhoneStatus::Ready { return; }
+        let save = self.conn().took_start_check(pid, res.clone());
+        self.changed(save);
+    }
+
+    pub fn presence_version(&self, pid: &str, version: &str) {
+        let mut c = self.conn();
+        if c.selected_id.as_deref() != Some(pid) { return; }
+        let Some(res) = c.resolution.as_mut() else { return };
+        if res.phone_version == version { return; }
+        res.phone_version = version.to_string();
+        drop(c);
+        self.changed(false);
+    }
+
     pub fn adopt_route(&self, pid: Option<&str>, route: &RouteSpec) -> Option<String> {
         let format = self.format();
         // The old forward goes first, so the same cable back gets a fresh one rather than the one adb dropped
@@ -427,6 +443,29 @@ mod tests {
             res.clone()
         }), res);
         assert_eq!(calls.into_inner().unwrap(), vec![("id-a".to_string(), RoutePreference::Wifi)]);
+    }
+
+    #[test]
+    fn accepted_recovery_stores_the_version_and_invalidates_older_checks() {
+        let (shared, host) = with_phone(Arc::new(FakeTunnels::default()));
+        let check = shared.conn().check_status(0.0).unwrap();
+        let res = Resolution { phone_version: "5.1.4".into(), streaming: true, ..ready(wifi()) };
+        assert_eq!(shared.recovery_check(None, &|_, _| res.clone()), res);
+        assert!(shared.conn().resolution.is_none(), "the stream flow has not accepted the probe yet");
+        shared.accept_recovery(Some("id-a"), &res);
+        assert_eq!(shared.conn().resolution, Some(res.clone()));
+        shared.conn().on_resolved(check.check_id, "id-a", ready(usb()));
+        assert_eq!(shared.conn().resolution, Some(res));
+        assert_eq!(host.take_posted(), vec![(POST_CHANGED.into(), json!({"save": true}))]);
+    }
+
+    #[test]
+    fn recovery_for_another_phone_cannot_replace_the_selected_phones_version() {
+        let (shared, _host) = with_phone(Arc::new(FakeTunnels::default()));
+        let original = Resolution { phone_version: "5.1.3".into(), ..ready(wifi()) };
+        shared.conn().apply_resolution(original.clone());
+        shared.accept_recovery(Some("id-b"), &Resolution { phone_version: "5.1.4".into(), ..ready(usb()) });
+        assert_eq!(shared.conn().resolution, Some(original));
     }
 
     #[test]

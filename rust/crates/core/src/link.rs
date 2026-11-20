@@ -206,6 +206,8 @@ pub trait Link: Send + Sync {
     fn recovery_check(&self, _source_id: Option<&str>) -> Resolution {
         Resolution::new(PhoneStatus::Unreachable)
     }
+    /// Stores a ready recovery result after the stream flow accepts its session and generation.
+    fn accept_recovery(&self, _source_id: Option<&str>, _res: &Resolution) {}
     /// Moves the running stream onto a route recovery_check found; the new video URL, or None. Blocking.
     fn adopt_route(&self, _source_id: Option<&str>, _route: &RouteSpec) -> Option<String> {
         None
