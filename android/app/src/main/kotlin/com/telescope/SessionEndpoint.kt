@@ -236,33 +236,42 @@ object SessionEndpoint {
 // (Android refusing the camera, say), before the computer's first poll; without this the computer never sees busy and
 // waits out its whole timeout instead of saying the camera stopped before it finished starting.
 open class StartWindow(private val clock: () -> Long) {
+    private data class QueuedStart(
+        val owner: String?,
+        val onAbort: (() -> Unit)?,
+    )
+
     @Volatile private var until = 0L
     private var issued = 0L
     // Starts accepted and not stopped yet, by ticket: whose each one is (null when nobody is named)
-    private val queued = mutableMapOf<Long, String?>()
+    private val queued = mutableMapOf<Long, QueuedStart>()
     private val cancelled = mutableSetOf<Long>()
 
     // The ticket goes to the service with the start, so abort() can tell it which starts were stopped before they ran.
     @Synchronized
-    fun begin(owner: String? = null): Long {
+    fun begin(owner: String? = null, onAbort: (() -> Unit)? = null): Long {
         val now = clock()
         if (now >= until) queued.clear()  // the window had closed: those starts are long past
         if (cancelled.size > MAX_REMEMBERED) cancelled.removeAll { it <= issued - MAX_REMEMBERED }
         until = now + PENDING_MS
-        queued[++issued] = owner
+        queued[++issued] = QueuedStart(owner, onAbort)
         return issued
     }
 
     // A stop arrived while a start was still queued: the starts it may cancel are cancelled, and the window closes unless
     // another computer's start is still waiting in it. A stop from a known computer leaves a start queued for another alone.
-    @Synchronized
     fun abort(by: String? = null): Boolean {
-        if (!open()) return false
-        val mine = queued.filterValues { owner -> owner == null || by == null || owner == by }.keys
-        cancelled.addAll(mine)
-        queued.keys.removeAll(mine)
-        if (queued.isEmpty()) until = 0L
-        return mine.isNotEmpty()
+        val callbacks: List<() -> Unit>
+        synchronized(this) {
+            if (!open()) return false
+            val mine = queued.filterValues { entry -> entry.owner == null || by == null || entry.owner == by }.keys.toList()
+            if (mine.isEmpty()) return false
+            cancelled.addAll(mine)
+            callbacks = mine.mapNotNull { queued.remove(it)?.onAbort }
+            if (queued.isEmpty()) until = 0L
+        }
+        callbacks.forEach { it() }
+        return true
     }
 
     @Synchronized

@@ -118,7 +118,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Camera controls and preview
 
-<!-- due: android/app/src/main/kotlin/com/telescope/CameraCatalog.kt android/app/src/main/kotlin/com/telescope/LensLabel.kt android/app/src/main/kotlin/com/telescope/PreviewActivity.kt android/app/src/main/kotlin/com/telescope/PreviewTransform.kt rust/crates/effects/src/transforms.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/CameraCatalog.kt android/app/src/main/kotlin/com/telescope/LensLabel.kt android/app/src/main/kotlin/com/telescope/PreviewActivity.kt android/app/src/main/kotlin/com/telescope/PreviewTransform.kt android/app/src/main/kotlin/com/telescope/CameraProbeActivity.kt android/app/src/main/kotlin/com/telescope/CameraProbeCache.kt android/app/src/main/kotlin/com/telescope/CameraProbeModel.kt android/app/src/main/kotlin/com/telescope/CameraProbeRunner.kt rust/crates/effects/src/transforms.rs -->
 
 - [ ] Phone in the foreground: the desktop's Start and Stop control the camera, also with the screen dark. A lens, size and OIS setting picked on the desktop return after Stop and Start and the phone's Stop streaming stops the stream.
 - [ ] Zoom on the Auto lens: the lens marks on the zoom slider switch to the telephoto (the dot turns lavender) and panning out of its view falls back (red dot). Sliding the zoom back and forth quickly on the telephoto never turns the dot red. Scrolling the preview zooms around the mouse, dragging pans and the lens outlines show and fade.
@@ -158,7 +158,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Starting, stopping and the camera button
 
-<!-- due: android/app/src/main/kotlin/com/telescope/BlackScreen.kt android/app/src/main/kotlin/com/telescope/BlackScreenState.kt rust/crates/outputs/src/wait_screen*.rs rust/crates/outputs/ui/wait_screen.slint rust/crates/system/src/startup.rs rust/crates/system/ui/startup.slint rust/crates/system/src/single_instance.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/BlackScreen.kt android/app/src/main/kotlin/com/telescope/BlackScreenState.kt rust/crates/outputs/src/wait_screen*.rs rust/crates/outputs/ui/wait_screen.slint rust/crates/system/src/startup.rs rust/crates/system/ui/startup.slint rust/crates/system/src/single_instance.rs android/app/src/main/kotlin/com/telescope/CameraOwnership.kt -->
 
 - [ ] Start set to "When the phone is ready": opening the phone app (or plugging it in) starts the stream, Stop keeps it stopped until the phone leaves and comes back and closing the window keeps it in the tray.
 - [ ] Start set to "When an app opens the camera" and Stop to "When no app uses the camera, if it started the stream" (Linux and Windows): opening the camera in OBS or a call starts the stream and closing it stops it 15 s later.

@@ -732,12 +732,27 @@ class CameraSessionController(
         handler?.post { if (!stopped) block() }
     }
 
-    // Tears down camera/session/reader on the camera thread, after any frame it is copying; caller handles service-level cleanup
-    fun stop() {
+    // Tears down camera/session/reader on the camera thread, after any frame it is copying; caller handles service-level cleanup.
+    // onStopped runs once teardown has closed the camera device (on the camera thread when posted, or inline if no thread is active).
+    fun stop(onStopped: (() -> Unit)? = null) {
         stopped = true
         unwatchAvailability()
         val h = handler
-        if (h == null || !h.post { teardown(); handlerThread?.quitSafely() }) teardown()
+        val posted = h != null && h.post {
+            try {
+                teardown()
+            } finally {
+                runCatching { handlerThread?.quitSafely() }
+                onStopped?.invoke()
+            }
+        }
+        if (!posted) {
+            try {
+                teardown()
+            } finally {
+                onStopped?.invoke()
+            }
+        }
     }
 
     private fun teardown() {
