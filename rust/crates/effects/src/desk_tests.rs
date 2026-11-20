@@ -289,6 +289,20 @@ fn the_shortcuts_switch_mark_and_pick_the_writing_and_shape() {
 }
 
 #[test]
+fn mask_geometry_changes_with_the_sheet_warp() {
+    let mut r = Rig::new(true);
+    r.config(json!({"on": true, "corners": corners_json()}));
+    let key = |p: &mut DeskPlugin| {
+        let Some(FrameStep::Either(_, step)) = p.frame_step() else { panic!("a step") };
+        step.geometry_key()
+    };
+    let first = key(&mut r.plugin);
+    assert_eq!(key(&mut r.plugin), first);
+    r.config(json!({"on": true, "corners": corners_json(), "shape": "square"}));
+    assert_ne!(key(&mut r.plugin), first);
+}
+
+#[test]
 fn the_warp_is_worked_out_once_until_something_changes() {
     let mut r = Rig::new(true);
     assert!(r.plugin.frame_step().is_none());

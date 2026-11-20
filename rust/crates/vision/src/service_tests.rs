@@ -859,7 +859,12 @@ impl Backend for Breakers {
 }
 
 fn age_newest(v: &Vision, by: f64) {
-    v.stream("a").newest.lock().unwrap().mask.as_mut().unwrap().at -= by;
+    let sv = v.stream("a");
+    let mut newest = sv.newest.lock().unwrap();
+    newest.mask.as_mut().unwrap().at -= by;
+    if let Some(mask) = newest.background.as_mut() {
+        mask.at -= by;
+    }
 }
 
 #[test]
@@ -970,4 +975,139 @@ fn a_first_mask_that_doesnt_come_doesnt_hold_the_stream_up_for_long() {
     let began = Instant::now();
     assert!(v.newest_mask("a", 1, 256, 144, Box::new(|| None)).is_none());
     assert!(began.elapsed() < Duration::from_millis(100), "{:?}", began.elapsed());
+}
+
+#[test]
+fn background_keeps_a_late_mask_while_privacy_still_rejects_it() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let geometry = Some(Geometry::default());
+    let comfort = MaskView { geometry, keep_late: true, ..Default::default() };
+    let first = v.newest_normal_for("a", true, 1, 256, 144, Box::new(|| Some(someone_at(50))), v.view_epoch(), comfort).unwrap();
+    age_newest(&v, MASK_MAX_AGE_S * 2.0);
+    let held = v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), comfort).unwrap();
+    assert!(Arc::ptr_eq(&first, &held), "Background keeps the last good cutout without holding the picture");
+    let privacy = MaskView { keep_late: false, ..comfort };
+    assert!(v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), privacy).is_none());
+}
+
+#[test]
+fn a_moving_crop_remaps_the_held_mask_and_queues_the_cropped_picture() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let old = MaskView { geometry: Some(Geometry::default()), keep_late: true, ..Default::default() };
+    v.newest_normal_for("a", true, 1, 256, 144, Box::new(|| Some(someone_at(50))), v.view_epoch(), old).unwrap();
+    let new = MaskView { geometry: Some(Geometry { zoom: 2.0, ..Default::default() }), ..old };
+    let (started, seen) = mpsc::channel();
+    let (release, finish) = mpsc::channel();
+    let held = v.newest_normal_for("a", false, 2, 256, 144, Box::new(move || {
+        started.send(()).unwrap();
+        finish.recv_timeout(Duration::from_secs(5)).unwrap();
+        Some(someone_at(150))
+    }), v.view_epoch(), new).unwrap();
+    seen.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(held[80 * 256 + 40] > 128, "the old silhouette moved with the current crop");
+    assert_eq!(held[80 * 256 + 140], 0, "the silhouette was not stretched over its old coordinates");
+    let cached = v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), new).unwrap();
+    assert!(Arc::ptr_eq(&held, &cached), "an unchanged crop reuses its remapping");
+    release.send(()).unwrap();
+    wait(|| v.stream("a").newest.lock().unwrap().done >= 2);
+    let fresh = v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), new).unwrap();
+    assert_eq!(fresh[80 * 256 + 40], 0, "a new crop does not blend in a silhouette from the old coordinates");
+    assert!(fresh[80 * 256 + 180] > 128, "the newly cropped picture replaces the held mask");
+}
+
+#[test]
+fn remapping_a_mask_lines_up_with_pixels_cropped_from_the_same_source() {
+    use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
+    use telescope_core::host::View;
+    struct Context;
+    impl FrameContext for Context {
+        fn source_id(&self) -> &str { "a" }
+        fn person_mask(&self, _: &Frame) -> Option<Arc<Vec<u8>>> { None }
+        fn colour_preview(&self, frame: &Frame) -> Frame { frame.clone() }
+    }
+    let (w, h) = (32, 24);
+    let mask: Vec<u8> = (0..h).flat_map(|y| (0..w).map(move |x| ((x + y) * 2) as u8)).collect();
+    let source = Frame::new(w as u32, h as u32, PixelFormat::Rgba, mask.iter().flat_map(|&v| [v, v, v, 255]).collect());
+    for view in [View { zoom: 2.0, pan_x: -1.0, ..Default::default() }, View { zoom: 2.0, pan_x: 1.0, ..Default::default() },
+                 View { zoom: 2.0, pan_y: 0.5, rotation: Some(90), flip_h: true, ..Default::default() }] {
+        let mut picture = source.clone();
+        for step in telescope_core::view_step::steps(&view) {
+            let FrameStep::Cpu(mut step) = step else { panic!("view steps run on the CPU") };
+            step.process(&mut picture, &Context);
+        }
+        let remapped = remap_mask(&mask, w, h, picture.width as usize, picture.height as usize, &Geometry::default(), &picture.geometry.unwrap());
+        for (&mask, pixel) in remapped.iter().zip(picture.data.as_chunks::<4>().0) {
+            assert!(mask.abs_diff(pixel[0]) <= 1, "{view:?}: mask {mask}, picture {}", pixel[0]);
+        }
+    }
+}
+
+#[test]
+fn background_remaps_across_view_epochs_without_clearing_other_streams() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let old = MaskView { geometry: Some(Geometry::default()), keep_late: true, ..Default::default() };
+    for key in ["a", "b"] {
+        v.newest_normal_for(key, true, 1, 256, 144, Box::new(|| Some(someone_at(20))), v.view_epoch(), old).unwrap();
+    }
+    v.drop_masks();
+    let epoch = v.view_epoch();
+    let new = MaskView { geometry: Some(Geometry { flip_h: true, rotation: Some(90), ..Default::default() }), ..old };
+    let turned = v.newest_normal_for("a", false, 2, 144, 256, Box::new(|| None), epoch, new).unwrap();
+    let expected = remap_mask(&v.stream("a").newest.lock().unwrap().background.as_ref().unwrap().mask,
+        256, 144, 144, 256, &old.geometry.unwrap(), &new.geometry.unwrap());
+    assert_eq!(*turned, expected);
+    assert!(turned.iter().any(|&p| p > 128));
+    assert!(v.newest_normal_for("a", false, 2, 144, 256, Box::new(|| None), epoch, MaskView { keep_late: false, ..new }).is_none());
+    let unchanged = v.newest_normal_for("b", false, 2, 256, 144, Box::new(|| None), epoch, old).unwrap();
+    assert!(unchanged[80 * 256 + 30] > 128);
+}
+
+#[test]
+fn background_keeps_an_inflight_mask_that_finishes_after_a_view_turn() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let old = MaskView { geometry: Some(Geometry::default()), keep_late: true, ..Default::default() };
+    let (started, seen) = mpsc::channel();
+    let (release, finish) = mpsc::channel();
+    assert!(v.newest_normal_for("a", false, 1, 256, 144, Box::new(move || {
+        started.send(()).unwrap();
+        finish.recv_timeout(Duration::from_secs(5)).unwrap();
+        Some(someone_at(20))
+    }), v.view_epoch(), old).is_none());
+    seen.recv_timeout(Duration::from_secs(5)).unwrap();
+    v.drop_masks();
+    release.send(()).unwrap();
+    wait(|| v.stream("a").newest.lock().unwrap().done >= 1);
+    let new = MaskView { geometry: Some(Geometry { flip_h: true, ..Default::default() }), ..old };
+    let held = v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), new).unwrap();
+    assert!(held[80 * 256 + 200] > 128);
+    assert!(v.stream("a").newest.lock().unwrap().mask.is_none());
+}
+
+#[test]
+fn background_rejects_masks_from_another_lens_aspect_or_warp() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let old = MaskView { geometry: Some(Geometry::default()), keep_late: true,
+        space: MaskSpace { source_size: (256, 144), source_epoch: 1, warp: None } };
+    v.newest_normal_for("a", true, 1, 256, 144, Box::new(|| Some(someone_at(20))), v.view_epoch(), old).unwrap();
+    for space in [MaskSpace { source_epoch: 2, ..old.space }, MaskSpace { source_size: (256, 192), ..old.space },
+                  MaskSpace { warp: Some(42), ..old.space }] {
+        assert!(v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), MaskView { space, ..old }).is_none());
+    }
+    assert!(v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), old).is_some());
+}
+
+#[test]
+fn shrinking_a_stretched_axis_keeps_the_new_padding_empty() {
+    for (sx, sy) in [(0.5, 1.0), (1.0, 0.5), (0.5, 0.5)] {
+        let old = Geometry::default();
+        let new = Geometry { stretch_x: sx, stretch_y: sy, ..Default::default() };
+        let mapped = remap_mask(&[255; 16 * 16], 16, 16, 16, 16, &old, &new);
+        for y in 0..16 {
+            for x in 0..16 {
+                let (u, v) = telescope_core::view::unstretch((x as f64 + 0.5) / 16.0, (y as f64 + 0.5) / 16.0, sx, sy);
+                let expected = if (0.0..=1.0).contains(&u) && (0.0..=1.0).contains(&v) { 255 } else { 0 };
+                assert_eq!(mapped[y * 16 + x], expected, "stretch ({sx}, {sy}) at ({x}, {y})");
+            }
+        }
+    }
 }

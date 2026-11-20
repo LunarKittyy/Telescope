@@ -59,7 +59,7 @@ An update installed this way runs from the next time Telescope starts and the re
 
 ### When a plugin crashes
 
-A plugin that crashes is switched off until the next start and a banner names it. The card, header button, windows and effect on the picture go away and its tile shows "Stopped after an error". The next start tries it again. **Copy diagnostics** lists it with the error. Devices and connection, Advanced settings and Updates go on running because Telescope needs them. If the plugin was hiding part of the picture (Background or Privacy blur, for example) Telescope closes instead. That way nothing that should be hidden shows.
+A plugin that crashes is switched off until the next start and a banner names it. The card, header button, windows and effect on the picture go away and its tile shows "Stopped after an error". The next start tries it again. **Copy diagnostics** lists it with the error. Devices and connection, Advanced settings and Updates go on running because Telescope needs them. If the plugin was hiding part of the picture (Privacy blur or the wait screen, for example) Telescope closes instead. That way nothing that should be hidden shows.
 
 ### When an added plugin won't switch on
 

@@ -74,6 +74,16 @@ impl CpuStep for DeskStep {
     fn card_block_chroma(&self) -> bool {
         true
     }
+
+    fn geometry_key(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        (self.sheet.corners.map(|p| p.map(f64::to_bits)), &self.sheet.shape, self.sheet.stretch).hash(&mut hash);
+        let g = self.sheet.geometry;
+        [g.zoom, g.pan_x, g.pan_y, g.stretch_x, g.stretch_y, g.distortion].map(f64::to_bits).hash(&mut hash);
+        (g.flip_h, g.flip_v, g.rotation).hash(&mut hash);
+        hash.finish()
+    }
 }
 
 /// The card's uniforms (desk.wgsl's Params) for a warp.

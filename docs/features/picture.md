@@ -21,6 +21,8 @@ Optional and it shares the vision download. **Blur** blurs everything behind you
 
 **High quality** swaps the cutout for a slower model (Robust Video Matting) that follows hair and edges much better and holds still where nothing moves. It's off by default because it uses more of the processor, about 40% of one core on a 1080p stream. It has a separate download, about 25 MB on Linux and 20 MB on Windows, which the card offers when you switch it on. Until that's there, or if the model doesn't load, the normal cutout is used and the picture never waits for it. **Remove download** under People on the Plugins tab deletes it as well.
 
+The last cutout is still used on the current picture while a late one is waiting, including while settings change. Auto framing crops and scales that cutout with the picture while a fresh one is made. Background doesn't turn the picture black while it waits. It is a comfort effect and doesn't protect anything private or stop automatic photos from Phototrap or Stargazer.
+
 ## Expose for my face
 
 Optional and it shares the vision download too. It moves the phone's metering point (the same one **Tap a point** on the Camera card uses) to your face, which helps with a bright window behind you. It moves the point slowly and leaves it alone for small head moves, since every move makes the phone meter and focus again. When you leave the picture the point is left where your face was instead of chasing the empty room.

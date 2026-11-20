@@ -545,11 +545,26 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, wanted: Wanted::default(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default() }
+    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, wanted: Wanted::default(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default(), card_mask: None }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
     Gray { w, h, data: (0..w * h).map(|i| if (i % w + seed * 5) % 41 < 20 { 255 } else { (i * 7 % 256) as u8 }).collect() }
+}
+
+#[test]
+fn a_late_mask_is_applied_to_the_current_picture_without_freezing_or_blacking_it() {
+    let (w, h) = (64, 36);
+    let held = Held(Arc::new(half_mask(w, h).data.clone()).into());
+    let mut step = step_in("picture", 4, 0);
+    step.settings.picture = Some(Arc::new(Rgb::filled(w, h, [20, 30, 200])));
+    for colour in [[200, 30, 40], [30, 180, 70]] {
+        let mut frame = frame_of(&Rgb::filled(w, h, colour));
+        step.process(&mut frame, &held);
+        let out = Rgb::from_frame(&frame).unwrap();
+        assert_eq!(&out.data[(18 * w + 8) * 3..][..3], &colour, "the held mask keeps the current person");
+        assert_eq!(&out.data[(18 * w + 56) * 3..][..3], &[20, 30, 200], "the held mask keeps the background effect");
+    }
 }
 
 #[test]
@@ -1268,23 +1283,42 @@ fn the_declared_settings_round_trip() {
 }
 
 #[test]
-fn the_host_is_told_when_the_room_starts_and_stops_being_hidden() {
+fn background_never_blocks_unattended_phone_photos() {
     let mut rig = Rig::new(None, "ready");
     assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)), "off hides nothing");
     rig.set_mode("blur");
-    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     let told = rig.host.hiding.len();
     rig.set_mode("picture");
-    assert_eq!(rig.host.hiding.len(), told, "still hiding: not said again");
+    assert_eq!(rig.host.hiding.len(), told, "still a comfort effect: not said again");
     rig.set_mode("off");
     assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
 }
 
 #[test]
-fn shutdown_stops_hiding_so_the_host_isnt_left_thinking_the_picture_is_covered() {
+fn background_settings_refreshes_keep_frames_non_black_without_a_new_mask() {
+    let mut rig = Rig::new(Some(half_mask(64, 36)), vision::READY);
+    rig.set_mode("blur");
+    let source = Rgb::filled(64, 36, [80, 120, 180]);
+    for (callback, value) in [("blur-moved", json!(8)), ("edges-moved", json!(7)), ("cut-in-moved", json!(2)), ("high-quality-toggled", json!(true)), ("mode-picked", json!(2))] {
+        rig.ui(callback, vec![value]);
+        let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = rig.plugin.frame_step() else { panic!("Background step") };
+        assert!(!step.hides(), "{callback}: Background must not trigger a pipeline blackout");
+        for context in [&rig.ctx, &Ctx(None, Default::default())] {
+            let mut frame = frame_of(&source);
+            step.process(&mut frame, context);
+            let rgb = Rgb::from_frame(&frame).unwrap();
+            assert!(rgb.data.iter().all(|&v| v > 0), "{callback}: the current frame remains visible");
+        }
+        assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+    }
+}
+
+#[test]
+fn shutdown_does_not_change_the_background_capture_status() {
     let mut rig = Rig::new(None, "ready");
     rig.set_mode("blur");
-    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     let told = rig.host.hiding.len();
@@ -1302,7 +1336,7 @@ fn the_host_hears_again_when_the_panels_move_to_a_camera_with_the_same_settings(
     rig.plugin.set_config(&cfg).unwrap();
     rig.event(Event::PhonesChanged { count: 1 });
     assert_eq!(rig.host.hiding.len(), told + 1, "the new camera's settings are told");
-    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     // A camera shown again with nothing else changing is told too
     rig.event(Event::SourceShown { source_id: "b".into() });
     assert_eq!(rig.host.hiding.len(), told + 2);
@@ -1370,6 +1404,81 @@ fn nobody_in_the_mask_or_no_mask_yet_is_a_cut_out_with_nothing_in_it() {
     let mut unknown = frame.clone();
     cutting(true, "blur").process(&mut unknown, &Ctx(None, Default::default()));
     assert!(unknown.alpha().expect("a cut-out").data.iter().all(|&a| a == 0));
+}
+
+#[test]
+fn missing_or_empty_background_coverage_keeps_the_rendered_backdrop_on_opaque_outputs() {
+    let source = stripes(160, 90);
+    for frame in [frame_of(&source), i420_of(&source)] {
+        for mode in ["blur", "picture"] {
+            for missing in [false, true] {
+                let ctx = Ctx((!missing).then(|| Gray::filled(160, 90, 0)), Default::default());
+                let picture = Some(Arc::new(Rgb::filled(20, 10, [40, 170, 220])));
+                let (mut cut, mut opaque) = (frame.clone(), frame.clone());
+                let mut with = cutting(true, mode);
+                with.settings.picture = picture.clone();
+                with.process(&mut cut, &ctx);
+                let mut without = cutting(false, mode);
+                without.settings.picture = picture;
+                without.process(&mut opaque, &ctx);
+                assert!(cut.alpha().unwrap().data.iter().all(|&a| a == 0), "transparent outputs retain the empty cutout");
+                let flat = cut.flattened([0, 0, 0]);
+                assert_eq!(flat.data, opaque.data, "{:?}, {mode}, missing {missing}", frame.format);
+                assert!(flat.alpha().is_none());
+                assert!(flat.data.iter().any(|&v| v > 16));
+            }
+        }
+    }
+}
+
+#[test]
+fn card_textures_and_cutout_share_one_mask_snapshot_even_if_inference_finishes_between_them() {
+    struct Changing {
+        calls: std::cell::Cell<u32>,
+        first_missing: bool,
+    }
+    impl FrameContext for Changing {
+        fn source_id(&self) -> &str { "phone" }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> { None }
+        fn background_mask_at(&self, _frame: &Frame, w: usize, h: usize, _high: bool) -> Option<Arc<Vec<u8>>> {
+            let call = self.calls.replace(self.calls.get() + 1);
+            if call == 0 && self.first_missing {
+                return None;
+            }
+            Some(Arc::new((0..w * h).map(|i| if (i % w < w / 2) == (call == 0) { 255 } else { 0 }).collect()))
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame { frame.clone() }
+    }
+    let source = stripes(160, 90);
+    for frame in [frame_of(&source), i420_of(&source)] {
+        for first_missing in [false, true] {
+            let ctx = Changing { calls: Default::default(), first_missing };
+            let mut step = cutting(true, "blur");
+            step.settings.edges = 0;
+            let textures = step.card_textures(&frame, &ctx).unwrap();
+            let alpha = step.card_cut_out(&frame, &ctx).unwrap();
+            assert_eq!(ctx.calls.get(), 1, "one inference snapshot for both requests");
+            if first_missing {
+                assert!(textures.is_empty());
+                assert!(alpha.data.iter().all(|&a| a == 0));
+                let mut rendered = frame.clone();
+                rendered.set_alpha(alpha);
+                assert_eq!(rendered.flattened([0, 0, 0]).data, frame.data);
+            } else {
+                let cutout = textures.iter().find(|(name, _)| name == BLUR_CUTOUT).unwrap();
+                assert_eq!(cutout.1.data[0], 255);
+                assert_eq!(alpha.data[0], 255);
+                assert_eq!(*alpha.data.last().unwrap(), 0);
+            }
+            let mut next = frame.clone();
+            next.number += 1;
+            step.card_textures(&next, &ctx);
+            let alpha = step.card_cut_out(&next, &ctx).unwrap();
+            assert_eq!(ctx.calls.get(), 2, "the next frame receives a fresh snapshot");
+            assert_eq!(alpha.data[0], 0);
+            assert_eq!(*alpha.data.last().unwrap(), 255);
+        }
+    }
 }
 
 #[test]
@@ -1469,7 +1578,7 @@ fn wanting_a_cut_out_switches_blur_on_and_the_last_stream_letting_go_puts_it_bac
     assert!(matches!(rig.plugin.frame_step(), Some(FrameStep::Either(..))));
     assert_eq!(rig.shown("mode"), json!(1));
     assert!(rig.host.calls.iter().filter(|c| *c == "refresh_frame_step").count() > told, "the stream is given the step");
-    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
     // it isn't what was chosen, so it isn't what is saved, and a second stream changes nothing
     assert_eq!(rig.plugin.get_config()["mode"], json!("off"));
     rig.event(Event::CutOutWanted { source_id: "b".into(), on: true });

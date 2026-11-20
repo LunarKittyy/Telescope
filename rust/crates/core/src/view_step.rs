@@ -9,7 +9,7 @@
 use crate::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat};
 use crate::host::View;
 use crate::image::{frame_rgb, keep_bytes, over_rows, resample_linear, rgb_to_420, rint, spare_bytes, with_spares, Tap};
-use crate::view::{window, Lens};
+use crate::view::{pan_for, window, Geometry, Lens};
 use std::sync::{Arc, Mutex};
 
 /// Quarter turns clockwise in a rotation of degrees (0 for none).
@@ -497,10 +497,57 @@ fn passes(view: &View, done: u32) -> Vec<Pass> {
     passes
 }
 
+struct WithGeometry {
+    step: Option<Box<dyn CpuStep>>,
+    geometry: Geometry,
+    source_crop: (f64, f64, f64),
+}
+
+impl CpuStep for WithGeometry {
+    fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
+        if let Some(step) = &mut self.step {
+            step.process(frame, ctx);
+        }
+        frame.geometry = Some(Box::new(self.geometry));
+    }
+
+    fn geometry_key(&self) -> u64 {
+        let inner = self.step.as_ref().map_or(0, |s| s.geometry_key());
+        if self.source_crop == (1.0, 0.0, 0.0) { inner } else { key(&("source crop", self.source_crop, inner)) }
+    }
+}
+
+fn with_geometry(mut steps: Vec<FrameStep>, view: &View, source_crop: (f64, f64, f64)) -> Vec<FrameStep> {
+    let step = if let Some(last) = steps.pop() {
+        let FrameStep::Cpu(step) = last else { unreachable!("view steps run on the CPU") };
+        Some(step)
+    } else if source_crop != (1.0, 0.0, 0.0) {
+        None
+    } else {
+        return steps;
+    };
+    let mut geometry = Geometry::from(view);
+    if source_crop != (1.0, 0.0, 0.0) {
+        let (zoom, pan_x, pan_y) = source_crop;
+        let ((sx, sw), (sy, sh)) = (window(zoom, pan_x), window(zoom, pan_y));
+        let ((dx, dw), (dy, dh)) = (window(geometry.zoom, geometry.pan_x), window(geometry.zoom, geometry.pan_y));
+        geometry.zoom = zoom.max(1.0) * geometry.zoom.max(1.0);
+        geometry.pan_x = pan_for(sx + sw * (dx + dw / 2.0), geometry.zoom);
+        geometry.pan_y = pan_for(sy + sh * (dy + dh / 2.0), geometry.zoom);
+    }
+    steps.push(FrameStep::Cpu(Box::new(WithGeometry { step, geometry, source_crop })));
+    steps
+}
+
 /// The frame steps of a view, in order, all on the CPU (a busy card, OBS encoding on it, would hold up every frame for a shader, and
 /// a shader step can't move to the CPU): a quarter turn when the picture changes shape, then either a plain copy for a view that only
 /// mirrors, flips or half turns, or one resampling for the crop and another for the stretch. No steps for a view that changes nothing.
 pub fn steps(view: &View) -> Vec<FrameStep> {
+    steps_in(view, (1.0, 0.0, 0.0))
+}
+
+/// View steps for a picture already cropped by the phone, with geometry in the full source's coordinates.
+pub fn steps_in(view: &View, source_crop: (f64, f64, f64)) -> Vec<FrameStep> {
     let q = quarters(view.rotation);
     let mut out: Vec<FrameStep> = Vec::new();
     // Before any turn, flip or crop: the lens bent the picture as the phone sent it
@@ -519,13 +566,13 @@ pub fn steps(view: &View) -> Vec<FrameStep> {
         // A half turn is both flips, and a second flip undoes the first
         let half = q == 2;
         out.push(FrameStep::Cpu(Box::new(Flip { horizontal: view.flip_h != half, vertical: view.flip_v != half })));
-        return out;
+        return with_geometry(out, view, source_crop);
     }
     let passes = passes(view, done);
     if !passes.is_empty() {
         out.push(FrameStep::Cpu(Box::new(Resample::new(passes))));
     }
-    out
+    with_geometry(out, view, source_crop)
 }
 
 #[cfg(test)]
@@ -577,12 +624,79 @@ mod tests {
         }
     }
 
-    fn through(view: &View, mut frame: Frame) -> Frame {
-        for step in steps(view) {
+    fn through(view: &View, frame: Frame) -> Frame {
+        through_in(view, (1.0, 0.0, 0.0), frame)
+    }
+
+    fn through_in(view: &View, source_crop: (f64, f64, f64), mut frame: Frame) -> Frame {
+        for step in steps_in(view, source_crop) {
             let FrameStep::Cpu(mut cpu) = step else { panic!("a CPU step") };
             cpu.process(&mut frame, &NoCtx);
         }
         frame
+    }
+
+    #[test]
+    fn phone_and_desktop_crops_share_the_same_full_source_coordinates() {
+        let view = View { zoom: 4.0, pan_x: 0.5, pan_y: -0.25, flip_h: true, rotation: Some(90), stretch_y: 1.2, ..View::default() };
+        let whole = through_in(&view, (1.0, 0.0, 0.0), rgba(32, 24)).geometry.unwrap();
+        for (desktop_zoom, phone_crop) in [(2.0, (2.0, 0.5, -0.25)), (1.0, (4.0, 0.5, -0.25))] {
+            let split = through_in(&View { zoom: desktop_zoom, ..view.clone() }, phone_crop, rgba(32, 24)).geometry.unwrap();
+            for (u, v) in [(0.0, 0.0), (0.3, 0.7), (1.0, 1.0)] {
+                let (want_x, want_y) = crate::view::shown_to_view(u, v, &whole);
+                let (got_x, got_y) = crate::view::shown_to_view(u, v, &split);
+                assert!((want_x - got_x).abs() < 1e-9 && (want_y - got_y).abs() < 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    fn a_phone_crop_alone_records_geometry_without_resampling_the_frame() {
+        let source = rgba(8, 6);
+        let view = View::default();
+        let framed = through_in(&view, (2.0, 0.5, -0.25), source.clone());
+        assert_eq!(framed.data, source.data);
+        assert_eq!(framed.geometry, Some(Box::new(Geometry { zoom: 2.0, pan_x: 0.5, pan_y: -0.25, ..Default::default() })));
+        let key = |source_crop| {
+            let mut steps = steps_in(&view, source_crop);
+            assert_eq!(steps.len(), 1);
+            let FrameStep::Cpu(step) = steps.pop().unwrap() else { panic!("a CPU step") };
+            step.geometry_key()
+        };
+        assert_ne!(key((2.0, 0.5, -0.25)), key((2.0, 0.6, -0.25)));
+    }
+
+    #[test]
+    fn a_view_records_its_geometry_after_the_pixels_finish_moving() {
+        let view = View { distortion: 0.2, rotation: Some(90), zoom: 2.0, pan_x: 0.5, stretch_y: 1.2, ..View::default() };
+        let mut picture = rgba(8, 6);
+        let all = steps(&view);
+        let last = all.len() - 1;
+        for (i, step) in all.into_iter().enumerate() {
+            let FrameStep::Cpu(mut step) = step else { panic!("a CPU step") };
+            step.process(&mut picture, &NoCtx);
+            assert_eq!(picture.geometry, (i == last).then(|| Box::new(Geometry::from(&view))));
+        }
+        assert_eq!((picture.width, picture.height), (6, 8));
+    }
+
+    #[test]
+    fn the_recorded_geometry_maps_cropped_pixels_back_to_the_source() {
+        let source = Frame::new(32, 24, PixelFormat::Rgba, (0..24).flat_map(|y| (0..32).flat_map(move |x| [((x + y) * 2) as u8, 0, 0, 255])).collect());
+        for view in [View { zoom: 2.0, pan_x: -1.0, ..View::default() }, View { zoom: 2.0, pan_x: 1.0, ..View::default() },
+                     View { flip_h: true, ..View::default() }, View { zoom: 2.0, pan_y: 0.5, rotation: Some(90), ..View::default() }] {
+            let picture = through(&view, source.clone());
+            let geometry = picture.geometry.unwrap();
+            for y in 0..picture.height {
+                for x in 0..picture.width {
+                    let (u, v) = crate::view::shown_to_view((x as f64 + 0.5) / picture.width as f64, (y as f64 + 0.5) / picture.height as f64, &geometry);
+                    let expected = ((u * 32.0 - 0.5).clamp(0.0, 31.0) + (v * 24.0 - 0.5).clamp(0.0, 23.0)) * 2.0;
+                    let got = picture.data[((y * picture.width + x) * 4) as usize] as f64;
+                    assert!((got - expected).abs() <= 1.0, "{view:?} at {x},{y}: {got} != {expected}");
+                }
+            }
+        }
+        assert_eq!(through(&View::default(), rgba(8, 6)).geometry, None);
     }
 
     #[test]

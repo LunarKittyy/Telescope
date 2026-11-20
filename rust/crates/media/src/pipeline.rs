@@ -259,6 +259,9 @@ impl Pipeline {
     }
 
     fn run(&mut self, mut frame: Frame, ctx: &dyn FrameContext, finish: Finish) -> PipelineFrame {
+        if frame.mask_space.source_size == (0, 0) {
+            frame.mask_space.source_size = (frame.width, frame.height);
+        }
         if self.deferred_failed.load(Ordering::SeqCst) {
             self.lost_card("a deferred landing failed");
         }
@@ -302,6 +305,8 @@ impl Pipeline {
             if chain.withheld && self.restores_pixels(i) {
                 continue;
             }
+            let geometry = frame.geometry.clone();
+            let mut mask_space = frame.mask_space;
             let step_began = timing.then(monotonic_ns);
             let down_before = chain.down_ns;
             let either = matches!(self.steps[i].kind, Kind::Either(..)) && !self.steps[i].no_shader && !self.card_lost;
@@ -320,6 +325,27 @@ impl Pipeline {
             }
             frame.number = number;
             frame.capture_ns = capture_ns;
+            if self.steps[i].stage != FrameStage::View {
+                frame.geometry = geometry;
+            }
+            if self.steps[i].stage == FrameStage::Geometry {
+                use std::hash::{Hash, Hasher};
+                let key = match &self.steps[i].kind {
+                    Kind::Cpu(step) | Kind::Either(_, step) => step.geometry_key(),
+                    Kind::Shader(slot) => slot.geometry_key(),
+                };
+                let mut hash = std::collections::hash_map::DefaultHasher::new();
+                (mask_space.warp, frame.width, frame.height, key).hash(&mut hash);
+                if let Some(g) = frame.geometry.as_deref() {
+                    [g.zoom, g.pan_x, g.pan_y, g.stretch_x, g.stretch_y, g.distortion].map(f64::to_bits).hash(&mut hash);
+                    (g.flip_h, g.flip_v, g.rotation).hash(&mut hash);
+                }
+                if key == 0 {
+                    number.hash(&mut hash);
+                }
+                mask_space.warp = Some(hash.finish());
+            }
+            frame.mask_space = mask_space;
         }
         let mut picture = None;
         if matches!(finish, Finish::Card) && !chain.ahead.is_empty() && !ctx.stopped() {
@@ -386,12 +412,16 @@ impl Pipeline {
             let down_began = chain.timing.then(monotonic_ns);
             // The card gives back a new frame, so the cut-out the one in hand carries goes onto it
             let alpha = frame.alpha().cloned();
+            let geometry = frame.geometry.clone();
+            let mask_space = frame.mask_space;
             let landed = self.pool.scope(cap, || gpu.land_until(held, &|| ctx.stopped()).map(|out| std::mem::replace(frame, out).recycle()));
             if let Some(began) = down_began {
                 chain.down_ns += monotonic_ns().saturating_sub(began);
             }
             match landed {
                 Ok(()) => {
+                    frame.geometry = geometry;
+                    frame.mask_space = mask_space;
                     if let Some(alpha) = alpha {
                         frame.set_alpha(alpha);
                     }
@@ -849,6 +879,8 @@ impl Drop for Trial {
 fn neutral((w, h): (u32, u32), format: PixelFormat, stands_for: &Frame) -> Frame {
     let mut out = Frame::dark(w, h, format);
     (out.number, out.time_ns, out.capture_ns) = (stands_for.number, stands_for.time_ns, stands_for.capture_ns);
+    out.geometry = stands_for.geometry.clone();
+    out.mask_space = stands_for.mask_space;
     out
 }
 
@@ -1527,6 +1559,7 @@ pub(crate) mod tests {
         source.set_alpha(Arc::new(Alpha::new(17, 9, vec![128; 17 * 9], false)));
         source.number = 42;
         source.capture_ns = Some(1234);
+        source.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4) };
         let mut eager = card_pipeline(gpu);
         let mut keep = shader(INVERT);
         if let FrameStep::Shader(ref mut shader) = keep.step {
@@ -1542,6 +1575,8 @@ pub(crate) mod tests {
         assert_eq!(costs.down, 1);
         assert_eq!(first.data, expected.data);
         assert_eq!(first.alpha(), expected.alpha());
+        assert_eq!(first.mask_space, source.mask_space);
+        assert_eq!(expected.mask_space, source.mask_space);
         assert!(Arc::ptr_eq(&first.data, &second.data));
         assert_eq!((first.number, first.time_ns, first.capture_ns), (42, source.time_ns, Some(1234)));
     }
@@ -2676,6 +2711,66 @@ pub(crate) mod tests {
         assert!(began.elapsed() < std::time::Duration::from_secs(5));
         assert_eq!(out.data[0], 16, "dark, not the frame without what the card was doing for it");
         assert!(!p.card_lost, "a stop isn't the card failing");
+    }
+
+    #[test]
+    fn a_comfort_background_refresh_keeps_the_current_picture_showing() {
+        struct Comfort;
+        impl CpuStep for Comfort {
+            fn process(&mut self, _: &mut Frame, _: &dyn FrameContext) {}
+        }
+        let mut pipeline = Pipeline::default();
+        pipeline.gpu = Some(None);
+        let step = || StagedStep { owner: "background".into(), stage: FrameStage::Background, step: FrameStep::Cpu(Box::new(Comfort)) };
+        pipeline.set_steps(vec![step()]);
+        let current = pipeline.process(grey(8, 8, 100), &NoContext);
+        pipeline.set_steps(vec![step()]);
+        assert!(pipeline.hide_again(current.clone(), &NoContext).is_none(), "comfort settings do not blank a stalled picture");
+        assert_eq!(pipeline.process(grey(8, 8, 150), &NoContext).data[0], 150, "the current frame keeps moving");
+    }
+
+    #[test]
+    fn source_geometry_survives_a_step_that_rebuilds_the_frame() {
+        struct Rebuild;
+        impl CpuStep for Rebuild {
+            fn process(&mut self, frame: &mut Frame, _: &dyn FrameContext) {
+                *frame = Frame::new(frame.width, frame.height, frame.format, frame.data.to_vec());
+            }
+        }
+        let mut pipeline = Pipeline::default();
+        pipeline.gpu = Some(None);
+        pipeline.set_steps(vec![StagedStep { owner: "filter".into(), stage: FrameStage::Effects, step: FrameStep::Cpu(Box::new(Rebuild)) }]);
+        let mut frame = grey(8, 8, 100);
+        frame.geometry = Some(Box::new(telescope_core::view::Geometry { zoom: 2.0, pan_x: 0.5, ..Default::default() }));
+        frame.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4) };
+        let out = pipeline.process(frame.clone(), &NoContext);
+        assert_eq!(out.geometry, frame.geometry);
+        assert_eq!(out.mask_space, frame.mask_space);
+    }
+
+    #[test]
+    fn a_geometry_warp_invalidates_camera_remapping_when_the_view_or_warp_changes() {
+        struct Warp(u64);
+        impl CpuStep for Warp {
+            fn process(&mut self, _: &mut Frame, _: &dyn FrameContext) {}
+            fn geometry_key(&self) -> u64 { self.0 }
+        }
+        let mut pipeline = Pipeline::default();
+        pipeline.gpu = Some(None);
+        let step = |key| StagedStep { owner: "desk".into(), stage: FrameStage::Geometry, step: FrameStep::Cpu(Box::new(Warp(key))) };
+        pipeline.set_steps(vec![step(1)]);
+        let frame = grey(16, 12, 100);
+        let first = pipeline.process(frame.clone(), &NoContext).mask_space;
+        assert_eq!(first.source_size, (16, 12));
+        assert!(first.warp.is_some());
+        assert_eq!(pipeline.process(frame.clone(), &NoContext).mask_space, first);
+        let mut panned = frame.clone();
+        panned.geometry = Some(Box::new(telescope_core::view::Geometry { zoom: 2.0, pan_x: 0.5, ..Default::default() }));
+        assert_ne!(pipeline.process(panned, &NoContext).mask_space, first);
+        pipeline.set_steps(vec![step(2)]);
+        assert_ne!(pipeline.process(frame.clone(), &NoContext).mask_space, first);
+        pipeline.set_steps(Vec::new());
+        assert_ne!(pipeline.process(frame, &NoContext).mask_space, first);
     }
 
     #[test]

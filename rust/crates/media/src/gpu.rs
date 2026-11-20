@@ -1185,6 +1185,8 @@ impl telescope_core::media::CardPicture for CardFrame {
             span("readback", began);
             match out {
                 Ok(Ok(mut frame)) => {
+                    frame.geometry = before.as_ref().and_then(|frame| frame.geometry.clone());
+                    frame.mask_space = before.as_ref().map_or(Default::default(), |frame| frame.mask_space);
                     if let Some(alpha) = before.as_ref().and_then(Frame::alpha) {
                         frame.set_alpha(alpha.clone());
                     }

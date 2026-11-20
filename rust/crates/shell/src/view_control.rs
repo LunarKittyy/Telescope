@@ -19,6 +19,7 @@ const HOLD_S: f64 = 2.0;
 
 /// What the controller wants done once it has moved.
 #[derive(Clone, Debug, PartialEq)]
+#[allow(clippy::large_enum_variant)] // short lived and few, and Event grew with the frame's mask space
 pub enum Said {
     /// The phone's `zoom` control for the shown stream.
     Zoom(PhoneZoom),
@@ -45,7 +46,7 @@ pub struct ViewController {
     sent_ratio_at: f64,
     /// While steered: since when the phone's share has been clearly off.
     drift_since: Option<f64>,
-    /// A share sent while steering, until its frames show up (the worker sees those).
+    /// A phone share whose arriving frames the worker tracks through a zoom change.
     gate: Arc<ViewGate>,
     /// The phone side of each stream the panels moved away from (StreamsBehind).
     behind: HashMap<String, (u64, Option<PhoneZoomCaps>, Option<PhoneZoom>, f64)>,
@@ -99,9 +100,17 @@ impl ViewController {
         with_crop(view, self.desktop)
     }
 
-    /// The view a new frame step draws: shown(), but for the old share's crop while the frames still come in that way.
+    /// The desktop view and phone crop matching the same handover progress.
+    pub fn frame_snapshot(&self, view: &View) -> (View, (f64, f64, f64)) {
+        self.gate.waiting_snapshot().unwrap_or_else(|| (self.shown(view), telescope_core::view::phone_window(self.sent.as_ref())))
+    }
+
     pub fn frame_view(&self, view: &View) -> View {
-        self.gate.waiting_view().unwrap_or_else(|| self.shown(view))
+        self.frame_snapshot(view).0
+    }
+
+    pub fn frame_window(&self) -> (f64, f64, f64) {
+        self.gate.waiting_snapshot().map_or_else(|| telescope_core::view::phone_window(self.sent.as_ref()), |s| s.1)
     }
 
     pub fn set_view(&mut self, view: &mut View, change: &ViewChange, now: f64) -> Vec<Said> {
@@ -254,13 +263,13 @@ impl ViewController {
             self.desktop = desktop;
             out.push(Said::Restep);
         }
-        self.gate.follow(self.source.as_deref(), !self.owner.is_empty());
+        self.gate.follow(self.source.as_deref(), self.engaged);
         if let Some(p) = phone.filter(|p| Some(*p) != self.sent) {
             if self.sent.is_none_or(|s| s.ratio != p.ratio) {
                 self.sent_ratio_at = now;
             }
             // A lens that switches takes a while on the phone, so its frames are looked for as a crop's are
-            match self.sent.filter(|_| !self.owner.is_empty()) {
+            match self.sent {
                 Some(old) => self.gate.begin(old, p, (with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), view, now),
                 None => self.gate.end(),
             }
@@ -268,7 +277,7 @@ impl ViewController {
             self.sent = Some(p);
             out.push(Said::Zoom(p));
         } else if self.gate.underway() {
-            match self.gate.still_for(self.sent, !self.owner.is_empty(), now) {
+            match self.gate.still_for(self.sent, now) {
                 Some(old) => self.gate.retarget((with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), view),
                 None => self.gate.end(),
             }
@@ -351,7 +360,7 @@ mod tests {
         said.extend(vc.phone_state(&view, &zooms(), 0.0));
         assert!(sent(&said).is_empty());
         assert_eq!(vc.shown(&view), view);
-        assert!(telescope_core::view_step::steps(&vc.frame_view(&view)).is_empty(), "no step, so a frame goes through as it is");
+        assert!(telescope_core::view_step::steps(&vc.frame_snapshot(&view).0).is_empty(), "no step, so a frame goes through as it is");
     }
 
     #[test]
@@ -492,10 +501,52 @@ mod tests {
     }
 
     #[test]
+    fn manual_zoom_keeps_buffered_frames_in_the_old_phone_crop() {
+        let (mut vc, mut view) = engaged();
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.phone_state(&view, &zooms(), 0.0);
+        let gate = vc.gate();
+        let old = vc.sent.unwrap();
+        gate.for_frame_snapshot("p1", &from_phone(&old), 0.0, false);
+        vc.set_view(&mut view, &change(Some(3.0), None, None), 0.01);
+        let new = vc.sent.unwrap();
+        assert!(gate.waiting());
+        for i in 0..3 {
+            gate.for_frame_snapshot("p1", &from_phone(&old), 0.02 + i as f64 * 0.01, false);
+            let (desktop, source_crop) = vc.frame_snapshot(&view);
+            assert_eq!(desktop.zoom, 3.0);
+            assert_eq!(source_crop, telescope_core::view::phone_window(Some(&old)));
+        }
+        vc.set_view(&mut view, &change(None, None, Some(true)), 0.05);
+        assert!(gate.waiting(), "a manual flip must retain the pending phone crop");
+        let (desktop, source_crop) = gate.for_frame_snapshot("p1", &from_phone(&new), 0.06, false).unwrap();
+        assert!(!gate.waiting());
+        assert_eq!(desktop.zoom, 1.0);
+        assert!(desktop.flip_h);
+        assert_eq!(source_crop, telescope_core::view::phone_window(Some(&new)));
+    }
+
+    #[test]
+    fn another_manual_zoom_starts_from_the_crop_that_has_arrived() {
+        let (mut vc, mut view) = engaged();
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.phone_state(&view, &zooms(), 0.0);
+        let gate = vc.gate();
+        let old = vc.sent.unwrap();
+        gate.for_frame_snapshot("p1", &from_phone(&old), 0.0, false);
+        vc.set_view(&mut view, &change(Some(3.0), None, None), 0.01);
+        gate.for_frame_snapshot("p1", &from_phone(&old), 0.02, false);
+        vc.set_view(&mut view, &change(Some(4.0), None, None), 0.03);
+        let (desktop, source_crop) = vc.frame_snapshot(&view);
+        assert_eq!(desktop.zoom, 4.0);
+        assert_eq!(source_crop, telescope_core::view::phone_window(Some(&old)));
+    }
+
+    #[test]
     fn a_new_phone_share_is_cropped_for_only_once_its_frames_arrive() {
         let (mut vc, mut view, old) = on_a_share();
         let gate = vc.gate();
-        gate.for_frame("p1", &from_phone(&old), 0.0, false);
+        gate.for_frame_snapshot("p1", &from_phone(&old), 0.0, false);
         vc.steer(&mut view, "Auto framing", 3.0, 0.22, 0.0, 0.01); // just past the side of what the phone sends: a new share at once
         let new = vc.sent.unwrap();
         assert!(new != old && gate.waiting());
@@ -503,14 +554,15 @@ mod tests {
         let fresh = vc.shown(&view);
         assert!((fresh.pan_x - late.1 as f32).abs() > 0.5, "the new share's crop is far from the old one's: {fresh:?} {late:?}");
         for i in 0..3 {
-            gate.for_frame("p1", &from_phone(&old), 0.02 + i as f64 * 0.01, false); // the phone hasn't caught up yet
+            gate.for_frame_snapshot("p1", &from_phone(&old), 0.02 + i as f64 * 0.01, false); // the phone hasn't caught up yet
             assert!(gate.waiting());
-            assert_eq!(vc.frame_view(&view).pan_x, late.1 as f32, "the old crop stays on the old frames");
+            assert_eq!(vc.frame_snapshot(&view).0.pan_x, late.1 as f32, "the old crop stays on the old frames");
         }
-        let swapped = gate.for_frame("p1", &from_phone(&new), 0.06, false).expect("the crop changes on this very frame");
+        let (swapped, source_crop) = gate.for_frame_snapshot("p1", &from_phone(&new), 0.06, false).expect("the crop changes on this very frame");
+        assert_eq!(source_crop, telescope_core::view::phone_window(Some(&new)));
         assert!(!gate.waiting());
         assert_eq!((swapped.zoom, swapped.pan_x), (fresh.zoom, fresh.pan_x));
-        assert_eq!(vc.frame_view(&view).pan_x, fresh.pan_x);
+        assert_eq!(vc.frame_snapshot(&view).0.pan_x, fresh.pan_x);
     }
 
     #[test]
@@ -519,9 +571,9 @@ mod tests {
         let gate = vc.gate();
         vc.steer(&mut view, "Auto framing", 3.0, 0.6, 0.0, 100.0);
         assert!(gate.waiting());
-        gate.for_frame("p1", &from_phone(&old), 100.1, false);
+        gate.for_frame_snapshot("p1", &from_phone(&old), 100.1, false);
         assert!(gate.waiting());
-        gate.for_frame("p1", &from_phone(&old), 102.1, false);
+        gate.for_frame_snapshot("p1", &from_phone(&old), 102.1, false);
         assert!(!gate.waiting());
     }
 
@@ -530,7 +582,7 @@ mod tests {
         let (mut vc, mut view, old) = on_a_share();
         let gate = vc.gate();
         vc.steer(&mut view, "Auto framing", 3.0, 0.6, 0.0, 1.0);
-        assert_eq!(gate.for_frame("p2", &from_phone(&old), 9.0, false), None);
+        assert_eq!(gate.for_frame_snapshot("p2", &from_phone(&old), 9.0, false), None);
         assert!(gate.waiting());
     }
 
@@ -539,9 +591,9 @@ mod tests {
         let (mut vc, mut view, old) = on_a_share();
         let gate = vc.gate();
         vc.steer(&mut view, "Auto framing", 3.0, 0.22, 0.0, 1.0);
-        assert!(gate.for_frame("p1", &from_phone(&old), 1.0, false).is_some());
-        assert_eq!(gate.for_frame("p1", &from_phone(&old), 1.01, false), None, "already in place");
-        assert_eq!(gate.for_frame("p1", &from_phone(&old), 1.02, true), Some(vc.frame_view(&view)));
+        assert!(gate.for_frame_snapshot("p1", &from_phone(&old), 1.0, false).is_some());
+        assert_eq!(gate.for_frame_snapshot("p1", &from_phone(&old), 1.01, false), None, "already in place");
+        assert_eq!(gate.for_frame_snapshot("p1", &from_phone(&old), 1.02, true), Some(vc.frame_snapshot(&view)));
     }
 
     #[test]

@@ -1,8 +1,10 @@
-//! view_controller's _Handover: a phone share sent while steering, until its frames arrive. The frames before it still
+//! view_controller's _Handover: a phone share sent while zooming, until its frames arrive. The frames before it still
 //! come cropped the old way, and cropping them for the new one would make the picture jump for a moment. A shader's crop
 //! is fixed when it's built, so the worker asks this for each frame and swaps the view's steps on the one that shows it.
 
 use std::sync::Mutex;
+use std::collections::HashMap;
+use serde_json::Value;
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::host::View;
 use telescope_core::view::{phone_window, rest_within, share_shift, window_centre, PhoneZoom};
@@ -225,11 +227,12 @@ impl Handover {
 struct Inner {
     /// The stream the phone share is for.
     source: Option<String>,
-    steering: bool,
+    tracking: bool,
     handover: Option<Handover>,
-    /// That stream's last frame, small, while something steers.
+    /// That stream's last frame, small, while the view controls its zoom.
     last: Option<Thumb>,
-    shown: Option<View>,
+    shown: Option<(View, (f64, f64, f64))>,
+    cameras: HashMap<String, (Value, u64)>,
 }
 
 /// Shared by the window, which starts and ends handovers, and the workers, which see the frames.
@@ -237,17 +240,37 @@ struct Inner {
 pub struct ViewGate(Mutex<Inner>);
 
 impl ViewGate {
-    pub fn follow(&self, source: Option<&str>, steering: bool) {
+    pub fn note_camera(&self, source: &str, camera: &Value) {
+        let Some(id) = camera.get("id") else { return };
+        let mut inner = self.0.lock().unwrap();
+        let entry = inner.cameras.entry(source.to_string()).or_insert_with(|| (id.clone(), 1));
+        if entry.0 != *id {
+            entry.0 = id.clone();
+            entry.1 += 1;
+        }
+    }
+
+    pub fn source_epoch(&self, source: &str) -> u64 {
+        self.0.lock().unwrap().cameras.get(source).map_or(0, |(_, epoch)| *epoch)
+    }
+
+    pub fn follow(&self, source: Option<&str>, tracking: bool) {
         let mut inner = self.0.lock().unwrap();
         if inner.source.as_deref() != source {
             inner.source = source.map(str::to_string);
             inner.last = None;
+            inner.handover = None;
+            inner.shown = None;
         }
-        inner.steering = steering;
+        inner.tracking = tracking;
     }
 
-    pub fn begin(&self, old: PhoneZoom, new: PhoneZoom, views: (View, View), framing: &View, now: f64) {
+    pub fn begin(&self, old: PhoneZoom, new: PhoneZoom, mut views: (View, View), framing: &View, now: f64) {
         let mut inner = self.0.lock().unwrap();
+        let old = inner.handover.as_ref().filter(|h| !h.arrived).map_or(old, |h| h.share(h.progress));
+        if let Some((zoom, pan_x, pan_y)) = rest_within(framing.zoom as f64, framing.pan_x as f64, framing.pan_y as f64, &old, true) {
+            views.0 = View { zoom: zoom as f32, pan_x: pan_x as f32, pan_y: pan_y as f32, ..views.0 };
+        }
         // The last frame came in the old share, so it is the one to compare with
         let base = inner.last.clone().map(|b| (b, 0.0, now));
         inner.handover = Some(Handover { old, new, views, framing: framing.clone(), since: now, arrived: false, progress: 0.0, base, calm: 0.0, still: None });
@@ -268,16 +291,16 @@ impl ViewGate {
         self.0.lock().unwrap().handover.is_some()
     }
 
-    /// The view frames get while it waits.
-    pub fn waiting_view(&self) -> Option<View> {
-        self.0.lock().unwrap().handover.as_ref().filter(|h| !h.arrived).map(Handover::view)
+    /// The desktop view and phone crop from the same handover progress.
+    pub fn waiting_snapshot(&self) -> Option<(View, (f64, f64, f64))> {
+        self.0.lock().unwrap().handover.as_ref().filter(|h| !h.arrived).map(|h| (h.view(), phone_window(Some(&h.share(h.progress)))))
     }
 
     /// The old share while still waiting for `sent` to show up (_still_handing_over); None when that's over.
-    pub fn still_for(&self, sent: Option<PhoneZoom>, steering: bool, now: f64) -> Option<PhoneZoom> {
+    pub fn still_for(&self, sent: Option<PhoneZoom>, now: f64) -> Option<PhoneZoom> {
         let inner = self.0.lock().unwrap();
         let h = inner.handover.as_ref()?;
-        (!h.arrived && steering && Some(h.new) == sent && now - h.since <= HANDOVER_S).then_some(h.old)
+        (!h.arrived && Some(h.new) == sent && now - h.since <= HANDOVER_S).then_some(h.old)
     }
 
     pub fn retarget(&self, views: (View, View), framing: &View) {
@@ -290,11 +313,15 @@ impl ViewGate {
     /// _crop_for, on the worker's thread, for each frame of source: the view to swap in, when it isn't the one in place.
     /// `replaced`: the steps were just replaced, with a view that may be a frame old.
     pub fn for_frame(&self, source: &str, frame: &Frame, now: f64, replaced: bool) -> Option<View> {
+        self.for_frame_snapshot(source, frame, now, replaced).map(|s| s.0)
+    }
+
+    pub fn for_frame_snapshot(&self, source: &str, frame: &Frame, now: f64, replaced: bool) -> Option<(View, (f64, f64, f64))> {
         let mut inner = self.0.lock().unwrap();
         if inner.source.as_deref() != Some(source) {
             return None;
         }
-        let thumb = inner.steering.then(|| thumb(frame));
+        let thumb = (inner.tracking || inner.handover.is_some()).then(|| thumb(frame));
         let before = std::mem::replace(&mut inner.last, thumb.clone());
         let h = inner.handover.as_mut()?;
         if !h.arrived {
@@ -309,9 +336,11 @@ impl ViewGate {
             }
         }
         let view = h.view();
-        (replaced || inner.shown.as_ref() != Some(&view)).then(|| {
-            inner.shown = Some(view.clone());
-            view
+        let source_crop = phone_window(Some(&h.share(if h.arrived { 1.0 } else { h.progress })));
+        let shown = (view.clone(), source_crop);
+        (replaced || inner.shown.as_ref() != Some(&shown)).then(|| {
+            inner.shown = Some(shown.clone());
+            shown
         })
     }
 }
@@ -321,6 +350,23 @@ mod tests {
     use super::*;
     use std::sync::Arc;
     use telescope_core::frame::{DecodedSurface, PixelFormat};
+
+    #[test]
+    fn source_camera_epochs_change_only_for_that_streams_lens() {
+        let gate = ViewGate::default();
+        let main = serde_json::json!({"id": "main"});
+        let wide = serde_json::json!({"id": "wide"});
+        gate.note_camera("a", &main);
+        gate.note_camera("b", &main);
+        let first = gate.source_epoch("a");
+        gate.note_camera("a", &main);
+        assert_eq!(gate.source_epoch("a"), first);
+        gate.note_camera("a", &wide);
+        assert_ne!(gate.source_epoch("a"), first);
+        assert_eq!(gate.source_epoch("b"), first);
+        gate.note_camera("a", &main);
+        assert!(gate.source_epoch("a") > first + 1);
+    }
 
     #[derive(Debug)]
     struct OnTheCard(Frame);
@@ -332,6 +378,57 @@ mod tests {
         fn as_any(&self) -> &dyn std::any::Any {
             self
         }
+    }
+
+    #[test]
+    fn mask_source_coordinates_follow_the_phone_crop_through_a_handover() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"), true);
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.4, y: 0.5 };
+        let new = PhoneZoom { ratio: 1.0, crop: 4.0, x: 0.6, y: 0.5 };
+        gate.begin(old, new, (View::default(), View::default()), &View::default(), 0.0);
+        assert_eq!(gate.waiting_snapshot().map(|s| s.1), Some(phone_window(Some(&old))));
+        let frame = Frame::new(8, 8, PixelFormat::I420, vec![120; 96]);
+        assert_eq!(gate.for_frame_snapshot("other", &frame, 0.0, false), None);
+        gate.0.lock().unwrap().handover.as_mut().unwrap().progress = 0.5;
+        let middle = phone_window(Some(&along(&old, &new, 0.5)));
+        assert_eq!(gate.waiting_snapshot().map(|s| s.1), Some(middle));
+        assert_eq!(gate.for_frame_snapshot("a", &frame, 0.0, false).unwrap().1, middle);
+        gate.0.lock().unwrap().handover.as_mut().unwrap().arrived = true;
+        assert_eq!(gate.waiting_snapshot().map(|s| s.1), None);
+        assert_eq!(gate.for_frame_snapshot("a", &frame, 0.0, false).unwrap().1, phone_window(Some(&new)));
+    }
+
+    #[test]
+    fn a_phone_crop_move_refreshes_mask_geometry_even_when_the_desktop_crop_is_unchanged() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"), false);
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 4.0, ..old };
+        gate.begin(old, new, (View::default(), View::default()), &View::default(), 0.0);
+        let frame = Frame::new(8, 8, PixelFormat::I420, vec![120; 96]);
+        assert_eq!(gate.for_frame_snapshot("a", &frame, 0.0, false), Some((View::default(), phone_window(Some(&old)))));
+        assert_eq!(gate.for_frame_snapshot("a", &frame, 0.0, false), None);
+        gate.0.lock().unwrap().handover.as_mut().unwrap().progress = 0.5;
+        assert_eq!(gate.for_frame_snapshot("a", &frame, 0.0, false), Some((View::default(), phone_window(Some(&along(&old, &new, 0.5))))));
+    }
+
+    #[test]
+    fn a_frame_snapshot_keeps_the_desktop_and_phone_crops_together() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"), true);
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 4.0, ..old };
+        let framing = View { zoom: 8.0, ..View::default() };
+        gate.begin(old, new, (View { zoom: 4.0, ..View::default() }, View { zoom: 2.0, ..View::default() }), &framing, 0.0);
+        gate.0.lock().unwrap().handover.as_mut().unwrap().progress = 0.5;
+        let frame = Frame::new(8, 8, PixelFormat::I420, vec![120; 96]);
+        let (view, source_crop) = gate.for_frame_snapshot("a", &frame, 0.0, false).unwrap();
+        gate.0.lock().unwrap().handover.as_mut().unwrap().arrived = true;
+        assert!((view.zoom as f64 * source_crop.0 - framing.zoom as f64).abs() < 1e-6);
+        assert_eq!(source_crop, phone_window(Some(&along(&old, &new, 0.5))));
+        let (view, source_crop) = gate.for_frame_snapshot("a", &frame, 0.0, false).unwrap();
+        assert_eq!((view.zoom, source_crop.0), (2.0, 4.0));
     }
 
     #[test]

@@ -202,6 +202,10 @@ pub trait VisionService: Send + Sync {
         }
         self.person_mask_at(source_id, frame, w, h)
     }
+    /// Background's comfort mask, with late masks retained and moved with the frame's crop; other effects keep their own expiry rules.
+    fn background_mask(&self, source_id: &str, frame: &Frame, size: (usize, usize), epoch: u64, high_quality: bool) -> Option<Arc<Vec<u8>>> {
+        if high_quality { self.person_mask_hq(source_id, frame, size.0, size.1, epoch) } else { self.person_mask_in(source_id, frame, size.0, size.1, epoch) }
+    }
     /// While any owner wants people, fed frames are looked at and people_seen and people_tracked follow.
     fn want_people(&self, owner: &str, on: bool);
     fn wants_people(&self) -> bool;
