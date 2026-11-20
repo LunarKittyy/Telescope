@@ -7,6 +7,13 @@ export component StargazerCard inherits Card {
     idle: !active;
     in property <int> mode-index;
     in property <[string]> mode-items;
+    // Where the frames come from: 0 the video, 1 photos
+    in property <int> input-index;
+    in property <[string]> input-items;
+    in property <int> photo-count: 10;
+    in property <string> photo-count-text;
+    in property <int> photo-every;
+    in property <string> photo-every-text;
     in property <bool> running;
     in property <int> frames: 300;
     in property <string> frames-text;
@@ -53,6 +60,9 @@ export component StargazerCard inherits Card {
     callback shutter-picked(int);
     callback iso-picked(int);
     callback mode-picked(int);
+    callback input-picked(int);
+    callback photo-count-moved(float);
+    callback photo-every-moved(float);
     callback frames-moved(float);
     callback keep-moved(float);
     callback trail-moved(float);
@@ -73,7 +83,7 @@ export component StargazerCard inherits Card {
     has-reset: true;
     reset-lit: settings-reset-shown;
     reset-label: @tr("Reset settings");
-    reset-detail: @tr("Set the frames, sharpest share, time between frames and photo settings back to default. The mode and the camera switch aren't reset.");
+    reset-detail: @tr("Set the frames, sharpest share, time between frames and photo settings back to default. The mode, where the frames come from and the camera switch aren't reset.");
     reset => { root.settings-reset-clicked(); }
 
     UnfoldGroup {
@@ -103,18 +113,42 @@ export component StargazerCard inherits Card {
                 hue: root.hue;
                 label: @tr("Stack");
                 items: mode-items;
-                tips: [@tr("Lucky imaging"), @tr("Live stack"), @tr("Star trails"), @tr("Night shot")];
+                tips: [@tr("Lucky imaging"), @tr("Live stack"), @tr("Star trails")];
                 tip-details: [
-                    @tr("Stacks only the sharpest frames of a burst. For the moon and planets."),
+                    @tr("Stacks only the sharpest frames of a burst. For the moon and planets. It needs the video."),
                     @tr("Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."),
                     @tr("Takes the brightest value of one frame every few seconds, which draws the stars as lines."),
-                    @tr("Take a long photo with the camera for a faint sky, separate from the video."),
                 ];
-                disabled: [!active || running, !active || running, !active || running, !active || running];
+                disabled: [!active || running, !active || running, !active || running];
                 current: mode-index;
                 picked(i) => { root.mode-picked(i); }
             }
         }
+        Unfolding {
+            open: true;
+            RailRow {
+                icon: Icons.video;
+                label: @tr("Frames from");
+                hue: root.hue;
+                enabled: active;
+                Segmented {
+                    hue: root.hue;
+                    label: @tr("Frames from");
+                    items: input-items;
+                    tips: [@tr("Frames from the video"), mode-index == 0 ? @tr("Lucky imaging needs the video") : @tr("Frames from photos")];
+                    tip-details: [
+                        @tr("Stack the frames of the video stream."),
+                        mode-index == 0
+                            ? @tr("Lucky imaging looks at hundreds of frames, which photos are too slow to give. Pick Live or Trails to use photos.")
+                            : @tr("Stack photos the camera takes one after the other, with a shutter speed and ISO of your own. For faint things the video can't show."),
+                    ];
+                    disabled: [!active || running, !active || running || mode-index == 0];
+                    current: input-index;
+                    picked(i) => { root.input-picked(i); }
+                }
+            }
+        }
+        // Cleaner frames, which only the video has, goes here
         Unfolding {
             open: mode-index == 0;
             RailSlider {
@@ -150,7 +184,7 @@ export component StargazerCard inherits Card {
             }
         }
         Unfolding {
-            open: mode-index == 2;
+            open: mode-index == 2 && input-index == 0;
             RailSlider {
                 icon: Icons.timer;
                 enabled: active && !running;
@@ -169,7 +203,39 @@ export component StargazerCard inherits Card {
         }
     }
     Unfolding {
-        open: mode-index == 3;
+        open: input-index == 1;
+        RailSlider {
+            icon: Icons.photo;
+            enabled: active && !running;
+            label: @tr("Photos");
+            tip: @tr("Photos to take");
+            tip-detail: @tr("How many photos to take before the run ends.");
+            minimum: 1;
+            maximum: 200;
+            value: photo-count;
+            readout: photo-count-text;
+            readout-width: Theme.u(40);
+            hue: root.hue;
+            has-default: true;
+            default-value: 10;
+            moved(v) => { root.photo-count-moved(v); }
+        }
+        RailSlider {
+            icon: Icons.timer;
+            enabled: active && !running;
+            label: @tr("Every");
+            tip: @tr("Time between photos");
+            tip-detail: @tr("At least this long from the start of one photo to the start of the next. A photo that takes longer is followed straight away, never by extra ones to catch up.");
+            minimum: 0;
+            maximum: 300;
+            value: photo-every;
+            readout: photo-every-text;
+            readout-width: Theme.u(40);
+            hue: root.hue;
+            has-default: true;
+            default-value: 0;
+            moved(v) => { root.photo-every-moved(v); }
+        }
         UnfoldGroup {
             RailRow {
                 icon: Icons.camera;
@@ -269,7 +335,7 @@ export component StargazerCard inherits Card {
         }
     }
     Unfolding {
-        open: mode-index == 3;
+        open: input-index == 1;
         SwitchRow {
             icon: Icons.zoom;
             label: @tr("Use zoom");

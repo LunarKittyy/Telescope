@@ -46,7 +46,7 @@ Clip the phone to a telescope's eyepiece (an actual one, not the name of the pro
 
 1. Switch on **Stargazer** under **Camera** and restart.
 2. Start the stream with the phone on the eyepiece. Turn the focuser until the **Focus** number on the card is as high as it goes. **Low light** on the Camera card lets each frame catch more light in the dark.
-3. Pick **Lucky imaging** for the moon and planets, **Live stack** for faint things or **Star trails**, then press **Start**.
+3. Pick **Lucky imaging** for the moon and planets, **Live stack** for faint things or **Star trails**, then press **Start**. For a faint sky, set **Frames from** to **Photos** to stack long photos instead of video frames.
 4. The finished stack is saved as a PNG in Pictures/Telescope/Stargazer. **Show the stack on the camera** also sends it to the virtual camera.
 
 More in [Stargazer](features/effects.md#stargazer).

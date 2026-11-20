@@ -162,21 +162,26 @@ fn stargazer_shots() {
     let Some(dir) = out() else { return };
     let _english = language("en");
     let sky = card_of(&mut StargazerPlugin::new(), "camera");
-    let items = json!(["Lucky", "Live", "Trails", "Night"]);
-    let ready = json!({"active": true, "mode-items": items, "run-enabled": true, "status": "Ready", "focus-text": "Now 12.4, best 15.8", "camera-name": "Show the stack on the camera",
-        "save-text": "Save", "reset-text": "Reset", "open-text": "Open folder", "frames-text": "300 frames", "keep-text": "10 %", "trail-text": "5 s"});
+    let ready = json!({"active": true, "mode-items": ["Lucky", "Live", "Trails"], "input-items": ["Video", "Photos"], "run-enabled": true, "status": "Ready",
+        "focus-text": "Now 12.4, best 15.8", "camera-name": "Show the stack on the camera", "save-text": "Save", "reset-text": "Reset", "open-text": "Open folder",
+        "frames-text": "300 frames", "keep-text": "10 %", "trail-text": "5 s", "photo-count-text": "10 photos", "photo-every-text": "No wait"});
     shoot(&dir, "stargazer-lucky", &sky, &[ready.clone(), json!({"mode-index": 0, "running": true, "run-text": "Stop", "status": "Collecting frame 120 of 300", "status-kind": "status_ok",
         "tally": "In the stack: 30, refused: 0, time: 0:36"})]);
     shoot(&dir, "stargazer-live", &sky, &[ready.clone(), json!({"mode-index": 1, "save-enabled": true, "reset-enabled": true, "run-text": "Start", "status": "Stopped. Reset starts a new stack",
         "status-kind": "status_ok", "tally": "In the stack: 412, refused: 5, time: 6:52", "camera": true, "saved": "Saved stargazer_20261118_214503.png", "open-enabled": true})]);
     shoot(&dir, "stargazer-trails", &sky, &[ready.clone(), json!({"mode-index": 2, "running": true, "run-text": "Stop", "status": "Recording the trails", "status-kind": "status_ok", "tally": "In the stack: 84, refused: 0, time: 7:00"})]);
-    let night = json!({"mode-index": 3, "run-text": "Start", "shot-summary": "10 s · ISO 800 · focus ∞",
+    let photos = json!({"mode-index": 1, "input-index": 1, "run-text": "Start", "shot-summary": "10 s · ISO 800 · focus ∞", "photo-count": 24, "photo-count-text": "24 photos",
+        "photo-every": 5, "photo-every-text": "5 s",
         "shutter-stops": ["Camera", "1 s", "2 s", "4 s", "8 s", "10 s", "15 s", "20 s"], "shutter-index": 5, "shutter-enabled": true,
         "iso-stops": ["Camera", "100", "125", "160", "200", "250", "320", "400", "500", "640", "800", "1000", "1250", "1600"], "iso-index": 10,
         "iso-enabled": true, "iso-per": 3, "iso-from": 1, "focus-enabled": false, "focus-unset": false, "focus-readout": "∞"});
-    shoot(&dir, "stargazer-night-closed", &sky, &[ready.clone(), night.clone()]);
-    shoot(&dir, "stargazer-night-open", &sky, &[ready.clone(), night.clone(), json!({"customize-open": true})]);
-    shoot(&dir, "stargazer-night-taking", &sky, &[ready, night, json!({"running": true, "run-enabled": false, "run-text": "Taking", "status": "Exposing, the video is paused", "status-kind": "status_ok"})]);
+    shoot(&dir, "stargazer-photos-closed", &sky, &[ready.clone(), photos.clone()]);
+    shoot(&dir, "stargazer-photos-open", &sky, &[ready.clone(), photos.clone(), json!({"customize-open": true})]);
+    shoot(&dir, "stargazer-photos-running", &sky, &[ready.clone(), photos.clone(), json!({"running": true, "run-text": "Stop", "status": "Taking photo 7 of 24", "status-kind": "status_ok",
+        "tally": "In the stack: 6, refused: 0, time: 1:12", "limit": "Stacking at 2000 x 1500 to save memory"})]);
+    shoot(&dir, "stargazer-photos-trails", &sky, &[ready.clone(), photos.clone(), json!({"mode-index": 2})]);
+    // Lucky imaging takes only the video, which Photos' tooltip says
+    shoot(&dir, "stargazer-lucky-video-only", &sky, &[ready, json!({"mode-index": 0, "input-index": 0})]);
 }
 
 #[test]
