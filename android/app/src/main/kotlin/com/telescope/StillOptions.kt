@@ -71,8 +71,8 @@ data class StillRequest(
     val filesPerShot: Int get() = (if (raw) 1 else 0) + (if (format != null) 1 else 0)
     // How long the sensor is busy, for the job's time limit
     val exposureMs: Long get() = shots.sumOf { (it.exposureNs ?: videoExposureNs) / 1_000_000L }
-    // Shot next to the stream, manual exposures leave the video out, so long ones freeze it noticeably: reported as paused
-    val pausesVideo: Boolean get() = ownSession || shots.sumOf { (it.exposureNs ?: 0L) / 1_000_000L } >= StillOptions.PAUSE_MS
+    // Manual stills hold both previews until their exposure settings have been restored.
+    val pausesVideo: Boolean get() = ownSession || shots.any { it.exposureNs != null }
     // The longest single picture's exposure, which it may take on top of the usual time
     val longestExposureMs: Long get() = shots.maxOfOrNull { (it.exposureNs ?: videoExposureNs) / 1_000_000L } ?: 0L
     // Any best quality mode, which some phones stall on with a HEIC output

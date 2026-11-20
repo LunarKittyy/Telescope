@@ -22,6 +22,7 @@ class H264Encoder(
     private val onError: (Throwable) -> Unit,
     // The encoder put frames out of order despite being asked not to: High is off for this run, rebuild the encoder
     private val onReorder: () -> Unit = {},
+    private val onFrameAllowed: (timestampNs: Long, key: Boolean) -> Boolean = { _, _ -> true },
 ) {
     // Optional settings. Some encoders refuse one of them outright (an Exynos S10+ threw IllegalArgumentException
     // at 1080p), so a refused setup is retried with a fresh encoder and fewer of them.
@@ -132,9 +133,11 @@ class H264Encoder(
                             PhoneStats.delayMs(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps)?.let { PhoneStats.shared.addEncode(it) }
                         }
                     }
-                    val bytes = if (config) ByteArray(info.size).also { buf.get(it) }
-                    else H264Stream.packet(buf, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000)
-                    onPacket(bytes, key, config)
+                    if (config || onFrameAllowed(info.presentationTimeUs * 1000, key)) {
+                        val bytes = if (config) ByteArray(info.size).also { buf.get(it) }
+                        else H264Stream.packet(buf, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000)
+                        onPacket(bytes, key, config)
+                    }
                 }
                 mc.releaseOutputBuffer(index, false)
             } catch (e: Exception) {
