@@ -171,6 +171,7 @@ A lens of a multi-lens camera has no full resolution mode or maker modes (those 
 | `count` | A burst: everything above taken this many times |
 | `timer_s` | Wait 0-30 seconds before shooting |
 | `rotation` | 0, 90, 180 or 270, written into the JPEG and DNG orientation |
+| `desktop_transforms` | `true` when the computer turns and crops the photo itself. A JPEG, HEIC or Ultra HDR then comes whole, without the stream's digital crop and pan, and on the lens the stream's optical zoom has switched to. RAW alone is unchanged |
 | `nr_hq`, `edge_hq`, `hot_pixel_hq` | `1` for the high quality mode, ignored by a lens without it |
 | `distortion` | `1` or `0` to switch distortion correction on or off. Left out, the camera does what it does anyway |
 
@@ -188,6 +189,8 @@ A plain photo goes into the stream's own camera session next to the video and th
 {"id": "61155b2c22c2ab28", "state": "capturing", "shots": 3, "taken": 1, "paused": false,
  "files": [{"name": "IMG_20261026_142501_01.dng", "size": 48711980, "type": "image/x-adobe-dng"}]}
 ```
+
+A file of a photo taken with `desktop_transforms` can have `lens_ratio`, the optical zoom of its lens next to the main one. The computer takes that share out of the crop it makes.
 
 `state` goes from `waiting` (the timer, with `countdown_ms` left) to `capturing` and ends at `done` or `failed` (with `error` and `code`, the latter one of the codes above, or `interrupted` when the lens changed, the camera reopened (a new size or codec) or turned off, or the stream stopped, `timeout` and `failed`). A setting that only rebuilds the stream's session (the frame rate, low light, the phone's preview) doesn't end a photo. It carries on and asks once more for anything the rebuild dropped. Changes the phone makes without being asked, like Dynamic's frame rate step or the heat, wait until the photo is done. Every photo ends. It gets 10 s plus 5 s a picture plus its exposures after the timer and a photo that shot and then hears nothing from the camera for 6 s (plus its longest exposure) has stalled. A stalled photo with any of the best quality modes (`nr_hq`, `edge_hq`, `hot_pixel_hq`) goes again once without them. Photos of that format on that stream leave them out from then on; otherwise it ends with `timeout`. Should the camera thread itself get stuck in the phone's camera service, the phone still reports `timeout` a few seconds after that limit (twice it, with the best quality modes). The best quality modes keep a photo out of the video, which skips that frame. `paused` is true while the video is paused for it, which also covers manual exposures next to the stream that add up to half a second or more, since those frames are left out of the video. `files` lists every file written so far in the order they were taken. A desktop can start fetching them before the last one is done.
 

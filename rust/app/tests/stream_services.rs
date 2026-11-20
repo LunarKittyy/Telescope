@@ -170,6 +170,15 @@ fn busy(r: &Rig) -> Vec<String> {
     r.heard().into_iter().filter(|l| l.starts_with("panel busy ")).collect()
 }
 
+/// What the window adds to every photo for the transforms
+fn with_transforms(mut options: Value) -> Value {
+    options["rotation"] = json!(0);
+    options["desktop_transforms"] = json!(true);
+    options["_photo_lens_ratio"] = json!(1.0);
+    options["_photo_transform"] = json!({"flip_h": false, "flip_v": false, "rotation": 0, "zoom": 1.0, "pan_x": 0.0, "pan_y": 0.0});
+    options
+}
+
 #[test]
 fn photos_follow_the_shown_streams_phone_and_tell_every_plugin() {
     let (r, stills) = on_air_with_stills("photos");
@@ -181,7 +190,7 @@ fn photos_follow_the_shown_streams_phone_and_tell_every_plugin() {
 
     r.forget_heard();
     assert!(take(&r));
-    assert_eq!(*stills.taken.lock().unwrap(), [(Some("pixel".to_string()), json!({"format": "jpeg"}), "/tmp".to_string())]);
+    assert_eq!(*stills.taken.lock().unwrap(), [(Some("pixel".to_string()), with_transforms(json!({"format": "jpeg"})), "/tmp".to_string())]);
     assert_eq!(busy(&r), ["panel busy pixel true"]);
     (stills.progress.lock().unwrap().as_ref().unwrap())(json!({"state": "capturing"}));
     r.until("the stream is held", |r| r.worker(0).did("hold_for_photo 3"));
@@ -371,7 +380,7 @@ fn a_cameras_photos_go_through_its_own_service_and_tell_every_plugin() {
     assert!(!asks(&r, |host| host.still_busy(None)));
     r.forget_heard();
     assert!(take(&r));
-    assert_eq!(*stills.taken.lock().unwrap(), [(json!({"format": "jpeg"}), "/tmp".to_string())]);
+    assert_eq!(*stills.taken.lock().unwrap(), [(with_transforms(json!({"format": "jpeg"})), "/tmp".to_string())]);
     assert_eq!(busy(&r), ["panel busy webcam:d5100 true"]);
     stills.busy.store(true, Ordering::SeqCst);
     assert!(asks(&r, |host| host.still_busy(None)));

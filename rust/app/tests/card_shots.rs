@@ -185,11 +185,11 @@ fn photos_shots() {
     let _english = language("en");
     let photos = card_of(&mut PhotosPlugin::new(), "camera");
     shoot(&dir, "photos-single", &photos, &[json!({"active": true, "shown": true, "take-enabled": true, "open-enabled": true,
-        "mode-enabled": true, "format-enabled": true, "mode-options": ["Normal", "Night", "HDR"], "format-options": ["JPEG", "RAW (DNG)", "RAW and JPEG"],
+        "mode-enabled": true, "format-enabled": true, "mode-options": ["Normal", "Night", "HDR"], "format-options": ["JPEG", "HEIC", "RAW (DNG)"],
         "shots-offered": [true, true, true, true], "distortion-enabled": true, "exposure-options": ["Like the video", "0.5 s", "1 s"], "best-enabled": true,
         "slot-key": "", "quality-enabled": true})]);
     shoot(&dir, "photos-burst", &photos, &[json!({"active": true, "shown": true, "take-enabled": false, "open-enabled": false, "status": "Saved IMG_20260101.jpg",
-        "mode-enabled": true, "format-enabled": true, "mode-options": ["Normal", "Night", "HDR"], "format-options": ["JPEG", "RAW (DNG)", "RAW and JPEG"],
+        "mode-enabled": true, "format-enabled": true, "mode-options": ["Normal", "Night", "HDR"], "format-options": ["JPEG", "HEIC", "RAW (DNG)"],
         "shots-offered": [true, true, true, true], "shots-index": 1, "slot-key": "burst", "slot-label": "How many", "slot-options": ["2", "3", "4", "5"],
         "slot-index": 3, "distortion-enabled": true, "distortion-index": 1, "exposure-options": ["Like the video", "0.5 s", "1 s"], "best-enabled": true, "best": true})]);
     // A DSLR: its own ISO and shutter lists as dials above, no quality

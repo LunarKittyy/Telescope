@@ -69,6 +69,8 @@ export component PhotosCard inherits Card {
     callback customize-toggled(bool);
     callback shot-iso-picked(int);
     in property <bool> use-zoom;
+    in property <bool> use-zoom-enabled: true;
+    in property <string> use-zoom-tip;
     callback use-zoom-toggled(bool);
     in property <bool> active: true;
     idle: !active;
@@ -530,9 +532,9 @@ export component PhotosCard inherits Card {
         icon: Icons.zoom;
         label: @tr("Use zoom");
         tip: @tr("Use zoom");
-        tip-detail: @tr("Crop the photo to the zoom and position set in Transforms.");
+        tip-detail: use-zoom-tip != "" ? use-zoom-tip : @tr("Crop the photo to the zoom and position set in Transforms.");
         hue: root.hue;
-        enabled: active;
+        enabled: active && use-zoom-enabled;
         changed: use-zoom;
         checked: use-zoom;
         toggled(v) => { root.use-zoom-toggled(v); }

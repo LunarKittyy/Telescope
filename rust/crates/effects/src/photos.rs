@@ -25,7 +25,7 @@ pub const NAME: &str = "photos";
 const T_HOLD: &str = "hold";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/photos.slint"));
 
-pub const FORMATS: [(&str, &str); 3] = [("jpeg", n_("JPEG")), ("raw", n_("RAW (DNG)")), ("raw+jpeg", n_("RAW and JPEG"))];
+pub const FORMATS: [(&str, &str); 5] = [("jpeg", n_("JPEG")), ("heic", n_("HEIC")), ("ultrahdr", n_("Ultra HDR")), ("raw", n_("RAW (DNG)")), ("raw+jpeg", n_("RAW and JPEG"))];
 pub const MODES: [(&str, &str); 6] = [
     ("normal", n_("Normal")), ("max_res", n_("Full resolution")), ("night", n_("Night")), ("hdr", n_("HDR")), ("bokeh", n_("Bokeh")), ("auto", n_("Auto")),
 ];
@@ -58,6 +58,7 @@ const SHOTS_TIP: &str = n_("Take one photo, a burst or a set at different exposu
 const TIMER_TIP: &str = n_("Wait a few seconds before taking the photo.");
 const EXPOSURE_TIP: &str = n_("Set the shutter speed for the photo. ISO is the camera's unless you set it below. The video pauses while the shutter is open.");
 const BEST_TIP: &str = n_("Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer.");
+const USE_ZOOM_OFF_TIP: &str = n_("Switch to JPEG to use zoom. HEIC and Ultra HDR can't be cropped losslessly.");
 const BEST_OFF_TIP: &str = n_("This lens and mode have no extra noise reduction or sharpening to offer");
 const QUALITY_CAMERA_TIP: &str = n_("JPEG quality is set by the camera");
 const QUALITY_RAW_TIP: &str = n_("RAW photos have no quality setting");
@@ -348,7 +349,8 @@ impl PhotosPlugin {
             "merge-enabled": self.merge_possible(), "brightness-enabled": self.merge_possible() && shots == "bracket", "brightness": self.merge_brightness(), "brightness-text": Self::brightness_text(self.merge_brightness()), "merge-index": BRACKET_MERGE.iter().position(|(k, _)| *k == text(c, "bracket_merge")).unwrap_or(0),
             "quality": quality, "quality-text": quality.to_string(), "quality-enabled": format != "raw" && !caps.camera, "quality-tip": quality_tip,
             "timer-current": TIMERS.iter().position(|t| *t as f64 == number(c, "timer", 0.0)).unwrap_or(0),
-            "use-zoom": c.get("use_zoom") == Some(&Value::Bool(true)),
+            "use-zoom": c.get("use_zoom") == Some(&Value::Bool(true)), "use-zoom-enabled": can_use_zoom(format),
+            "use-zoom-tip": if can_use_zoom(format) { String::new() } else { tr(USE_ZOOM_OFF_TIP) },
             "best": c.get("best") == Some(&json!(true)), "best-enabled": best, "best-tip": tr(if best { BEST_TIP } else { BEST_OFF_TIP }),
             "folder-name": Path::new(&self.folder).file_name().map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty()).unwrap_or_else(|| self.folder.clone()),
             "folder-tip": self.folder, "folder-changed": self.folder != self.default_folder,

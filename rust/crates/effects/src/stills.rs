@@ -207,8 +207,15 @@ pub fn offered(caps: &StillCaps, choices: &Choices) -> Offered {
     let mode = modes.iter().copied().find(|m| *m == text(choices, "mode")).unwrap_or("normal");
     let raw = has(&caps.formats, "raw") && (mode != "max_res" || caps.max_res_raw);
     let mut formats: Vec<&'static str> = vec!["jpeg"];
-    if !EXTENSIONS.contains(&mode) && raw {
-        formats.extend(["raw", "raw+jpeg"]);
+    if EXTENSIONS.contains(&mode) {
+        // Only JPEG
+    } else {
+        if mode == "normal" {
+            formats.extend(["heic", "ultrahdr"].into_iter().filter(|f| has(&caps.formats, f)));
+        }
+        if raw {
+            formats.extend(["raw", "raw+jpeg"]);
+        }
     }
     let mut shots: Vec<&'static str> = vec!["single"];
     if caps.burst_max > 1 {
@@ -460,6 +467,11 @@ pub fn int(choices: &Choices, key: &str, default: i64) -> i64 {
     number(choices, key, default as f64) as i64
 }
 
+/// Whether the photo can be cropped to the zoom without changing its picture. HEIC and Ultra HDR only get turned, by their orientation.
+pub fn can_use_zoom(format: &str) -> bool {
+    !matches!(format, "heic" | "ultrahdr")
+}
+
 /// The /v1/still options for the picks, fitted to what this lens offers.
 pub fn build_options(caps: &StillCaps, choices: &Choices, rotation: i32) -> Value {
     let can = offered(caps, choices);
@@ -469,7 +481,7 @@ pub fn build_options(caps: &StillCaps, choices: &Choices, rotation: i32) -> Valu
     let mut opts = Map::new();
     opts.insert("format".into(), json!(if format == "raw" { "none".to_string() } else { format.replace("raw+", "") }));
     opts.insert("rotation".into(), json!(rotation));
-    opts.insert("use_zoom".into(), json!(choices.get("use_zoom") == Some(&Value::Bool(true))));
+    opts.insert("use_zoom".into(), json!(choices.get("use_zoom") == Some(&Value::Bool(true)) && can_use_zoom(format)));
     if format.starts_with("raw") {
         opts.insert("raw".into(), json!(1));
     }

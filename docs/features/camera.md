@@ -25,7 +25,7 @@ These apply live without restarting the camera.
 - **Lens correction** straightens the curved lines a wide lens makes and stops faces near the edge looking stretched. Slide right for a wide lens and left for a long one. It crops or pulls in the picture as much as needed to fill the edges and 0% leaves the picture exactly as it is
 - Double-click any slider to reset it. The round arrow in a card's header resets the whole card and lights up once something on it has changed. Things you made or paired, like notes, layouts and a loaded LUT, are left alone. The pan pad takes arrow keys (Shift for bigger steps) and Home to centre
 
-Mirror, Upside down and rotation also apply to non-RAW [photos](effects.md#photos). The photo cards have a **Use zoom** switch for a lossless crop to your manual zoom and position. Stretch, Lens correction and Auto framing do not apply to photos.
+Mirror, Upside down and rotation also apply to non-RAW [photos](effects.md#photos). The photo cards have a **Use zoom** switch for a lossless crop to your manual zoom and position. HEIC and Ultra HDR photos get the orientation but not the crop. Stretch, Lens correction and Auto framing do not apply to photos.
 
 Zooming in gets sharper because it crops from the full sensor first and hops to the telephoto lens once your framing fits inside it. Dots on the zoom slider mark where a longer lens takes over.
 

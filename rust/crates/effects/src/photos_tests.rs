@@ -36,7 +36,7 @@ fn a_plain_lens_offers_only_a_single_jpeg() {
 #[test]
 fn a_flagship_offers_everything_it_has() {
     let can = offered(&full(), &choices(json!({})));
-    assert_eq!(can.formats, ["jpeg", "raw", "raw+jpeg"]);
+    assert_eq!(can.formats, ["jpeg", "heic", "ultrahdr", "raw", "raw+jpeg"]);
     assert_eq!(can.modes, ["normal", "max_res", "night", "hdr", "bokeh"]);
     assert_eq!(can.shots, ["single", "burst", "bracket", "focus"]);
     assert!(can.exposures.last() == Some(&30.0) && !can.exposures.contains(&60.0));
@@ -264,7 +264,7 @@ fn picking_a_night_mode_hides_what_it_cant_do() {
 #[test]
 fn a_pick_for_another_lens_is_kept_when_this_one_cant_do_it() {
     let mut rig = Rig::new(Some(full_json()), true);
-    rig.ui("tile-picked", vec![json!("format"), json!(1)]);
+    rig.ui("tile-picked", vec![json!("format"), json!(3)]);
     assert_eq!(rig.plugin.get_config()["format"], "raw");
     rig.host.still_caps = Some(json!({"size": [1000, 1000]}));
     rig.caps_changed();
@@ -272,7 +272,7 @@ fn a_pick_for_another_lens_is_kept_when_this_one_cant_do_it() {
     rig.host.still_caps = Some(full_json());
     rig.caps_changed();
     let p = rig.props();
-    assert_eq!((tile(&p, "format").map(|t| t.1), rig.plugin.get_config()["format"].as_str()), (Some(1), Some("raw")));
+    assert_eq!((tile(&p, "format").map(|t| t.1), rig.plugin.get_config()["format"].as_str()), (Some(3), Some("raw")));
 }
 
 #[test]
@@ -384,7 +384,7 @@ fn config_round_trips_and_odd_values_go_back_to_defaults() {
     assert_eq!(cfg["folder"], default_folder().as_str());
     // The keys come in the order the file has always had them
     let keys: Vec<&String> = cfg.as_object().unwrap().keys().collect();
-    assert_eq!(keys, ["format", "quality", "mode", "shots", "burst", "bracket_photos", "bracket_gap", "focus_steps", "exposure_s", "timer", "best", "distortion", "folder"]);
+    assert_eq!(keys, ["format", "quality", "mode", "shots", "burst", "bracket_photos", "bracket_gap", "focus_steps", "exposure_s", "timer", "best", "use_zoom", "distortion", "folder"]);
     assert!(rig.plugin.set_config(&json!([1])).is_err());
 }
 
@@ -941,7 +941,7 @@ fn a_focus_bracket_can_be_merged_when_it_is_jpeg_and_the_choice_is_part_of_a_pre
     assert_eq!(rig.props()["merge-enabled"], false);
     rig.ui("tile-picked", vec![json!("shots"), json!(3)]);
     assert_eq!((rig.props()["merge-enabled"].clone(), rig.props()["merge-index"].clone()), (json!(true), json!(0)));
-    rig.ui("tile-picked", vec![json!("format"), json!(1)]);
+    rig.ui("tile-picked", vec![json!("format"), json!(3)]);
     assert_eq!(rig.props()["merge-enabled"], false, "a RAW photo can't be read");
     rig.ui("tile-picked", vec![json!("format"), json!(0)]);
     rig.ui("tile-picked", vec![json!("bracket_merge"), json!(1)]);
@@ -1156,10 +1156,20 @@ fn use_zoom_defaults_off_and_is_kept_in_photo_presets() {
 }
 
 #[test]
-fn old_non_jpeg_format_choices_fall_back_to_jpeg() {
-    for format in ["heic", "ultrahdr"] {
-        let options = build_options(&full(), &choices(json!({"format": format})), 0);
-        assert_eq!(options["format"], "jpeg");
-        assert_eq!(options["use_zoom"], false);
+fn heic_and_ultra_hdr_are_kept_but_never_cropped_to_the_zoom() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.ui("use-zoom-toggled", vec![json!(true)]);
+    assert_eq!((rig.props()["use-zoom-enabled"].clone(), rig.props()["use-zoom-tip"].clone()), (json!(true), json!("")));
+    for (index, format) in [(1, "heic"), (2, "ultrahdr")] {
+        let options = build_options(&full(), &choices(json!({"format": format, "use_zoom": true})), 0);
+        assert_eq!((options["format"].as_str(), &options["use_zoom"]), (Some(format), &json!(false)));
+        rig.ui("tile-picked", vec![json!("format"), json!(index)]);
+        let p = rig.props();
+        assert_eq!((&p["use-zoom"], &p["use-zoom-enabled"]), (&json!(true), &json!(false)), "{format} greys the switch out and keeps the choice");
+        assert!(p["use-zoom-tip"].as_str().unwrap().contains("JPEG"));
+        rig.ui("take-clicked", vec![]);
+        assert_eq!(rig.host.stills_taken.last().unwrap().0["use_zoom"], false);
+        rig.ui("tile-picked", vec![json!("format"), json!(0)]);
+        assert_eq!(rig.props()["use-zoom-enabled"], true);
     }
 }
