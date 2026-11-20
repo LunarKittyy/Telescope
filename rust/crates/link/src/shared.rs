@@ -213,6 +213,18 @@ impl Shared {
         self.changed(false);
     }
 
+    pub fn accept_phone_version(&self, phone: &PairedPhone, version: &str) {
+        let mut c = self.conn();
+        if version.is_empty() || c.selected_id.as_deref() != Some(phone.id.as_str()) { return; }
+        if c.phone(Some(&phone.id)).is_none_or(|p| p.token != phone.token || p.cert_sha256 != phone.cert_sha256) { return; }
+        let Some(res) = c.resolution.as_mut() else { return };
+        if res.phone_version == version { return; }
+        res.phone_version = version.to_string();
+        c.check_id += 1;
+        drop(c);
+        self.changed(false);
+    }
+
     pub fn adopt_route(&self, pid: Option<&str>, route: &RouteSpec) -> Option<String> {
         let format = self.format();
         // The old forward goes first, so the same cable back gets a fresh one rather than the one adb dropped
@@ -466,6 +478,33 @@ mod tests {
         shared.conn().apply_resolution(original.clone());
         shared.accept_recovery(Some("id-b"), &Resolution { phone_version: "5.1.4".into(), ..ready(usb()) });
         assert_eq!(shared.conn().resolution, Some(original));
+    }
+
+    #[test]
+    fn a_reconnected_phones_version_only_updates_the_current_pairing_and_preserves_the_route() {
+        let (shared, host) = with_phone(Arc::new(FakeTunnels::default()));
+        let check = shared.conn().check_status(0.0).unwrap();
+        let phone = shared.conn().phone(Some("id-a")).unwrap().clone();
+        let original = Resolution { phone_version: "5.1.3".into(), streaming: true, ..ready(usb()) };
+        shared.conn().apply_resolution(original.clone());
+        shared.conn().streaming = true;
+        assert!(shared.conn().check_status(1.0).is_none());
+        for stale in [
+            PairedPhone { id: "id-b".into(), ..phone.clone() },
+            PairedPhone { token: "replaced".into(), ..phone.clone() },
+            PairedPhone { cert_sha256: "replaced".into(), ..phone.clone() },
+        ] {
+            shared.accept_phone_version(&stale, "5.1.4");
+        }
+        shared.accept_phone_version(&phone, "");
+        assert_eq!(shared.conn().resolution, Some(original.clone()));
+        assert!(host.take_posted().is_empty());
+        shared.accept_phone_version(&phone, "5.1.4");
+        let updated = Resolution { phone_version: "5.1.4".into(), ..original };
+        assert_eq!(shared.conn().resolution, Some(updated.clone()));
+        shared.conn().on_resolved(check.check_id, "id-a", ready(wifi()));
+        assert_eq!(shared.conn().resolution, Some(updated));
+        assert_eq!(host.take_posted(), vec![(POST_CHANGED.into(), json!({"save": false}))]);
     }
 
     #[test]

@@ -605,6 +605,7 @@ pub(crate) mod testing {
         pub path: String,
         pub auth: Option<String>,
         pub content_type: Option<String>,
+        pub desktop_version: Option<String>,
         pub body: Vec<u8>,
     }
 
@@ -628,7 +629,7 @@ pub(crate) mod testing {
         reader.read_line(&mut line).ok()?;
         let mut parts = line.split_whitespace();
         let (method, path) = (parts.next()?.to_string(), parts.next()?.to_string());
-        let (mut auth, mut content_type, mut length) = (None, None, 0usize);
+        let (mut auth, mut content_type, mut desktop_version, mut length) = (None, None, None, 0usize);
         loop {
             let mut h = String::new();
             if reader.read_line(&mut h).ok()? == 0 || h.trim().is_empty() {
@@ -641,6 +642,9 @@ pub(crate) mod testing {
                 if k.eq_ignore_ascii_case("content-type") {
                     content_type = Some(v.trim().to_string());
                 }
+                if k.eq_ignore_ascii_case("x-telescope-version") {
+                    desktop_version = Some(v.trim().to_string());
+                }
                 if k.eq_ignore_ascii_case("content-length") {
                     length = v.trim().parse().unwrap_or(0);
                 }
@@ -648,7 +652,7 @@ pub(crate) mod testing {
         }
         let mut body = vec![0; length];
         reader.read_exact(&mut body).ok()?;
-        Some(Seen { method, path, auth, content_type, body })
+        Some(Seen { method, path, auth, content_type, desktop_version, body })
     }
 
     fn reason(status: u16) -> &'static str {

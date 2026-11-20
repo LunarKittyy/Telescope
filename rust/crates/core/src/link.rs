@@ -208,6 +208,8 @@ pub trait Link: Send + Sync {
     }
     /// Stores a ready recovery result after the stream flow accepts its session and generation.
     fn accept_recovery(&self, _source_id: Option<&str>, _res: &Resolution) {}
+    /// Stores a checked version only while the phone still has the same pairing.
+    fn accept_phone_version(&self, _phone: &PairedPhone, _version: &str) {}
     /// Moves the running stream onto a route recovery_check found; the new video URL, or None. Blocking.
     fn adopt_route(&self, _source_id: Option<&str>, _route: &RouteSpec) -> Option<String> {
         None
