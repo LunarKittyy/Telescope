@@ -2133,6 +2133,44 @@ mod tests {
     }
 
     #[test]
+    fn accepted_recovery_clears_the_version_notice_while_streaming() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.plugin.desktop_version = "5.1.4".into();
+        e.stream_over(wifi());
+        e.resolve(Resolution { phone_version: "5.1.3".into(), ..ready(wifi()) });
+        assert!(e.issue("app_version").is_some());
+        assert!(e.shared.conn().check_status(0.0).is_none());
+
+        let res = Resolution { phone_version: "5.1.4".into(), streaming: true, ..ready(wifi()) };
+        e.shared.accept_recovery(Some("id-a"), &res);
+        e.settle();
+        assert_eq!(e.shared.conn().resolution, Some(res));
+        assert!(e.issue("app_version").is_none());
+    }
+
+    #[test]
+    fn presence_versions_clear_and_refresh_the_notice_while_streaming() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.plugin.desktop_version = "5.1.4".into();
+        e.stream_over(wifi());
+        e.resolve(Resolution { phone_version: "5.1.3".into(), ..ready(wifi()) });
+        assert!(e.issue("app_version").is_some());
+        assert!(e.shared.conn().check_status(0.0).is_none());
+
+        e.shared.presence_version("id-b", "5.1.4");
+        e.settle();
+        assert!(e.issue("app_version").is_some());
+        e.shared.presence_version("id-a", "5.1.4");
+        e.settle();
+        assert!(e.issue("app_version").is_none());
+        e.shared.presence_version("id-a", "5.1.5");
+        e.settle();
+        assert!(e.issue("app_version").unwrap().text.contains("Pixel is newer"));
+    }
+
+    #[test]
     fn starts_with_different_app_versions_and_shows_the_notice() {
         let mut e = env();
         e.add("id-a", "Pixel");
