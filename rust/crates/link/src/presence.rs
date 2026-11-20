@@ -1,11 +1,12 @@
 //! Authenticated reachability hints, independent of camera and stream ownership.
 
 use crate::net::presence_addresses;
+use polling::{Event, Events, Poller};
 use ring::hmac;
 use std::collections::{HashMap, VecDeque};
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use telescope_core::source::PairedPhone;
 
@@ -40,6 +41,7 @@ struct Credentials {
 
 #[derive(Default)]
 struct Controls {
+    poller: OnceLock<Arc<Poller>>,
     config: Mutex<Option<(u64, Config)>>,
     credentials: Mutex<Option<Credentials>>,
     revision: AtomicU64,
@@ -48,6 +50,12 @@ struct Controls {
     checks: Mutex<VecDeque<(PairedPhone, bool)>>,
     hint: AtomicBool,
     stopped: AtomicBool,
+}
+
+impl Controls {
+    fn notify(&self) {
+        if let Some(poller) = self.poller.get() { let _ = poller.notify(); }
+    }
 }
 
 pub struct Presence {
@@ -73,17 +81,20 @@ impl Presence {
         }
         let revision = self.controls.revision.load(Ordering::Acquire);
         *self.controls.config.lock().unwrap() = Some((revision, Config { id: computer_id, version, phones }));
+        self.controls.notify();
     }
 
     pub fn capability(&self, phone_id: &str, enabled: bool) {
         let mut capabilities = self.controls.capabilities.lock().unwrap();
         if capabilities.len() < MAX_PEERS || capabilities.contains_key(phone_id) {
             capabilities.insert(phone_id.to_string(), enabled);
+            self.controls.notify();
         }
     }
 
     pub fn hint(&self) {
         self.controls.hint.store(true, Ordering::Relaxed);
+        self.controls.notify();
     }
 
     pub fn take_events(&self) -> Vec<PresenceEvent> {
@@ -95,10 +106,12 @@ impl Presence {
         let mut checks = self.controls.checks.lock().unwrap();
         if checks.len() == MAX_PEERS { checks.pop_front(); }
         checks.push_back((phone.clone(), unreachable));
+        self.controls.notify();
     }
 
     pub fn stop(&self) {
         self.controls.stopped.store(true, Ordering::Relaxed);
+        self.controls.notify();
     }
 }
 
@@ -291,6 +304,11 @@ struct Engine {
 }
 
 impl Engine {
+    fn wait_for(&self, now: f64, scan_at: f64) -> Duration {
+        let next = self.peers.values().map(|peer| peer.schedule.next).fold(scan_at, f64::min);
+        Duration::from_secs_f64((next - now).max(0.0))
+    }
+
     fn configure(&mut self, config: Config, now: f64) {
         if self.id != config.id {
             self.peers.clear();
@@ -401,7 +419,24 @@ trait Transport {
     fn send(&mut self, send: Send);
 }
 
-struct Sockets(Vec<(IpAddr, UdpSocket)>);
+struct Sockets(Vec<(IpAddr, UdpSocket)>, Arc<Poller>);
+
+impl Sockets {
+    fn wait(&self, events: &mut Events, timeout: Option<Duration>) -> std::io::Result<()> {
+        for (index, (_, socket)) in self.0.iter().enumerate() {
+            self.1.modify(socket, Event::readable(index))?;
+        }
+        events.clear();
+        self.1.wait(events, timeout)?;
+        Ok(())
+    }
+}
+
+impl Drop for Sockets {
+    fn drop(&mut self) {
+        for (_, socket) in &self.0 { let _ = self.1.delete(socket); }
+    }
+}
 
 impl Transport for Sockets {
     fn send(&mut self, send: Send) {
@@ -427,9 +462,18 @@ fn event(controls: &Controls, value: PresenceEvent, revision: u64) {
 }
 
 fn run(controls: Arc<Controls>) {
+    let poller = match Poller::new() {
+        Ok(poller) => Arc::new(poller),
+        Err(error) => {
+            event(&controls, PresenceEvent::Degraded(format!("UDP presence could not wait for sockets: {error}")), controls.revision.load(Ordering::Acquire));
+            return;
+        }
+    };
+    let _ = controls.poller.set(poller.clone());
+    let mut ready = Events::new();
     let start = Instant::now();
     let mut engine = Engine::default();
-    let mut sockets = Sockets(Vec::new());
+    let mut sockets = Sockets(Vec::new(), poller.clone());
     let mut adapter_ips = Vec::new();
     let mut scan_at = 0.0;
     let mut initialized = false;
@@ -461,7 +505,10 @@ fn run(controls: Arc<Controls>) {
             engine.hint(now);
             scan_at = 0.0;
         }
-        if !initialized { std::thread::sleep(Duration::from_millis(50)); continue; }
+        if !initialized {
+            if sockets.wait(&mut ready, None).is_err() { break; }
+            continue;
+        }
         if now >= scan_at {
             scan_at = now + 5.0;
             let adapters = AdapterAddresses::new(crate::net::pairing_addresses().into_iter().map(|item| item.ip));
@@ -473,10 +520,13 @@ fn run(controls: Arc<Controls>) {
                     if let Some(index) = sockets.0.iter().position(|(old, _)| *old == addr) {
                         fresh.push(sockets.0.swap_remove(index));
                     } else if let Ok(socket) = UdpSocket::bind(SocketAddr::new(addr, PORT)) {
-                        if socket.set_nonblocking(true).is_ok() { fresh.push((addr, socket)); }
+                        if socket.set_nonblocking(true).is_ok() {
+                            // SAFETY: Sockets unregisters every added socket before dropping it.
+                            if unsafe { poller.add(&socket, Event::readable(fresh.len())) }.is_ok() { fresh.push((addr, socket)); }
+                        }
                     }
                 }
-                sockets = Sockets(fresh);
+                sockets = Sockets(fresh, poller.clone());
                 adapter_ips = adapters.bound;
                 engine.local = adapters.advertised;
                 if changed { engine.hint(now); }
@@ -512,7 +562,7 @@ fn run(controls: Arc<Controls>) {
         for (phone, unreachable) in controls.checks.lock().unwrap().drain(..) {
             engine.checked(&phone, unreachable, now);
         }
-        std::thread::sleep(Duration::from_millis(25));
+        if sockets.wait(&mut ready, Some(engine.wait_for(start.elapsed().as_secs_f64(), scan_at))).is_err() { break; }
     }
 }
 

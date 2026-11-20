@@ -79,6 +79,8 @@ static NEXT_SERIAL: AtomicU64 = AtomicU64::new(1);
 pub struct Gpu {
     serial: u64,
     device: wgpu::Device,
+    #[cfg(all(target_os = "linux", ffmpeg))]
+    import_capabilities: Mutex<crate::vaapi_import::Capabilities>,
     queue: wgpu::Queue,
     /// For the convert shader: three planes, a sampler and its settings.
     convert_layout: wgpu::BindGroupLayout,
@@ -352,6 +354,8 @@ impl Gpu {
         Gpu {
             serial: NEXT_SERIAL.fetch_add(1, Ordering::Relaxed),
             device,
+            #[cfg(all(target_os = "linux", ffmpeg))]
+            import_capabilities: Mutex::default(),
             queue,
             convert_layout,
             convert: Mutex::default(),
@@ -769,7 +773,7 @@ impl Gpu {
 
     #[cfg(all(target_os = "linux", ffmpeg))]
     fn lift_surface(&self, frame: &Frame, source: Arc<dyn telescope_core::frame::DecodedSurface>, surface: &crate::vaapi_import::Surface, block_chroma: bool) -> Result<Held, String> {
-        let planes = surface.import(&self.device)?;
+        let planes = surface.import(&self.device, &self.import_capabilities)?;
         let (w, h) = (frame.width, frame.height);
         let converted = self.scoped(|| -> Result<_, String> {
             // wgpu refuses one encoder that mixes its own commands with raw ones, so the two barriers get encoders of their own

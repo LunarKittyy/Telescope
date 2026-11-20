@@ -40,6 +40,84 @@ fn fake_clock_visits_each_schedule_phase_and_coalesces_hints() {
 }
 
 #[test]
+fn worker_deadlines_follow_probes_and_adapter_scans() {
+    assert_eq!(Engine::default().wait_for(100.0, 105.0), Duration::from_secs(5));
+    let mut engine = engine();
+    assert_eq!(engine.wait_for(0.0, 5.0), Duration::ZERO);
+    engine.tick(0.0, || nonce(1));
+    assert_eq!(engine.wait_for(0.5, 5.0), Duration::from_millis(1300));
+    assert_eq!(engine.wait_for(0.5, 0.75), Duration::from_millis(250));
+    assert_eq!(engine.wait_for(2.0, 5.0), Duration::ZERO);
+    engine.tick(180.0, || nonce(1));
+    assert_eq!(engine.wait_for(180.0, 185.0), Duration::from_secs(5));
+}
+
+#[test]
+fn idle_socket_waits_for_packets_and_rearms_after_reading() {
+    let poller = Arc::new(Poller::new().unwrap());
+    let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+    socket.set_nonblocking(true).unwrap();
+    let target = socket.local_addr().unwrap();
+    // SAFETY: Sockets unregisters the socket before dropping it.
+    unsafe { poller.add(&socket, Event::readable(0)) }.unwrap();
+    let sockets = Sockets(vec![(target.ip(), socket)], poller);
+    let (armed, waiting) = std::sync::mpsc::channel();
+    let (woke, received) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let mut ready = Events::new();
+        for _ in 0..2 {
+            armed.send(()).unwrap();
+            sockets.wait(&mut ready, Some(Duration::from_secs(5))).unwrap();
+            let mut bytes = [0; 16];
+            let (len, _) = sockets.0[0].1.recv_from(&mut bytes).unwrap();
+            woke.send(bytes[..len].to_vec()).unwrap();
+        }
+    });
+    let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
+    for _ in 0..2 {
+        waiting.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(received.recv_timeout(Duration::from_millis(50)).is_err(), "an idle socket woke the worker");
+        sender.send_to(b"probe", target).unwrap();
+        assert_eq!(received.recv_timeout(Duration::from_secs(5)).unwrap().as_slice(), b"probe");
+    }
+    worker.join().unwrap();
+}
+
+#[test]
+fn every_control_change_wakes_the_worker() {
+    let poller = Arc::new(Poller::new().unwrap());
+    let controls = Arc::new(Controls::default());
+    assert!(controls.poller.set(poller.clone()).is_ok());
+    let presence = Presence { controls };
+    let (armed, waiting) = std::sync::mpsc::channel();
+    let (woke, received) = std::sync::mpsc::channel();
+    let (begin, proceed) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let sockets = Sockets(Vec::new(), poller);
+        let mut ready = Events::new();
+        for change in 0..5 {
+            armed.send(()).unwrap();
+            if change == 0 { proceed.recv_timeout(Duration::from_secs(5)).unwrap(); }
+            sockets.wait(&mut ready, Some(Duration::from_secs(10))).unwrap();
+            woke.send(()).unwrap();
+        }
+    });
+    for change in 0..5 {
+        waiting.recv_timeout(Duration::from_secs(5)).unwrap();
+        match change {
+            0 => presence.configure("desktop".into(), "3.6.0".into(), vec![phone("secret")]),
+            1 => presence.capability("phone", true),
+            2 => presence.hint(),
+            3 => presence.checked(&phone("secret"), true),
+            _ => presence.stop(),
+        }
+        if change == 0 { begin.send(()).unwrap(); }
+        received.recv_timeout(Duration::from_secs(5)).unwrap();
+    }
+    worker.join().unwrap();
+}
+
+#[test]
 fn mac_covers_all_fields_and_never_contains_the_token() {
     let encoded = encode("q", "phone", "desktop", &nonce(1), "3.6.0", &["192.168.1.20".into()], "secret").unwrap();
     assert!(!String::from_utf8_lossy(&encoded).contains("secret"));
