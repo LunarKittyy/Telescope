@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.os.Message
+import android.os.SystemClock
 import android.view.Surface
 import java.util.concurrent.Executor
 
@@ -89,6 +90,7 @@ class CameraSessionController(
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
+    private val previewRecovery = PreviewRecovery()
     private var encoder: H264Encoder? = null
     /** Frames per second the H.264 encoder puts out, null with no encoder running. */
     fun encoderFps(): Double? = encoder?.outputRate?.fps()
@@ -524,7 +526,7 @@ class CameraSessionController(
             s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
             val trigger = c.createCaptureRequest(requestTemplate()).apply {
                 addTarget(outputSurface()!!)
-                previewSurface?.let { addTarget(it) }
+                if (!previewRecovery.holding) previewSurface?.let { addTarget(it) }
                 currentCamera?.let { applyZoom(this, it) }  // this frame reaches the stream too
                 applyFocusRegion(this)
                 set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START)
@@ -767,6 +769,20 @@ class CameraSessionController(
                 lateinit var built: H264Encoder
                 // Queued behind a size change, a report from the old encoder must not count against the new one
                 built = H264Encoder(streamWidth, streamHeight, streamFps(), currentBitrate(),
+                    onFrameAllowed = { timestampNs, key ->
+                        val mono = System.nanoTime()
+                        val realtime = SystemClock.elapsedRealtimeNanos()
+                        val clock = PhoneStats.stampClock(timestampNs / 1000, mono, realtime, PhoneStats.shared.realtimeStamps)
+                        val sensorNs = when {
+                            PhoneStats.shared.realtimeStamps == true && clock == false -> timestampNs + realtime - mono
+                            PhoneStats.shared.realtimeStamps == true && clock == true -> timestampNs
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> timestampNs
+                            else -> null  // Older video outputs may use a different clock from SENSOR_TIMESTAMP.
+                        }
+                        val keep = previewRecovery.keep(sensorNs, key)
+                        if (!keep && previewRecovery.requestKeyframe(SystemClock.elapsedRealtime())) built.requestKeyFrame()
+                        keep
+                    },
                     onPacket = onH264, onError = { e -> post { if (encoder === built) encoderFailed(e) } },
                     onReorder = { post { if (encoder === built && codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
                 encoder = built
@@ -818,6 +834,7 @@ class CameraSessionController(
         reader.setOnImageAvailableListener({ r ->
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
+                if (!previewRecovery.keep(image.timestamp)) return@setOnImageAvailableListener
                 if (!frameWanted()) { onFrameSkipped(); return@setOnImageAvailableListener }
                 val buf   = image.planes[0].buffer
                 val bytes = ByteArray(buf.remaining())
@@ -1026,6 +1043,7 @@ class CameraSessionController(
     private fun stillRebuilding(cause: StillRebuild.Cause) {
         if (!StillRebuild.interrupts(cause)) return
         onStillInterrupted?.invoke(cause)
+        previewRecovery.reset()
         // After the photo ended, so its outputs aren't taken as refused by this lens
         stillSetup?.let { stillSetup = null; it(false) }
     }
@@ -1038,6 +1056,7 @@ class CameraSessionController(
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
         try {
             session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler)
+            if (previewRecovery.recovering()) armPreviewRecovery()
             turningOn = false
             streamedOnce = true
             if (taken) { taken = false; unwatchAvailability() }
@@ -1141,10 +1160,11 @@ class CameraSessionController(
     private fun buildRequest(camera: CameraDevice = cameraDevice!!, probe: Boolean = false): CaptureRequest {
         return camera.createCaptureRequest(requestTemplate()).apply {
             addTarget(outputSurface()!!)
-            previewSurface?.let { addTarget(it) }
+            if (!previewRecovery.holding) previewSurface?.let { addTarget(it) }
             val fps = cameraFps()
             if (!probe) sessionFps = fps
             applyControls(this, fps)
+            previewRecovery.requestTag()?.let { setTag(it) }
         }.build()
     }
 
@@ -1311,6 +1331,7 @@ class CameraSessionController(
     // Closes the stream's session so StillCapture can run its own; false when there's no camera to do it on
     fun pauseForStill(): Boolean {
         if (cameraDevice == null || cameraOff || stopped) return false
+        holdStillPreview()
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close() } catch (_: Exception) {}
         captureSession = null
@@ -1318,6 +1339,40 @@ class CameraSessionController(
         sessionGeneration++  // a session of the stream's still configuring is closed when it gets there
         stillPaused = true
         return true
+    }
+
+    // Called before manual still requests, while the repeating request still has only preview settings.
+    fun holdStillPreview() {
+        previewRecovery.start()
+        applyExposure()
+    }
+
+    // Restore preview controls before allowing frames; AE state cannot survive the still's AE mode switch.
+    fun restoreStillPreview() {
+        if (!previewRecovery.holding) {
+            if (!stillPaused) captureSession?.let(::stillRestartStream)
+            return
+        }
+        previewRecovery.resume(SystemClock.elapsedRealtime())
+        if (!stillPaused) {
+            captureSession?.let(::stillRestartStream)
+            armPreviewRecovery()
+        }
+    }
+
+    private fun armPreviewRecovery() {
+        previewRecovery.resume(SystemClock.elapsedRealtime())
+        handler?.postDelayed({
+            if (previewRecovery.timeout(SystemClock.elapsedRealtime())) {
+                android.util.Log.i(TAG, "Preview AE recovery reached its time limit")
+                previewRecovered()
+            }
+        }, PreviewRecovery.MAX_MS)
+    }
+
+    private fun previewRecovered() {
+        if (previewRecovery.requestKeyframe(SystemClock.elapsedRealtime())) encoder?.requestKeyFrame()
+        applyExposure()
     }
 
     // The stream's repeating request again after a photo aborted its captures on the stream's own session
@@ -1343,6 +1398,17 @@ class CameraSessionController(
             request: CaptureRequest,
             result: TotalCaptureResult
         ) {
+            if (session !== captureSession) return
+            val ae = result.get(CaptureResult.CONTROL_AE_STATE)
+            val ready = result.get(CaptureResult.CONTROL_AE_MODE) == CaptureRequest.CONTROL_AE_MODE_OFF ||
+                ae == CaptureResult.CONTROL_AE_STATE_CONVERGED ||
+                ae == CaptureResult.CONTROL_AE_STATE_LOCKED || ae == CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED
+            result.get(CaptureResult.SENSOR_TIMESTAMP)?.let {
+                if (previewRecovery.result(it, ready, request.tag as? Long)) {
+                    android.util.Log.d(TAG, "Preview AE recovered after still: $ae")
+                    previewRecovered()
+                }
+            }
             lastResult = result
             result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
             result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }

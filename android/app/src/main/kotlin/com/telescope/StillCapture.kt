@@ -238,6 +238,7 @@ class StillCapture(
         val r = Run(id, req, caps, controller.stillGeneration(), cam.id, cam.activeArray, maxResArray)
         current = r
         controller.stillBusy(true)
+        if (req.pausesVideo || req.shots.any { it.exposureNs != null }) controller.holdStillPreview()
         armTimeout(r)
         try {
             if (request.extension != null) { shootExtension(r, device); return }
@@ -845,8 +846,6 @@ class StillCapture(
         val target = r.target
         if (code != null && target != null) {
             try { target.abortCaptures() } catch (_: Exception) {}
-            // On the stream's session that also dropped the video's repeating request
-            if (target !== r.session && restore) controller.stillRestartStream(target)
         }
         val own = r.session
         r.session = null
@@ -856,6 +855,7 @@ class StillCapture(
         if (ext != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) try { (ext as CameraExtensionSession).close() } catch (_: Exception) {}
         r.meter?.close()
         r.own?.let(::closeAfterWrites)
+        if (restore) controller.restoreStillPreview()
         if (r.paused && restore) controller.resumeAfterStill(r.generation)
         // Changes Dynamic or the heat held back for the photo go ahead now
         if (current == null) controller.stillBusy(false)

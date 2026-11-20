@@ -40,8 +40,6 @@ fn elapsed_ms(since: Instant, now: Instant) -> i64 {
 fn countdown(remaining_ms: i64) -> String {
     if remaining_ms <= 0 {
         tr("Almost done")
-    } else if remaining_ms < 3_000 {
-        String::new()
     } else {
         let seconds = remaining_ms.saturating_add(999) / 1_000;
         if seconds >= 60 {
@@ -104,6 +102,8 @@ pub(crate) struct Photo {
     shots: i64,
     taken: i64,
     paused: bool,
+    since: Instant,
+    remaining_ms: i64,
 }
 
 fn positive(value: Option<&Value>, default: i64) -> i64 {
@@ -111,7 +111,7 @@ fn positive(value: Option<&Value>, default: i64) -> i64 {
 }
 
 impl Photo {
-    fn new(source: &str, options: &Value, camera: bool) -> Self {
+    fn new(source: &str, options: &Value, camera: bool, now: Instant) -> Self {
         let exposure = positive(options.get("exposure_ns"), 0);
         let mut exposures_ms: Vec<i64> = options.get("bracket_ev").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).map(|s| {
             s.split(',').take(100).filter_map(|ev| ev.trim().parse::<f64>().ok().filter(|ev| ev.is_finite()))
@@ -123,13 +123,19 @@ impl Photo {
         let shots = positive(options.get("count"), 1).saturating_mul(positive(options.get("focus_steps"), 1)).saturating_mul(exposures_ms.len() as i64);
         let extension = options.get("extension").is_some_and(|v| !v.is_null() && v.as_str() != Some(""));
         let paused = camera || extension || exposures_ms.iter().any(|ms| *ms >= telescope_core::shot::FREEZES_FROM_NS / 1_000_000);
-        Self { source: source.into(), exposures_ms, shots, taken: 0, paused }
+        let mut photo = Self { source: source.into(), exposures_ms, shots, taken: 0, paused, since: now, remaining_ms: 0 };
+        photo.remaining_ms = photo.estimate(0);
+        photo
     }
 
-    fn update(&mut self, data: &Value) {
+    fn update(&mut self, data: &Value, now: Instant) {
+        let remaining = self.remaining(now);
+        let total = self.estimate(0);
         self.shots = positive(data.get("shots"), self.shots);
         self.taken = data.get("taken").and_then(Value::as_i64).unwrap_or(self.taken).clamp(0, self.shots);
         self.paused |= data.get("paused").and_then(Value::as_bool) == Some(true);
+        self.remaining_ms = remaining.saturating_add(self.estimate(0).saturating_sub(total)).min(self.estimate(self.taken)).max(0);
+        self.since = now;
     }
 
     fn estimate(&self, taken: i64) -> i64 {
@@ -141,11 +147,15 @@ impl Photo {
         full.saturating_add(rest).saturating_add(left.saturating_mul(1_500))
     }
 
-    fn message(&self) -> Option<PreviewMessage> {
+    fn remaining(&self, now: Instant) -> i64 {
+        self.remaining_ms.saturating_sub(elapsed_ms(self.since, now)).max(0)
+    }
+
+    fn message(&self, now: Instant) -> Option<PreviewMessage> {
         if !self.paused {
             return None;
         }
-        let remaining = self.estimate(self.taken);
+        let remaining = self.remaining(now);
         let total = self.estimate(0);
         Some(PreviewMessage {
             text: tr("Taking a picture"), detail: tr("Video will come back when done."),
@@ -195,8 +205,9 @@ impl State {
     }
 
     pub(crate) fn begin_photo_message(&mut self, request: RequestId, source: &str, options: &Value, camera: bool) {
-        let photo = Photo::new(source, options, camera);
-        if let Some(message) = photo.message() {
+        let now = Instant::now();
+        let photo = Photo::new(source, options, camera, now);
+        if let Some(message) = photo.message(now) {
             self.set_preview_message(CORE, Some(source), Some(message));
         }
         self.photo_messages.insert(request.0, photo);
@@ -206,15 +217,16 @@ impl State {
         match event {
             Event::RequestProgress { request, data } => {
                 let Some(photo) = self.photo_messages.get_mut(&request.0) else { return };
-                photo.update(data);
-                let (source, message) = (photo.source.clone(), photo.message());
+                let now = Instant::now();
+                photo.update(data, now);
+                let (source, message) = (photo.source.clone(), photo.message(now));
                 if message.is_some() && !self.photo_messages.iter().any(|(id, p)| *id > request.0 && p.source == source) {
                     self.set_preview_message(CORE, Some(&source), message);
                 }
             }
             Event::RequestDone { request, .. } => {
                 let Some(photo) = self.photo_messages.remove(&request.0) else { return };
-                let message = self.photo_messages.values().rev().find(|p| p.source == photo.source).and_then(Photo::message);
+                let message = self.photo_messages.values().rev().find(|p| p.source == photo.source).and_then(|p| p.message(Instant::now()));
                 self.set_preview_message(CORE, Some(&photo.source), message);
             }
             _ => {}
@@ -257,12 +269,13 @@ mod tests {
     }
 
     #[test]
-    fn countdown_never_shows_negative_seconds_or_the_last_two_seconds() {
+    fn countdown_includes_the_last_two_seconds_and_never_goes_negative() {
         assert_eq!(countdown(24_000), "24 s left");
         assert_eq!(countdown(24_001), "25 s left");
         assert_eq!(countdown(3_000), "3 s left");
-        assert_eq!(countdown(2_999), "");
-        assert_eq!(countdown(1), "");
+        assert_eq!(countdown(2_999), "3 s left");
+        assert_eq!(countdown(2_000), "2 s left");
+        assert_eq!(countdown(1), "1 s left");
         assert_eq!(countdown(0), "Almost done");
         assert_eq!(countdown(-1), "Almost done");
         assert_eq!(countdown(60_000), "1 min 0 s left");
@@ -307,32 +320,69 @@ mod tests {
 
     #[test]
     fn photo_messages_follow_the_exposures_and_progress() {
-        let mut photo = Photo::new("phone", &json!({"exposure_ns": 10_000_000_000i64, "count": 3}), false);
-        let first = photo.message().unwrap();
+        let now = Instant::now();
+        let mut photo = Photo::new("phone", &json!({"exposure_ns": 10_000_000_000i64, "count": 3}), false, now);
+        let first = photo.message(now).unwrap();
         assert_eq!(first.remaining_ms, Some(34_500));
         assert_eq!(first.total_ms, Some(34_500));
         assert_eq!(first.max_ms, 129_000);
         assert_eq!(first.step, "Shot 1 of 3");
-        photo.update(&json!({"taken": 1, "shots": 3}));
-        let next = photo.message().unwrap();
+        photo.update(&json!({"taken": 1, "shots": 3}), now);
+        let next = photo.message(now).unwrap();
         assert_eq!(next.remaining_ms, Some(23_000));
         assert_eq!(next.total_ms, first.total_ms);
         assert_eq!(next.step, "Shot 2 of 3");
-        assert!(Photo::new("phone", &json!({"exposure_ns": 16_666_667}), false).message().is_none());
-        assert!(Photo::new("camera", &json!({}), true).message().is_some());
-        assert!(Photo::new("phone", &json!({"extension": "night"}), false).message().is_some());
+        assert!(Photo::new("phone", &json!({"exposure_ns": 16_666_667}), false, now).message(now).is_none());
+        assert!(Photo::new("camera", &json!({}), true, now).message(now).is_some());
+        assert!(Photo::new("phone", &json!({"extension": "night"}), false, now).message(now).is_some());
     }
 
     #[test]
     fn bracket_uses_its_largest_exposure_to_decide_whether_video_pauses() {
-        let mut photo = Photo::new("phone", &json!({"exposure_ns": 250_000_000, "bracket_ev": "-1,0,1", "count": 2}), false);
+        let now = Instant::now();
+        let mut photo = Photo::new("phone", &json!({"exposure_ns": 250_000_000, "bracket_ev": "-1,0,1", "count": 2}), false, now);
         assert_eq!(photo.shots, 6);
-        assert_eq!(photo.message().unwrap().remaining_ms, Some(10_750));
-        photo.update(&json!({"taken": 1, "shots": 6}));
-        assert_eq!(photo.message().unwrap().remaining_ms, Some(9_125));
-        let mut fast = Photo::new("phone", &json!({}), false);
-        fast.update(&json!({"paused": true, "taken": 0, "shots": 8}));
-        assert_eq!(fast.message().unwrap().step, "Shot 1 of 8");
+        assert_eq!(photo.message(now).unwrap().remaining_ms, Some(10_750));
+        photo.update(&json!({"taken": 1, "shots": 6}), now);
+        assert_eq!(photo.message(now).unwrap().remaining_ms, Some(9_125));
+        let mut fast = Photo::new("phone", &json!({}), false, now);
+        fast.update(&json!({"paused": true, "taken": 0, "shots": 8}), now);
+        assert_eq!(fast.message(now).unwrap().step, "Shot 1 of 8");
+    }
+
+    #[test]
+    fn repeated_phone_status_keeps_a_single_exposure_counting_down() {
+        let now = Instant::now();
+        let mut photo = Photo::new("phone", &json!({"exposure_ns": 10_000_000_000i64}), false, now);
+        let mut messages = Messages::default();
+        for poll in 0..=30 {
+            let at = now + Duration::from_millis(poll * 400);
+            photo.update(&json!({"state": "capturing", "shots": 1, "taken": 0, "paused": true}), at);
+            messages.set(CORE, "phone", photo.message(at), at);
+            let drawing = messages.drawing(Some("phone"), at + Duration::from_millis(200));
+            let left = (11_500 - poll as i64 * 400 - 200).max(0);
+            assert_eq!(drawing.countdown, countdown(left));
+            assert!((drawing.progress - (1.0 - left as f32 / 11_500.0)).abs() < 0.0001);
+        }
+        assert_eq!(photo.remaining(now + Duration::from_secs(20)), 0);
+    }
+
+    #[test]
+    fn multi_frame_progress_never_restarts_at_frame_boundaries_or_late_status() {
+        let now = Instant::now();
+        let mut photo = Photo::new("phone", &json!({"exposure_ns": 10_000_000_000i64, "count": 3}), false, now);
+        photo.update(&json!({"taken": 0, "shots": 3}), now + Duration::from_secs(10));
+        assert_eq!(photo.remaining(now + Duration::from_secs(10)), 24_500);
+        photo.update(&json!({"taken": 1, "shots": 3}), now + Duration::from_secs(10));
+        assert_eq!(photo.remaining(now + Duration::from_secs(15)), 18_000);
+        photo.update(&json!({"taken": 1, "shots": 3}), now + Duration::from_secs(22));
+        assert_eq!(photo.remaining(now + Duration::from_secs(22)), 11_000);
+        photo.update(&json!({"taken": 2, "shots": 3}), now + Duration::from_secs(23));
+        assert_eq!(photo.remaining(now + Duration::from_secs(23)), 10_000);
+        assert_eq!(photo.message(now + Duration::from_secs(28)).unwrap().step, "Shot 3 of 3");
+        assert_eq!(photo.remaining(now + Duration::from_secs(33)), 0);
+        photo.update(&json!({"taken": 3, "shots": 3}), now + Duration::from_secs(34));
+        assert_eq!(photo.message(now + Duration::from_secs(34)).unwrap().total_ms, Some(34_500));
     }
 
     #[test]
