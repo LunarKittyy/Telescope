@@ -21,7 +21,7 @@ Optional and it shares the vision download. **Blur** blurs everything behind you
 
 **High quality** swaps the cutout for a slower model (Robust Video Matting) that follows hair and edges much better and holds still where nothing moves. It's off by default because it uses more of the processor, about 40% of one core on a 1080p stream. It has a separate download, about 25 MB on Linux and 20 MB on Windows, which the card offers when you switch it on. Until that's there, or if the model doesn't load, the normal cutout is used and the picture never waits for it. **Remove download** under People on the Plugins tab deletes it as well.
 
-The last cutout is still used on the current picture while a late one is waiting, including while settings change. Auto framing crops and scales that cutout with the picture while a fresh one is made. Background doesn't turn the picture black while it waits. It is a comfort effect and doesn't protect anything private or stop automatic photos from Phototrap or Stargazer.
+The last cutout is still used on the current picture while a late one is waiting, including while settings change. Auto framing crops and scales that cutout with the picture while a fresh one is made. Background doesn't turn the picture black while it waits. Only the first cutout after Background turns on has nothing to reuse. Until it arrives the whole picture gets the blur or the picture, you included. Background is a comfort effect and doesn't protect anything private or stop automatic photos from Phototrap or Stargazer.
 
 ## Expose for my face
 
