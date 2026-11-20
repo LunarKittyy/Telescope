@@ -145,7 +145,7 @@ export component PhototrapCard inherits Card {
                 Rectangle {
                     horizontal-stretch: 1;
                     preferred-width: 1000px;
-                    height: Theme.row;
+                    height: max(Theme.row, disclosure.preferred-height);
                     Button {
                         width: parent.width;
                         height: parent.height;
@@ -159,7 +159,7 @@ export component PhototrapCard inherits Card {
                         accessible-expanded: root.customize-open;
                         clicked => { root.customize-toggled(!root.customize-open); }
                     }
-                    HorizontalLayout {
+                    disclosure := HorizontalLayout {
                         width: parent.width;
                         height: parent.height;
                         padding-left: Theme.u(6);
@@ -172,9 +172,9 @@ export component PhototrapCard inherits Card {
                             font-weight: Theme.w-label;
                             color: active ? Theme.ink : Theme.dis;
                             vertical-alignment: center;
-                            overflow: elide;
-                            min-width: min(self.preferred-width, Theme.u(80));
-                            horizontal-stretch: 0;
+                            wrap: word-wrap;
+                            min-width: 0px;
+                            horizontal-stretch: 1;
                             accessible-role: none;
                         }
                         Text {
@@ -185,7 +185,7 @@ export component PhototrapCard inherits Card {
                             color: active ? Theme.ink : Theme.dis;
                             vertical-alignment: center;
                             horizontal-alignment: right;
-                            overflow: elide;
+                            wrap: word-wrap;
                             min-width: 0px;
                             horizontal-stretch: 1;
                             accessible-role: none;

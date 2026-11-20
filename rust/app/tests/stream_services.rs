@@ -13,6 +13,32 @@ use telescope_core::source::{PairedPhone, SourceStills};
 use telescope_link::sensors::SensorHub;
 use telescope_shell::worker::VideoWorker;
 
+thread_local! {
+    static STOP_LOG: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+struct StopLogger;
+
+impl log::Log for StopLogger {
+    fn enabled(&self, _: &log::Metadata<'_>) -> bool { true }
+    fn log(&self, record: &log::Record<'_>) {
+        let line = record.args().to_string();
+        if line.contains(": Stopped by ") {
+            let _ = STOP_LOG.try_with(|lines| lines.borrow_mut().push(line));
+        }
+    }
+    fn flush(&self) {}
+}
+
+fn capture_stops() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        log::set_logger(&StopLogger).unwrap();
+        log::set_max_level(log::LevelFilter::Info);
+    });
+    STOP_LOG.with(|lines| lines.borrow_mut().clear());
+}
+
 fn asks<R>(r: &Rig, f: impl FnOnce(&mut dyn Host) -> R) -> R {
     let at = r.w.state.borrow().index("panel").unwrap();
     let answer = r.w.state.borrow_mut().call(at, |_, host| f(host)).unwrap();
@@ -106,6 +132,38 @@ fn take(r: &Rig) -> bool {
     let asked = asks(r, |host| host.take_still(&json!({"format": "jpeg"}), "/tmp", None)).is_some();
     r.pump();
     asked
+}
+
+#[test]
+fn a_stream_ending_during_a_photo_logs_the_photo_as_its_reason() {
+    let (r, stills) = on_air_with_stills("photo-stop-log");
+    *stills.caps.lock().unwrap() = Some(json!({"formats": ["jpeg"]}));
+    assert!(take(&r));
+    let source = r.source("pixel");
+    let label = telescope_shell::session::stream_label(&source);
+    r.link.answers_recovery("pixel", telescope_core::link::Resolution::new(telescope_core::link::PhoneStatus::Ready));
+    capture_stops();
+    r.worker(0).says("reconnecting", "Stream dropped - reconnecting");
+    r.until("the phone's stream stopped", |r| r.streaming().is_empty());
+    STOP_LOG.with(|lines| assert_eq!(*lines.borrow(), [format!("{label}: Stopped by taking a photo")]));
+}
+
+#[test]
+fn a_phone_going_away_overrides_a_leftover_shortcut_reason() {
+    let r = Rig::new("phone-stop-log");
+    r.start();
+    let source = r.source("pixel");
+    let label = telescope_shell::session::stream_label(&source);
+    r.w.with_flow(|flow, host| {
+        flow.stop_reason = "a shortcut, the remote or a plugin";
+        flow.stop_stream(host, Some("missing"));
+    });
+    r.link.answers_recovery("pixel", telescope_core::link::Resolution::new(telescope_core::link::PhoneStatus::Ready));
+    capture_stops();
+    r.worker(0).says("reconnecting", "Stream dropped - reconnecting");
+    r.until("the phone's stream stopped", |r| r.streaming().is_empty());
+    STOP_LOG.with(|lines| assert_eq!(*lines.borrow(), [format!("{label}: Stopped by the phone stopping or disconnecting")]));
+    assert_eq!(r.link.logged("stop pixel"), 0);
 }
 
 fn busy(r: &Rig) -> Vec<String> {

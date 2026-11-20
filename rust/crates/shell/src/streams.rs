@@ -1751,7 +1751,11 @@ impl SourceHost for Rc<Window> {
     }
     fn stop_source(&self, source: &SourceRef) {
         let s = source.clone();
-        self.with_flow(move |flow, host| flow.stop(host, false, Some(s), false));
+        let taking_photo = self.state.borrow().stills.iter().any(|(_, _, id)| id == source.id_str());
+        self.with_flow(move |flow, host| {
+            flow.stop_reason = if taking_photo { "taking a photo" } else { "the phone stopping or disconnecting" };
+            flow.stop(host, false, Some(s), false);
+        });
     }
     fn set_camera_on(&self, on: bool) {
         self.state.borrow_mut().effects.push(crate::shell::Effect::CameraOn { on, auto: false });
