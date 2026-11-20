@@ -157,6 +157,7 @@ pub fn recovery_probed(host: &dyn SourceHost, source: &SourceRef, session_id: u6
     if !source.recovering() || generation != phone.recovery_generation() || session.id != session_id {
         return;
     }
+    phone.link.accept_recovery(phone.id.as_deref(), res);
     let stopped_key = format!("stopped:{}", source.id_str());
     match res.status {
         PhoneStatus::NotPaired | PhoneStatus::LocalOnly | PhoneStatus::PhoneOutdated | PhoneStatus::DesktopOutdated => {
@@ -1333,6 +1334,7 @@ mod tests {
         /// A stop waits until this is true.
         stop_gate: Option<Arc<(Mutex<bool>, std::sync::Condvar)>>,
         adopted: Mutex<Vec<RouteSpec>>,
+        accepted_recovery: Mutex<Vec<(Option<String>, Resolution)>>,
     }
 
     struct Shared(Arc<FakeSession>);
@@ -1423,6 +1425,9 @@ mod tests {
         fn adopt_route(&self, _source_id: Option<&str>, route: &RouteSpec) -> Option<String> {
             self.adopted.lock().unwrap().push(route.clone());
             Some("https://127.0.0.1:41000/v1/video".into())
+        }
+        fn accept_recovery(&self, source_id: Option<&str>, res: &Resolution) {
+            self.accepted_recovery.lock().unwrap().push((source_id.map(str::to_string), res.clone()));
         }
         fn show_problem(&self, _source_id: Option<&str>, res: &Resolution) {
             self.problems.lock().unwrap().push(res.status);
@@ -1647,6 +1652,22 @@ mod tests {
             assert!(Instant::now() < until, "nothing moved");
             std::thread::sleep(Duration::from_millis(5));
         }
+    }
+
+    #[test]
+    fn only_current_recovery_results_are_accepted_even_when_the_route_is_unchanged() {
+        let (source, link, _, host) = streaming();
+        source.kind.as_phone().unwrap().inner.borrow_mut().recovery_route = Some(wifi());
+        let res = Resolution { phone_version: "5.1.4".into(), streaming: true, ..ready(wifi()) };
+        recovery_probed(&host, &source, 1, 0, &res);
+        assert!(link.accepted_recovery.lock().unwrap().is_empty());
+        lost(&source);
+        recovery_probed(&host, &source, 2, 0, &res);
+        recovery_probed(&host, &source, 1, 1, &res);
+        assert!(link.accepted_recovery.lock().unwrap().is_empty());
+        recovery_probed(&host, &source, 1, 0, &res);
+        assert_eq!(*link.accepted_recovery.lock().unwrap(), vec![(Some("p1".into()), res)]);
+        assert!(link.adopted.lock().unwrap().is_empty());
     }
 
     #[test]
