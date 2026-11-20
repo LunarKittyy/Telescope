@@ -117,7 +117,12 @@ object SessionEndpoint {
         if (presence == null) {
             val generation = ++presenceGeneration
             presence = PresenceWorker(app, { isHeldBy(OWNER_WAITING) && !screens.any() }) { degraded ->
-                synchronized(this) { if (generation == presenceGeneration) presenceDegraded = degraded }
+                synchronized(this) {
+                    if (generation == presenceGeneration) {
+                        if (degraded && !presenceDegraded) android.util.Log.w("SessionEndpoint", "Network presence unavailable, normal connection checks still work")
+                        presenceDegraded = degraded
+                    }
+                }
             }
         }
         presence?.hint()

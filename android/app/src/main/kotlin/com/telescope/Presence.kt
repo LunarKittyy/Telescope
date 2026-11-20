@@ -164,8 +164,16 @@ internal class PresenceExchange(private val phoneId: String, private val version
 
 internal enum class DesktopVersionNotice { Legacy, Different }
 
-internal fun desktopVersionNotice(desktop: String?, phone: String): DesktopVersionNotice? {
-    if (desktop == null) return null
+// Written the way the app shows its own version (5.1.4-nightly.4255), whichever way the desktop spelt it
+internal fun displayAppVersion(version: String): String =
+    Regex("^(\\d+\\.\\d+\\.\\d+) (nightly|dev)(?: (\\d+))?$").matchEntire(version.trim())?.let { m ->
+        val (base, channel, build) = m.destructured
+        if (build.isEmpty()) "$base-$channel" else "$base-$channel.$build"
+    } ?: version.trim()
+
+// Only a computer heard from since this app started counts, so a stored version from a computer that is now off never shows
+internal fun desktopVersionNotice(desktop: String?, phone: String, heardThisRun: Boolean = true): DesktopVersionNotice? {
+    if (desktop == null || !heardThisRun) return null
     if (desktop.isEmpty()) return DesktopVersionNotice.Legacy
     fun dev(v: String) = v.endsWith(" dev") || v.contains("-dev.")
     if (desktop.trim() == phone.trim() || dev(desktop) || dev(phone)) return null

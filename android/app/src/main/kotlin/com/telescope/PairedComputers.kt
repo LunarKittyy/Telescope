@@ -76,6 +76,10 @@ object PairedComputers {
 
     @Volatile private var cache: PairedComputerList? = null
     private val listeners = mutableSetOf<() -> Unit>()
+    // Computers that answered since this app process started; the stored version is only trusted for these
+    private val heardThisRun = mutableSetOf<String>()
+
+    @Synchronized fun heardThisRun(id: String): Boolean = id in heardThisRun
 
     @Synchronized
     fun list(context: Context): PairedComputerList {
@@ -102,7 +106,14 @@ object PairedComputers {
     internal fun presenceContact(context: Context, update: PresenceContact) =
         contact(context, update.computer, update.version, true, listOf(update.address) + update.addresses)
 
-    private fun contact(context: Context, computer: PairedComputer, version: String, capable: Boolean, addresses: List<String>) = update(context) { list ->
+    private fun contact(context: Context, computer: PairedComputer, version: String, capable: Boolean, addresses: List<String>) {
+        val first = synchronized(this) { heardThisRun.add(computer.id) }
+        val before = list(context)
+        updateContact(context, computer, version, capable, addresses)
+        if (first && list(context).computers == before.computers) synchronized(this) { listeners.toList() }.forEach { it() }
+    }
+
+    private fun updateContact(context: Context, computer: PairedComputer, version: String, capable: Boolean, addresses: List<String>) = update(context) { list ->
         PairedComputerList(list.computers.map { current ->
             if (current.id != computer.id || current.token != computer.token) current
             else current.copy(desktopVersion = version, presence = capable, addresses = mergeComputerAddresses(addresses, current.addresses))

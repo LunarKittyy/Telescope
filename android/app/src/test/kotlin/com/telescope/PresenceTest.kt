@@ -221,6 +221,21 @@ class PresenceTest {
     }
 
     @Test
+    fun `version notice only shows for a computer heard from this run`() {
+        assertEquals(DesktopVersionNotice.Different, desktopVersionNotice("5.1.3", "5.1.4", heardThisRun = true))
+        assertNull(desktopVersionNotice("5.1.3", "5.1.4", heardThisRun = false))
+        assertNull(desktopVersionNotice("", "5.1.4", heardThisRun = false))
+    }
+
+    @Test
+    fun `both versions in the notice are written like the app writes its own`() {
+        assertEquals("5.1.4-nightly.4253", displayAppVersion("5.1.4 nightly 4253"))
+        assertEquals("5.1.4-nightly.4255", displayAppVersion("5.1.4-nightly.4255"))
+        assertEquals("5.1.4-dev", displayAppVersion("5.1.4 dev"))
+        assertEquals("5.1.3", displayAppVersion("5.1.3"))
+    }
+
+    @Test
     fun `old pairing storage migrates without inventing version or presence support`() {
         val list = PairedComputerList.decode("""[{"id":"pc-1","name":"Desktop","token":"token","pairedAtMs":0}]""")
         assertEquals(computer, list.computers.single())
