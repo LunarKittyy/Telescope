@@ -212,6 +212,7 @@ pub struct Wish {
     pub shutter: Option<String>,
     pub timer_s: u64,
     pub shot: Option<Value>,
+    pub photo_transform: Option<telescope_core::photo::PhotoTransform>,
 }
 
 impl Wish {
@@ -223,7 +224,8 @@ impl Wish {
             (true, _) => Format::RawJpeg,
             _ => Format::Jpeg,
         };
-        Wish { format, iso: text("iso"), shutter: text("shutter"), shot: o.get("shot").cloned(), timer_s: o.get("timer_s").and_then(Value::as_u64).unwrap_or(0).min(60) }
+        Wish { format, iso: text("iso"), shutter: text("shutter"), shot: o.get("shot").cloned(), timer_s: o.get("timer_s").and_then(Value::as_u64).unwrap_or(0).min(60),
+               photo_transform: o.get("_photo_transform").and_then(|v| serde_json::from_value(v.clone()).ok()) }
     }
 }
 
@@ -788,7 +790,12 @@ fn reserve(folder: &Path, stem: &str, ext: &str) -> std::io::Result<PathBuf> {
 
 /// The files of a photo into folder, named after the moment so a RAW and its JPEG share a name. Each is written as a `.part` file and renamed
 /// when whole. `covered` says the picture is hidden: it is looked at before and after every file, and the photo's files are all removed then.
+#[cfg(test)]
 fn save(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool) -> Result<Vec<PathBuf>, (Failure, Vec<PathBuf>)> {
+    save_transformed(folder, shots, covered, None)
+}
+
+fn save_transformed(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool, transform: Option<&telescope_core::photo::PhotoTransform>) -> Result<Vec<PathBuf>, (Failure, Vec<PathBuf>)> {
     let stem = format!("Telescope_{}", telescope_core::time::local_stamp());
     let mut files: Vec<PathBuf> = Vec::new();
     let discard = |files: &[PathBuf]| files.iter().for_each(|f| { let _ = std::fs::remove_file(f); });
@@ -807,7 +814,9 @@ fn save(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool) -> Result<Vec
             }
         };
         let part = path.with_file_name(format!("{}.part", path.file_name().unwrap_or_default().to_string_lossy()));
-        let written = std::fs::write(&part, &shot.data);
+        let written = std::fs::write(&part, &shot.data).and_then(|()| {
+            transform.map_or(Ok(()), |t| telescope_core::photo::apply_file(&part, t).map_err(std::io::Error::other))
+        });
         // The last look before the file is kept
         let hidden = covered();
         let kept = if hidden { Ok(()) } else { written.and_then(|()| std::fs::rename(&part, &path)) };
@@ -851,6 +860,7 @@ fn exposure_of(shared: &Shared, wish: &Wish) -> Option<f64> {
 
 /// One photo from start to saved files, on the thread of its own: the countdown, the camera's thread doing the shooting, the files.
 fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), guard: &Guard, longest: Duration, late: Option<Late>) -> Value {
+    let photo_transform = wish.photo_transform.clone();
     let is_hidden = || guard.is_hidden();
     let alive = || guard.is_alive();
     if let Err(e) = std::fs::create_dir_all(folder) {
@@ -913,13 +923,13 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
     }
     let covered = || guard.stop().is_some();
     let data = match &outcome.result {
-        Ok(shots) => match save(folder, shots, &covered) {
+        Ok(shots) => match save_transformed(folder, shots, &covered, photo_transform.as_ref()) {
             Ok(files) => result(true, &files, "", ""),
             Err((failure, files)) => failed(&guard.stop().unwrap_or(failure), &files),
         },
         // Whatever came of a photo that is only half there is kept, and the card says it is half
         Err(Failure::Partial(shots)) => {
-            let files = match save(folder, shots, &covered) {
+            let files = match save_transformed(folder, shots, &covered, photo_transform.as_ref()) {
                 Ok(files) => files,
                 Err((Failure::Hidden, _)) => return outcome.annotate(failed(&guard.stop().unwrap_or(Failure::Hidden), &[])),
                 Err((_, files)) => files,
@@ -996,6 +1006,7 @@ impl GphotoStills {
         let late_folder = folder.clone();
         let guard = Guard { hidden, alive: Arc::new(Mutex::new(alive)) };
         let late_guard = guard.clone();
+        let late_transform = wish.photo_transform.clone();
         let late: Late = Arc::new(move |outcome| {
             let shots = match &outcome.result {
                 Ok(shots) | Err(Failure::Partial(shots)) => shots.as_slice(),
@@ -1003,7 +1014,7 @@ impl GphotoStills {
             };
             // A timeout keeps the photo, but cancellation or a hidden picture discards it.
             let covered = || late_guard.stop().is_some();
-            let files = save(&late_folder, shots, &covered).unwrap_or_else(|(_, files)| files);
+            let files = save_transformed(&late_folder, shots, &covered, late_transform.as_ref()).unwrap_or_else(|(_, files)| files);
             if !files.is_empty() || !outcome.restore_errors.is_empty() {
                 let said = outcome.annotate(json!({"state": "late", "files": files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>() }));
                 (*tell.lock().unwrap_or_else(|e| e.into_inner()))(said);

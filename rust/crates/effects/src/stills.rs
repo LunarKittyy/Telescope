@@ -174,7 +174,7 @@ pub type Choices = Map<String, Value>;
 
 pub fn defaults() -> Choices {
     let Value::Object(map) = json!({"format": "jpeg", "quality": 95, "mode": "normal", "shots": "single", "burst": 5, "bracket_photos": 3, "bracket_gap": 3,
-                                    "focus_steps": 5, "bracket_merge": "frames", "merge_brightness": 0, "exposure_s": 0, "timer": 0, "best": true, "distortion": "camera"}) else { unreachable!() };
+                                    "focus_steps": 5, "bracket_merge": "frames", "merge_brightness": 0, "exposure_s": 0, "timer": 0, "best": true, "use_zoom": false, "distortion": "camera"}) else { unreachable!() };
     map
 }
 
@@ -207,15 +207,8 @@ pub fn offered(caps: &StillCaps, choices: &Choices) -> Offered {
     let mode = modes.iter().copied().find(|m| *m == text(choices, "mode")).unwrap_or("normal");
     let raw = has(&caps.formats, "raw") && (mode != "max_res" || caps.max_res_raw);
     let mut formats: Vec<&'static str> = vec!["jpeg"];
-    if EXTENSIONS.contains(&mode) {
-        // Only JPEG
-    } else {
-        if mode == "normal" {
-            formats.extend(["heic", "ultrahdr"].into_iter().filter(|f| has(&caps.formats, f)));
-        }
-        if raw {
-            formats.extend(["raw", "raw+jpeg"]);
-        }
+    if !EXTENSIONS.contains(&mode) && raw {
+        formats.extend(["raw", "raw+jpeg"]);
     }
     let mut shots: Vec<&'static str> = vec!["single"];
     if caps.burst_max > 1 {
@@ -476,6 +469,7 @@ pub fn build_options(caps: &StillCaps, choices: &Choices, rotation: i32) -> Valu
     let mut opts = Map::new();
     opts.insert("format".into(), json!(if format == "raw" { "none".to_string() } else { format.replace("raw+", "") }));
     opts.insert("rotation".into(), json!(rotation));
+    opts.insert("use_zoom".into(), json!(choices.get("use_zoom") == Some(&Value::Bool(true))));
     if format.starts_with("raw") {
         opts.insert("raw".into(), json!(1));
     }

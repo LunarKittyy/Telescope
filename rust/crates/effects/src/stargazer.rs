@@ -633,6 +633,7 @@ pub struct StargazerPlugin {
     keep: u32,
     trail_s: u32,
     camera: bool,
+    use_zoom: bool,
     shot: ShotChoice,
     shot_initialized: bool,
     customize_open: bool,
@@ -693,6 +694,7 @@ impl StargazerPlugin {
             keep: DEFAULT_KEEP,
             trail_s: DEFAULT_TRAIL_S,
             camera: false,
+            use_zoom: false,
             shot: ShotChoice::default(),
             shot_initialized: false,
             customize_open: false,
@@ -922,7 +924,7 @@ impl StargazerPlugin {
             "settings-reset-shown": self.settings_reset_shown(),
             "reset-enabled": self.mode == Mode::Live && (self.count > 0 || self.refused > 0 || self.phase == Phase::Collecting),
             "status": status, "status-kind": kind, "tally": self.tally(), "limit": self.limit, "focus-text": self.focus_text(host),
-            "camera": self.camera, "saved": saved, "open-enabled": !self.last.is_empty(),
+            "camera": self.camera, "use-zoom": self.use_zoom, "saved": saved, "open-enabled": !self.last.is_empty(),
         });
         if let (Some(all), Value::Object(shot)) = (props.as_object_mut(), self.shot_props(host)) {
             all.extend(shot);
@@ -958,7 +960,7 @@ impl StargazerPlugin {
     fn start_night(&mut self, host: &mut dyn Host) {
         let Some(source) = host.focused_source_id() else { return };
         let Some(caps) = self.night_caps(host) else { return };
-        let mut options = json!({"format": "jpeg", "rotation": 0, "shot": {}, "skip_if_hidden": true});
+        let mut options = json!({"format": "jpeg", "rotation": 0, "use_zoom": self.use_zoom, "shot": {}, "skip_if_hidden": true});
         if !caps.camera { options["quality"] = json!(95); }
         stills::add_shot(&mut options, &self.shot, true, false);
         self.problem = None;
@@ -1362,6 +1364,11 @@ impl Plugin for StargazerPlugin {
             "reset-clicked" => self.reset(host),
             "settings-reset-clicked" => self.reset_settings(host),
             "camera-toggled" => self.set_camera(host, flag),
+            "use-zoom-toggled" if self.phase == Phase::Idle => {
+                self.use_zoom = flag;
+                self.show(host);
+                host.schedule_save();
+            }
             "customize-toggled" => {
                 self.customize_open = flag;
                 self.show(host);
@@ -1382,7 +1389,7 @@ impl Plugin for StargazerPlugin {
 
     /// A run isn't saved, so a restart never begins stacking.
     fn get_config(&self) -> Value {
-        let mut cfg = json!({"mode": self.mode.key(), "frames": self.frames, "keep": self.keep, "interval": self.trail_s, "camera": self.camera});
+        let mut cfg = json!({"mode": self.mode.key(), "frames": self.frames, "keep": self.keep, "interval": self.trail_s, "camera": self.camera, "use_zoom": self.use_zoom});
         if self.shot_initialized { cfg["shot"] = self.shot.to_options_value(); }
         cfg
     }
@@ -1396,6 +1403,7 @@ impl Plugin for StargazerPlugin {
         self.keep = number("keep", DEFAULT_KEEP, 1, 100);
         self.trail_s = number("interval", DEFAULT_TRAIL_S, 1, MAX_TRAIL_S);
         self.camera = cfg.get("camera") == Some(&Value::Bool(true));
+        self.use_zoom = cfg.get("use_zoom") == Some(&Value::Bool(true));
         self.shot_initialized = cfg.get("shot").is_some() || self.mode == Mode::Night;
         self.shot = cfg.get("shot").cloned().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_else(|| {
             if self.mode == Mode::Night { Self::default_shot() } else { ShotChoice::default() }

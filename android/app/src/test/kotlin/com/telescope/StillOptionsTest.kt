@@ -45,6 +45,26 @@ class StillOptionsTest {
     }
 
     @Test
+    fun `desktop transforms request a whole processed photo while old requests keep their crop`() {
+        assertFalse(ok(mapOf("format" to "jpeg")).wholePhoto)
+        assertTrue(ok(mapOf("format" to "jpeg", "desktop_transforms" to "true")).wholePhoto)
+        assertTrue(ok(mapOf("format" to "jpeg", "desktop_transforms" to "1")).wholePhoto)
+        assertFalse(ok(mapOf("format" to "jpeg", "desktop_transforms" to "false")).wholePhoto)
+        assertTrue(ok(mapOf("format" to "jpeg", "raw" to "1", "desktop_transforms" to "true")).wholePhoto)
+        assertFalse(ok(mapOf("raw" to "1", "desktop_transforms" to "true")).wholePhoto)
+    }
+
+    @Test
+    fun `whole photos keep the preview lens ratio without its digital crop or pan`() {
+        val preview = ZoomRequest(ratio = 3.7f, crop = 2f, x = 0.8f, y = 0.2f)
+        val jpeg = ok(mapOf("format" to "jpeg", "desktop_transforms" to "true"))
+        assertEquals(ZoomRequest(ratio = 3.7f), preview.forStill(jpeg.wholePhoto))
+        val raw = ok(mapOf("raw" to "1", "desktop_transforms" to "true"))
+        assertEquals(preview, preview.forStill(raw.wholePhoto))
+        assertEquals(preview, preview.forStill(ok(mapOf("format" to "jpeg")).wholePhoto))
+    }
+
+    @Test
     fun `quality is fitted to 1 to 100 and defaults to 95`() {
         assertEquals(100, ok(mapOf("format" to "jpeg", "quality" to "500"), plain).quality)
         assertEquals(95, ok(mapOf("format" to "jpeg"), plain).quality)

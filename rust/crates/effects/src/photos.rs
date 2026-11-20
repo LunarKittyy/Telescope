@@ -25,7 +25,7 @@ pub const NAME: &str = "photos";
 const T_HOLD: &str = "hold";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/photos.slint"));
 
-pub const FORMATS: [(&str, &str); 5] = [("jpeg", n_("JPEG")), ("heic", n_("HEIC")), ("ultrahdr", n_("Ultra HDR")), ("raw", n_("RAW (DNG)")), ("raw+jpeg", n_("RAW and JPEG"))];
+pub const FORMATS: [(&str, &str); 3] = [("jpeg", n_("JPEG")), ("raw", n_("RAW (DNG)")), ("raw+jpeg", n_("RAW and JPEG"))];
 pub const MODES: [(&str, &str); 6] = [
     ("normal", n_("Normal")), ("max_res", n_("Full resolution")), ("night", n_("Night")), ("hdr", n_("HDR")), ("bokeh", n_("Bokeh")), ("auto", n_("Auto")),
 ];
@@ -348,6 +348,7 @@ impl PhotosPlugin {
             "merge-enabled": self.merge_possible(), "brightness-enabled": self.merge_possible() && shots == "bracket", "brightness": self.merge_brightness(), "brightness-text": Self::brightness_text(self.merge_brightness()), "merge-index": BRACKET_MERGE.iter().position(|(k, _)| *k == text(c, "bracket_merge")).unwrap_or(0),
             "quality": quality, "quality-text": quality.to_string(), "quality-enabled": format != "raw" && !caps.camera, "quality-tip": quality_tip,
             "timer-current": TIMERS.iter().position(|t| *t as f64 == number(c, "timer", 0.0)).unwrap_or(0),
+            "use-zoom": c.get("use_zoom") == Some(&Value::Bool(true)),
             "best": c.get("best") == Some(&json!(true)), "best-enabled": best, "best-tip": tr(if best { BEST_TIP } else { BEST_OFF_TIP }),
             "folder-name": Path::new(&self.folder).file_name().map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty()).unwrap_or_else(|| self.folder.clone()),
             "folder-tip": self.folder, "folder-changed": self.folder != self.default_folder,
@@ -966,6 +967,7 @@ impl Plugin for PhotosPlugin {
                     self.pick_value(host, "timer", json!(seconds));
                 }
             }
+            "use-zoom-toggled" => self.pick_value(host, "use_zoom", json!(event.args.first().and_then(Value::as_bool).unwrap_or(false))),
             "best-toggled" => self.pick_value(host, "best", json!(event.args.first().and_then(Value::as_bool).unwrap_or(false))),
             "folder-clicked" => self.choose_folder(host),
             "reset-clicked" => self.reset(host),

@@ -68,6 +68,8 @@ export component PhotosCard inherits Card {
     in property <string> shot-focus-readout: @tr("Camera");
     callback customize-toggled(bool);
     callback shot-iso-picked(int);
+    in property <bool> use-zoom;
+    callback use-zoom-toggled(bool);
     in property <bool> active: true;
     idle: !active;
     // Greyed out until a phone is paired, and gone for a source that isn't a phone or a camera that takes photos
@@ -523,6 +525,17 @@ export component PhotosCard inherits Card {
             tip-detail: quality-tip != "" ? quality-tip : @tr("Higher quality gives bigger and cleaner JPEG files.");
             moved(v) => { root.quality-moved(v); }
         }
+    }
+    SwitchRow {
+        icon: Icons.zoom;
+        label: @tr("Use zoom");
+        tip: @tr("Use zoom");
+        tip-detail: @tr("Crop the photo to the zoom and position set in Transforms.");
+        hue: root.hue;
+        enabled: active;
+        changed: use-zoom;
+        checked: use-zoom;
+        toggled(v) => { root.use-zoom-toggled(v); }
     }
     SwitchRow {
         icon: Icons.sparkle;

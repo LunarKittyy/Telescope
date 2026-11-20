@@ -52,7 +52,9 @@ data class CameraControlSnapshot(
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
 // around (x, y) in 0..1 of that view. Kept normalized, so it carries over a lens switch, clamped to the new lens.
-data class ZoomRequest(val ratio: Float = 1f, val crop: Float = 1f, val x: Float = 0.5f, val y: Float = 0.5f)
+data class ZoomRequest(val ratio: Float = 1f, val crop: Float = 1f, val x: Float = 0.5f, val y: Float = 0.5f) {
+    fun forStill(wholePhoto: Boolean): ZoomRequest = if (wholePhoto) copy(crop = 1f, x = 0.5f, y = 0.5f) else this
+}
 
 // A photo output next to the stream's (StillCapture), never in the repeating request; maxRes: a full resolution mode size
 class StillOutput(val surface: Surface, val maxRes: Boolean)
@@ -836,6 +838,7 @@ class CameraSessionController(
     }
 
     private fun openCamera(openCameraId: String, physicalCameraId: String?) {
+        activeLens = null
         startThread()
         buildOutputs()
 
@@ -1051,20 +1054,20 @@ class CameraSessionController(
 
     // What the stream shows under the current zoom, in request coordinates; null = the whole frame. With a
     // zoom ratio set, Android measures crop and metering regions in the zoomed view, so both use the array.
-    private fun zoomCrop(cam: CameraEntry): SensorBox? {
+    private fun zoomCrop(cam: CameraEntry, z: ZoomRequest = zoom): SensorBox? {
         val array = cam.activeArray ?: return null
-        val z = zoom
         val crop = CameraRequestSelection.clamp(z.crop, 1f, cam.cropZoomMax)
         if (crop <= 1f) return null
         val (x, y) = if (cam.freeformCrop) z.x to z.y else 0.5f to 0.5f
         return CameraRequestSelection.cropRect(array, crop, x, y, streamWidth, streamHeight)
     }
 
-    private fun applyZoom(builder: CaptureRequest.Builder, cam: CameraEntry) {
-        val ratio = CameraRequestSelection.clamp(zoom.ratio, 1f, cam.zoomRatioMax)
+    private fun applyZoom(builder: CaptureRequest.Builder, cam: CameraEntry, wholePhoto: Boolean = false) {
+        val z = zoom.forStill(wholePhoto)
+        val ratio = CameraRequestSelection.clamp(z.ratio, 1f, cam.zoomRatioMax)
         if (ratio > 1f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
             builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, ratio)
-        val box = zoomCrop(cam) ?: return
+        val box = zoomCrop(cam, z) ?: return
         val rect = Rect(box.left, box.top, box.left + box.width, box.top + box.height)
         if (cam.logicalId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             builder.setPhysicalCameraKey(CaptureRequest.SCALER_CROP_REGION, rect, cam.id)  // a lens of a logical camera
@@ -1149,10 +1152,10 @@ class CameraSessionController(
     }
 
     // Every setting the computer made: the stream's repeating request, and the photos taken from it
-    private fun applyControls(builder: CaptureRequest.Builder, fps: Int) {
+    private fun applyControls(builder: CaptureRequest.Builder, fps: Int, wholePhoto: Boolean = false) {
         builder.apply {
             val cam = currentCamera
-            if (cam != null) applyZoom(this, cam)
+            if (cam != null) applyZoom(this, cam, wholePhoto)
 
             // Use CONTROL_MODE_AUTO even in manual AE so AF keeps running independently
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
@@ -1248,6 +1251,8 @@ class CameraSessionController(
         outputs.isNotEmpty() && stillOutputs === outputs && captureSession != null
     // The lens a multi-lens camera streams from, as the session's outputs name it; null for the camera itself
     fun stillPhysicalId(): String? = currentCamera?.let { if (it.logicalId != null) it.id else null }
+    fun stillActiveLens(): String? = activeLens
+    fun stillOpticalRatio(): Float = zoom.ratio
     // What decides whether photo outputs fit next to the stream: the lens, the stream's size and its codec
     fun stillStreamKey(): String = "${currentCamera?.id}|${streamWidth}x$streamHeight|$codec"
 
@@ -1270,9 +1275,11 @@ class CameraSessionController(
         return CameraRequestSelection.clamp(shutter, cam.shutterMinNs, cam.shutterMaxNs)
     }
 
-    // A request with the stream's settings (lens, zoom, exposure, white balance, focus, torch)
-    fun stillRequest(device: CameraDevice, template: Int): CaptureRequest.Builder =
-        device.createCaptureRequest(template).also { applyControls(it, cameraFps()) }
+    fun stillHasDigitalCrop(): Boolean = zoom.crop > 1f
+
+    // Whole photos retain the optical lens ratio and leave digital cropping to the desktop.
+    fun stillRequest(device: CameraDevice, template: Int, wholePhoto: Boolean = false): CaptureRequest.Builder =
+        device.createCaptureRequest(template).also { applyControls(it, cameraFps(), wholePhoto) }
 
     // Whether the session takes these outputs next to the stream's; null when the phone can't say, so it's worth trying
     fun stillsFit(outputs: List<StillOutput>): Boolean? {

@@ -36,7 +36,7 @@ fn a_plain_lens_offers_only_a_single_jpeg() {
 #[test]
 fn a_flagship_offers_everything_it_has() {
     let can = offered(&full(), &choices(json!({})));
-    assert_eq!(can.formats, ["jpeg", "heic", "ultrahdr", "raw", "raw+jpeg"]);
+    assert_eq!(can.formats, ["jpeg", "raw", "raw+jpeg"]);
     assert_eq!(can.modes, ["normal", "max_res", "night", "hdr", "bokeh"]);
     assert_eq!(can.shots, ["single", "burst", "bracket", "focus"]);
     assert!(can.exposures.last() == Some(&30.0) && !can.exposures.contains(&60.0));
@@ -69,13 +69,13 @@ fn bracketing_has_no_long_exposure_of_its_own() {
 
 #[test]
 fn a_plain_jpeg() {
-    assert_eq!(build_options(&plain(), &choices(json!({"quality": 88})), 0), json!({"format": "jpeg", "rotation": 0, "quality": 88}));
+    assert_eq!(build_options(&plain(), &choices(json!({"quality": 88})), 0), json!({"format": "jpeg", "use_zoom": false, "rotation": 0, "quality": 88}));
 }
 
 #[test]
 fn picks_a_lens_cant_do_are_left_out_rather_than_sent() {
     let picks = choices(json!({"format": "raw+jpeg", "mode": "night", "shots": "bracket", "exposure_s": 8, "distortion": "off"}));
-    assert_eq!(build_options(&plain(), &picks, 0), json!({"format": "jpeg", "rotation": 0, "quality": 95}));
+    assert_eq!(build_options(&plain(), &picks, 0), json!({"format": "jpeg", "use_zoom": false, "rotation": 0, "quality": 95}));
 }
 
 #[test]
@@ -89,14 +89,14 @@ fn raw_and_jpeg_at_full_resolution_with_a_long_exposure_and_the_best_processing(
     let picks = choices(json!({"format": "raw+jpeg", "mode": "max_res", "exposure_s": 4, "timer": 10, "distortion": "off"}));
     assert_eq!(build_options(&full(), &picks, 90), json!({
         "format": "jpeg", "raw": 1, "quality": 95, "max_res": 1, "exposure_ns": 4_000_000_000i64, "timer_s": 10, "nr_hq": 1, "edge_hq": 1,
-        "hot_pixel_hq": 1, "distortion": 0, "rotation": 90,
+        "hot_pixel_hq": 1, "distortion": 0, "use_zoom": false, "rotation": 90,
     }));
 }
 
 #[test]
 fn night_mode_bursts() {
     let picks = choices(json!({"mode": "night", "shots": "burst", "burst": 3, "best": true, "distortion": "on"}));
-    assert_eq!(build_options(&full(), &picks, 0), json!({"format": "jpeg", "quality": 95, "extension": "night", "count": 3, "rotation": 0}));
+    assert_eq!(build_options(&full(), &picks, 0), json!({"format": "jpeg", "quality": 95, "extension": "night", "count": 3, "use_zoom": false, "rotation": 0}));
 }
 
 #[test]
@@ -264,7 +264,7 @@ fn picking_a_night_mode_hides_what_it_cant_do() {
 #[test]
 fn a_pick_for_another_lens_is_kept_when_this_one_cant_do_it() {
     let mut rig = Rig::new(Some(full_json()), true);
-    rig.ui("tile-picked", vec![json!("format"), json!(3)]);
+    rig.ui("tile-picked", vec![json!("format"), json!(1)]);
     assert_eq!(rig.plugin.get_config()["format"], "raw");
     rig.host.still_caps = Some(json!({"size": [1000, 1000]}));
     rig.caps_changed();
@@ -272,7 +272,7 @@ fn a_pick_for_another_lens_is_kept_when_this_one_cant_do_it() {
     rig.host.still_caps = Some(full_json());
     rig.caps_changed();
     let p = rig.props();
-    assert_eq!((tile(&p, "format").map(|t| t.1), rig.plugin.get_config()["format"].as_str()), (Some(3), Some("raw")));
+    assert_eq!((tile(&p, "format").map(|t| t.1), rig.plugin.get_config()["format"].as_str()), (Some(1), Some("raw")));
 }
 
 #[test]
@@ -595,11 +595,11 @@ fn picks_from_the_cameras_lists_go_with_the_photo_without_a_quality_and_are_not_
     rig.ui("take-clicked", vec![]);
     let (options, folder) = rig.host.stills_taken[0].clone();
     assert_eq!(folder, "/tmp/photos");
-    assert_eq!(options, json!({"format": "jpeg", "raw": 1, "rotation": 0, "iso": "800", "shutter": "30,0000s"}));
+    assert_eq!(options, json!({"format": "jpeg", "raw": 1, "use_zoom": false, "rotation": 0, "iso": "800", "shutter": "30,0000s"}));
     // Without a pick nothing is asked of the camera but the format
     let mut quiet = dslr(dslr_json());
     quiet.ui("take-clicked", vec![]);
-    assert_eq!(quiet.host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0}));
+    assert_eq!(quiet.host.stills_taken[0].0, json!({"format": "jpeg", "use_zoom": false, "rotation": 0}));
 }
 
 #[test]
@@ -662,9 +662,9 @@ fn the_self_timer_goes_with_a_camera_photo() {
 
 #[test]
 fn camera_options_drop_the_quality_and_keep_only_picks_that_were_made() {
-    let mut options = json!({"format": "jpeg", "rotation": 0, "quality": 95});
+    let mut options = json!({"format": "jpeg", "use_zoom": false, "rotation": 0, "quality": 95});
     camera_options(&mut options, None, Some("1/60"));
-    assert_eq!(options, json!({"format": "jpeg", "rotation": 0, "shutter": "1/60"}));
+    assert_eq!(options, json!({"format": "jpeg", "use_zoom": false, "rotation": 0, "shutter": "1/60"}));
 }
 
 #[test]
@@ -830,7 +830,7 @@ fn picks_made_on_one_camera_are_not_sent_with_another_cameras_photo() {
     rig.event(Event::DeviceChanged { source_id: "webcam:b".into() });
     assert_eq!((tile(&rig.props(), "iso").unwrap().1, tile(&rig.props(), "shutter").unwrap().1), (2, 1), "the camera's own values show");
     rig.ui("take-clicked", vec![]);
-    assert_eq!(rig.host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0}), "nothing from the other camera goes with it");
+    assert_eq!(rig.host.stills_taken[0].0, json!({"format": "jpeg", "use_zoom": false, "rotation": 0}), "nothing from the other camera goes with it");
     // The same camera again after the stream stops and starts keeps what was picked on it
     let mut same = dslr(dslr_json());
     same.host.focused = Some("webcam:a".into());
@@ -941,7 +941,7 @@ fn a_focus_bracket_can_be_merged_when_it_is_jpeg_and_the_choice_is_part_of_a_pre
     assert_eq!(rig.props()["merge-enabled"], false);
     rig.ui("tile-picked", vec![json!("shots"), json!(3)]);
     assert_eq!((rig.props()["merge-enabled"].clone(), rig.props()["merge-index"].clone()), (json!(true), json!(0)));
-    rig.ui("tile-picked", vec![json!("format"), json!(3)]);
+    rig.ui("tile-picked", vec![json!("format"), json!(1)]);
     assert_eq!(rig.props()["merge-enabled"], false, "a RAW photo can't be read");
     rig.ui("tile-picked", vec![json!("format"), json!(0)]);
     rig.ui("tile-picked", vec![json!("bracket_merge"), json!(1)]);
@@ -1135,5 +1135,31 @@ fn loading_an_empty_shot_override_keeps_reset_clear() {
         rig.caps_changed();
         assert!(rig.plugin.get_config().get("shot").is_none());
         assert_eq!(rig.props()["reset-shown"], false);
+    }
+}
+
+#[test]
+fn use_zoom_defaults_off_and_is_kept_in_photo_presets() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    assert_eq!(rig.plugin.get_config()["use_zoom"], false);
+    assert_eq!(rig.props()["use-zoom"], false);
+    rig.ui("use-zoom-toggled", vec![json!(true)]);
+    assert_eq!(rig.props()["use-zoom"], true);
+    let saved = rig.plugin.preset_config();
+    assert_eq!(saved["use_zoom"], true);
+    let mut restored = Rig::new(Some(full_json()), true);
+    restored.plugin.apply_preset(&mut restored.host, &saved).unwrap();
+    restored.ui("take-clicked", vec![]);
+    assert_eq!(restored.host.stills_taken[0].0["use_zoom"], true);
+    restored.plugin.apply_preset(&mut restored.host, &json!({"use_zoom": false})).unwrap();
+    assert_eq!(restored.plugin.preset_config()["use_zoom"], false);
+}
+
+#[test]
+fn old_non_jpeg_format_choices_fall_back_to_jpeg() {
+    for format in ["heic", "ultrahdr"] {
+        let options = build_options(&full(), &choices(json!({"format": format})), 0);
+        assert_eq!(options["format"], "jpeg");
+        assert_eq!(options["use_zoom"], false);
     }
 }

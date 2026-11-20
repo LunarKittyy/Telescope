@@ -48,7 +48,7 @@ pub struct ViewController {
     /// A share sent while steering, until its frames show up (the worker sees those).
     gate: Arc<ViewGate>,
     /// The phone side of each stream the panels moved away from (StreamsBehind).
-    behind: HashMap<String, (u64, Option<PhoneZoomCaps>, Option<PhoneZoom>, f64)>,
+    behind: HashMap<String, (u64, Option<PhoneZoomCaps>, Option<PhoneZoom>, f64, View)>,
 }
 
 fn with_crop(view: &View, (zoom, pan_x, pan_y): (f64, f64, f64)) -> View {
@@ -88,6 +88,30 @@ impl ViewController {
     /// The share of the zoom the phone was last sent, if any (what feed_raw's frames already have cropped).
     pub fn sent(&self) -> Option<telescope_core::view::PhoneZoom> {
         self.sent
+    }
+
+    pub fn photo_transform(&self, source: &str, use_zoom: bool) -> telescope_core::photo::PhotoTransform {
+        let manual = if self.source.as_deref() == Some(source) {
+            &self.manual
+        } else if let Some((_, _, _, _, manual)) = self.behind.get(source) {
+            manual
+        } else {
+            return Default::default();
+        };
+        let (zoom, pan_x, pan_y) = if use_zoom {
+            (f64::from(manual.zoom), f64::from(manual.pan_x), f64::from(manual.pan_y))
+        } else {
+            (1.0, 0.0, 0.0)
+        };
+        telescope_core::photo::PhotoTransform { flip_h: manual.flip_h, flip_v: manual.flip_v, rotation: manual.rotation.unwrap_or(0), zoom, pan_x, pan_y }
+    }
+
+    pub fn photo_lens_ratio(&self, source: &str) -> f64 {
+        if self.source.as_deref() == Some(source) {
+            self.sent
+        } else {
+            self.behind.get(source).and_then(|(_, _, sent, _, _)| *sent)
+        }.map_or(1.0, |p| p.ratio)
     }
 
     pub fn gate(&self) -> Arc<ViewGate> {
@@ -184,7 +208,7 @@ impl ViewController {
     pub fn focus_gained(&mut self, view: &View, source_id: &str, session: u64, now: f64) -> Vec<Said> {
         // A stream that started again since has told the phone nothing yet
         let kept = self.behind.remove(source_id).filter(|k| k.0 == session);
-        let Some((_, caps, sent, at)) = kept else { return self.stream_start(view, source_id, session, now) };
+        let Some((_, caps, sent, at, _)) = kept else { return self.stream_start(view, source_id, session, now) };
         // Back on a stream: the phone already crops what it was sent, so the desktop only does the rest
         self.source = Some(source_id.into());
         self.session = session;
@@ -203,7 +227,7 @@ impl ViewController {
 
     pub fn focus_lost(&mut self, view: &View, now: f64) -> Vec<Said> {
         if let Some(id) = self.source.clone() {
-            self.behind.insert(id, (self.session, self.caps.clone(), self.sent, self.sent_ratio_at));
+            self.behind.insert(id, (self.session, self.caps.clone(), self.sent, self.sent_ratio_at, self.manual.clone()));
         }
         self.leave(view, now)
     }
@@ -342,6 +366,40 @@ mod tests {
 
     fn change(zoom: Option<f32>, pan_x: Option<f32>, flip_h: Option<bool>) -> ViewChange {
         ViewChange { zoom, pan_x, flip_h, ..Default::default() }
+    }
+
+    #[test]
+    fn photos_use_manual_framing_and_never_auto_frame_stretch_or_lens_correction() {
+        let (mut vc, mut view) = (ViewController::new(), View::default());
+        vc.set_view(&mut view, &ViewChange { zoom: Some(4.0), pan_x: Some(0.25), pan_y: Some(-0.5), flip_h: Some(true),
+            rotation: Some(Some(90)), stretch_x: Some(1.5), distortion: Some(0.75), ..Default::default() }, 0.0);
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.take("Auto framing");
+        vc.steer(&mut view, "Auto framing", 7.0, -0.8, 0.9, 0.0);
+        let photo = vc.photo_transform("p1", true);
+        assert_eq!((photo.zoom, photo.pan_x, photo.pan_y), (4.0, 0.25, -0.5));
+        assert!(photo.flip_h);
+        assert_eq!(photo.rotation, 90);
+        let whole = vc.photo_transform("p1", false);
+        assert_eq!((whole.zoom, whole.pan_x, whole.pan_y), (1.0, 0.0, 0.0));
+        assert!(whole.flip_h);
+        assert_eq!(whole.rotation, 90);
+    }
+
+    #[test]
+    fn a_photo_on_an_unfocused_stream_keeps_its_transforms_and_accounts_for_the_optical_lens() {
+        let (mut vc, mut view) = (ViewController::new(), View::default());
+        vc.set_view(&mut view, &change(Some(4.0), Some(0.0), Some(true)), 0.0);
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.sent = Some(PhoneZoom { ratio: 2.0, crop: 1.5, x: 0.5, y: 0.5 });
+        assert_eq!(vc.photo_transform("p1", true).for_lens(vc.photo_lens_ratio("p1")).zoom, 2.0);
+        vc.focus_lost(&view, 0.0);
+        vc.set_view(&mut view, &change(Some(1.0), None, Some(false)), 0.0);
+        vc.stream_start(&view, "p2", 2, 0.0);
+        let photo = vc.photo_transform("p1", true);
+        assert_eq!(photo.for_lens(vc.photo_lens_ratio("p1")).zoom, 2.0);
+        assert!(photo.flip_h);
+        assert!(!vc.photo_transform("p2", false).flip_h);
     }
 
     #[test]

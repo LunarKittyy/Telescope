@@ -330,18 +330,18 @@ fn a_picture_is_written_whole_or_not_at_all() {
 #[test]
 fn the_settings_round_trip() {
     let mut p = StargazerPlugin::new();
-    let saved = json!({"mode": "trails", "frames": 800, "keep": 25, "interval": 12, "camera": true, "shot": {"shutter_s": 20.0, "iso": 1600}});
+    let saved = json!({"mode": "trails", "frames": 800, "keep": 25, "interval": 12, "camera": true, "use_zoom": false, "shot": {"shutter_s": 20.0, "iso": 1600}});
     p.set_config(&saved).unwrap();
     assert_eq!(p.get_config(), saved);
     assert!(p.shared.camera.load(Ordering::SeqCst));
     assert_eq!(p.shared.interval_ms.load(Ordering::SeqCst), 12_000);
     // Out of range or nonsense falls back or is clamped, and a run is never part of it
     p.set_config(&json!({"mode": "nonsense", "frames": 5, "keep": 500, "interval": "soon"})).unwrap();
-    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 50, "keep": 100, "interval": 5, "camera": false}));
+    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 50, "keep": 100, "interval": 5, "camera": false, "use_zoom": false}));
     p.set_config(&json!({"frames": 99999})).unwrap();
     assert_eq!(p.get_config()["frames"], 2000);
     p.set_config(&json!({})).unwrap();
-    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 300, "keep": 10, "interval": 5, "camera": false}));
+    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 300, "keep": 10, "interval": 5, "camera": false, "use_zoom": false}));
     assert_eq!(p.phase, Phase::Idle);
 }
 
@@ -843,7 +843,7 @@ fn night_takes_one_jpeg_from_the_focused_stream_without_the_worker() {
     assert!(plugin.frame_step().is_none());
     night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
     assert_eq!(host.stills_taken.len(), 1);
-    assert_eq!(host.stills_taken[0], (json!({"format": "jpeg", "quality": 95, "rotation": 0,
+    assert_eq!(host.stills_taken[0], (json!({"format": "jpeg", "quality": 95, "rotation": 0, "use_zoom": false,
         "shot": {"shutter_s": 10.0, "iso": 800}, "skip_if_hidden": true}), plugin.folder.clone()));
     assert_eq!(host.still_sources, vec![Some("phone".to_string())]);
     assert_eq!(plugin.phase, Phase::Collecting);
@@ -1024,7 +1024,7 @@ fn dslr_night_takes_one_photo_with_discrete_shot_caps() {
     assert_eq!(props["iso-enabled"], true);
     night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
     assert_eq!(host.stills_taken.len(), 1);
-    assert_eq!(host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0, "shot": {"shutter_s": 10.0, "iso": 800}, "skip_if_hidden": true}));
+    assert_eq!(host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0, "use_zoom": false, "shot": {"shutter_s": 10.0, "iso": 800}, "skip_if_hidden": true}));
     assert_eq!(plugin.phase, Phase::Collecting);
     assert!(plugin.worker.is_none());
 }
@@ -1060,4 +1060,21 @@ fn a_late_night_restore_failure_is_visible_after_stop() {
     plugin.on_event(&mut host, &Event::RequestProgress { request: RequestId(99), data: json!({"state": "late", "code": "restore", "error": "Restore failed"}) });
     assert_eq!(plugin.problem.as_deref(), Some("Restore failed"));
     assert_eq!(plugin.state_props(&host)["status-kind"], "status_err");
+}
+
+#[test]
+fn night_use_zoom_defaults_off_and_survives_a_preset() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    assert_eq!(plugin.get_config()["use_zoom"], false);
+    assert_eq!(plugin.state_props(&host)["use-zoom"], false);
+    night_ui(&mut plugin, &mut host, "use-zoom-toggled", json!(true));
+    let preset = plugin.preset_config();
+    assert_eq!(preset["use_zoom"], true);
+    let mut restored = StargazerPlugin::new();
+    restored.apply_preset(&mut host, &preset).unwrap();
+    night_ui(&mut restored, &mut host, "run-clicked", Value::Null);
+    assert_eq!(host.stills_taken.last().unwrap().0["use_zoom"], true);
+    night_ui(&mut restored, &mut host, "use-zoom-toggled", json!(false));
+    assert_eq!(restored.get_config()["use_zoom"], true, "a running photo keeps its settings");
 }

@@ -38,9 +38,9 @@ Telescope looks about three times a second at a smaller copy away from the strea
 
 ## Photos
 
-Optional. Switch it on under **Camera** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, zoom, focus and manual settings the video has at that moment and turns the photo the same way as the preview. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
+Optional. Switch it on under **Camera** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, focus and manual settings the video has at that moment. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
 
-- **Format** is JPEG with a quality setting, HEIC, Ultra HDR (Android 14) or RAW as a DNG, alone or together with a JPEG
+- **Format** is JPEG with a quality setting or RAW as a DNG, alone or together with a JPEG
 - **Full resolution** under **Mode** uses the sensor's real size (the 50 or 200 MP on sensors that normally give 12). **Night**, **HDR** and **Bokeh** are the phone maker's own modes and show up if the maker lets other apps use them (Android 12)
 - **Shots** can be a burst of up to 60, an exposure bracket for HDR merging or a focus bracket from near to far for focus stacking. An exposure bracket has **Photos** (2 to 15) and **EV** (how far apart they are, from a third of a stop to 3), centred on the chosen exposure (or the video's exposure with **Like the video** selected). A focus bracket has **Steps** (2 to 100, in bigger jumps past 10) and a **Focus range** slider with a handle for the far end and one for the nearest. Both handles at the ends is the whole lens. A mark on the slider shows where the phone is focused now while it is on manual focus. Focus on a point and drag a handle to the mark. A phone that has not been updated has the old limits (9 photos, 6 EV, 30 steps)
 - **DSLRs over USB** take photos from this card on Linux and Windows, and the picture goes to the computer, not the camera's card
@@ -50,6 +50,10 @@ Optional. Switch it on under **Camera** in the Plugins tab of Settings and the P
 - ISO choices under **Customise camera** are saved with Photos settings and presets. The phone maker's modes set their own ISO without erasing your choice. Focus overrides aren't available yet
 - There's a 3 or 10 second **Timer** and best quality noise reduction and sharpening, plus distortion correction that can be turned on or off where the phone allows it
 
+**Mirror**, **Upside down** and rotation from Transforms always apply to non-RAW photos, including single photos, bursts, Night and Phototrap. Non-RAW photos are saved as JPEG and their blocks are flipped or rotated without re-encoding. Partial blocks at the edges are trimmed where the turn needs it, like `jpegtran -trim`. RAW files are left untouched and no extra original is saved.
+
+**Use zoom** on each photo card is off by default. Switch it on to crop to the manual zoom and position from Transforms, rounded to the JPEG MCU block grid. Stretch, the Lens slider and Auto framing never apply to photos. If zoom switched the preview to a telephoto lens, the photo uses that lens too. If a phone maker's mode cannot use the zoomed lens, Telescope reports an error.
+
 Photos go to the folder under **Save in** (a Telescope folder in your Pictures by default) with the phone's file name. **Open folder** shows the last ones. A plain photo is taken next to the video, which hitches for a moment the first time only. Night, HDR, Bokeh, long exposures and full resolution on some phones pause the video for a few seconds instead and the stream picks up again afterwards without a reconnect. **Take photo** also works as a [keyboard shortcut](app.md#keyboard-shortcuts), even with Telescope in the background. A photo taken that way pops up a notification once it's saved.
 
 A photo that pauses the video puts **Taking a picture** over the preview, with the shot count and an estimated time left. The popped-out preview shows it too and it clears when the photo finishes. The virtual camera holds its last picture without the message.
@@ -58,7 +62,7 @@ On a DSLR the Photos card has its own ISO and Shutter dials. What you set there 
 
 ## Phototrap
 
-Open **Customise camera** between **Pause** and **Night** to choose a shutter speed and ISO for unattended photos. **Camera** uses the camera's own value. These choices are saved with Phototrap settings and presets. When the phone maker's Night mode is available and switched on, it sets its own exposure and the two dials are disabled without erasing your choices. Focus overrides aren't available yet.
+Open **Customise camera** between **Pause** and **Night** to choose a shutter speed and ISO for unattended photos. **Camera** uses the camera's own value. These choices are saved with Phototrap settings and presets. When the phone maker's Night mode is available and switched on, it sets its own exposure and the two dials are disabled without erasing your choices. Focus overrides aren't available yet. **Use zoom** crops these photos to the manual zoom and position from Transforms and is saved in presets with the other settings.
 
 ## Colour grading
 
@@ -108,7 +112,7 @@ An early version for a phone clipped to a telescope, in Lab. Switch it on under 
 - **Live stack** adds every frame and leaves out what only shows once, like satellites and noise. It is for faint things
 - **Star trails** takes the brightest value of one frame every few seconds (**Every**), which draws the stars as lines
 
-**Night** takes one long JPEG photo with a phone or a DSLR for a faint sky. Open **Customise camera** to pick a shutter speed and ISO. Choose **Camera** on a dial to use the camera's own value. The first time you pick Night it starts at 10 s and ISO 800, held to what the camera can do. A DSLR uses the nearest numeric choice it offers and restores the previous shutter and ISO after the shot. Focus can't be set from here yet and the photo uses the camera's focus. The video pauses during a long exposure and the card shows when it is exposing. The photo is saved in Pictures/Telescope/Stargazer.
+**Night** takes one long JPEG photo with a phone or a DSLR for a faint sky. Open **Customise camera** to pick a shutter speed and ISO. Choose **Camera** on a dial to use the camera's own value. The first time you pick Night it starts at 10 s and ISO 800, held to what the camera can do. A DSLR uses the nearest numeric choice it offers and restores the previous shutter and ISO after the shot. Focus can't be set from here yet and the photo uses the camera's focus. The video pauses during a long exposure and the card shows when it is exposing. The photo is saved in Pictures/Telescope/Stargazer. **Use zoom** crops it to the manual zoom and position from Transforms and is saved in presets.
 
 **Start** begins a run and **Stop** ends a video stack early. **Stop** cancels a Night request. A DSLR may finish an exposure already in progress before restoring its settings. A lucky run stopped early still stacks what it has, if at least 3 frames made the cut. The finished stack is saved as a PNG in Pictures/Telescope/Stargazer and **Open folder** shows it. **Show the stack on the camera** sends it to the virtual camera in place of the live picture, refreshed about once a second. **Reset settings** in the card's header returns **Frames**, **Sharpest**, **Every** and the photo settings to their defaults when no run is going. The mode and the camera switch aren't reset.
 

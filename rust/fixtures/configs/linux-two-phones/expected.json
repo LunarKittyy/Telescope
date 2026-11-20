@@ -704,7 +704,8 @@
         "mode": "normal",
         "quality": 95,
         "shots": "single",
-        "timer": 0
+        "timer": 0,
+        "use_zoom": false
       },
       "preview": {
         "lens_boxes": false,

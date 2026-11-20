@@ -479,6 +479,9 @@ impl Runner<'_> {
         let t = self.timings();
         let exposure = exposure_duration(exposure_seconds(&Value::Object(options.clone())));
         let mut body = options;
+        let transform = body.remove("_photo_transform").and_then(|v| serde_json::from_value::<telescope_core::photo::PhotoTransform>(v).ok());
+        let lens_ratio = body.remove("_photo_lens_ratio").and_then(|v| v.as_f64()).unwrap_or(1.0);
+        body.remove("use_zoom");
         body.insert("action".into(), json!("take"));
         let started = match self.request("/still", Some(&Value::Object(body))) {
             Ok(started) => started,
@@ -557,7 +560,9 @@ impl Runner<'_> {
             };
             report(&saved); // before the downloads, which can take a while for a batch of RAW files
             while fetched < files.len() && !self.stopped() {
-                let path = match self.fetch(&sid, fetched, &files[fetched], folder, &alive_now, longest, hidden) {
+                let actual_lens_ratio = files[fetched].get("lens_ratio").and_then(Value::as_f64).unwrap_or(lens_ratio);
+                let photo_transform = transform.as_ref().map(|t| t.for_lens(actual_lens_ratio));
+                let path = match self.fetch(&sid, fetched, &files[fetched], folder, &alive_now, longest, hidden, photo_transform.as_ref()) {
                     Fetch::Saved(path) => path,
                     Fetch::Hidden => {
                         self.forget(&sid);
@@ -599,7 +604,7 @@ impl Runner<'_> {
     /// File n of the photo into folder under the phone's name (made free). A picture that is hidden before the file is saved is left unsaved.
     #[allow(clippy::too_many_arguments)]
     fn fetch(&self, sid: &str, n: usize, info: &Map<String, Value>, folder: &Path, alive: &(dyn Fn() -> bool + Sync), patience: Duration,
-             hidden: Option<&AtomicBool>) -> Fetch {
+             hidden: Option<&AtomicBool>, transform: Option<&telescope_core::photo::PhotoTransform>) -> Fetch {
         let is_hidden = || hidden.is_some_and(|h| h.load(Ordering::SeqCst));
         if is_hidden() {
             return Fetch::Hidden;
@@ -663,6 +668,12 @@ impl Runner<'_> {
                 if have != size {
                     return Err(format!("got {have} of {size} bytes"));
                 }
+            }
+            if let Some(transform) = transform {
+                telescope_core::photo::apply_file(&part, transform)?;
+            }
+            if self.stopped() || !alive() {
+                return Err("stopped".into());
             }
             if is_hidden() {
                 cut.store(true, Ordering::SeqCst);
@@ -915,6 +926,7 @@ mod tests {
     #[derive(Clone)]
     struct Phone {
         files: Vec<(String, Vec<u8>)>,
+        lens_ratio: Option<f64>,
         polls: i64,
         start: Option<Value>,
         fail: Option<String>,
@@ -928,7 +940,7 @@ mod tests {
 
     impl Default for Phone {
         fn default() -> Self {
-            Phone { files: vec![("IMG_1.jpg".into(), b"jpeg".repeat(100)), ("IMG_2.dng".into(), b"dng!".repeat(5000))], polls: 2,
+            Phone { files: vec![("IMG_1.jpg".into(), b"jpeg".repeat(100)), ("IMG_2.dng".into(), b"dng!".repeat(5000))], lens_ratio: None, polls: 2,
                     start: None, fail: None, missing: false, unreachable: false, dropped: false, early: false,
                     posts: Vec::new(), forgotten: Vec::new() }
         }
@@ -962,7 +974,11 @@ mod tests {
         }
         p.polls -= 1;
         let done = p.polls <= 0;
-        let all: Vec<Value> = p.files.iter().map(|(k, v)| json!({"name": k, "size": v.len(), "type": "image/jpeg"})).collect();
+        let all: Vec<Value> = p.files.iter().map(|(k, v)| {
+            let mut info = json!({"name": k, "size": v.len(), "type": "image/jpeg"});
+            if let Some(ratio) = p.lens_ratio { info["lens_ratio"] = json!(ratio); }
+            info
+        }).collect();
         let files: Vec<Value> = if done { all } else if p.early { all.into_iter().take(1).collect() } else { Vec::new() };
         let state = if done { if p.fail.is_some() { "failed" } else { "done" } } else { "capturing" };
         let mut body = json!({"id": "abc", "state": state, "shots": 2, "taken": if done { 2 } else { 1 }, "files": files});
@@ -1127,6 +1143,33 @@ mod tests {
         take_with(&stills, &server, &dir, json!({"format": "jpeg", "raw": 1}), None);
         let first = server.seen.lock().unwrap()[0].clone();
         assert_eq!(String::from_utf8(first.body).unwrap(), r#"{"format": "jpeg", "raw": 1, "action": "take"}"#);
+    }
+
+    #[test]
+    fn received_jpegs_are_transformed_before_saving_and_raw_bytes_are_kept() {
+        let dir = telescope_core::testing::scratch_dir("stills-transforms");
+        let jpeg = include_bytes!("../../media/fixtures/jpeg/cv2_64x48.jpg").to_vec();
+        let raw = b"II*\0unchanged RAW sensor data".to_vec();
+        let p = Phone { files: vec![("photo.jpg".into(), jpeg.clone()), ("photo.dng".into(), raw.clone())], lens_ratio: Some(2.0), ..Phone::default() };
+        let stills = Stills::new();
+        stills.set_timings(quick());
+        let (server, _) = phone(p);
+        let transform = telescope_core::photo::PhotoTransform { flip_h: true, rotation: 90, zoom: 4.0, ..Default::default() };
+        let expected = dir.join("expected.jpg");
+        std::fs::write(&expected, &jpeg).unwrap();
+        telescope_core::photo::apply_file(&expected, &transform.for_lens(2.0)).unwrap();
+        let expected_bytes = std::fs::read(&expected).unwrap();
+        std::fs::remove_file(&expected).unwrap();
+        let (result, _) = take_with(&stills, &server, &dir, json!({"format": "jpeg", "raw": 1, "desktop_transforms": true,
+            "use_zoom": true, "_photo_transform": transform, "_photo_lens_ratio": 3.0}), None);
+        assert!(result.ok, "{result:?}");
+        assert_eq!(result.files.len(), 2);
+        assert_eq!(std::fs::read(&result.files[0]).unwrap(), expected_bytes);
+        assert_eq!(std::fs::read(&result.files[1]).unwrap(), raw);
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2, "no original or partial copy");
+        let body: Value = serde_json::from_slice(&server.seen.lock().unwrap()[0].body).unwrap();
+        assert!(body.get("_photo_transform").is_none() && body.get("use_zoom").is_none() && body.get("_photo_lens_ratio").is_none());
+        assert_eq!(body["desktop_transforms"], true);
     }
 
     #[test]

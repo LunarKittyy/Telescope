@@ -64,7 +64,9 @@ data class StillRequest(
     val hotPixelHq: Boolean,
     val distortion: Boolean?,   // null = what the camera does anyway
     val videoExposureNs: Long = 0L,  // the video's shutter set by hand, which shots without their own take; 0 = auto
+    val desktopTransforms: Boolean = false,
 ) {
+    val wholePhoto: Boolean get() = desktopTransforms && format != null
     // The lens's own session can't hold these next to the stream: the video pauses while it shoots.
     val ownSession: Boolean get() = extension != null
     // Each picture's file count: RAW and a processed one come from the same exposure
@@ -200,6 +202,7 @@ object StillOptions {
             nrHq = params["nr_hq"] == "1" && caps.nrHq, edgeHq = params["edge_hq"] == "1" && caps.edgeHq,
             hotPixelHq = params["hot_pixel_hq"] == "1" && caps.hotPixelHq, distortion = distortion,
             videoExposureNs = videoShutterNs.coerceAtLeast(0L),
+            desktopTransforms = params["desktop_transforms"] in setOf("true", "1"),
         ))
     }
 

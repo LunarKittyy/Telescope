@@ -92,6 +92,7 @@ data class StillFile(
     val name: String,  // IMG_20261026_142501_01.dng
     val size: Long,
     val type: String,  // its MIME type
+    val lens_ratio: Float? = null,
 )
 
 // POST /v1/still answer
