@@ -68,6 +68,11 @@ impl LinkService {
         LinkService::with_discovery(LanDiscovery::start())
     }
 
+    pub fn with_desktop_version(self, version: &str) -> Self {
+        crate::https::set_desktop_version(version);
+        self
+    }
+
     fn with_discovery(lan: LanDiscovery) -> LinkService {
         LinkService::with_tunnels(lan, adb_tunnels(Arc::new(Adb::system)))
     }
@@ -344,6 +349,10 @@ impl Link for LinkService {
         self.shared.accept_recovery(source_id, res);
     }
 
+    fn accept_phone_version(&self, phone: &PairedPhone, version: &str) {
+        self.shared.accept_phone_version(phone, version);
+    }
+
     fn show_problem(&self, source_id: Option<&str>, res: &Resolution) {
         self.shared.show_problem(source_id, res);
     }
@@ -591,6 +600,27 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
     use std::net::TcpStream;
+
+    #[test]
+    fn headless_requests_send_the_version_without_a_connection_plugin() {
+        use crate::https::{testing::{pin_of, serve}, Request};
+        let _link = LinkService::with_discovery(LanDiscovery::default()).with_desktop_version("5.1.4");
+        let server = serve(Some("phone"), Arc::new(|_| (200, "application/json".into(), b"{}".to_vec())));
+        let auth = PhoneAuth::new("token", &pin_of("phone"));
+        let ping = format!("{}/v1/ping", server.base(true));
+        let session = format!("{}/v1/session", server.base(true));
+        auth.open(Request::get(&ping, Duration::from_secs(3))).unwrap();
+        for action in ["start", "stop"] {
+            let body = serde_json::json!({"action": action}).to_string();
+            auth.open(Request::post(&session, body.as_bytes(), Duration::from_secs(3))).unwrap();
+        }
+        let seen = server.seen.lock().unwrap();
+        assert_eq!(seen.len(), 3);
+        for request in seen.iter() {
+            assert_eq!(request.auth.as_deref(), Some("Bearer token"));
+            assert_eq!(request.desktop_version.as_deref(), Some("5.1.4"));
+        }
+    }
 
     #[test]
     fn validated_presence_updates_the_streaming_phones_version_without_changing_its_route() {

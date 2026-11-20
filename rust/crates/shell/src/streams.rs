@@ -1357,6 +1357,10 @@ impl Window {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 recovery_probed(self, &source, session_id, generation, &resolution);
             }
+            Report::VersionChecked { source_id, session_id, phone, version } => {
+                let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
+                crate::sources::version_checked(&source, session_id, &phone, &version);
+            }
             Report::MoveFailed { source_id } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 if let Some(phone) = source.kind.as_phone() {

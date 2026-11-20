@@ -887,6 +887,9 @@ impl StreamFlow {
         host.refresh_tiles();
         source.state.borrow_mut().settling_reports = 1; // the next throughput report still counts the gap
         let Some(session) = source.session() else { return };
+        if let Some(phone) = source.kind.as_phone() {
+            phone.refresh_version(session.id);
+        }
         if let Some(worker) = session.worker.as_ref().filter(|w| w.parked()) {
             self.free_vcam_for(host, source.slot()); // the wait screen lets go before the stream takes the camera back
             worker.set_parked(false);

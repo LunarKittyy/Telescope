@@ -172,7 +172,8 @@ impl Machine {
 
 /// tray: the window's run, which shows the tray icon.
 fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
-    let link = Arc::new(telescope_link::LinkService::new());
+    let desktop_version = telescope_system::version::display_version();
+    let link = Arc::new(telescope_link::LinkService::new().with_desktop_version(&desktop_version));
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name (a test checks this list is every built-in plugin)
     let reserved: Vec<String> = telescope_shell::plugins::ORDER.iter().map(|n| n.to_string()).collect();
@@ -212,7 +213,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                     setup
                 }),
                 Box::new(connection.connection_plugin().with_outputs(outputs.clone())
-                    .with_desktop_version(&telescope_system::version::display_version())),
+                    .with_desktop_version(&desktop_version)),
                 Box::new(browser),
                 Box::new(machine.webcam()),
                 Box::new(machine.spout()),

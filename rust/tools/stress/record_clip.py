@@ -16,6 +16,8 @@ import threading
 import time
 from pathlib import Path
 
+VERSION = Path(__file__).resolve().parents[3].joinpath("VERSION").read_text().strip()
+
 
 def adb_forward(remote: int) -> int:
     out = subprocess.run(["adb", "forward", "tcp:0", f"tcp:{remote}"], check=True, capture_output=True, text=True).stdout
@@ -31,7 +33,8 @@ def connection(port: int) -> http.client.HTTPSConnection:
 
 def post(port: int, token: str, path: str, body: dict) -> dict:
     con = connection(port)
-    con.request("POST", path, json.dumps(body), {"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    con.request("POST", path, json.dumps(body), {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                                              "X-Telescope-Version": VERSION})
     reply = json.loads(con.getresponse().read() or b"{}")
     con.close()
     return reply

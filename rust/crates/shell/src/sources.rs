@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::i18n::tr;
-use telescope_core::link::{Link, PhoneControl, PhoneSession, PhoneStatus, Resolution, StreamFormat, StreamRequest};
+use telescope_core::link::{Link, PhoneControl, PhoneSession, PhoneStatus, Resolution, RoutePreference, StreamFormat, StreamRequest};
 use telescope_core::source::{ControlClient, PairedPhone, RouteSpec, StreamSource};
 use telescope_core::ui::{IssueAction, IssueDoes};
 
@@ -49,6 +49,7 @@ pub enum Report {
     /// A poll's answer (host.request_phone_state).
     Polled { source_id: String, session_id: u64, state: Value },
     RecoveryProbed { source_id: String, session_id: u64, generation: u64, resolution: Resolution },
+    VersionChecked { source_id: String, session_id: u64, phone: PairedPhone, version: String },
     /// recovery moved the stream to a new route: its session there.
     Moved { source_id: String, session_id: u64, generation: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
     /// A hand-over with the camera off opened its session on url (None: it couldn't).
@@ -199,6 +200,13 @@ pub fn recovery_probed(host: &dyn SourceHost, source: &SourceRef, session_id: u6
         _ => {}
     }
     phone.retry_recovery();
+}
+
+pub fn version_checked(source: &SourceRef, session_id: u64, phone: &PairedPhone, version: &str) {
+    let Some(kind) = source.kind.as_phone() else { return };
+    if source.session().is_some_and(|s| s.id == session_id) && kind.phone().is_some_and(|p| p.id == phone.id) {
+        kind.link.accept_phone_version(phone, version);
+    }
 }
 
 /// PhoneSource._on_alive: camera off, whether the phone answered.
@@ -708,6 +716,22 @@ impl PhoneKind {
         std::thread::spawn(move || {
             let resolution = link.recovery_check(id.as_deref());
             post(Report::RecoveryProbed { source_id: sid, session_id, generation, resolution });
+        });
+    }
+
+    pub fn refresh_version(&self, session_id: u64) {
+        let Some(phone) = self.phone() else { return };
+        let Some(route) = self.inner.borrow().route.clone() else { return };
+        let preference = match route {
+            RouteSpec::Usb { .. } => RoutePreference::Usb,
+            RouteSpec::Network { .. } => RoutePreference::Wifi,
+        };
+        let (link, post, sid) = (self.link.clone(), self.post.clone(), self.sid());
+        std::thread::spawn(move || {
+            let res = link.check(&phone, preference);
+            if res.status == PhoneStatus::Ready && !res.phone_version.is_empty() {
+                post(Report::VersionChecked { source_id: sid, session_id, phone, version: res.phone_version });
+            }
         });
     }
 
@@ -1335,6 +1359,8 @@ mod tests {
         stop_gate: Option<Arc<(Mutex<bool>, std::sync::Condvar)>>,
         adopted: Mutex<Vec<RouteSpec>>,
         accepted_recovery: Mutex<Vec<(Option<String>, Resolution)>>,
+        version_checks: Mutex<Vec<(String, RoutePreference)>>,
+        accepted_versions: Mutex<Vec<(String, String)>>,
     }
 
     struct Shared(Arc<FakeSession>);
@@ -1382,6 +1408,13 @@ mod tests {
     }
 
     impl Link for FakeLink {
+        fn check(&self, phone: &PairedPhone, preference: RoutePreference) -> Resolution {
+            self.version_checks.lock().unwrap().push((phone.id.clone(), preference));
+            Resolution { phone_version: "5.1.4".into(), ..ready(wifi()) }
+        }
+        fn accept_phone_version(&self, phone: &PairedPhone, version: &str) {
+            self.accepted_versions.lock().unwrap().push((phone.id.clone(), version.to_string()));
+        }
         fn new_identity(&self) -> (String, String) {
             Default::default()
         }
@@ -1667,6 +1700,38 @@ mod tests {
         assert!(link.accepted_recovery.lock().unwrap().is_empty());
         recovery_probed(&host, &source, 1, 0, &res);
         assert_eq!(*link.accepted_recovery.lock().unwrap(), vec![(Some("p1".into()), res)]);
+        assert!(link.adopted.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_version_refresh_after_video_reconnects_is_bound_to_the_phone_and_session() {
+        let (source, link, posted, host) = streaming();
+        let phone = source.kind.as_phone().unwrap();
+        phone.inner.borrow_mut().route = Some(usb());
+        let paired = link.phones().remove(0);
+        lost(&source);
+        source.kind.end_recovery(&source);
+        recovery_probed(&host, &source, 1, 0, &Resolution { phone_version: "5.1.3".into(), ..ready(wifi()) });
+        assert!(link.accepted_recovery.lock().unwrap().is_empty());
+        phone.refresh_version(1);
+        let until = Instant::now() + Duration::from_secs(5);
+        let report = loop {
+            if let Some(report) = posted.lock().unwrap().pop() { break report; }
+            assert!(Instant::now() < until, "no version refresh");
+            std::thread::sleep(Duration::from_millis(5));
+        };
+        let Report::VersionChecked { source_id, session_id, phone: checked, version } = report else { panic!("wrong report") };
+        assert_eq!((source_id.as_str(), session_id, &checked), ("p1", 1, &paired));
+        assert_eq!(*link.version_checks.lock().unwrap(), vec![("p1".into(), RoutePreference::Usb)]);
+        version_checked(&source, 2, &checked, &version);
+        version_checked(&source, 1, &PairedPhone { id: "other".into(), ..checked.clone() }, &version);
+        assert!(link.accepted_versions.lock().unwrap().is_empty());
+        version_checked(&source, 1, &checked, &version);
+        assert_eq!(*link.accepted_versions.lock().unwrap(), vec![("p1".into(), "5.1.4".into())]);
+        link.accepted_versions.lock().unwrap().clear();
+        source.state.borrow_mut().session = None;
+        version_checked(&source, 1, &checked, &version);
+        assert!(link.accepted_versions.lock().unwrap().is_empty());
         assert!(link.adopted.lock().unwrap().is_empty());
     }
 
