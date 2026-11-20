@@ -26,6 +26,7 @@ internal class PresenceWorker(private val context: Context, private val waiting:
     private val running = AtomicBoolean(true)
     private val changed = AtomicBoolean(true)
     private val hinted = AtomicBoolean(true)
+    private val io = PresenceSockets()
     private val cm = context.getSystemService(ConnectivityManager::class.java)
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) = networkChanged()
@@ -66,11 +67,12 @@ internal class PresenceWorker(private val context: Context, private val waiting:
     }
 
     private fun networkChanged() { changed.set(true); hint() }
-    fun hint() { hinted.set(true) }
+    fun hint() { hinted.set(true); io.wakeup() }
     fun refresh() { networkChanged() }
 
     fun stop() {
         running.set(false)
+        io.close()
         if (registeredNetwork) runCatching { cm?.unregisterNetworkCallback(callback) }
         if (registeredPower) runCatching { context.unregisterReceiver(power) }
         PairedComputers.removeListener(pairingsChanged)
@@ -96,16 +98,14 @@ internal class PresenceWorker(private val context: Context, private val waiting:
                     val previous = existing.firstOrNull { it.network == network && it.address == ip && it.channel.isOpen }
                     if (previous != null) { result += previous; continue }
                     existing.filter { it.address == ip && it.network != network }.forEach { runCatching { it.channel.close() } }
-                    var channel: DatagramChannel? = null
                     try {
-                        channel = DatagramChannel.open()
-                        network.bindSocket(channel.socket())
-                        channel.bind(InetSocketAddress(address, PRESENCE_PORT))
-                        channel.configureBlocking(false)
+                        val channel = io.open {
+                            network.bindSocket(it.socket())
+                            it.bind(InetSocketAddress(address, PRESENCE_PORT))
+                        } ?: break@networkLoop
                         result += Endpoint(network, ip, wifi, vpn, channel)
                     } catch (e: Exception) {
                         failed = true
-                        runCatching { channel?.close() }
                         android.util.Log.w("Presence", "Could not bind presence on a network", e)
                     }
                 }
@@ -145,7 +145,8 @@ internal class PresenceWorker(private val context: Context, private val waiting:
                     val (available, failed) = if (localOnly) emptyList<Endpoint>() to false else endpoints(sockets)
                     sockets = available
                     bindFailed = failed
-                    retryAt = clock() + 30_000
+                    retryAt = clock() + if (failed) 1_000 else 30_000
+                    if (!running.get()) break
                     degraded(!localOnly && (bindFailed || sockets.isEmpty()))
                 }
                 if (hinted.getAndSet(false)) schedule.hint(waiting())
@@ -169,11 +170,14 @@ internal class PresenceWorker(private val context: Context, private val waiting:
                         }
                     }
                 }
-                for (socket in sockets) {
-                    repeat(16) {
+                val retryDelay = if (bindFailed || sockets.isEmpty()) (retryAt - clock()).coerceAtLeast(0) else Long.MAX_VALUE
+                val timeout = if (localOnly) null else minOf(schedule.delay(), retryDelay)
+                for (channel in io.readable(timeout)) {
+                    val socket = sockets.firstOrNull { it.channel == channel } ?: continue
+                    for (packet in 0 until 16) {
                         buffer.clear()
-                        val source = try { socket.channel.receive(buffer) as? InetSocketAddress } catch (_: Exception) { changed.set(true); null }
-                        if (source != null && !StreamPrefs.localOnly(context)) {
+                        val source = try { channel.receive(buffer) as? InetSocketAddress } catch (_: Exception) { changed.set(true); null } ?: break
+                        if (!StreamPrefs.localOnly(context)) {
                             buffer.flip()
                             val bytes = ByteArray(buffer.remaining()).also { buffer.get(it) }
                             val address = source.address.hostAddress.orEmpty()
@@ -183,13 +187,14 @@ internal class PresenceWorker(private val context: Context, private val waiting:
                         }
                     }
                 }
-                Thread.sleep(100)
             }
         } catch (e: Exception) {
-            android.util.Log.w("Presence", "Presence worker stopped", e)
-            degraded(true)
+            if (running.get()) {
+                android.util.Log.w("Presence", "Presence worker stopped", e)
+                degraded(true)
+            }
         } finally {
-            sockets.forEach { runCatching { it.channel.close() } }
+            io.close()
         }
     }
 

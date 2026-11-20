@@ -99,6 +99,24 @@ class PresenceTest {
     }
 
     @Test
+    fun `wait deadline follows the minute timer and interaction hints`() {
+        val clock = Clock()
+        val schedule = PresenceSchedule(clock::read) { 0 }
+        schedule.hint(waiting = true)
+        assertEquals(0L, schedule.delay())
+        assertTrue(schedule.due())
+        assertEquals(60_000L, schedule.delay())
+        clock.now = 59_999
+        assertEquals(1L, schedule.delay())
+        schedule.hint(waiting = false)
+        assertEquals(0L, schedule.delay())
+        assertTrue(schedule.due())
+        assertEquals(2_000L, schedule.delay())
+        clock.now = 900_000
+        assertEquals(0L, schedule.delay())
+    }
+
+    @Test
     fun `idle jitter is bounded between thirty and sixty seconds`() {
         for (jitter in listOf(-100_000L, 100_000L)) {
             val clock = Clock()

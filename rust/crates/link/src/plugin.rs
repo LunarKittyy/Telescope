@@ -912,6 +912,7 @@ impl ConnectionPlugin {
             }
             None => self.conn().on_phone_paired(phone, |id| host.is_streaming_from(Some(id))),
         };
+        self.sync_presence();
         let shown = host.focused_source_id().or_else(|| self.conn().selected_id.clone());
         if shown.is_none() || shown.as_deref() == Some(pid.as_str()) || !host.is_streaming_from(shown.as_deref()) {
             self.select(host, Some(&pid), true, false); // one streaming next to others gets the panels
@@ -957,6 +958,7 @@ impl ConnectionPlugin {
             host.stop_stream(Some(pid));
         }
         let Some((phone, reselect)) = self.conn().forget_phone(pid) else { return };
+        self.sync_presence();
         let link = self.link.clone();
         // Unpair on the phone too when it's reachable, so it stops accepting a forgotten computer
         std::thread::spawn(move || link.unpair(&phone));
@@ -1740,6 +1742,7 @@ mod tests {
         offered_as: Mutex<Vec<String>>,
         presence_generation: Mutex<Option<u64>>,
         presence_updates: Mutex<Vec<telescope_core::link::PresenceUpdate>>,
+        presence_credentials: Mutex<Vec<(String, String)>>,
     }
 
     impl FakeLink {
@@ -1749,6 +1752,7 @@ mod tests {
                 install: Mutex::new(Ok(())), install_panics: Mutex::default(), offer: Mutex::default(), adb: Mutex::new(true), offline: Mutex::new(false),
                 checks: Mutex::default(), installs: Mutex::default(), offered_as: Mutex::default(),
                 presence_generation: Mutex::default(), presence_updates: Mutex::default(),
+                presence_credentials: Mutex::default(),
             })
         }
 
@@ -1791,6 +1795,9 @@ mod tests {
     }
 
     impl Link for FakeLink {
+        fn configure_presence(&self, _computer_id: &str, _version: &str, phones: &[PairedPhone]) {
+            *self.presence_credentials.lock().unwrap() = phones.iter().map(|p| (p.id.clone(), p.token.clone())).collect();
+        }
         fn presence_generation(&self, _phone_id: &str) -> Option<u64> { *self.presence_generation.lock().unwrap() }
         fn presence_updates(&self) -> Vec<telescope_core::link::PresenceUpdate> { self.presence_updates.lock().unwrap().drain(..).collect() }
         fn new_identity(&self) -> (String, String) {
@@ -2392,6 +2399,25 @@ mod tests {
         e.plugin.forget_phone(&mut e.host, "id-a");
         assert_eq!(e.shared.picked_source(), None);
         assert_eq!(e.status(), "No device yet");
+    }
+
+    #[test]
+    fn forgetting_an_unselected_phone_revokes_presence_without_a_redraw() {
+        let mut e = env();
+        e.add("id-a", "A");
+        e.add("id-b", "B");
+        e.plugin.on_event(&mut e.host, &Event::SelectSource { source_id: "id-a".into() });
+        e.shared.conn().set_stream_route(Some(usb()));
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://127.0.0.1:8080/v1/video.h264".into(), session: 0 });
+        assert_eq!(e.link.presence_credentials.lock().unwrap().len(), 2);
+        let redraws = e.count("set_ui_props card ");
+
+        e.plugin.forget_phone(&mut e.host, "id-b");
+
+        assert_eq!(*e.link.presence_credentials.lock().unwrap(), vec![("id-a".to_string(), phone("id-a", "A").token)]);
+        assert_eq!(e.count("set_ui_props card "), redraws);
+        assert!(e.shared.conn().streaming);
+        assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
     }
 
     #[test]

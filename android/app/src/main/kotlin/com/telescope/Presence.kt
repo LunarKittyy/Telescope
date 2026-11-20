@@ -67,6 +67,8 @@ internal class PresenceSchedule(private val clock: () -> Long, private val jitte
     private var next = interaction
     private var waiting = false
 
+    fun delay(): Long = (next - clock()).coerceAtLeast(0)
+
     fun hint(waiting: Boolean = this.waiting) {
         val now = clock()
         if (waiting == this.waiting && now - interaction < 1_000) return
