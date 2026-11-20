@@ -2,6 +2,7 @@
 
 use ash::vk;
 use ffmpeg_sys_next as ff;
+use std::collections::HashSet;
 use std::os::fd::{BorrowedFd, OwnedFd};
 use std::os::unix::fs::MetadataExt;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -14,6 +15,32 @@ pub(crate) const MAX_SURFACES: usize = 6;
 const R8: u32 = u32::from_le_bytes(*b"R8  ");
 const GR88: u32 = u32::from_le_bytes(*b"GR88");
 const INVALID_MODIFIER: u64 = (1u64 << 56) - 1;
+
+#[derive(Default)]
+pub(crate) struct Capabilities {
+    nodes: HashSet<String>,
+    modifiers: HashSet<(wgpu::TextureFormat, u64)>,
+}
+
+impl Capabilities {
+    fn device(&mut self, node: Option<&str>, query: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+        let node = node.ok_or("the decoder's render node is unknown")?;
+        if !self.nodes.contains(node) {
+            query()?;
+            self.nodes.insert(node.to_string());
+        }
+        Ok(())
+    }
+
+    fn modifier(&mut self, plane: &Plane, query: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+        let key = (plane.format, plane.modifier);
+        if !self.modifiers.contains(&key) {
+            query()?;
+            self.modifiers.insert(key);
+        }
+        Ok(())
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct Stream {
@@ -111,7 +138,7 @@ impl Surface {
         self.colour
     }
 
-    pub(crate) fn import(&self, device: &wgpu::Device) -> Result<[wgpu::Texture; 2], String> {
+    pub(crate) fn import(&self, device: &wgpu::Device, capabilities: &Mutex<Capabilities>) -> Result<[wgpu::Texture; 2], String> {
         self.stream.attempt(|| {
             if device.adapter_info().backend != wgpu::Backend::Vulkan {
                 return Err("the pipeline uses a non-Vulkan backend".into());
@@ -121,7 +148,7 @@ impl Surface {
             }
             // SAFETY: the guard only borrows wgpu's Vulkan device and no wgpu calls are made until it is dropped.
             let hal = unsafe { device.as_hal::<Vulkan>() }.ok_or("no Vulkan device")?;
-            same_device(&hal, self.node.as_deref())?;
+            capabilities.lock().unwrap_or_else(|e| e.into_inner()).device(self.node.as_deref(), || same_device(&hal, self.node.as_deref()))?;
             let source = self.frame.lock().unwrap_or_else(|e| e.into_inner());
             // SAFETY: the mapping is private and its source reference stays locked and alive until import has finished.
             let mapped = unsafe {
@@ -143,7 +170,7 @@ impl Surface {
             let mut textures = Vec::with_capacity(2);
             for plane in layouts {
                 let imported = (|| {
-                    modifier_supported(&hal, &plane)?;
+                    capabilities.lock().unwrap_or_else(|e| e.into_inner()).modifier(&plane, || modifier_supported(&hal, &plane))?;
                     // SAFETY: descriptor validation checked the object index and fd; the live mapping owns this fd during duplication.
                     let fd: OwnedFd = unsafe { BorrowedFd::borrow_raw(plane.fd) }.try_clone_to_owned().map_err(|e| e.to_string())?;
                     let desc = wgpu::hal::TextureDescriptor {
@@ -370,6 +397,37 @@ mod tests {
             desc.layers[i].planes[0].pitch = 32;
         }
         desc
+    }
+
+    #[test]
+    fn capability_queries_are_cached_by_node_format_and_modifier_per_connection() {
+        let mut cache = Capabilities::default();
+        let mut devices = 0;
+        let mut modifiers = 0;
+        let mut planes = layouts(&descriptor(), (32, 16)).unwrap();
+        for _ in 0..3 {
+            cache.device(Some("/dev/dri/renderD128"), || { devices += 1; Ok(()) }).unwrap();
+            for plane in &planes {
+                cache.modifier(plane, || { modifiers += 1; Ok(()) }).unwrap();
+            }
+        }
+        assert_eq!((devices, modifiers), (1, 2));
+        let mut resized = layouts(&descriptor(), (16, 8)).unwrap();
+        resized[0].offset = 64;
+        resized[0].pitch = 64;
+        cache.modifier(&resized[0], || { modifiers += 1; Ok(()) }).unwrap();
+        assert_eq!(modifiers, 2, "frame layout does not change static modifier support");
+        cache.device(Some("/dev/dri/renderD129"), || { devices += 1; Err("device query failed".into()) }).unwrap_err();
+        cache.device(Some("/dev/dri/renderD129"), || { devices += 1; Ok(()) }).unwrap();
+        planes[0].modifier = 7;
+        cache.modifier(&planes[0], || { modifiers += 1; Err("modifier query failed".into()) }).unwrap_err();
+        cache.modifier(&planes[0], || { modifiers += 1; Ok(()) }).unwrap();
+        assert_eq!((devices, modifiers), (3, 4), "failed queries must not poison later streams");
+        let mut other_connection = Capabilities::default();
+        other_connection.device(Some("/dev/dri/renderD128"), || { devices += 1; Ok(()) }).unwrap();
+        other_connection.modifier(&planes[0], || { modifiers += 1; Ok(()) }).unwrap();
+        assert_eq!((devices, modifiers), (4, 5), "a new GPU connection must query its own capabilities");
+        assert!(cache.device(None, || panic!("an unknown node reached Vulkan")).is_err());
     }
 
     #[test]

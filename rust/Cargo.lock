@@ -5836,6 +5836,7 @@ dependencies = [
  "libc",
  "log",
  "mdns-sd",
+ "polling",
  "ring",
  "roxmltree",
  "rustls",

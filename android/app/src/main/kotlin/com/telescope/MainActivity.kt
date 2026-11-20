@@ -207,6 +207,7 @@ class MainActivity : LookActivity() {
         renderUpdate()
         // Reachable while screen is up; service holds reference after screen goes dark
         SessionEndpoint.portBusyListener = { busy -> runOnUiThread { cardPortBusy.visibility = if (busy) View.VISIBLE else View.GONE } }
+        cardPortBusy.visibility = if (SessionEndpoint.portBusy) View.VISIBLE else View.GONE
         SessionEndpoint.screenStarted(this)
         syncWaitForComputer()
         // Notes the computer sent while the app wasn't on screen, and that weren't closed since
