@@ -236,6 +236,7 @@ impl Link for LinkService {
             }
         }
         let res = self.resolver().resolve(&hinted, preference);
+        self.presence.checked(phone, res.status == PhoneStatus::Unreachable);
         self.checked_capability(phone, &res);
         res
     }
