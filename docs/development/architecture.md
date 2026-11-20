@@ -97,6 +97,8 @@ The app also enumerates the **physical sub-cameras** of logical multi-camera gro
 
 Copies the app version, device info, current stream state, recent transitions and errors, what each camera supports and the last 3 streams' reports (stored in a small file). It never includes the pairing token, a URL or raw config.
 
+Tapping the version line five times in phone Settings reveals a developer **Camera probe** action beside **Copy diagnostics**. It opens a standalone screen that measures Camera2 limits, output frame durations, repeating long-exposure behaviour, full-size burst rates, vendor keys, processing modes and session combinations across every lens (main lens first, about 10 to 15 minutes on a stand). It shares an exclusive camera owner (`CameraOwnership`) with stream startup, refuses or stops if the phone gets hot, and persists only its cached report (`camera2_probe.txt`) for manual copying.
+
 ### Permissions
 
 | Permission | Reason |

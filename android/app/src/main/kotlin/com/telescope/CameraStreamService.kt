@@ -236,6 +236,8 @@ class CameraStreamService : Service() {
         const val EXTRA_OWNER      = "owner"
         // Which start this is (SessionStartWindow), so a stop that came before it ran can cancel it.
         const val EXTRA_START_TICKET = "start_ticket"
+        // Exclusive camera lease issued by StreamLauncher and adopted in onStartCommand.
+        const val EXTRA_OWNERSHIP_LEASE = "ownership_lease"
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
         private const val ACTION_STOP = "com.telescope.action.STOP_STREAMING"
@@ -511,6 +513,7 @@ class CameraStreamService : Service() {
     private var idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var started = false
+    private var ownershipLeaseId = 0L
     @Volatile private var busySinceMs = 0L
 
     // Stream config
@@ -688,20 +691,45 @@ class CameraStreamService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val incomingLease = intent?.getLongExtra(EXTRA_OWNERSHIP_LEASE, 0L) ?: 0L
         if (intent?.action == ACTION_STOP) {
             // The notification's Stop streaming button
-            if (controller != null) stopStreaming("notificationStop") else stopSelf()
+            if (controller != null) stopStreaming("notificationStop") else { releaseOwnership(); stopSelf() }
             return START_NOT_STICKY
         }
         if (controller != null) {
             // A second start raced the first: keep the running stream rather than rebind its port and fail both.
+            if (incomingLease != 0L && incomingLease != ownershipLeaseId) CameraOwnership.release(incomingLease)
             if (inForeground) try { startForegroundCompat() } catch (_: Exception) {}
             stateMachine.record("duplicateStart")
             return START_NOT_STICKY
         }
         if (SessionStartWindow.aborted(intent?.getLongExtra(EXTRA_START_TICKET, 0L) ?: 0L)) {
             // The computer was told its stop worked before this start ran; Android still wants a foreground promotion first.
+            if (incomingLease != 0L) CameraOwnership.release(incomingLease)
             stateMachine.record("startAborted")
+            if (intent?.getBooleanExtra(EXTRA_COVERED, false) != true) {
+                try { startForegroundCompat(); stopForeground(STOP_FOREGROUND_REMOVE); inForeground = false } catch (_: Exception) {}
+            }
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        // Adopt the lease reserved by StreamLauncher, or acquire one if started directly; refuse if a probe now holds the camera.
+        val adopted = if (incomingLease != 0L) {
+            CameraOwnership.adopt(incomingLease, CameraOwner.STREAM).also { ok ->
+                if (ok) ownershipLeaseId = incomingLease
+            }
+        } else {
+            val fresh = CameraOwnership.tryAcquire(CameraOwner.STREAM, adopted = true)
+            if (fresh != null) {
+                ownershipLeaseId = fresh.id
+                true
+            } else {
+                false
+            }
+        }
+        if (!adopted) {
+            stateMachine.record("ownershipRefused")
             if (intent?.getBooleanExtra(EXTRA_COVERED, false) != true) {
                 try { startForegroundCompat(); stopForeground(STOP_FOREGROUND_REMOVE); inForeground = false } catch (_: Exception) {}
             }
@@ -737,6 +765,7 @@ class CameraStreamService : Service() {
         } catch (e: Exception) {
             // Android 14+ refuses the camera to a service started while the app is in the background.
             setState(StreamState.Failed, "startForeground", e)
+            releaseOwnership()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -752,6 +781,7 @@ class CameraStreamService : Service() {
             // onDestroy can wait on a bound activity, so give back the endpoint and the waiting notification now
             SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
             if (covered) WaitingService.showStreaming(this, false)
+            releaseOwnership()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -814,8 +844,20 @@ class CameraStreamService : Service() {
             stopStreaming()
             RecentRuns.save(this, "Stream ended: ${timeText(System.currentTimeMillis())}\n" + buildRunReport())
         }
+        releaseOwnership()
         if (instance === this) instance = null
         super.onDestroy()
+    }
+
+    private fun takeOwnershipLease(): Long {
+        val lease = ownershipLeaseId
+        ownershipLeaseId = 0L
+        return lease
+    }
+
+    private fun releaseOwnership() {
+        val lease = takeOwnershipLease()
+        if (lease != 0L) CameraOwnership.release(lease)
     }
 
     // NaN and infinity parse as floats but slip through every clamp
@@ -1268,7 +1310,8 @@ class CameraStreamService : Service() {
     fun stopStreaming(op: String = "stopStreaming") {
         stopIdleWatchdog()
         setState(StreamState.Stopping, op)
-        controller?.stop()
+        val ctrl = controller
+        val leaseToRelease = takeOwnershipLease()
         stills?.stop()
         stills = null
         stillJobs.clear()
@@ -1283,6 +1326,14 @@ class CameraStreamService : Service() {
         streamingSinceMs = 0L
         viewer = null
         setState(StreamState.Idle, op)
+        // Release camera ownership only after CameraSessionController.teardown() has closed the device on its own thread.
+        if (ctrl != null) {
+            ctrl.stop {
+                if (leaseToRelease != 0L) CameraOwnership.release(leaseToRelease)
+            }
+        } else if (leaseToRelease != 0L) {
+            CameraOwnership.release(leaseToRelease)
+        }
         // Release session; endpoint stays bound if MainActivity holds a reference.
         SessionEndpoint.holdAfterStop(this)
         SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
