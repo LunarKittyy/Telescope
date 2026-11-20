@@ -341,7 +341,7 @@ fn coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again() {
     ui(&r, "transforms", "card", "zoom-moved", vec![json!(2.0)]);
     let crop = |r: &Rig| {
         let st = r.w.state.borrow();
-        let shown = st.vc.frame_view(&st.view);
+        let shown = st.vc.shown(&st.view);
         (shown.zoom, shown.pan_x, shown.pan_y)
     };
     assert_eq!(crop(&r), (1.0, 0.0, 0.0), "the phone crops it all");

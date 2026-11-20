@@ -180,6 +180,15 @@ struct Step {
     quarter: Option<Quarter>,
     /// The pictures the card's shader was last given, for as long as the mask they come from is the same
     card: CardPictures,
+    /// The single mask snapshot shared by the card's textures and cutout for a frame.
+    card_mask: Option<CardMask>,
+}
+
+struct CardMask {
+    source: String,
+    number: u64,
+    size: (usize, usize),
+    mask: Option<Arc<Vec<u8>>>,
 }
 
 /// What a mask turned into for the card (Rgba, red the value): the feathered cutout at a quarter size and the share left for the blur at an eighth, each with what it was made from. None where there's nothing to say.
@@ -229,7 +238,7 @@ impl Derived {
     fn alpha(&mut self) -> Arc<Alpha> {
         let (w, h) = self.size;
         let edges = &self.soft.as_ref().unwrap().1;
-        self.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, edges.data.clone(), false))).clone()
+        self.alpha.get_or_insert_with(|| background_alpha(w, h, edges.data.clone())).clone()
     }
 }
 
@@ -248,8 +257,12 @@ impl Quarter {
             return alpha.clone();
         }
         let luma = self.wide((w, h)).map_or_else(|| vec![0; w * h], |wide| wide.luma.clone());
-        self.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, luma, false))).clone()
+        self.alpha.get_or_insert_with(|| background_alpha(w, h, luma)).clone()
     }
+}
+
+fn background_alpha(w: usize, h: usize, data: Vec<u8>) -> Arc<Alpha> {
+    Arc::new(Alpha::new(w as u32, h as u32, data, false).keep_opaque_when_empty())
 }
 
 impl CpuStep for Step {
@@ -273,18 +286,19 @@ impl CpuStep for Step {
 
     /// The cut-out for a stream that wants it, made on the CPU the way `run` makes it, since the card's blur never gives the frame one.
     fn card_cut_out(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Arc<Alpha>> {
+        let snapshot = self.card_mask.take();
         if self.settings.mode == 0 || !self.wants_cut_out(frame, ctx) {
             return None;
         }
         let (w, h) = (frame.width as usize, frame.height as usize);
         let by_planes = frame.format == PixelFormat::I420 && w >= 2 && h >= 2 && frame.i420_planes().is_some();
-        let mask = if by_planes {
-            self.mask_at(frame, ctx, ((w / 4).max(1), (h / 4).max(1)))
-        } else {
-            self.mask_at(frame, ctx, (w, h))
+        let size = if by_planes { ((w / 4).max(1), (h / 4).max(1)) } else { (w, h) };
+        let mask = match snapshot.filter(|s| s.source == ctx.source_id() && s.number == frame.number && s.size == size) {
+            Some(snapshot) => snapshot.mask,
+            None => self.mask_at(frame, ctx, size),
         };
         // No mask yet is nobody to cut out, the same as `run` gives
-        let Some(mask) = mask else { return Some(Arc::new(Alpha::new(w as u32, h as u32, vec![0; w * h], false))) };
+        let Some(mask) = mask else { return Some(background_alpha(w, h, vec![0; w * h])) };
         if by_planes {
             let mut q = self.derive(mask, (w, h), true);
             let alpha = q.alpha((w, h));
@@ -302,14 +316,10 @@ impl CpuStep for Step {
     fn card_textures(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
         let (w, h) = (frame.width as usize, frame.height as usize);
         let by_planes = frame.format == PixelFormat::I420 && w >= 2 && h >= 2 && frame.i420_planes().is_some();
-        let (mask, quarter) = if by_planes {
-            match self.mask_at(frame, ctx, ((w / 4).max(1), (h / 4).max(1))) {
-                Some(src) => (Some(src.clone()), Some(src)),
-                None => (None, None),
-            }
-        } else {
-            (self.mask_at(frame, ctx, (w, h)), None)
-        };
+        let size = if by_planes { ((w / 4).max(1), (h / 4).max(1)) } else { (w, h) };
+        let mask = self.mask_at(frame, ctx, size);
+        self.card_mask = Some(CardMask { source: ctx.source_id().to_string(), number: frame.number, size, mask: mask.clone() });
+        let quarter = by_planes.then(|| mask.clone()).flatten();
         let Some(src) = mask else {
             self.quarter = None;
             self.card = CardPictures::default();
@@ -398,7 +408,7 @@ impl Step {
             self.hide_all(frame, &rgb);
             // Nobody to cut out: an all-clear plane, the same as the planes path gives
             if want {
-                frame.set_alpha(Arc::new(Alpha::new(rgb.w as u32, rgb.h as u32, vec![0; rgb.w * rgb.h], false)));
+                frame.set_alpha(background_alpha(rgb.w, rgb.h, vec![0; rgb.w * rgb.h]));
             }
             return;
         };
@@ -538,7 +548,7 @@ impl Step {
         if want {
             let alpha = match quarter.as_mut() {
                 Some(q) => q.alpha((w, h)),
-                None => Arc::new(Alpha::new(w as u32, h as u32, vec![0; w * h], false)),
+                None => background_alpha(w, h, vec![0; w * h]),
             };
             frame.set_alpha(alpha);
         }
@@ -937,7 +947,7 @@ impl Plugin for BackgroundPlugin {
         }
         let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, cut_in: self.cut_in, picture: self.picture.clone(), high_quality: self.high_quality };
         let blur = MODES[self.mode].0 == "blur";
-        let step = Box::new(Step { settings, wanted: self.wanted.clone(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default() });
+        let step = Box::new(Step { settings, wanted: self.wanted.clone(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default(), card_mask: None });
         // Blur can go to the graphics card; Picture mode stays on the CPU
         Some(if blur { FrameStep::Either(card_blur(self.blur), step) } else { FrameStep::Cpu(step) })
     }

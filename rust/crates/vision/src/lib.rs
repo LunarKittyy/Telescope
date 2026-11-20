@@ -10,7 +10,7 @@ pub mod service;
 
 use ops::Rgb;
 use pack::PackInfo;
-use service::{Backend, Find, LoadError, MaskView, Vision};
+use service::{Backend, Find, LoadError, MaskSnapshot, MaskView, Vision};
 use serde_json::Value;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -260,21 +260,19 @@ impl VisionHost {
 impl VisionHost {
     fn mask_normal(&self, source_id: &str, frame: &Frame, (w, h): (usize, usize), epoch: u64, keep_late: bool) -> Option<Arc<Vec<u8>>> {
         let shared = frame.clone();
-        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late };
+        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: frame.mask_space };
         self.shared.vision.newest_normal_for(source_id, !keep_late, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)
     }
 
     fn mask_hq(&self, source_id: &str, frame: &Frame, size: (usize, usize), epoch: u64, keep_late: bool) -> Option<Arc<Vec<u8>>> {
         let (w, h) = size;
-        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late };
+        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: frame.mask_space };
         let shared = frame.clone();
-        let hq = self.shared.vision.newest_cutout_for(source_id, frame.number, w, h, Box::new(move || rgb(&shared)), epoch, view);
+        let hq = self.shared.vision.newest_cutout_snapshot(source_id, frame.number, w, h, Box::new(move || rgb(&shared)), epoch, view);
         let normal = |frame: &Frame| {
             let shared = frame.clone();
-            self.shared.vision.newest_normal_for(source_id, false, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)
+            self.shared.vision.newest_normal_snapshot(source_id, false, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)
         };
-        // Not downloaded, loading, failed or late: the normal mask, so the picture never goes without one it could have had
-        let Some(hq) = hq else { return normal(frame) };
         // While the cutout gives the masks the normal model still gets a frame now and then, so it has a fresh mask to fall back on the moment the cutout is late
         let now = service::monotonic();
         let due = {
@@ -286,10 +284,21 @@ impl VisionHost {
             }
             due
         };
-        if due {
-            normal(frame);
-        }
-        Some(hq)
+        let normal = (due || hq.as_ref().is_none_or(|m| !m.fresh())).then(|| normal(frame)).flatten();
+        preferred_mask(hq, normal).map(|m| m.mask)
+    }
+}
+
+fn preferred_mask(hq: Option<MaskSnapshot>, normal: Option<MaskSnapshot>) -> Option<MaskSnapshot> {
+    if hq.as_ref().is_some_and(MaskSnapshot::fresh) {
+        return hq;
+    }
+    if normal.as_ref().is_some_and(MaskSnapshot::fresh) {
+        return normal;
+    }
+    match (hq, normal) {
+        (Some(hq), Some(normal)) => Some(if hq.at >= normal.at { hq } else { normal }),
+        (hq, normal) => hq.or(normal),
     }
 }
 

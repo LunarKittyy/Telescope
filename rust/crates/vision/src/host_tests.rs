@@ -489,3 +489,18 @@ fn a_plugin_waiting_during_a_failed_zip_install_is_told_why() {
     assert!(done[0].0.contains("didn't match") && done[0].1 == "framing", "{done:?}");
     assert!(!pack.ready && pack.failed_for == "framing" && !pack.downloading);
 }
+
+#[test]
+fn background_prefers_fresh_quality_then_fresh_normal_then_newest_held_mask() {
+    let now = service::monotonic();
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age };
+    let max = service::MASK_MAX_AGE_S;
+    for (hq_age, normal_age, expected) in [(0.0, 0.0, 1), (max * 2.0, 0.0, 2),
+        (max * 2.0, max * 3.0, 1), (max * 3.0, max * 2.0, 2)] {
+        let selected = preferred_mask(Some(snapshot(1, hq_age)), Some(snapshot(2, normal_age))).unwrap();
+        assert_eq!(*selected.mask, [expected]);
+    }
+    assert_eq!(*preferred_mask(None, Some(snapshot(2, max * 2.0))).unwrap().mask, [2]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, max * 2.0)), None).unwrap().mask, [1]);
+    assert!(preferred_mask(None, None).is_none());
+}

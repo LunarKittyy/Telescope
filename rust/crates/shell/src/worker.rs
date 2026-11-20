@@ -1088,15 +1088,20 @@ impl Shared {
             pipeline.replace_steps(&owner, stage, steps);
         }
         let (rw, rh) = *self.size.lock().unwrap();
+        let mask_space = telescope_core::frame::MaskSpace {
+            source_size: (frame.width, frame.height),
+            source_epoch: self.gate.as_ref().map_or(0, |gate| gate.source_epoch(&self.source_id)),
+            warp: None,
+        };
         let mut frame = match (rw, rh) {
             (None, None) => frame,
             _ => stretch(&frame, rw.unwrap_or(frame.width), rh.unwrap_or(frame.height)),
         };
+        frame.mask_space = mask_space;
         // Its number before the steps see it: what a person mask is worked out once by (slot.publish numbers what goes out)
         frame.number = seq;
         if let Some(gate) = &self.gate {
-            if let Some(view) = gate.for_frame(&self.source_id, &frame, crate::shell::now_s(), replaced) {
-                let source_crop = gate.source_window(&self.source_id).unwrap_or((1.0, 0.0, 0.0));
+            if let Some((view, source_crop)) = gate.for_frame_snapshot(&self.source_id, &frame, crate::shell::now_s(), replaced) {
                 pipeline.replace_steps("view", telescope_core::frame::FrameStage::View, telescope_core::view_step::steps_in(&view, source_crop));
             }
         }

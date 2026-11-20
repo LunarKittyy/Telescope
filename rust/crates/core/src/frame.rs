@@ -46,9 +46,18 @@ pub struct Frame {
     pub capture_ns: Option<u64>,
     /// The view in full source coordinates, for remapping a held person mask; None is the unchanged source.
     pub geometry: Option<Box<crate::view::Geometry>>,
+    /// Source field of view and any geometry that cannot be remapped in camera coordinates.
+    pub mask_space: MaskSpace,
     decoded: Option<Decoded>,
     /// How much of each pixel is the picture, for a frame whose background was cut out; None for a frame that is all picture, which is every frame today.
     alpha: Option<Arc<Alpha>>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MaskSpace {
+    pub source_size: (u32, u32),
+    pub source_epoch: u64,
+    pub warp: Option<u64>,
 }
 
 /// One 8-bit plane of how much of each pixel is the picture (255) and how much is whatever goes behind it (0), at the frame's full size.
@@ -60,12 +69,20 @@ pub struct Alpha {
     pub data: Vec<u8>,
     /// Whether the frame's colour planes are already multiplied by this (each plane value times alpha, chroma included), or straight.
     pub premultiplied: bool,
+    /// Opaque outputs keep the rendered backdrop when no foreground was available.
+    keep_opaque: bool,
 }
 
 impl Alpha {
     pub fn new(w: u32, h: u32, data: Vec<u8>, premultiplied: bool) -> Alpha {
         debug_assert_eq!(data.len(), w as usize * h as usize);
-        Alpha { w, h, data, premultiplied }
+        Alpha { w, h, data, premultiplied, keep_opaque: false }
+    }
+
+    /// Keep the rendered picture on opaque outputs if this cutout has no foreground coverage.
+    pub fn keep_opaque_when_empty(mut self) -> Alpha {
+        self.keep_opaque = !self.premultiplied && self.data.iter().all(|&v| v == 0);
+        self
     }
 }
 
@@ -193,7 +210,7 @@ impl Frame {
     pub fn from_surface(width: u32, height: u32, format: PixelFormat, surface: Arc<dyn DecodedSurface>) -> Frame {
         let data = Arc::new(Vec::new());
         let decoded = Some(Decoded { of: Arc::downgrade(&data), picture: None, surface: Some(surface), size: (width, height, format) });
-        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, decoded, alpha: None }
+        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded, alpha: None }
     }
 
     /// A flat dark picture: black luma and neutral chroma for the YUV formats, opaque black for the others.
@@ -208,7 +225,7 @@ impl Frame {
 
     /// The frame's size, format and stamps with no pixels and no hold on a decoder surface, for a record of a picture that is kept elsewhere.
     pub fn without_pixels(&self) -> Frame {
-        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, geometry: self.geometry.clone(), decoded: None, alpha: self.alpha.clone() }
+        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, geometry: self.geometry.clone(), mask_space: self.mask_space, decoded: None, alpha: self.alpha.clone() }
     }
 
     /// The surface while the frame still names the decoder's original picture.
@@ -222,13 +239,14 @@ impl Frame {
         let mut frame = surface.ram().clone();
         (frame.number, frame.time_ns, frame.capture_ns) = (self.number, self.time_ns, self.capture_ns);
         frame.geometry = self.geometry.clone();
+        frame.mask_space = self.mask_space;
         frame.alpha = self.alpha.clone();
         frame
     }
 
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
-        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, decoded: None, alpha: None }
+        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded: None, alpha: None }
     }
 
     /// The alpha plane, while it is the size of the picture: one left behind by a step that changed the size reads as none.
@@ -276,6 +294,9 @@ impl Frame {
         }
         let mut out = self.clone();
         out.alpha = None;
+        if alpha.keep_opaque {
+            return out;
+        }
         let (w, h, premul) = (self.width as usize, self.height as usize, alpha.premultiplied);
         let a = &alpha.data[..];
         let data = out.data_mut();
@@ -657,11 +678,17 @@ mod tests {
         let pixels = Frame::new(2, 2, PixelFormat::I420, vec![1; 6]);
         let mut frame = Frame::from_surface(2, 2, PixelFormat::I420, Arc::new(Surface(pixels)));
         frame.geometry = geometry.clone();
+        let mask_space = MaskSpace { source_size: (1920, 1080), source_epoch: 3, warp: Some(9) };
+        frame.mask_space = mask_space;
         assert_eq!(frame.clone().geometry, geometry);
         assert_eq!(frame.without_pixels().geometry, geometry);
         assert_eq!(frame.materialise().geometry, geometry);
+        assert_eq!(frame.clone().mask_space, mask_space);
+        assert_eq!(frame.without_pixels().mask_space, mask_space);
+        assert_eq!(frame.materialise().mask_space, mask_space);
         let json = serde_json::to_value(&frame).unwrap();
         assert!(json.get("geometry").is_none(), "source coordinates stay inside the frame pipeline");
+        assert!(json.get("mask_space").is_none());
     }
 
     #[test]
@@ -780,6 +807,25 @@ mod tests {
             let flat = f.flattened([200, 100, 50]);
             assert!(Arc::ptr_eq(&f.data, &flat.data), "{format:?} shares the pixels");
             assert_eq!(*flat.data, *f.data);
+        }
+    }
+
+    #[test]
+    fn an_empty_background_cutout_keeps_the_backdrop_only_on_opaque_outputs() {
+        for format in [PixelFormat::I420, PixelFormat::Nv12, PixelFormat::Bgra, PixelFormat::Rgba] {
+            let mut frame = Frame::new(4, 4, format, vec![180; format.size(4, 4)]);
+            let ordinary = with_alpha(frame.clone(), 0, false).flattened([0, 0, 0]);
+            let alpha = Alpha::new(4, 4, vec![0; 16], false).keep_opaque_when_empty();
+            frame.set_alpha(Arc::new(alpha));
+            let flat = frame.flattened([0, 0, 0]);
+            assert!(frame.alpha().unwrap().data.iter().all(|&a| a == 0), "transparent outputs still have the empty cutout");
+            assert!(flat.alpha().is_none());
+            assert_eq!(flat.data, frame.data, "{format:?} keeps the rendered backdrop");
+            assert_ne!(ordinary.data, flat.data, "other empty cutouts still flatten normally");
+            let covered = Alpha::new(4, 4, vec![128; 16], false).keep_opaque_when_empty();
+            frame.clear_alpha();
+            frame.set_alpha(Arc::new(covered));
+            assert_ne!(frame.flattened([0, 0, 0]).data, frame.data, "a visible person still flattens normally");
         }
     }
 

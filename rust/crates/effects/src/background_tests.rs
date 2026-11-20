@@ -545,7 +545,7 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, wanted: Wanted::default(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default() }
+    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, wanted: Wanted::default(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default(), card_mask: None }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
@@ -1404,6 +1404,81 @@ fn nobody_in_the_mask_or_no_mask_yet_is_a_cut_out_with_nothing_in_it() {
     let mut unknown = frame.clone();
     cutting(true, "blur").process(&mut unknown, &Ctx(None, Default::default()));
     assert!(unknown.alpha().expect("a cut-out").data.iter().all(|&a| a == 0));
+}
+
+#[test]
+fn missing_or_empty_background_coverage_keeps_the_rendered_backdrop_on_opaque_outputs() {
+    let source = stripes(160, 90);
+    for frame in [frame_of(&source), i420_of(&source)] {
+        for mode in ["blur", "picture"] {
+            for missing in [false, true] {
+                let ctx = Ctx((!missing).then(|| Gray::filled(160, 90, 0)), Default::default());
+                let picture = Some(Arc::new(Rgb::filled(20, 10, [40, 170, 220])));
+                let (mut cut, mut opaque) = (frame.clone(), frame.clone());
+                let mut with = cutting(true, mode);
+                with.settings.picture = picture.clone();
+                with.process(&mut cut, &ctx);
+                let mut without = cutting(false, mode);
+                without.settings.picture = picture;
+                without.process(&mut opaque, &ctx);
+                assert!(cut.alpha().unwrap().data.iter().all(|&a| a == 0), "transparent outputs retain the empty cutout");
+                let flat = cut.flattened([0, 0, 0]);
+                assert_eq!(flat.data, opaque.data, "{:?}, {mode}, missing {missing}", frame.format);
+                assert!(flat.alpha().is_none());
+                assert!(flat.data.iter().any(|&v| v > 16));
+            }
+        }
+    }
+}
+
+#[test]
+fn card_textures_and_cutout_share_one_mask_snapshot_even_if_inference_finishes_between_them() {
+    struct Changing {
+        calls: std::cell::Cell<u32>,
+        first_missing: bool,
+    }
+    impl FrameContext for Changing {
+        fn source_id(&self) -> &str { "phone" }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> { None }
+        fn background_mask_at(&self, _frame: &Frame, w: usize, h: usize, _high: bool) -> Option<Arc<Vec<u8>>> {
+            let call = self.calls.replace(self.calls.get() + 1);
+            if call == 0 && self.first_missing {
+                return None;
+            }
+            Some(Arc::new((0..w * h).map(|i| if (i % w < w / 2) == (call == 0) { 255 } else { 0 }).collect()))
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame { frame.clone() }
+    }
+    let source = stripes(160, 90);
+    for frame in [frame_of(&source), i420_of(&source)] {
+        for first_missing in [false, true] {
+            let ctx = Changing { calls: Default::default(), first_missing };
+            let mut step = cutting(true, "blur");
+            step.settings.edges = 0;
+            let textures = step.card_textures(&frame, &ctx).unwrap();
+            let alpha = step.card_cut_out(&frame, &ctx).unwrap();
+            assert_eq!(ctx.calls.get(), 1, "one inference snapshot for both requests");
+            if first_missing {
+                assert!(textures.is_empty());
+                assert!(alpha.data.iter().all(|&a| a == 0));
+                let mut rendered = frame.clone();
+                rendered.set_alpha(alpha);
+                assert_eq!(rendered.flattened([0, 0, 0]).data, frame.data);
+            } else {
+                let cutout = textures.iter().find(|(name, _)| name == BLUR_CUTOUT).unwrap();
+                assert_eq!(cutout.1.data[0], 255);
+                assert_eq!(alpha.data[0], 255);
+                assert_eq!(*alpha.data.last().unwrap(), 0);
+            }
+            let mut next = frame.clone();
+            next.number += 1;
+            step.card_textures(&next, &ctx);
+            let alpha = step.card_cut_out(&next, &ctx).unwrap();
+            assert_eq!(ctx.calls.get(), 2, "the next frame receives a fresh snapshot");
+            assert_eq!(alpha.data[0], 0);
+            assert_eq!(*alpha.data.last().unwrap(), 255);
+        }
+    }
 }
 
 #[test]

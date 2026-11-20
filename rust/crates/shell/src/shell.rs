@@ -1471,7 +1471,8 @@ impl State {
         use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
         // The window's own steps: its view first, and the colour pipeline's LUT after the effects
-        for step in telescope_core::view_step::steps_in(&self.vc.frame_view(&self.view), self.vc.frame_window()) {
+        let (view, source_crop) = self.vc.frame_snapshot(&self.view);
+        for step in telescope_core::view_step::steps_in(&view, source_crop) {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step });
         }
         let colour = self.colour.step(source_id);
@@ -1782,6 +1783,9 @@ impl State {
                     self.overlays.cancel_pick(None, &self.bus);
                 }
                 if let Event::CameraSwitched { camera } = &event {
+                    if let Some(source) = self.streams.source_id.as_deref() {
+                        self.vc.gate().note_camera(source, camera);
+                    }
                     self.effects.push(Effect::SettleStream);
                     let said = self.vc.camera_caps(&self.view, Some(camera), now_s());
                     self.apply_said(said);
@@ -1789,6 +1793,11 @@ impl State {
                     self.motion.reset(telescope_core::motion::LENS_SETTLE_S, now_s());
                     // Before the plugins hear it, so what the lens can take is fresh for them
                     self.note_lens(camera);
+                }
+                if let Event::StreamState { source_id, state } = &event {
+                    if let Some(camera) = state.get("cameras").and_then(Value::as_array).and_then(|c| c.iter().find(|c| c.get("current") == Some(&Value::Bool(true)))) {
+                        self.vc.gate().note_camera(source_id, camera);
+                    }
                 }
                 if matches!(event, Event::StreamStopped) {
                     self.let_go_of_photos(None);
@@ -2365,6 +2374,21 @@ mod tests {
         s.deliver_events();
         assert_eq!(s.overlays.picking(), "");
         assert!(heard.lock().unwrap().iter().any(|e| matches!(e, Event::PreviewPicked { owner, pick: None } if owner == "watcher")));
+    }
+
+    #[test]
+    fn stream_camera_changes_update_only_their_mask_source_geometry() {
+        let mut s = state();
+        s.streams.source_id = Some("a".into());
+        s.bus.emit(Event::StreamState { source_id: "a".into(), state: json!({"cameras": [{"id": "main", "current": true}]}) });
+        s.bus.emit(Event::StreamState { source_id: "b".into(), state: json!({"cameras": [{"id": "main", "current": true}]}) });
+        s.deliver_events();
+        let gate = s.vc.gate();
+        let first = gate.source_epoch("a");
+        s.bus.emit(Event::CameraSwitched { camera: json!({"id": "wide"}) });
+        s.deliver_events();
+        assert_ne!(gate.source_epoch("a"), first);
+        assert_eq!(gate.source_epoch("b"), first);
     }
 
     #[test]
