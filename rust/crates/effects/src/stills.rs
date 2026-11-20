@@ -62,15 +62,19 @@ pub struct ShotCaps {
     pub iso: Option<ShotIso>,
     pub focus: Option<ShotFocus>,
     pub freezes_from_ns: i64,
+    pub shutter_values_s: Vec<f64>,
+    pub iso_values: Vec<i64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
+#[serde(default)]
 pub struct ShotShutter {
     pub min_ns: i64,
     pub max_ns: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
+#[serde(default)]
 pub struct ShotIso {
     pub min: i64,
     pub max: i64,
@@ -246,6 +250,12 @@ fn speeds(fastest_s: f64, longest_s: f64) -> Vec<f64> {
 }
 
 pub fn shot_shutter_stops(caps: &ShotCaps) -> Vec<f64> {
+    if !caps.shutter_values_s.is_empty() {
+        let mut stops: Vec<_> = caps.shutter_values_s.iter().copied().filter(|s| s.is_finite() && *s > 0.0).collect();
+        stops.sort_by(f64::total_cmp);
+        stops.dedup();
+        return stops;
+    }
     let Some(range) = &caps.shutter else { return Vec::new() };
     if range.min_ns <= 0 || range.max_ns < range.min_ns {
         return Vec::new();
@@ -265,6 +275,12 @@ pub fn shot_shutter_stops(caps: &ShotCaps) -> Vec<f64> {
 }
 
 pub fn shot_iso_stops(caps: &ShotCaps) -> Vec<i64> {
+    if !caps.iso_values.is_empty() {
+        let mut stops: Vec<_> = caps.iso_values.iter().copied().filter(|v| *v > 0).collect();
+        stops.sort_unstable();
+        stops.dedup();
+        return stops;
+    }
     let Some(range) = &caps.iso else { return Vec::new() };
     if range.max <= 0 || range.max < range.min {
         return Vec::new();
@@ -276,6 +292,81 @@ pub fn shot_iso_stops(caps: &ShotCaps) -> Vec<i64> {
         stops.push(range.max);
     }
     stops
+}
+
+pub fn shot_shutter_labels(stops: &[f64], value: Option<f64>) -> (Vec<String>, usize) {
+    let mut labels = vec![tr("Camera")];
+    labels.extend(stops.iter().map(|s| exposure_text(*s)));
+    let index = value.and_then(|v| stops.iter().enumerate()
+        .min_by(|(_, a), (_, b)| (**a - v).abs().total_cmp(&(**b - v).abs())).map(|(i, _)| i + 1)).unwrap_or(0);
+    (labels, index)
+}
+
+pub fn shot_iso_labels(stops: &[i64], value: Option<i64>) -> (Vec<String>, usize) {
+    let mut labels = vec![tr("Camera")];
+    labels.extend(stops.iter().map(ToString::to_string));
+    let index = value.and_then(|v| stops.iter().enumerate().min_by_key(|(_, n)| (**n).abs_diff(v)).map(|(i, _)| i + 1)).unwrap_or(0);
+    (labels, index)
+}
+
+// The shared shot controls use their own property names beside Photos' existing camera dials and focus bracket.
+pub fn shot_control_props(caps: Option<&StillCaps>, choice: &ShotChoice, shutter: bool, suppressed: bool) -> Value {
+    let shot = caps.and_then(|c| c.shot.as_ref());
+    let shutters = shot.map(shot_shutter_stops).unwrap_or_default();
+    let isos = shot.map(shot_iso_stops).unwrap_or_default();
+    let (shutter_labels, shutter_index) = shot_shutter_labels(&shutters, choice.shutter_s);
+    let (iso_labels, iso_index) = shot_iso_labels(&isos, choice.iso);
+    let tip = |offered: bool, action: String, missing: String| {
+        if suppressed { tr("Night mode sets its own exposure") }
+        else if caps.is_none() { tr("Waiting for the picture") }
+        else if !offered { missing }
+        else { action }
+    };
+    let summary = ShotChoice { shutter_s: choice.shutter_s.filter(|_| shutter), ..choice.clone() }.summary(shot_focus_text);
+    json!({
+        "shot-summary": summary,
+        "shot-shutter-stops": shutter_labels, "shot-shutter-index": shutter_index,
+        "shot-shutter-enabled": shutter && !suppressed && !shutters.is_empty(),
+        "shot-shutter-tip": tip(!shutters.is_empty(), tr("Set the shutter speed for the photo."), tr("This camera can't set the shutter speed.")),
+        "shot-iso-stops": iso_labels, "shot-iso-index": iso_index,
+        "shot-iso-enabled": !suppressed && !isos.is_empty(),
+        "shot-iso-tip": tip(!isos.is_empty(), tr("Set the ISO for the photo."), tr("This camera can't set the ISO.")),
+        "shot-focus-tip": tr("Setting the focus from here comes in a later version."),
+        "shot-focus-value": focus_position(shot.and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters), choice.focus_diopters.unwrap_or(0.0)),
+        "shot-focus-unset": choice.focus_diopters.is_none(),
+        "shot-focus-readout": choice.focus_diopters.map_or_else(|| tr("Camera"), shot_focus_text),
+    })
+}
+
+pub fn pick_shot(choice: &mut ShotChoice, caps: &StillCaps, shutter: bool, index: usize, suppressed: bool) -> bool {
+    if suppressed { return false; }
+    let Some(caps) = &caps.shot else { return false };
+    let before = choice.clone();
+    if shutter {
+        let stops = shot_shutter_stops(caps);
+        if stops.is_empty() || index > stops.len() { return false; }
+        choice.shutter_s = index.checked_sub(1).map(|i| stops[i]);
+    } else {
+        let stops = shot_iso_stops(caps);
+        if stops.is_empty() || index > stops.len() { return false; }
+        choice.iso = index.checked_sub(1).map(|i| stops[i]);
+    }
+    *choice != before
+}
+
+pub fn shot_choice(value: Option<&Value>) -> ShotChoice {
+    value.cloned().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default()
+}
+
+// Keep requested overrides so an unavailable setting is refused instead of silently falling back.
+pub fn add_shot(options: &mut Value, choice: &ShotChoice, shutter: bool, suppressed: bool) {
+    if suppressed { return; }
+    let shot = ShotChoice {
+        shutter_s: choice.shutter_s.filter(|_| shutter),
+        iso: choice.iso,
+        focus_diopters: None,
+    };
+    if shot != ShotChoice::default() { options["shot"] = shot.to_options_value(); }
 }
 
 /// How a shutter speed reads: 1/250 s for the fast ones, 8 s for the long ones.

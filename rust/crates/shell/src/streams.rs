@@ -860,21 +860,35 @@ impl Window {
         // The neutral `shot` becomes the options of whatever takes the photo, fitted to what it reports
         let mut options = options.clone();
         let mut applied = Value::Null;
+        let mut camera_exposure_ns = None;
         if let Some(map) = options.as_object_mut().filter(|m| m.contains_key("shot")) {
             let result = match &phone {
                 Some((stills, ..)) => {
                     let ranges = stills.caps(Some(source)).map(|caps| telescope_core::shot::phone_ranges(&caps)).unwrap_or(Value::Null);
                     telescope_core::shot::apply_to_phone(map, &ranges)
                 }
-                None => Err(telescope_core::shot::ShotRefused { code: "unsupported", why: tr("This camera's settings can't be set for one photo yet.") }),
+                None => {
+                    let ranges = camera.as_ref().and_then(|camera| camera.caps()).map(|caps| telescope_core::shot::dslr_ranges(&caps)).unwrap_or(Value::Null);
+                    telescope_core::shot::apply_to_dslr(map, &ranges)
+                }
             };
             match result {
-                Ok(done) => applied = done,
+                Ok(done) => {
+                    if is_camera {
+                        camera_exposure_ns = done.get("shutter_s").and_then(Value::as_f64).map(|seconds| (seconds * 1e9).round() as i64);
+                    } else {
+                        applied = done;
+                    }
+                }
                 Err(refused) => return end(refused.code, &refused.why),
             }
         }
         let options = &options;
-        self.state.borrow_mut().begin_photo_message(request, source, options, is_camera);
+        let mut message_options = options.clone();
+        if let Some(ns) = camera_exposure_ns {
+            message_options["exposure_ns"] = serde_json::json!(ns);
+        }
+        self.state.borrow_mut().begin_photo_message(request, source, &message_options, is_camera);
         let (progress_posts, done_posts, owner, done_owner) = (posts.clone(), posts.clone(), plugin.to_string(), plugin.to_string());
         let on_progress: Box<dyn Fn(Value) + Send> = Box::new(move |data| {
             // The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream
@@ -887,7 +901,7 @@ impl Window {
         });
         let on_done: Box<dyn FnOnce(Value) + Send> = Box::new(move |mut data| {
             if let (Some(map), false) = (data.as_object_mut(), applied.is_null()) {
-                map.insert("applied".into(), applied);
+                map.entry("applied").or_insert(applied);
             }
             let ok = data.get("ok").and_then(Value::as_bool) == Some(true);
             let message = data.get("error").and_then(Value::as_str).unwrap_or("").to_string();

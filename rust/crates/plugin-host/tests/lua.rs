@@ -923,6 +923,11 @@ fn current_api() -> String {
         ("Pick", to_value(pick)),
         ("PreviewMessage", to_value(PreviewMessage { text: "x".into(), detail: "x".into(), step: "x".into(),
             remaining_ms: Some(1000), total_ms: Some(2000), dim: true, max_ms: 60_000 })),
+        ("StillCaps.shot", to_value(telescope_core::shot::dslr_ranges(&json!({
+            "shutter": {"values": ["1/60", "10"], "current": 0}, "iso": {"values": ["100", "800"], "current": 0}
+        })))),
+        ("TakeStill.shot", to_value(json!({"shutter_s": 10.0, "iso": 800, "focus_diopters": 0.0, "nr": "off", "edge": "off"}))),
+        ("StillResult", to_value(json!({"applied": {"shutter_s": 10.0, "iso": 800}, "restore": {"ok": false, "errors": ["iso: unplugged"]}}))),
         ("StreamInfo", to_value(StreamInfo { source_id: "x".into(), url: "x".into(), session: 1 })),
         ("UiEvent", to_value(UiEvent { ui: "x".into(), callback: "x".into(), args: vec![json!(1)] })),
     ];

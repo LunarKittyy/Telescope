@@ -486,7 +486,9 @@ fn run(mut connect: Connect, port: &str, model: &str, timing: Timing, stop: &Arc
         };
         // A photo asked for: live view is paused for it and comes back after
         if stills.run_pending(r.as_mut()) {
-            refreshed = Instant::now().checked_sub(REFRESH).unwrap_or_else(Instant::now);
+            let controls = read_controls(r.as_mut());
+            *shared.lock().unwrap() = controls;
+            refreshed = Instant::now();
             notify_changed(port);
             continue;
         }

@@ -750,3 +750,36 @@ fn arming_again_during_a_download_leaves_out_the_empty_name_and_the_partial_file
     finished(&mut p, &mut h, 1, true, json!({"files": files}));
     assert_eq!((p.photos, p.used), (2, 900));
 }
+
+#[test]
+fn trap_shot_choices_survive_night_presets_and_reset() {
+    let (mut p, _) = plugin();
+    let mut h = host();
+    h.plugins.clear();
+    let mut c = caps();
+    c["shot"] = json!({"shutter": {"min_ns": 250_000, "max_ns": 10_000_000_000i64}, "iso": {"min": 100, "max": 800}});
+    h.still_caps = Some(c);
+    p.set_config(&json!({"shot": {"shutter_s": 0.004, "iso": 800}})).unwrap();
+    p.setup(&mut h);
+    let saved = p.get_config()["shot"].clone();
+    assert_eq!(p.options(p.caps.as_ref().unwrap(), &h)["shot"], saved);
+    click(&mut p, &mut h, "night-toggled", json!(true));
+    assert_eq!(card(&h)["shot-shutter-enabled"], false);
+    assert_eq!(card(&h)["shot-iso-enabled"], false);
+    assert!(p.options(p.caps.as_ref().unwrap(), &h).get("shot").is_none());
+    click(&mut p, &mut h, "shot-iso-picked", json!(0));
+    assert_eq!(p.get_config()["shot"], saved);
+    p.apply_preset(&mut h, &json!({"night": false})).unwrap();
+    assert_eq!(p.preset_config()["shot"], saved);
+    assert_eq!(p.options(p.caps.as_ref().unwrap(), &h)["shot"], saved);
+    click(&mut p, &mut h, "reset-clicked", Value::Null);
+    assert!(p.get_config().get("shot").is_none());
+}
+
+#[test]
+fn a_late_trap_restore_failure_survives_the_request_ending() {
+    let (mut p, _) = plugin();
+    let mut h = host();
+    p.on_event(&mut h, &Event::RequestProgress { request: RequestId(99), data: json!({"state": "late", "code": "restore", "error": "Restore failed"}) });
+    assert_eq!(p.status(&h), ("Restore failed".into(), "status_err"));
+}

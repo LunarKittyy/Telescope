@@ -1823,6 +1823,7 @@ impl State {
             }
             for (owner, event) in events {
                 self.photo_message_event(&event);
+                self.photo_restore_event(&event);
                 self.still_ended(&event);
                 self.deliver_to(&owner, &event);
             }
@@ -1834,6 +1835,22 @@ impl State {
         let Some(stills) = self.link.as_ref().and_then(|l| l.stills()) else { return };
         let id = self.streams.source_id.clone().or_else(|| self.selected.clone());
         stills.note_lens(id.as_deref(), camera);
+    }
+
+    // Cleanup can finish after the requesting plugin has stopped or the request has timed out.
+    fn photo_restore_event(&mut self, event: &Event) {
+        let (Event::RequestDone { data, .. } | Event::RequestProgress { data, .. }) = event else { return };
+        if data.get("restore").and_then(|r| r.get("ok")).and_then(Value::as_bool) != Some(false) {
+            return;
+        }
+        let errors = data.get("restore").and_then(|r| r.get("errors")).and_then(Value::as_array)
+            .map(|errors| errors.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n")).unwrap_or_default();
+        self.banners.show("photo_restore", Issue {
+            title: tr("Couldn't restore the camera settings."),
+            text: data.get("error").and_then(Value::as_str).filter(|s| !s.is_empty()).map(String::from)
+                .unwrap_or_else(|| tr("Check the camera settings before taking another photo.")),
+            details: errors, kind: "warn".into(), actions: Vec::new(), tell_dismiss: false,
+        });
     }
 
     /// A photo's end: its stream is free for another, and every plugin hears that and what was saved.
@@ -2666,6 +2683,18 @@ mod tests {
             s.ui_event("preview", UiEvent { ui: "card".into(), callback: "view-pointer".into(), args: vec![json!(kind), json!(0.75), json!(0.5), json!(400.0), json!(200.0)] });
         }
         assert!(heard.lock().unwrap().contains(&Event::FocusPointPicked { x: 0.5, y: 0.5 }));
+    }
+
+    #[test]
+    fn late_restore_failure_is_visible_even_without_the_requesting_plugin() {
+        let mut s = state();
+        let data = json!({"state": "late", "ok": false, "code": "restore", "error": "Camera settings could not be restored",
+            "restore": {"ok": false, "errors": ["iso: unplugged"]}, "files": []});
+        s.posts.push_event("absent", Event::RequestProgress { request: RequestId(7), data });
+        s.deliver_events();
+        let issue = s.banners.issue("photo_restore").expect("cleanup failure survives the absent plugin");
+        assert_eq!(issue.text, "Camera settings could not be restored");
+        assert_eq!(issue.details, "iso: unplugged");
     }
 
     #[test]
