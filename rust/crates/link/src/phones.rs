@@ -122,7 +122,7 @@ fn version_mismatch(hello: &Hello, route: RouteSpec) -> Option<Resolution> {
 
 fn ready(route: RouteSpec, hello: &Hello, ping: &crate::session_client::Ping) -> Resolution {
     Resolution { route: Some(route), streaming: ping.streaming, busy: ping.busy, streaming_for: ping.streaming_for.clone().unwrap_or_default(),
-                 phone_version: hello.app_version.clone(), udp_dynamic: ping.udp_dynamic, ..Resolution::new(PhoneStatus::Ready) }
+                 phone_version: hello.app_version.clone(), udp_dynamic: ping.udp_dynamic, presence: ping.presence && !ping.local_only, ..Resolution::new(PhoneStatus::Ready) }
 }
 
 pub type ClientFactory = Box<dyn Fn(&str, PhoneAuth) -> Box<dyn SessionApi> + Send + Sync>;
@@ -420,6 +420,18 @@ pub(crate) mod tests {
 
     fn wifi(ip: &str) -> Option<RouteSpec> {
         Some(RouteSpec::Network { address: ip.into() })
+    }
+
+    #[test]
+    fn local_only_usb_contact_does_not_enable_network_presence() {
+        let hello = Hello::status(HelloStatus::Ok);
+        let route = RouteSpec::Usb { serial: "SER".into() };
+        let mut ping = Ping { presence: true, ..Ping::status(PingStatus::Paired) };
+        assert!(ready(route.clone(), &hello, &ping).presence);
+        ping.local_only = true;
+        let res = ready(route, &hello, &ping);
+        assert_eq!(res.status, PhoneStatus::Ready);
+        assert!(!res.presence);
     }
 
     #[test]

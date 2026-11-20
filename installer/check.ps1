@@ -46,6 +46,7 @@ $adb = "$env:LOCALAPPDATA\Telescope\platform-tools"  # adb as Get adb downloads 
 New-Item -ItemType Directory -Force "$env:TEMP\Telescope" | Out-Null
 Set-Content "$env:TEMP\Telescope\telescope.log" "x"  # the log (diagnostics.py)
 New-NetFirewallRule -DisplayName "telescopedesktop.exe" -Direction Inbound -Program "$app\TelescopeDesktop.exe" -Action Allow | Out-Null
+New-NetFirewallRule -DisplayName "Telescope presence" -Direction Inbound -Program "$app\TelescopeDesktop.exe" -Protocol UDP -LocalPort 8769 -Action Allow | Out-Null
 New-Item -ItemType Directory -Force $adb | Out-Null
 Set-Content "$adb\adb.exe" "x"
 New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Telescope\vision\pack\mediapipe" | Out-Null  # the vision download

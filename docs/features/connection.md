@@ -9,7 +9,7 @@ Pairing phones, what the apps send where, and updates.
 - The **?** next to it brings the setup checklist back. Click it again to close it
 - You can pair several phones to one computer and one phone to several computers
 - Telescope uses USB when the phone is plugged in and answering and Wi-Fi otherwise. If a cable is plugged in but isn't used the Connection panel says why. **Connect via** can force either one
-- A new IP address from the router breaks nothing, since the phone announces itself on the network
+- Paired devices exchange authenticated presence packets to refresh their addresses. Existing pairings learn the computer's addresses on their next successful connection, including USB. If both devices' remembered addresses are stale and network discovery is blocked, connect over USB or pair again
 - On a slow Wi-Fi stream the note shows when a weak signal or 2.4 GHz is the cause, since moving closer, a 5 GHz network or a cable fixes that better than lowering quality
 - The phone's screen is always on while the app is open because Android only runs Wi-Fi at full speed with the screen on. You can press the power button and the stream continues
 - **Black screen** next to Preview in the phone app turns the screen black while the stream carries on and turns the brightness all the way down once its status text has faded. It saves battery on an OLED screen and some phones are less likely to close Telescope while it's on screen than with the screen off. Double tap or press Back to get the app back. A single tap shows the stream's status for a few seconds, at normal brightness so it's readable
@@ -24,8 +24,8 @@ How it works with Telescope:
 
 - The QR code lists the computer's addresses, LAN ones first and the Tailscale one after. The phone tries the LAN ones over Wi-Fi first, then every address on whatever network it has. Away from home that ends on the Tailscale address. Each attempt gets 2 seconds and the whole run 12.
 - The computer remembers all of the phone's addresses. Later it tries the phone's address it found on the local network, then the last one that worked, then the rest with Tailscale first.
-- Pairing needs the **Add phone** dialog open on the computer, because that's the only time its pairing server on port 8765 runs. The phone has to reach the computer for this. After that the computer reaches out to the phone.
-- If you use Tailscale access rules, the phone needs to reach the computer on 8765 while pairing. The computer needs to reach the phone on 8766 and 8080. [Browser camera](sources.md#browser-camera) uses 8767 on the computer. Tailscale's default rules allow all of this.
+- Pairing needs the **Add phone** dialog open on the computer, because that's the only time its pairing server on port 8765 runs. The phone has to reach the computer for this. After that both devices exchange presence packets and the computer checks the phone over HTTPS.
+- If you use Tailscale access rules, the phone needs to reach the computer on 8765 while pairing. The computer needs to reach the phone on 8766 and 8080. [Browser camera](sources.md#browser-camera) uses 8767 on the computer. Both devices also need UDP 8769 for presence. Tailscale's default rules allow all of this.
 
 ### Which path Tailscale uses
 
@@ -41,9 +41,9 @@ If it never leaves DERP a stricter router on either side is usually why. Tailsca
 
 ## Privacy
 
-- Everything between the phone and computer is encrypted with TLS. The desktop remembers your phone's certificate at pairing and refuses anything that shows up with a different one
+- Session requests and streams are encrypted. The desktop remembers your phone's certificate at pairing and refuses anything that shows up with a different one. Presence packets carry authenticated identities, app versions and address hints without encryption
 - The pairing token only travels in the QR code (or over adb) and inside the encrypted connection
-- Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app takes the stream and controls off the network entirely
+- Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app takes the stream, controls and presence off the network entirely
 - **Wait for my computer** (off by default) lets you start the camera from your PC with the phone's screen off or the app closed. Tap **Stop waiting** in its notification to end it
 - Browser camera only listens on port 8767 while it is picked or a browser is streaming. Anyone can load the page but sending video needs the token in the code, which changes on every start and on **New link**. Its certificate isn't pinned like a phone's. Use a phone on a network you don't trust
 - The On Air sign listens on port 8768 while it's switched on. It serves nothing but the sign page and whether you're on air (that part only to its link's token)

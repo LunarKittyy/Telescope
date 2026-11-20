@@ -27,6 +27,8 @@ import hashlib
 import hmac
 import http.client
 import json
+import ipaddress
+import re
 import os
 import secrets
 import socket
@@ -248,6 +250,102 @@ def pairing_proof(token: str, nonce: str, phone_id: str, cert_sha256: str) -> st
     return hmac.new(token.encode(), message, hashlib.sha256).hexdigest()
 
 
+PRESENCE_PORT = 8769
+
+
+def presence_packet(token: str, kind: str, sender: str, recipient: str, challenge: str, version: str, addresses: list) -> bytes:
+    body = "\n".join(["TP1", kind, sender, recipient, challenge, version, ",".join(addresses)]).encode("ascii")
+    key = hmac.new(token.encode(), b"telescope-presence-key-v1", hashlib.sha256).digest()
+    return body + b"\n" + hmac.new(key, body, hashlib.sha256).hexdigest().encode("ascii")
+
+
+def valid_presence_address(ip: str) -> bool:
+    try:
+        address = ipaddress.ip_address(ip)
+        return not (address.is_loopback or address.is_multicast or address.is_unspecified or address.is_link_local)
+    except ValueError:
+        return False
+
+
+def read_presence(token: str, raw: bytes):
+    if len(raw) > 512:
+        return None
+    try:
+        fields = raw.decode("ascii").split("\n")
+        if len(fields) != 8 or fields[0] != "TP1" or fields[1] not in ("q", "a"):
+            return None
+        if any(re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value) is None for value in fields[2:4]):
+            return None
+        if re.fullmatch(r"[0-9a-f]{32}", fields[4]) is None or re.fullmatch(r"[0-9a-f]{64}", fields[7]) is None:
+            return None
+        if len(fields[5]) > 64 or any(ord(c) < 32 or ord(c) > 126 for c in fields[5]):
+            return None
+        addresses = fields[6].split(",") if fields[6] else []
+        if len(addresses) > 4 or any(not valid_presence_address(ip) for ip in addresses):
+            return None
+        expected = presence_packet(token, *fields[1:6], addresses)
+        return fields if hmac.compare_digest(raw, expected) else None
+    except (ValueError, UnicodeError):
+        return None
+
+
+class PresenceResponder:
+    def __init__(self, phone, host: str, port: int = PRESENCE_PORT):
+        self.phone = phone
+        self.host = host
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind((host, port))
+        self.socket.settimeout(0.1)
+        self.stopped = threading.Event()
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+
+    def run(self):
+        seen, last, pending = {}, {}, {}
+        while not self.stopped.is_set():
+            try:
+                raw, source = self.socket.recvfrom(513)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            phone = self.phone
+            if phone.down or phone.presence_blocked or phone.local_only:
+                continue
+            fields = read_presence(phone.token, raw)
+            if fields is None or fields[3] != phone.id:
+                continue
+            _, kind, sender, _, challenge, version, addresses, _ = fields
+            now = time.monotonic()
+            if kind == "a":
+                if pending.pop((sender, challenge, source), 0) > now:
+                    phone.desktop_versions[sender] = version
+                    phone.desktop_addresses[sender] = [source[0]] + ([ip for ip in addresses.split(",") if ip] if addresses else [])
+                continue
+            seen = {key: until for key, until in seen.items() if until > now}
+            if (sender, challenge) in seen or now - last.get(sender, -1) < 0.25 or len(seen) >= 256:
+                continue
+            seen[(sender, challenge)] = now + 30
+            last[sender] = now
+            advertised = [] if self.host.startswith("127.") else [self.host]
+            answer = presence_packet(phone.token, "a", phone.id, sender, challenge, phone.version, advertised)
+            phone.record(PRESENCE_PORT, "UDP", "/presence", {"kind": kind, "sender": sender, "version": version})
+            pending = {key: until for key, until in pending.items() if until > now}
+            try:
+                self.socket.sendto(answer, source)
+                if not any(key[0] == sender for key in pending) and len(pending) < 64:
+                    nonce = secrets.token_hex(16)
+                    pending[(sender, nonce, source)] = now + 10
+                    self.socket.sendto(presence_packet(phone.token, "q", phone.id, sender, nonce, phone.version, advertised), source)
+            except OSError:
+                pass
+
+    def stop(self):
+        self.stopped.set()
+        self.socket.close()
+        self.thread.join(timeout=1)
+
+
 class Phone:
     def __init__(self, units: list, fps: float, token: str, version: str, record=None, phone_id=PHONE_ID, name=PHONE_NAME,
                  audio=None, jpegs=None):
@@ -257,6 +355,13 @@ class Phone:
         self.jpegs = jpegs  # JPEG frames served on /v1/video (Heavy); None leaves it out
         self.record = record or (lambda *_args, **_kw: None)
         self.streaming = False
+        self.presence = True
+        self.presence_blocked = False
+        self.local_only = False
+        self.desktop_versions = {}
+        self.desktop_version = None
+        self.desktop_candidates = []
+        self.desktop_addresses = {}
         self.down_until = 0.0  # off the network until then: every connection is cut without an answer
         self.plugged = False
         self.pin = ""
@@ -365,6 +470,9 @@ def handler_for(phone: Phone, port: int = None, via: str = "wifi"):
 
         def _authorized(self) -> bool:
             if self.headers.get("Authorization") == f"Bearer {phone.token}":
+                phone.desktop_version = self.headers.get("X-Telescope-Version", "")
+                addresses = self.headers.get("X-Telescope-Addresses", "").split(",")[:8]
+                phone.desktop_candidates = [ip for ip in addresses if ip and valid_presence_address(ip)]
                 return True
             self._json({"error": "Unauthorized"}, 401)
             return False
@@ -386,12 +494,13 @@ def handler_for(phone: Phone, port: int = None, via: str = "wifi"):
                 return
             if path == "/v1/hello":
                 return self._json({"protocol": SESSION_PROTOCOL, "phoneId": phone.id, "phoneName": phone.name,
-                                   "appVersion": phone.version, "build": 1})
+                                   "appVersion": phone.version, "build": 1, **({"presence": 1} if phone.presence else {})})
             if not self._authorized():
                 return
             if path == "/v1/ping":
                 return self._json({"protocol": SESSION_PROTOCOL, "streaming": phone.streaming, "busy": False,
-                                   "localOnly": False, "phoneId": phone.id, "phoneName": phone.name})
+                                   "localOnly": phone.local_only, "phoneId": phone.id, "phoneName": phone.name,
+                                   **({"presence": 1} if phone.presence else {})})
             if path == "/v1/state" and phone.streaming:
                 return self._json(phone.state)
             if path == "/v1/video.h264" and phone.streaming:
@@ -501,7 +610,7 @@ def handler_for(phone: Phone, port: int = None, via: str = "wifi"):
 
 
 def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None, adb_state=None, phone_id=PHONE_ID, name=PHONE_NAME,
-          audio=None, jpegs=None, size=None) -> tuple:
+          audio=None, jpegs=None, size=None, presence=True, presence_blocked=False) -> tuple:
     """Starts the phone's two ports on threads; returns the phone, its entry for a desktop's config, and a stop().
     With adb_state (a file for fake_adb.py) the two ports also listen on 127.0.0.1 for USB forwards. phone_id and name tell
     phones apart (give each its own host too); audio (PCM bytes) adds /v1/audio, jpegs (frames) adds the Heavy /v1/video and
@@ -513,6 +622,7 @@ def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None, adb_state=Non
     units = access_units(Path(clip).read_bytes())
     version = (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
     phone = Phone(units, fps, token or secrets.token_urlsafe(32), version, record, phone_id, name, audio, jpegs)
+    phone.presence, phone.presence_blocked = presence, presence_blocked
     if size:
         phone.state.update({"stream_width": size[0], "stream_height": size[1]})
     cert, key, pin = make_cert(folder)
@@ -536,7 +646,11 @@ def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None, adb_state=Non
         phone.adb_state = Path(adb_state)
         phone.write_adb_state()
 
+    responder = PresenceResponder(phone, host) if presence else None
+
     def stop():
+        if responder:
+            responder.stop()
         phone.streaming = False
         for server in servers:
             server.shutdown()
@@ -561,6 +675,8 @@ def main():
     parser.add_argument("--audio", metavar="speech|FILE", help="serve /v1/audio: a generated speech-like signal, or this file")
     parser.add_argument("--phones", type=int, default=1, help="how many phones to start (127.0.0.2, 127.0.0.3, ...)")
     parser.add_argument("--name", default=PHONE_NAME)
+    parser.add_argument("--legacy-presence", action="store_true", help="omit presence capability and disable UDP presence")
+    parser.add_argument("--block-presence", action="store_true", help="advertise presence but discard UDP packets")
     args = parser.parse_args()
     res = args.res or ("1080" if args.video_file or (args.heavy and not args.jpegs) else None)
     source = args.video_file
@@ -582,7 +698,7 @@ def main():
         phone_id = PHONE_ID[:-3] + f"{n + 1:03d}"
         name = args.name if n == 0 else f"{args.name} {n + 1}"
         phone, entry, _stop = serve(clip, host, args.fps, args.token if n == 0 else "", recorder, None, phone_id, name, audio, jpegs,
-                                    SIZES[res] if res else None)
+                                    SIZES[res] if res else None, not args.legacy_presence, args.block_presence)
         print(json.dumps(entry), flush=True)
         hosts.append(host)
     extras = (" heavy" if jpegs else "") + (" audio" if audio else "")

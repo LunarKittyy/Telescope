@@ -15,7 +15,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSensors, PhoneSession, PhoneStatus, Resolution, RoutePreference,
-                           RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable, UsbDevice};
+                           RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable, UsbDevice, PresenceUpdate};
 use telescope_core::media::{Codec, VideoFeed};
 use telescope_core::source::{ControlClient as Control, PairedPhone, RouteSpec};
 
@@ -33,6 +33,34 @@ pub struct LinkService {
     /// The connection model, shared with the Connection plugin.
     shared: Arc<Shared>,
     stills: Arc<crate::stills::Stills>,
+    presence: crate::presence::Presence,
+    searches: Mutex<HashMap<String, PresenceSearch>>,
+}
+
+#[derive(Default)]
+struct PresenceSearch {
+    capable: bool,
+    generation: u64,
+    checked_generation: Option<u64>,
+    last_check: f64,
+    last_udp: Option<f64>,
+    addresses: Vec<String>,
+    token: String,
+}
+
+impl PresenceSearch {
+    fn udp_recent(&self, now: f64) -> bool {
+        self.capable && self.last_udp.is_some_and(|at| now - at < 120.0)
+    }
+
+    fn recovery_due(&mut self, now: f64) -> bool {
+        if !self.udp_recent(now) { return true }
+        if self.checked_generation != Some(self.generation) || now - self.last_check >= 60.0 {
+            self.checked_generation = Some(self.generation);
+            self.last_check = now;
+            true
+        } else { false }
+    }
 }
 
 impl LinkService {
@@ -47,7 +75,18 @@ impl LinkService {
     fn with_tunnels(lan: LanDiscovery, tunnels: UsbTunnels) -> LinkService {
         let tunnels = Arc::new(tunnels);
         let shared = Shared::new(tunnels.clone());
-        LinkService { lan: Arc::new(lan), tunnels, sensors: Arc::new(SensorHub::new(|_| {})), models: Mutex::default(), shared, stills: Arc::default() }
+        LinkService { lan: Arc::new(lan), tunnels, sensors: Arc::new(SensorHub::new(|_| {})), models: Mutex::default(), shared, stills: Arc::default(),
+                      presence: crate::presence::Presence::start(), searches: Mutex::default() }
+    }
+
+    fn checked_capability(&self, phone: &PairedPhone, res: &Resolution) {
+        if matches!(res.status, PhoneStatus::Ready | PhoneStatus::LocalOnly | PhoneStatus::NotPaired) {
+            let capable = res.status == PhoneStatus::Ready && res.presence;
+            if let Some(search) = self.searches.lock().unwrap().get_mut(&phone.id).filter(|s| s.token == phone.token) {
+                search.capable = capable;
+                self.presence.capability(&phone.id, capable);
+            }
+        }
     }
 
     /// The model the Connection plugin and the stream flow's route calls share.
@@ -126,6 +165,45 @@ fn unreachable_of(res: &Resolution) -> Unreachable {
 }
 
 impl Link for LinkService {
+    fn configure_presence(&self, computer_id: &str, version: &str, phones: &[PairedPhone]) {
+        crate::https::set_desktop_version(version);
+        {
+            let mut searches = self.searches.lock().unwrap();
+            searches.retain(|id, search| phones.iter().any(|p| &p.id == id && p.token == search.token));
+            for phone in phones {
+                searches.entry(phone.id.clone()).or_insert_with(|| PresenceSearch { token: phone.token.clone(), ..Default::default() });
+            }
+        }
+        self.presence.configure(computer_id.to_string(), version.to_string(), phones.to_vec());
+    }
+
+    fn presence_hint(&self) { self.presence.hint(); }
+
+    fn presence_updates(&self) -> Vec<PresenceUpdate> {
+        let events = self.presence.take_events();
+        let mut searches = self.searches.lock().unwrap();
+        events.into_iter().filter_map(|event| match event {
+            crate::presence::PresenceEvent::Probe { phone_id } => {
+                let search = searches.get_mut(&phone_id)?;
+                search.generation = search.generation.wrapping_add(1);
+                Some(PresenceUpdate::Probe { phone_id })
+            }
+            crate::presence::PresenceEvent::Reachable { phone_id, address, addresses, .. } => {
+                let search = searches.get_mut(&phone_id)?;
+                search.generation = search.generation.wrapping_add(1);
+                search.last_udp = Some(self.shared.now());
+                search.addresses = crate::net::presence_addresses(std::iter::once(address.clone()).chain(addresses.iter().cloned()));
+                Some(PresenceUpdate::Reachable { phone_id, address, addresses })
+            }
+            crate::presence::PresenceEvent::Degraded(why) => Some(PresenceUpdate::Degraded(why)),
+            crate::presence::PresenceEvent::Restored => Some(PresenceUpdate::Restored),
+        }).collect()
+    }
+
+    fn presence_generation(&self, phone_id: &str) -> Option<u64> {
+        self.searches.lock().unwrap().get(phone_id).filter(|s| s.udp_recent(self.shared.now())).map(|s| s.generation)
+    }
+
     fn new_identity(&self) -> (String, String) {
         (crate::util::random_hex(16), connection::default_computer_name())
     }
@@ -144,11 +222,22 @@ impl Link for LinkService {
     }
 
     fn pair(&self, computer_id: &str, computer_name: &str) -> Result<Arc<dyn PairingOffer>, String> {
+        self.presence.hint();
         Ok(Arc::new(Offer::start(computer_id, computer_name, Arc::new(Adb::system))?))
     }
 
     fn check(&self, phone: &PairedPhone, preference: RoutePreference) -> Resolution {
-        self.resolver().resolve(phone, preference)
+        let mut hinted = phone.clone();
+        if let Some(search) = self.searches.lock().unwrap().get(&phone.id) {
+            if search.token == phone.token {
+                for ip in search.addresses.iter().rev() {
+                    if !hinted.ips.contains(ip) { hinted.ips.insert(0, ip.clone()); }
+                }
+            }
+        }
+        let res = self.resolver().resolve(&hinted, preference);
+        self.checked_capability(phone, &res);
+        res
     }
 
     fn open_route(&self, phone: &PairedPhone, route: &RouteSpec, video_path: &str, controls: Option<Arc<dyn PhoneControl>>)
@@ -210,6 +299,7 @@ impl Link for LinkService {
     }
 
     fn start_route(&self, source_id: Option<&str>, format: StreamFormat) -> Result<StreamTarget, String> {
+        self.presence.hint();
         self.shared.start_route(source_id, format, &|phone, pref| self.check(phone, pref))
     }
 
@@ -234,7 +324,11 @@ impl Link for LinkService {
     }
 
     fn recovery_check(&self, source_id: Option<&str>) -> Resolution {
-        self.shared.recovery_check(source_id, &|phone, pref| self.check(phone, pref))
+        self.shared.recovery_check(source_id, &|phone, pref| {
+            let now = self.shared.now();
+            let due = self.searches.lock().unwrap().get_mut(&phone.id).is_none_or(|search| search.recovery_due(now));
+            if due { self.check(phone, pref) } else { Resolution::new(PhoneStatus::Unreachable) }
+        })
     }
 
     fn adopt_route(&self, source_id: Option<&str>, route: &RouteSpec) -> Option<String> {
@@ -258,6 +352,7 @@ impl Link for LinkService {
     }
 
     fn shutdown(&self) {
+        self.presence.stop();
         self.stills.shutdown();
         self.lan.stop();
         self.sensors.shutdown();
@@ -487,6 +582,38 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
     use std::net::TcpStream;
+
+    #[test]
+    fn a_delayed_check_cannot_change_a_repaired_phones_capability() {
+        let link = LinkService::with_discovery(LanDiscovery::default());
+        let mut phone = PairedPhone { id: "p".into(), name: "Phone".into(), token: "old".into(), ips: vec![], active_ip: None, cert_sha256: String::new() };
+        link.searches.lock().unwrap().insert(phone.id.clone(), PresenceSearch { token: "new".into(), capable: true, ..Default::default() });
+        link.checked_capability(&phone, &Resolution::new(PhoneStatus::NotPaired));
+        assert!(link.searches.lock().unwrap()[&phone.id].capable);
+        phone.token = "new".into();
+        link.checked_capability(&phone, &Resolution::new(PhoneStatus::NotPaired));
+        assert!(!link.searches.lock().unwrap()[&phone.id].capable);
+    }
+
+    #[test]
+    fn recovery_uses_presence_generations_and_keeps_https_fallback_when_udp_is_blocked() {
+        let mut search = PresenceSearch::default();
+        assert!(search.recovery_due(0.0));
+        assert!(search.recovery_due(3.0), "unknown and legacy phones retain their old retry timer");
+        search.capable = true;
+        assert!(search.recovery_due(3.5), "capability alone does not disable the UDP-blocked fallback");
+        search.last_udp = Some(4.0);
+        assert!(search.recovery_due(4.0));
+        assert!(!search.recovery_due(7.0));
+        search.generation += 1;
+        assert!(search.recovery_due(8.0), "a scheduled probe or confirmed exchange schedules a new TLS check");
+        assert!(!search.recovery_due(67.9));
+        assert!(search.recovery_due(68.0), "UDP loss never removes the periodic TLS fallback");
+        assert!(search.recovery_due(124.0), "stale UDP reachability restores the old retry timer");
+        assert!(search.recovery_due(127.0));
+        search.capable = false;
+        assert!(search.recovery_due(128.0));
+    }
 
     #[test]
     fn a_phone_pairs_through_the_offer() {

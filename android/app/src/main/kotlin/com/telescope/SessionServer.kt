@@ -23,6 +23,7 @@ class SessionServer(
     private val localOnly: () -> Boolean = { false },
     // adb forward connects from the phone's own loopback, so that's what USB looks like here.
     private val isUsbPeer: (Socket) -> Boolean = { it.inetAddress?.isLoopbackAddress == true },
+    private val authenticatedContact: (PairedComputer, Map<String, String>, String?) -> Unit = { _, _, _ -> },
 ) {
     private var serverSocket: ServerSocket? = null
     private val running = AtomicBoolean(false)
@@ -93,6 +94,11 @@ class SessionServer(
                 HttpWire.sendError(out, 403, "Forbidden"); return
             }
 
+            if (route in setOf(Route.Hello, Route.Ping, Route.Session)) {
+                computers().matchToken(HttpWire.bearerToken(request))?.let { computer ->
+                    authenticatedContact(computer, request.headers, socket.inetAddress?.hostAddress)
+                }
+            }
             when (route) {
                 Route.NotFound -> HttpWire.sendError(out, 404, "Not Found")
                 Route.MethodNotAllowed -> HttpWire.sendError(out, 405, "Method Not Allowed")
@@ -102,7 +108,7 @@ class SessionServer(
                 Route.Hello -> {
                     val snap = commands.snapshot()
                     HttpWire.sendJson(out, Json.encodeToString(
-                        Hello.serializer(), Hello(PROTOCOL_VERSION, snap.phoneId, snap.phoneName, appVersion, appBuild)))
+                        Hello.serializer(), Hello(PROTOCOL_VERSION, snap.phoneId, snap.phoneName, appVersion, appBuild, presence = 1)))
                 }
 
                 Route.Ping -> {
@@ -112,7 +118,7 @@ class SessionServer(
                     }
                     HttpWire.sendJson(
                         out,
-                        Json.encodeToString(SessionSnapshot.serializer(), commands.snapshot(computer)),
+                        Json.encodeToString(SessionSnapshot.serializer(), commands.snapshot(computer).copy(presence = 1)),
                     )
                 }
 
@@ -163,7 +169,8 @@ class SessionServer(
         const val DEFAULT_PORT = 8766
         const val ACCEPT_RETRY_MS = 200L
 
-        // Bumped on shape changes. 2: /v1/hello, ping carries phoneId/phoneName, /v1/unpair. 3: TLS, pinned at pairing.
+        // Optional metadata and presence capability are additive and do not bump this strictly matched protocol.
+        // Bumped on incompatible shape changes. 2: /v1/hello, ping carries phoneId/phoneName, /v1/unpair. 3: TLS, pinned at pairing.
         const val PROTOCOL_VERSION = 3
 
         private const val TAG = "SessionServer"

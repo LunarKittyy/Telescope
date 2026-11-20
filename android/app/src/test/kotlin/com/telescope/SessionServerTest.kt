@@ -97,6 +97,30 @@ class SessionServerTest {
     }
 
     @Test
+    fun `presence metadata is only observed on authenticated requests including USB`() {
+        val contacts = mutableListOf<Pair<String, Map<String, String>>>()
+        val server = SessionServer(0, { computersOf("secret-token") }, FakeCommands(),
+            authenticatedContact = { computer, headers, _ -> contacts += computer.id to headers })
+        server.start()
+        try {
+            val port = actualPort(server)
+            val metadata = "X-Telescope-Version: 5.1.4\r\nX-Telescope-Addresses: 192.168.1.20\r\nX-Telescope-Presence: 1\r\n"
+            assertEquals(200, request(port, "GET /v1/hello HTTP/1.1\r\n$metadata\r\n").status)
+            assertTrue(contacts.isEmpty())
+            assertEquals(401, request(port, "GET /v1/ping HTTP/1.1\r\nAuthorization: Bearer wrong\r\n$metadata\r\n").status)
+            assertTrue(contacts.isEmpty())
+            val response = request(port, "GET /v1/ping HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n$metadata\r\n")
+            assertEquals(200, response.status)
+            assertTrue(response.body.contains("\"presence\":1"))
+            assertEquals("5.1.4", contacts.single().second["x-telescope-version"])
+            assertEquals(200, get(port, "/v1/ping", "secret-token").status)
+            assertFalse(contacts.last().second.containsKey("x-telescope-version"))
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `a port another app holds is reported as busy`() {
         ServerSocket(0).use { holder ->
             val server = SessionServer(holder.localPort, { computersOf("t") }, FakeCommands())

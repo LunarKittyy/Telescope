@@ -180,7 +180,7 @@ msgstr "VB-Cableを取得"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "タイピング音、ファン音、室内のノイズを除去します。"
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1462 rust/crates/link/src/plugin.rs:1469 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1510 rust/crates/link/src/plugin.rs:1517 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -223,7 +223,7 @@ msgstr "オフにする"
 msgid "Switch while held, back on release"
 msgstr "押している間切り替え、離すと戻す"
 
-#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:627 rust/crates/outputs/src/stream_output.rs:644 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1464 rust/crates/outputs/src/stream_output.rs:627 rust/crates/outputs/src/stream_output.rs:644 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "動作"
 
@@ -400,19 +400,19 @@ msgstr "段"
 msgid " stops"
 msgstr "段"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1465 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "次へ"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1465 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "前へ"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1465 rust/crates/outputs/src/stream_output.rs:628
 msgid "Pick"
 msgstr "選択"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1418 rust/crates/outputs/src/stream_output.rs:629
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1466 rust/crates/outputs/src/stream_output.rs:629
 msgid "Option"
 msgstr "オプション"
 
@@ -4160,11 +4160,11 @@ msgstr "名前:"
 msgid "OK"
 msgstr "OK"
 
-#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:852 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:887 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "いいえ"
 
-#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:851 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:886 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "はい"
 
@@ -5012,7 +5012,7 @@ msgstr "処理が追いつきません"
 msgid "Browser"
 msgstr "ブラウザー"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:380 rust/crates/link/src/plugin.rs:416 rust/crates/link/src/plugin.rs:442 rust/crates/link/src/plugin.rs:776 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1859 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:414 rust/crates/link/src/plugin.rs:450 rust/crates/link/src/plugin.rs:476 rust/crates/link/src/plugin.rs:811 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1859 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "再試行"
 
@@ -5033,7 +5033,7 @@ msgstr "ブラウザー、前回の接続: {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "このコンピューターで映像接続を設定できませんでした。"
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:393 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:427 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr "デバイスを追加"
 
@@ -5159,12 +5159,12 @@ msgstr "スマートフォンがUSB経由で応答しません"
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "接続が「USBのみ」に設定されています: {why}。Wi-Fiを使用するには「自動」に切り替えてください。"
 
-#: rust/crates/link/src/connection.rs:855 rust/crates/link/src/plugin.rs:218
+#: rust/crates/link/src/connection.rs:855 rust/crates/link/src/plugin.rs:220
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "{phone}のTelescopeアプリは、このアプリより古いバージョンです。スマートフォン側でアップデートしてください。"
 
-#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:219
+#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:221
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "{phone}のTelescopeアプリは、このアプリより新しいバージョンです。このコンピューターのTelescopeをアップデートしてください。"
@@ -5240,7 +5240,7 @@ msgstr "不明なエラー"
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "スマートフォンがストリーミング開始のリクエストを拒否しました（{error}）。"
 
-#: rust/crates/link/src/connection.rs:996 rust/crates/link/src/service.rs:334
+#: rust/crates/link/src/connection.rs:996 rust/crates/link/src/service.rs:429
 msgid "Lost the connection to the phone. Try again."
 msgstr "スマートフォンへの接続が切断されました。再試行してください。"
 
@@ -5315,252 +5315,260 @@ msgstr "USB接続されているスマートフォンは別の端末です"
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "スマートフォンは接続されていますが、Telescopeが開かれていません"
 
-#: rust/crates/link/src/plugin.rs:220
+#: rust/crates/link/src/plugin.rs:222
 #, python-brace-format
 msgid "Telescope on {phone} and this computer have different app versions."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:223
+#: rust/crates/link/src/plugin.rs:225
 msgid "Different app versions"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:392 rust/crates/link/src/plugin.rs:1128 rust/crates/link/src/plugin.rs:1388 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
+#: rust/crates/link/src/plugin.rs:315
+msgid "Network presence unavailable"
+msgstr ""
+
+#: rust/crates/link/src/plugin.rs:316
+msgid "Phones will be checked over HTTPS instead."
+msgstr ""
+
+#: rust/crates/link/src/plugin.rs:426 rust/crates/link/src/plugin.rs:1170 rust/crates/link/src/plugin.rs:1436 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
 msgid "No device yet"
 msgstr "デバイスがありません"
 
-#: rust/crates/link/src/plugin.rs:392
+#: rust/crates/link/src/plugin.rs:426
 msgid "Add a phone to stream from."
 msgstr "ストリーミング元のスマートフォンを追加してください。"
 
-#: rust/crates/link/src/plugin.rs:408 rust/crates/link/src/plugin.rs:414
+#: rust/crates/link/src/plugin.rs:442 rust/crates/link/src/plugin.rs:448
 msgid "Can't connect to the phone"
 msgstr "スマートフォンに接続できません"
 
-#: rust/crates/link/src/plugin.rs:415 rust/crates/link/src/service.rs:84
+#: rust/crates/link/src/plugin.rs:449 rust/crates/link/src/service.rs:123
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adbがスマートフォンへの接続を開けませんでした。一度ケーブルを抜いて差し直し、再試行してください。"
 
-#: rust/crates/link/src/plugin.rs:438 rust/crates/link/ui/connection.slint:476
+#: rust/crates/link/src/plugin.rs:472 rust/crates/link/ui/connection.slint:476
 msgid "Set up the virtual camera"
 msgstr "仮想カメラを設定"
 
-#: rust/crates/link/src/plugin.rs:444
+#: rust/crates/link/src/plugin.rs:478
 msgid "Couldn't set up the virtual camera"
 msgstr "仮想カメラを設定できませんでした"
 
-#: rust/crates/link/src/plugin.rs:478
+#: rust/crates/link/src/plugin.rs:512
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "スマートフォン版アプリをアップデートできませんでした: {error}"
 
-#: rust/crates/link/src/plugin.rs:572 rust/crates/link/src/plugin.rs:583
+#: rust/crates/link/src/plugin.rs:607 rust/crates/link/src/plugin.rs:618
 msgid "This computer isn't on a network right now. Pair over USB."
 msgstr "このコンピューターは現在ネットワークに接続されていません。USB経由でペアリングしてください。"
 
 #. "Scan pairing code" is a button in the phone app: use the phone app's translation of it
-#: rust/crates/link/src/plugin.rs:576
+#: rust/crates/link/src/plugin.rs:611
 msgid "On the phone, tap Scan pairing code and point it at this code."
 msgstr "スマートフォンで「ペアリング コードをスキャン」をタップし、このコードに向けてください。"
 
-#: rust/crates/link/src/plugin.rs:599 rust/crates/link/src/plugin.rs:720
+#: rust/crates/link/src/plugin.rs:634 rust/crates/link/src/plugin.rs:755
 msgid "Getting adb from Google…"
 msgstr "Googleからadbを取得中…"
 
-#: rust/crates/link/src/plugin.rs:601 rust/crates/link/src/plugin.rs:665
+#: rust/crates/link/src/plugin.rs:636 rust/crates/link/src/plugin.rs:700
 msgid "Or plug the phone in over USB."
 msgstr "または、USB経由でスマートフォンを接続してください。"
 
-#: rust/crates/link/src/plugin.rs:607
+#: rust/crates/link/src/plugin.rs:642
 #, python-brace-format
 msgid "adb is required for USB and Telescope can <a href=\"{link}\">get it from Google</a>. Wi-Fi works without it."
 msgstr "USBを使用するにはadbが必要ですが、Telescopeで<a href=\"{link}\">Googleから取得</a>できます。Wi-Fiならadbなしでも動作します。"
 
-#: rust/crates/link/src/plugin.rs:608
+#: rust/crates/link/src/plugin.rs:643
 msgid "Get adb from Google"
 msgstr "Googleからadbを取得"
 
-#: rust/crates/link/src/plugin.rs:610
+#: rust/crates/link/src/plugin.rs:645
 msgid "adb is required for USB but isn't installed. Wi-Fi works without it."
 msgstr "USBを使用するにはadbが必要ですが、インストールされていません。Wi-Fiならadbなしでも動作します。"
 
-#: rust/crates/link/src/plugin.rs:625
+#: rust/crates/link/src/plugin.rs:660
 #, python-brace-format
 msgid "Pair {phone}"
 msgstr "{phone}をペアリング"
 
-#: rust/crates/link/src/plugin.rs:630
+#: rust/crates/link/src/plugin.rs:665
 msgid "You can start streaming now."
 msgstr "ストリーミングを開始できるようになりました。"
 
-#: rust/crates/link/src/plugin.rs:630
+#: rust/crates/link/src/plugin.rs:665
 msgid "Open the app on the phone first."
 msgstr "先にスマートフォンでアプリを開いてください。"
 
-#: rust/crates/link/src/plugin.rs:638
+#: rust/crates/link/src/plugin.rs:673
 #, python-brace-format
 msgid "Paired with {name}"
 msgstr "{name}とペアリングしました"
 
-#: rust/crates/link/src/plugin.rs:655
+#: rust/crates/link/src/plugin.rs:690
 #, python-brace-format
 msgid "Pairing {phone}. Keep the app open."
 msgstr "{phone}をペアリング中。アプリを開いたままにしてください。"
 
-#: rust/crates/link/src/plugin.rs:659
+#: rust/crates/link/src/plugin.rs:694
 msgid "Pick a phone to pair over USB."
 msgstr "USBでペアリングするスマートフォンを選択してください。"
 
-#: rust/crates/link/src/plugin.rs:662
+#: rust/crates/link/src/plugin.rs:697
 msgid "Allow USB debugging on the phone."
 msgstr "スマートフォンでUSBデバッグを許可してください。"
 
-#: rust/crates/link/src/plugin.rs:703
+#: rust/crates/link/src/plugin.rs:738
 #, python-brace-format
 msgid "Telescope can download adb from Google (about {size}) and save it for your user. adb is Google's software and their Android SDK License applies (<a href=\"{url}\">read it here</a>).<br><br>Wi-Fi works without adb."
 msgstr "TelescopeはGoogleからadb（約{size}）をダウンロードし、現在のユーザー用に保存できます。adbはGoogleのソフトウェアであり、Android SDKライセンスが適用されます（<a href=\"{url}\">ライセンスを読む</a>）。<br><br>Wi-Fiならadbなしでも動作します。"
 
-#: rust/crates/link/src/plugin.rs:709
+#: rust/crates/link/src/plugin.rs:744
 msgid "USB needs adb, Google's tool for talking to Android phones."
 msgstr "USB接続には、Androidスマートフォンと通信するためのGoogleのツール「adb」が必要です。"
 
-#: rust/crates/link/src/plugin.rs:712
+#: rust/crates/link/src/plugin.rs:747
 msgid "Agree and download"
 msgstr "同意してダウンロード"
 
-#: rust/crates/link/src/plugin.rs:731
+#: rust/crates/link/src/plugin.rs:766
 msgid "Pick adb.exe or the platform-tools zip"
 msgstr "adb.exeまたはplatform-toolsのzipを選択"
 
-#: rust/crates/link/src/plugin.rs:732
+#: rust/crates/link/src/plugin.rs:767
 msgid "adb.exe or platform-tools zip (adb.exe *.zip)"
 msgstr "adb.exeまたはplatform-toolsのzip（adb.exe *.zip）"
 
-#: rust/crates/link/src/plugin.rs:738
+#: rust/crates/link/src/plugin.rs:773
 msgid "Copying adb…"
 msgstr "adbをコピー中…"
 
-#: rust/crates/link/src/plugin.rs:773
+#: rust/crates/link/src/plugin.rs:808
 #, python-brace-format
 msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
 msgstr "<a href=\"{get}\">もう一度試す</a>か、<a href=\"{pick}\">既存のadbを選択</a>してください。"
 
-#: rust/crates/link/src/plugin.rs:849
+#: rust/crates/link/src/plugin.rs:884
 msgid "Same phone?"
 msgstr "同じスマートフォンですか？"
 
-#: rust/crates/link/src/plugin.rs:850
+#: rust/crates/link/src/plugin.rs:885
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "これは再び「{name}」ですか？"
 
-#: rust/crates/link/src/plugin.rs:850
+#: rust/crates/link/src/plugin.rs:885
 #, python-brace-format
 msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
 msgstr "{name}が新しいスマートフォンとしてペアリングされました。これはスマートフォン上でTelescopeが再インストールされたか、アプリのデータが消去された場合に発生します。「はい」を選択すると、{name}の設定とプリセットが新しいエントリーに移行され、古いエントリーは削除されます。"
 
-#: rust/crates/link/src/plugin.rs:1055
+#: rust/crates/link/src/plugin.rs:1090
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "スマートフォン版アプリをアップデートしました。スマートフォンでTelescopeを開いてください。"
 
-#: rust/crates/link/src/plugin.rs:1129 rust/crates/link/src/plugin.rs:1150
+#: rust/crates/link/src/plugin.rs:1171 rust/crates/link/src/plugin.rs:1192
 msgctxt "status"
 msgid "Streaming"
 msgstr "ストリーミング中"
 
-#: rust/crates/link/src/plugin.rs:1130
+#: rust/crates/link/src/plugin.rs:1172
 #, python-brace-format
 msgid "Waiting for {source}"
 msgstr "{source}を待機中"
 
-#: rust/crates/link/src/plugin.rs:1131
+#: rust/crates/link/src/plugin.rs:1173
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr "{source}（ペアリング不要）"
 
-#: rust/crates/link/src/plugin.rs:1145 rust/crates/shell/src/streams.rs:1188
+#: rust/crates/link/src/plugin.rs:1187 rust/crates/shell/src/streams.rs:1188
 msgid "Reconnecting"
 msgstr "再接続中"
 
-#: rust/crates/link/src/plugin.rs:1148
+#: rust/crates/link/src/plugin.rs:1190
 msgid "Streaming over USB"
 msgstr "USB経由でストリーミング中"
 
-#: rust/crates/link/src/plugin.rs:1149
+#: rust/crates/link/src/plugin.rs:1191
 msgid "Streaming over Wi-Fi"
 msgstr "Wi-Fi経由でストリーミング中"
 
-#: rust/crates/link/src/plugin.rs:1153 rust/crates/shell/src/streams.rs:1192
+#: rust/crates/link/src/plugin.rs:1195 rust/crates/shell/src/streams.rs:1192
 msgid "Connecting"
 msgstr "接続中"
 
-#: rust/crates/link/src/plugin.rs:1169
+#: rust/crates/link/src/plugin.rs:1211
 msgid "Updating the phone app over USB…"
 msgstr "USB経由でスマートフォン版アプリをアップデート中…"
 
-#: rust/crates/link/src/plugin.rs:1173
+#: rust/crates/link/src/plugin.rs:1215
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone}のTelescopeアプリは、このアプリより古いバージョンです。"
 
-#: rust/crates/link/src/plugin.rs:1248 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:763 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1290 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:763 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "コマンドをコピー"
 
-#: rust/crates/link/src/plugin.rs:1256 rust/crates/link/src/plugin.rs:1413 rust/crates/link/src/plugin.rs:1462 rust/crates/link/src/plugin.rs:1469 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
+#: rust/crates/link/src/plugin.rs:1298 rust/crates/link/src/plugin.rs:1461 rust/crates/link/src/plugin.rs:1510 rust/crates/link/src/plugin.rs:1517 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
 msgid "Phone"
 msgstr "スマートフォン"
 
-#: rust/crates/link/src/plugin.rs:1256
+#: rust/crates/link/src/plugin.rs:1298
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "スマートフォン · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1257
+#: rust/crates/link/src/plugin.rs:1299
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer and unpairs it on the phone too if Telescope can reach it."
 msgstr "「{name}」を削除しますか？これにより、このコンピューター上のカメラ設定が削除され、通信可能な場合はスマートフォン側でもペアリングが解除されます。"
 
-#: rust/crates/link/src/plugin.rs:1260
+#: rust/crates/link/src/plugin.rs:1302
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "{name}の名前を変更"
 
-#: rust/crates/link/src/plugin.rs:1261 rust/crates/link/src/plugin.rs:1268
+#: rust/crates/link/src/plugin.rs:1303 rust/crates/link/src/plugin.rs:1310
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "{name}を削除"
 
-#: rust/crates/link/src/plugin.rs:1262
+#: rust/crates/link/src/plugin.rs:1304
 msgid "Remove phone"
 msgstr "スマートフォンを削除"
 
-#: rust/crates/link/src/plugin.rs:1265
+#: rust/crates/link/src/plugin.rs:1307
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
 msgstr "「{name}」を削除しますか？これにより、このコンピューター上にあった設定が削除されます。ブラウザーは引き続きコードを使用して接続でき、デフォルト設定で開始されます。"
 
-#: rust/crates/link/src/plugin.rs:1269
+#: rust/crates/link/src/plugin.rs:1311
 msgid "Remove browser"
 msgstr "ブラウザーを削除"
 
-#: rust/crates/link/src/plugin.rs:1574
+#: rust/crates/link/src/plugin.rs:1622
 msgid "Virtual camera is set up differently"
 msgstr "仮想カメラが異なる設定になっています"
 
-#: rust/crates/link/src/plugin.rs:1575
+#: rust/crates/link/src/plugin.rs:1623
 #, python-brace-format
 msgid "Another app loaded v4l2loopback with other settings and without {device}. Close that app and run this command to give Telescope control:"
 msgstr "別のアプリが他の設定で、{device}なしでv4l2loopbackをロードしました。そのアプリを終了し、次のコマンドを実行してTelescopeに制御権を渡してください:"
 
-#: rust/crates/link/src/plugin.rs:1585
+#: rust/crates/link/src/plugin.rs:1633
 msgid "The virtual camera is off"
 msgstr "仮想カメラがオフになっています"
 
-#: rust/crates/link/src/plugin.rs:1585
+#: rust/crates/link/src/plugin.rs:1633
 msgid "Your password is needed to switch on the virtual camera."
 msgstr "仮想カメラをオンにするにはパスワードが必要です。"
 
-#: rust/crates/link/src/plugin.rs:1586 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
+#: rust/crates/link/src/plugin.rs:1634 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
 msgid "Switch on"
 msgstr "オンにする"
 
@@ -10994,7 +11002,7 @@ msgstr "ダウンロード ファイルの展開後のサイズが許容値を�
 msgid "The download contains unexpected paths and wasn't used."
 msgstr "ダウンロード ファイルに予期しないパスが含まれていたため、使用されませんでした。"
 
-#: rust/crates/link/src/https.rs:646
+#: rust/crates/link/src/https.rs:662
 msgid "Status"
 msgstr ""
 
