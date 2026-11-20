@@ -204,7 +204,7 @@ class StillOptionsTest {
     @Test
     fun `a long exposure next to the stream counts as pausing the video`() {
         assertFalse(ok(mapOf("format" to "jpeg")).pausesVideo)
-        assertFalse(ok(mapOf("format" to "jpeg", "bracket_ev" to "-2,0,2")).pausesVideo)
+        assertTrue(ok(mapOf("format" to "jpeg", "bracket_ev" to "-2,0,2")).pausesVideo)
         assertTrue(ok(mapOf("format" to "jpeg", "exposure_ns" to "4000000000")).pausesVideo)
         // Short ones add up in a burst
         assertTrue(ok(mapOf("format" to "jpeg", "exposure_ns" to "100000000", "count" to "6")).pausesVideo)
@@ -271,4 +271,11 @@ class StillOptionsTest {
         // Lenses without the modes never get them asked for
         assertFalse(ok(mapOf("format" to "jpeg", "nr_hq" to "1"), plain, null).hq)
     }
+    @Test
+    fun `a short manual burst reports the preview hold even below half a second`() {
+        val request = ok(mapOf("format" to "jpeg", "exposure_ns" to "10000000", "count" to "3"))
+        assertTrue(request.exposureMs < StillOptions.PAUSE_MS)
+        assertTrue(request.pausesVideo)
+    }
+
 }

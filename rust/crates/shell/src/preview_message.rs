@@ -86,6 +86,8 @@ impl Messages {
         let Some(e) = source.and_then(|s| self.entries.iter().rev().find(|e| e.source == s)) else { return Drawing::default() };
         let m = &e.message;
         let remaining = m.remaining_ms.map(|ms| ms.saturating_sub(elapsed_ms(e.since, now)).max(0));
+        // Photo countdowns are estimates; an overdue capture has no known completion time.
+        let remaining = remaining.filter(|&ms| ms > 0 || e.owner != CORE);
         let progress = match (remaining, m.total_ms.filter(|&ms| ms > 0)) {
             (Some(left), Some(total)) => (1.0 - left as f64 / total as f64).clamp(0.0, 1.0) as f32,
             (Some(0), _) => 1.0,
@@ -104,6 +106,10 @@ pub(crate) struct Photo {
     paused: bool,
     since: Instant,
     remaining_ms: i64,
+    total_ms: i64,
+    capture_since: Instant,
+    waiting_ms: Option<i64>,
+    waiting_total_ms: i64,
 }
 
 fn positive(value: Option<&Value>, default: i64) -> i64 {
@@ -123,18 +129,39 @@ impl Photo {
         let shots = positive(options.get("count"), 1).saturating_mul(positive(options.get("focus_steps"), 1)).saturating_mul(exposures_ms.len() as i64);
         let extension = options.get("extension").is_some_and(|v| !v.is_null() && v.as_str() != Some(""));
         let paused = camera || extension || exposures_ms.iter().any(|ms| *ms >= telescope_core::shot::FREEZES_FROM_NS / 1_000_000);
-        let mut photo = Self { source: source.into(), exposures_ms, shots, taken: 0, paused, since: now, remaining_ms: 0 };
+        let timer_ms = positive(options.get("timer_s"), 0).saturating_mul(1_000);
+        let mut photo = Self { source: source.into(), exposures_ms, shots, taken: 0, paused, since: now, remaining_ms: 0,
+            total_ms: 0, capture_since: now, waiting_ms: (timer_ms > 0).then_some(timer_ms), waiting_total_ms: timer_ms };
         photo.remaining_ms = photo.estimate(0);
+        photo.total_ms = photo.remaining_ms;
         photo
     }
 
     fn update(&mut self, data: &Value, now: Instant) {
-        let remaining = self.remaining(now);
+        let mut remaining = self.remaining(now);
         let total = self.estimate(0);
+        let taken = self.taken;
         self.shots = positive(data.get("shots"), self.shots);
         self.taken = data.get("taken").and_then(Value::as_i64).unwrap_or(self.taken).clamp(0, self.shots);
         self.paused |= data.get("paused").and_then(Value::as_bool) == Some(true);
-        self.remaining_ms = remaining.saturating_add(self.estimate(0).saturating_sub(total)).min(self.estimate(self.taken)).max(0);
+        if data.get("state").and_then(Value::as_str) == Some("waiting") {
+            let countdown = data.get("countdown_ms").and_then(Value::as_i64).unwrap_or(0).max(0);
+            self.waiting_ms = Some(countdown);
+            self.waiting_total_ms = self.waiting_total_ms.max(countdown);
+            self.since = now;
+            return;
+        }
+        remaining = remaining.saturating_add(self.estimate(0).saturating_sub(total));
+        if self.waiting_ms.take().is_some() {
+            self.capture_since = now;
+            remaining = self.estimate(0);
+        }
+        self.remaining_ms = remaining.min(self.estimate(self.taken)).max(0);
+        if self.taken > taken {
+            let per_shot = elapsed_ms(self.capture_since, now) / self.taken;
+            self.remaining_ms = self.remaining_ms.max(per_shot.saturating_mul(self.shots - self.taken));
+        }
+        self.total_ms = self.total_ms.max(elapsed_ms(self.capture_since, now).saturating_add(self.remaining_ms));
         self.since = now;
     }
 
@@ -152,11 +179,18 @@ impl Photo {
     }
 
     fn message(&self, now: Instant) -> Option<PreviewMessage> {
+        if let Some(waiting) = self.waiting_ms {
+            let remaining = waiting.saturating_sub(elapsed_ms(self.since, now)).max(0);
+            return Some(PreviewMessage {
+                text: tr("Taking a picture"), detail: String::new(), step: String::new(), dim: false,
+                remaining_ms: Some(remaining), total_ms: Some(self.waiting_total_ms), max_ms: remaining.saturating_add(60_000),
+            });
+        }
         if !self.paused {
             return None;
         }
         let remaining = self.remaining(now);
-        let total = self.estimate(0);
+        let total = self.total_ms;
         Some(PreviewMessage {
             text: tr("Taking a picture"), detail: tr("Video will come back when done."),
             step: if self.shots > 1 { tr("Shot {n} of {m}").field("n", self.taken.saturating_add(1).min(self.shots)).field("m", self.shots) } else { String::new() },
@@ -220,7 +254,7 @@ impl State {
                 let now = Instant::now();
                 photo.update(data, now);
                 let (source, message) = (photo.source.clone(), photo.message(now));
-                if message.is_some() && !self.photo_messages.iter().any(|(id, p)| *id > request.0 && p.source == source) {
+                if !self.photo_messages.iter().any(|(id, p)| *id > request.0 && p.source == source) {
                     self.set_preview_message(CORE, Some(&source), message);
                 }
             }
@@ -361,14 +395,20 @@ mod tests {
             messages.set(CORE, "phone", photo.message(at), at);
             let drawing = messages.drawing(Some("phone"), at + Duration::from_millis(200));
             let left = (11_500 - poll as i64 * 400 - 200).max(0);
-            assert_eq!(drawing.countdown, countdown(left));
-            assert!((drawing.progress - (1.0 - left as f32 / 11_500.0)).abs() < 0.0001);
+            if left > 0 {
+                assert_eq!(drawing.countdown, countdown(left));
+                assert!((drawing.progress - (1.0 - left as f32 / 11_500.0)).abs() < 0.0001);
+            } else {
+                assert!(!drawing.counting);
+                assert!(drawing.countdown.is_empty());
+                assert_eq!(drawing.progress, 0.0);
+            }
         }
         assert_eq!(photo.remaining(now + Duration::from_secs(20)), 0);
     }
 
     #[test]
-    fn multi_frame_progress_never_restarts_at_frame_boundaries_or_late_status() {
+    fn multi_frame_progress_counts_down_between_reports_and_reestimates_late_frames() {
         let now = Instant::now();
         let mut photo = Photo::new("phone", &json!({"exposure_ns": 10_000_000_000i64, "count": 3}), false, now);
         photo.update(&json!({"taken": 0, "shots": 3}), now + Duration::from_secs(10));
@@ -378,11 +418,67 @@ mod tests {
         photo.update(&json!({"taken": 1, "shots": 3}), now + Duration::from_secs(22));
         assert_eq!(photo.remaining(now + Duration::from_secs(22)), 11_000);
         photo.update(&json!({"taken": 2, "shots": 3}), now + Duration::from_secs(23));
-        assert_eq!(photo.remaining(now + Duration::from_secs(23)), 10_000);
+        assert_eq!(photo.remaining(now + Duration::from_secs(23)), 11_500);
         assert_eq!(photo.message(now + Duration::from_secs(28)).unwrap().step, "Shot 3 of 3");
-        assert_eq!(photo.remaining(now + Duration::from_secs(33)), 0);
+        assert_eq!(photo.remaining(now + Duration::from_secs(33)), 1_500);
         photo.update(&json!({"taken": 3, "shots": 3}), now + Duration::from_secs(34));
         assert_eq!(photo.message(now + Duration::from_secs(34)).unwrap().total_ms, Some(34_500));
+    }
+
+    #[test]
+    fn self_timer_uses_phone_countdown_without_dimming_or_spending_exposure_time() {
+        let now = Instant::now();
+        let mut photo = Photo::new("phone", &json!({"timer_s": 10, "exposure_ns": 1_000_000_000i64, "count": 3}), false, now);
+        let initial = photo.message(now).unwrap();
+        assert!(!initial.dim);
+        assert_eq!(initial.remaining_ms, Some(10_000));
+        photo.update(&json!({"state": "waiting", "countdown_ms": 6_000, "shots": 3, "taken": 0}), now + Duration::from_secs(5));
+        let waiting = photo.message(now + Duration::from_secs(6)).unwrap();
+        assert!(!waiting.dim);
+        assert_eq!(waiting.remaining_ms, Some(5_000));
+        photo.update(&json!({"state": "capturing", "countdown_ms": 0, "shots": 3, "taken": 0, "paused": true}), now + Duration::from_secs(11));
+        let capture = photo.message(now + Duration::from_secs(11)).unwrap();
+        assert!(capture.dim);
+        assert_eq!(capture.remaining_ms, Some(7_500));
+        assert_eq!(capture.total_ms, Some(7_500));
+        photo.update(&json!({"state": "capturing", "shots": 3, "taken": 1}), now + Duration::from_secs(12));
+        assert_eq!(photo.message(now + Duration::from_secs(12)).unwrap().remaining_ms, Some(5_000));
+    }
+
+    #[test]
+    fn an_unpaused_capture_clears_its_waiting_overlay() {
+        let (mut state, _) = state();
+        let request = RequestId(1);
+        state.begin_photo_message(request, "phone", &json!({"timer_s": 10}), false);
+        assert!(state.preview_messages.drawing(Some("phone"), Instant::now()).visible);
+        state.photo_message_event(&Event::RequestProgress { request, data: json!({"state": "capturing", "paused": false}) });
+        assert!(!state.preview_messages.drawing(Some("phone"), Instant::now()).visible);
+    }
+
+    #[test]
+    fn slow_night_frames_extend_the_estimate_and_overdue_shots_are_indeterminate() {
+        let now = Instant::now();
+        let mut photo = Photo::new("phone", &json!({"extension": "night", "count": 3}), false, now);
+        let mut messages = Messages::default();
+        messages.set(CORE, "phone", photo.message(now), now);
+        let overdue = messages.drawing(Some("phone"), now + Duration::from_secs(5));
+        assert!(!overdue.counting);
+        assert_eq!(overdue.progress, 0.0);
+        for taken in 1..=2 {
+            let at = now + Duration::from_secs(taken * 4);
+            photo.update(&json!({"state": "capturing", "shots": 3, "taken": taken, "paused": true}), at);
+            let message = photo.message(at).unwrap();
+            assert_eq!(message.remaining_ms, Some((3 - taken as i64) * 4_000));
+            assert_eq!(message.total_ms, Some(12_000));
+            messages.set(CORE, "phone", Some(message), at);
+            let drawing = messages.drawing(Some("phone"), at + Duration::from_millis(500));
+            assert!(drawing.counting);
+            assert!(drawing.progress < 1.0);
+        }
+        let overdue = messages.drawing(Some("phone"), now + Duration::from_secs(13));
+        assert!(!overdue.counting);
+        assert!(overdue.countdown.is_empty());
+        assert_eq!(overdue.progress, 0.0);
     }
 
     #[test]

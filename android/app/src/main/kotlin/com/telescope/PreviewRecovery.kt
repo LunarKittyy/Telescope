@@ -2,7 +2,10 @@ package com.telescope
 
 // Holds frames after a still until preview AE settles, then rejects older queued frames and H.264 deltas.
 class PreviewRecovery {
-    companion object { const val MAX_MS = 1_500L }
+    companion object {
+        const val MAX_MS = 1_500L
+        const val KEYFRAME_MAX_MS = 1_500L
+    }
 
     private var serial = 0L
     private var capturing = false
@@ -11,6 +14,7 @@ class PreviewRecovery {
     private var firstTimestampNs = Long.MIN_VALUE
     private var waitingForKey = false
     private var keyRequestedAtMs: Long? = null
+    private var keyDeadlineMs: Long? = null
     @Volatile var holding = false
         private set
 
@@ -24,14 +28,25 @@ class PreviewRecovery {
         firstTimestampNs = Long.MIN_VALUE
         waitingForKey = true
         keyRequestedAtMs = null
+        keyDeadlineMs = null
     }
 
     @Synchronized
-    fun resume(nowMs: Long) {
-        if (!holding) return
+    fun resume(nowMs: Long): Long? {
+        if (!holding) return null
         capturing = false
-        deadlineMs = nowMs + MAX_MS
+        if (deadlineMs == null) deadlineMs = nowMs + MAX_MS
+        return deadlineMs
     }
+
+    // A rebuilt session starts its own wait: the old deadline may have passed while the camera was closed
+    @Synchronized
+    fun restartDeadline() { deadlineMs = null }
+
+    fun restoreRequired(aborted: Boolean): Boolean = holding || aborted
+
+    fun <T> targets(targets: List<T>, preview: T?): List<T> =
+        if (holding) targets.filter { it !== preview } else targets
 
     @Synchronized
     fun recovering(): Boolean = holding && !capturing
@@ -63,6 +78,7 @@ class PreviewRecovery {
         if (key != null && waitingForKey) {
             if (!key) return false
             waitingForKey = false
+            keyDeadlineMs = null
         }
         return true
     }
@@ -70,7 +86,18 @@ class PreviewRecovery {
     @Synchronized
     fun requestKeyframe(nowMs: Long): Boolean {
         if (holding || !waitingForKey || keyRequestedAtMs?.let { nowMs - it < 250L } == true) return false
+        if (keyDeadlineMs == null) keyDeadlineMs = nowMs + KEYFRAME_MAX_MS
         keyRequestedAtMs = nowMs
+        return true
+    }
+
+    @Synchronized
+    fun keyframeDeadline(): Long? = keyDeadlineMs
+
+    @Synchronized
+    fun keyframeTimeout(nowMs: Long): Boolean {
+        if (holding || !waitingForKey || keyDeadlineMs?.let { nowMs >= it } != true) return false
+        keyDeadlineMs = null
         return true
     }
 
@@ -81,5 +108,7 @@ class PreviewRecovery {
         deadlineMs = null
         firstTimestampNs = Long.MIN_VALUE
         waitingForKey = false
+        keyDeadlineMs = null
+        keyRequestedAtMs = null
     }
 }

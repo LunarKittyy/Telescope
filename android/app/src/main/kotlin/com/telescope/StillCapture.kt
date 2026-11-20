@@ -238,7 +238,7 @@ class StillCapture(
         val r = Run(id, req, caps, controller.stillGeneration(), cam.id, cam.activeArray, maxResArray)
         current = r
         controller.stillBusy(true)
-        if (req.pausesVideo || req.shots.any { it.exposureNs != null }) controller.holdStillPreview()
+        if (req.pausesVideo) controller.holdStillPreview()
         armTimeout(r)
         try {
             if (request.extension != null) { shootExtension(r, device); return }
@@ -855,7 +855,7 @@ class StillCapture(
         if (ext != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) try { (ext as CameraExtensionSession).close() } catch (_: Exception) {}
         r.meter?.close()
         r.own?.let(::closeAfterWrites)
-        if (restore) controller.restoreStillPreview()
+        if (restore) controller.restoreStillPreview(target.takeIf { code != null })
         if (r.paused && restore) controller.resumeAfterStill(r.generation)
         // Changes Dynamic or the heat held back for the photo go ahead now
         if (current == null) controller.stillBusy(false)

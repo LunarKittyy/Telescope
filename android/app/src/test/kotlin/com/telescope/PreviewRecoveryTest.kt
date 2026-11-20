@@ -1,5 +1,6 @@
 package com.telescope
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -97,5 +98,83 @@ class PreviewRecoveryTest {
         assertFalse(recovery.holding)
         assertTrue(recovery.keep(1, key = false))
         assertFalse(recovery.timeout(100_000))
+    }
+    @Test
+    fun `recovery schedules and checks the same uptime deadline without extending it`() {
+        val recovery = PreviewRecovery()
+        recovery.start()
+        val uptime = 5_000L
+        val deadline = recovery.resume(uptime)!!
+        assertEquals(uptime + PreviewRecovery.MAX_MS, deadline)
+        assertEquals(deadline, recovery.resume(uptime + 300))
+        assertFalse(recovery.timeout(deadline - 1))
+        assertTrue(recovery.timeout(deadline))
+        assertTrue(recovery.keep(1))
+    }
+
+    @Test
+    fun `a rebuilt session gets a fresh deadline`() {
+        val recovery = PreviewRecovery()
+        recovery.start()
+        recovery.resume(0)
+        recovery.restartDeadline()
+        assertEquals(10_000 + PreviewRecovery.MAX_MS, recovery.resume(10_000))
+    }
+
+    @Test
+    fun `missing keyframes reach a fixed rebuild deadline even with repeated sync requests`() {
+        val recovery = PreviewRecovery()
+        recovery.start()
+        recovery.resume(0)
+        recovery.timeout(PreviewRecovery.MAX_MS)
+        assertTrue(recovery.requestKeyframe(1_500))
+        val deadline = recovery.keyframeDeadline()!!
+        assertTrue(recovery.requestKeyframe(2_000))
+        assertEquals(deadline, recovery.keyframeDeadline())
+        assertFalse(recovery.keep(null, key = false))
+        assertFalse(recovery.keyframeTimeout(deadline - 1))
+        assertTrue(recovery.keyframeTimeout(deadline))
+        recovery.reset()
+        assertTrue(recovery.keep(null, key = false))
+    }
+
+    @Test
+    fun `a keyframe or a new photo cancels an older keyframe timeout`() {
+        val recovery = PreviewRecovery()
+        recovery.start()
+        recovery.resume(0)
+        recovery.timeout(PreviewRecovery.MAX_MS)
+        recovery.requestKeyframe(1_500)
+        assertTrue(recovery.keep(null, key = true))
+        assertFalse(recovery.keyframeTimeout(3_000))
+        recovery.start()
+        recovery.resume(3_000)
+        recovery.timeout(4_500)
+        recovery.requestKeyframe(4_500)
+        recovery.start()
+        assertFalse(recovery.keyframeTimeout(6_000))
+    }
+
+    @Test
+    fun `ordinary photos only restore repeating after an abort or a preview hold`() {
+        val recovery = PreviewRecovery()
+        assertFalse(recovery.restoreRequired(aborted = false))
+        assertTrue(recovery.restoreRequired(aborted = true))
+        recovery.start()
+        assertTrue(recovery.restoreRequired(aborted = false))
+        recovery.reset()
+        assertFalse(recovery.restoreRequired(aborted = false))
+    }
+
+    @Test
+    fun `focus settle targets exclude the phone preview throughout a manual burst`() {
+        val recovery = PreviewRecovery()
+        assertEquals(listOf("stream", "phone"), recovery.targets(listOf("stream", "phone"), "phone"))
+        recovery.start()
+        repeat(3) { assertEquals(listOf("stream"), recovery.targets(listOf("stream", "phone"), "phone")) }
+        recovery.resume(0)
+        assertEquals(listOf("stream"), recovery.targets(listOf("stream", "phone"), "phone"))
+        recovery.timeout(PreviewRecovery.MAX_MS)
+        assertEquals(listOf("stream", "phone"), recovery.targets(listOf("stream", "phone"), "phone"))
     }
 }

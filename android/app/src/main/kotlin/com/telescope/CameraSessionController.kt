@@ -780,7 +780,7 @@ class CameraSessionController(
                             else -> null  // Older video outputs may use a different clock from SENSOR_TIMESTAMP.
                         }
                         val keep = previewRecovery.keep(sensorNs, key)
-                        if (!keep && previewRecovery.requestKeyframe(SystemClock.elapsedRealtime())) built.requestKeyFrame()
+                        if (!keep && previewRecovery.requestKeyframe(SystemClock.uptimeMillis())) built.requestKeyFrame()
                         keep
                     },
                     onPacket = onH264, onError = { e -> post { if (encoder === built) encoderFailed(e) } },
@@ -1056,7 +1056,7 @@ class CameraSessionController(
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
         try {
             session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler)
-            if (previewRecovery.recovering()) armPreviewRecovery()
+            if (previewRecovery.recovering()) { previewRecovery.restartDeadline(); armPreviewRecovery() }
             turningOn = false
             streamedOnce = true
             if (taken) { taken = false; unwatchAvailability() }
@@ -1260,7 +1260,7 @@ class CameraSessionController(
     fun stillCamera(): CameraEntry? = currentCamera
     fun stillSession(): CameraCaptureSession? = captureSession
     // The stream's outputs, which a photo's request can feed too so the video doesn't stop for it
-    fun stillStreamTargets(): List<Surface> = currentTargetSurfaces()
+    fun stillStreamTargets(): List<Surface> = previewRecovery.targets(currentTargetSurfaces(), previewSurface)
     fun stillVideoIsJpeg(): Boolean = imageReader != null
     // Changes with every reopen: a photo started on an older camera stops there
     fun stillGeneration(): Int = cameraGeneration
@@ -1348,12 +1348,9 @@ class CameraSessionController(
     }
 
     // Restore preview controls before allowing frames; AE state cannot survive the still's AE mode switch.
-    fun restoreStillPreview() {
-        if (!previewRecovery.holding) {
-            if (!stillPaused) captureSession?.let(::stillRestartStream)
-            return
-        }
-        previewRecovery.resume(SystemClock.elapsedRealtime())
+    fun restoreStillPreview(abortedSession: CameraCaptureSession? = null) {
+        if (!previewRecovery.restoreRequired(abortedSession != null && abortedSession === captureSession)) return
+        previewRecovery.resume(SystemClock.uptimeMillis())
         if (!stillPaused) {
             captureSession?.let(::stillRestartStream)
             armPreviewRecovery()
@@ -1361,18 +1358,28 @@ class CameraSessionController(
     }
 
     private fun armPreviewRecovery() {
-        previewRecovery.resume(SystemClock.elapsedRealtime())
-        handler?.postDelayed({
-            if (previewRecovery.timeout(SystemClock.elapsedRealtime())) {
+        val deadline = previewRecovery.resume(SystemClock.uptimeMillis()) ?: return
+        handler?.postAtTime({
+            if (previewRecovery.timeout(SystemClock.uptimeMillis())) {
                 android.util.Log.i(TAG, "Preview AE recovery reached its time limit")
                 previewRecovered()
             }
-        }, PreviewRecovery.MAX_MS)
+        }, deadline)
     }
 
     private fun previewRecovered() {
-        if (previewRecovery.requestKeyframe(SystemClock.elapsedRealtime())) encoder?.requestKeyFrame()
-        applyExposure()
+        val recoveringEncoder = encoder
+        if (recoveringEncoder != null) {
+            if (previewRecovery.requestKeyframe(SystemClock.uptimeMillis())) recoveringEncoder.requestKeyFrame()
+            previewRecovery.keyframeDeadline()?.let { deadline ->
+                handler?.postAtTime({
+                    if (encoder === recoveringEncoder && previewRecovery.keyframeTimeout(SystemClock.uptimeMillis())) {
+                        reopen("stillKeyframeTimeout")
+                    }
+                }, deadline)
+            }
+        }
+        captureSession?.let(::stillRestartStream)
     }
 
     // The stream's repeating request again after a photo aborted its captures on the stream's own session
@@ -1383,6 +1390,7 @@ class CameraSessionController(
             session.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
         } catch (e: Exception) {
             onControlError("stillRestartStream", e)
+            reconfigureSession()
         }
     }
 
