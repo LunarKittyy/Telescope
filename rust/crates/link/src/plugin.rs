@@ -33,6 +33,7 @@ const OFFER_AGAIN_S: f64 = 4.0;
 
 // Timer tokens
 const T_POLL: &str = "poll";
+const T_PRESENCE: &str = "presence";
 const T_USB_WATCH: &str = "usb_watch";
 const T_PAIR_POLL: &str = "pair_poll";
 const T_PAIR_USB: &str = "pair_usb";
@@ -198,6 +199,7 @@ impl ConnectionPlugin {
     }
 
     fn render(&mut self, host: &mut dyn Host) {
+        self.sync_presence();
         let props = {
             let c = self.conn();
             card_props(&c, &CardCtx {
@@ -285,6 +287,38 @@ impl ConnectionPlugin {
         let selected = self.conn().selected_id.clone();
         let source = selected.filter(|s| self.source_name(Some(s)).is_some()).unwrap_or_default();
         host.emit(Event::SourceSelected { source_id: source });
+    }
+
+    fn sync_presence(&self) {
+        let (id, phones) = {
+            let c = self.conn();
+            (c.computer_id.clone(), c.phones.clone())
+        };
+        self.link.configure_presence(&id, &self.desktop_version, &phones);
+    }
+
+    fn presence_tick(&mut self, host: &mut dyn Host) {
+        use telescope_core::link::PresenceUpdate;
+        let mut check = false;
+        let selected = self.conn().selected_id.clone();
+        for update in self.link.presence_updates() {
+            match update {
+                PresenceUpdate::Probe { phone_id } => {
+                    check |= selected.as_deref() == Some(&phone_id) && self.link.presence_generation(&phone_id).is_some();
+                }
+                PresenceUpdate::Reachable { phone_id, .. } => {
+                    check |= selected.as_deref() == Some(&phone_id);
+                    host.clear_issue(Some("presence"), None);
+                }
+                PresenceUpdate::Restored => host.clear_issue(Some("presence"), None),
+                PresenceUpdate::Degraded(why) => {
+                    host.show_issue("presence", Issue { title: tr("Network presence unavailable"),
+                        text: tr("Phones will be checked over HTTPS instead."), kind: "warn".into(),
+                        details: why, actions: vec![], tell_dismiss: false });
+                }
+            }
+        }
+        if check { self.check_status(host); }
     }
 
     // ── Checks ────────────────────────────────────────────────────────────
@@ -548,6 +582,7 @@ impl ConnectionPlugin {
     // ── Phones ────────────────────────────────────────────────────────────
 
     pub fn open_add_phone(&mut self, host: &mut dyn Host) {
+        self.link.presence_hint();
         if self.add.is_some() {
             host.set_ui_props("card", &json!({"add-open": true}));
             return;
@@ -877,6 +912,7 @@ impl ConnectionPlugin {
             }
             None => self.conn().on_phone_paired(phone, |id| host.is_streaming_from(Some(id))),
         };
+        self.sync_presence();
         let shown = host.focused_source_id().or_else(|| self.conn().selected_id.clone());
         if shown.is_none() || shown.as_deref() == Some(pid.as_str()) || !host.is_streaming_from(shown.as_deref()) {
             self.select(host, Some(&pid), true, false); // one streaming next to others gets the panels
@@ -922,6 +958,7 @@ impl ConnectionPlugin {
             host.stop_stream(Some(pid));
         }
         let Some((phone, reselect)) = self.conn().forget_phone(pid) else { return };
+        self.sync_presence();
         let link = self.link.clone();
         // Unpair on the phone too when it's reachable, so it stops accepting a forgotten computer
         std::thread::spawn(move || link.unpair(&phone));
@@ -1085,8 +1122,15 @@ impl ConnectionPlugin {
             T_POLL => {
                 host.schedule(STATUS_POLL.as_millis() as u64, T_POLL);
                 let now = self.now();
-                let check = self.conn().poll_status(now);
-                self.run_check(check);
+                let selected = self.conn().selected_id.clone();
+                if selected.as_deref().and_then(|id| self.link.presence_generation(id)).is_none() {
+                    let check = self.conn().poll_status(now);
+                    self.run_check(check);
+                }
+            }
+            T_PRESENCE => {
+                host.schedule(250, T_PRESENCE);
+                self.presence_tick(host);
             }
             T_USB_WATCH => self.watch_usb(host),
             T_PAIR_POLL => self.poll_pairing(host),
@@ -1300,6 +1344,9 @@ impl Plugin for ConnectionPlugin {
         self.adb_available = self.link.adb_available();
         self.apk_bundled = self.link.bundled_apk().is_some();
         host.schedule(STATUS_POLL.as_millis() as u64, T_POLL);
+        host.schedule(250, T_PRESENCE);
+        self.sync_presence();
+        self.link.presence_hint();
         self.catch_up(host);
     }
 
@@ -1348,6 +1395,7 @@ impl Plugin for ConnectionPlugin {
             }
             Event::StreamTransportChanged => self.refresh_transport(host),
             Event::AddPhoneRequested => self.open_add_phone(host),
+            Event::StreamStartBegan => self.link.presence_hint(),
             Event::ForgetSourceRequested { source_id } => self.forget_picked_source(host, source_id),
             Event::SelectSource { source_id } => self.select(host, Some(source_id.as_str()).filter(|s| !s.is_empty()), false, false),
             Event::SourceShown { source_id } => self.show_selected(host, Some(source_id.as_str()).filter(|s| !s.is_empty())),
@@ -1368,10 +1416,12 @@ impl Plugin for ConnectionPlugin {
                 }
             }
             Event::WindowShown { shown } => {
+                if *shown { self.link.presence_hint(); }
                 let check = self.conn().set_poll_reason("shown", *shown, now);
                 self.run_check(check);
             }
             Event::CameraWatched { watched } => {
+                if *watched { self.link.presence_hint(); }
                 let check = self.conn().set_poll_reason("watched", *watched, now);
                 self.run_check(check);
             }
@@ -1628,6 +1678,7 @@ impl Plugin for ConnectionPlugin {
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         let sources: HashSet<String> = self.sources.iter().map(|s| s.id.clone()).collect();
         self.conn().set_config(cfg, |s| sources.contains(s));
+        self.sync_presence();
         self.stale = true;
         Ok(())
     }
@@ -1689,6 +1740,9 @@ mod tests {
         installs: Mutex<Vec<(String, String)>>,
         /// The computer name each pairing offer went out with.
         offered_as: Mutex<Vec<String>>,
+        presence_generation: Mutex<Option<u64>>,
+        presence_updates: Mutex<Vec<telescope_core::link::PresenceUpdate>>,
+        presence_credentials: Mutex<Vec<(String, String)>>,
     }
 
     impl FakeLink {
@@ -1697,6 +1751,8 @@ mod tests {
                 answer: Mutex::new(Resolution::new(PhoneStatus::Unreachable)), unpaired: Mutex::default(),
                 install: Mutex::new(Ok(())), install_panics: Mutex::default(), offer: Mutex::default(), adb: Mutex::new(true), offline: Mutex::new(false),
                 checks: Mutex::default(), installs: Mutex::default(), offered_as: Mutex::default(),
+                presence_generation: Mutex::default(), presence_updates: Mutex::default(),
+                presence_credentials: Mutex::default(),
             })
         }
 
@@ -1739,6 +1795,11 @@ mod tests {
     }
 
     impl Link for FakeLink {
+        fn configure_presence(&self, _computer_id: &str, _version: &str, phones: &[PairedPhone]) {
+            *self.presence_credentials.lock().unwrap() = phones.iter().map(|p| (p.id.clone(), p.token.clone())).collect();
+        }
+        fn presence_generation(&self, _phone_id: &str) -> Option<u64> { *self.presence_generation.lock().unwrap() }
+        fn presence_updates(&self) -> Vec<telescope_core::link::PresenceUpdate> { self.presence_updates.lock().unwrap().drain(..).collect() }
         fn new_identity(&self) -> (String, String) {
             ("cid".into(), "desk".into())
         }
@@ -2338,6 +2399,25 @@ mod tests {
         e.plugin.forget_phone(&mut e.host, "id-a");
         assert_eq!(e.shared.picked_source(), None);
         assert_eq!(e.status(), "No device yet");
+    }
+
+    #[test]
+    fn forgetting_an_unselected_phone_revokes_presence_without_a_redraw() {
+        let mut e = env();
+        e.add("id-a", "A");
+        e.add("id-b", "B");
+        e.plugin.on_event(&mut e.host, &Event::SelectSource { source_id: "id-a".into() });
+        e.shared.conn().set_stream_route(Some(usb()));
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://127.0.0.1:8080/v1/video.h264".into(), session: 0 });
+        assert_eq!(e.link.presence_credentials.lock().unwrap().len(), 2);
+        let redraws = e.count("set_ui_props card ");
+
+        e.plugin.forget_phone(&mut e.host, "id-b");
+
+        assert_eq!(*e.link.presence_credentials.lock().unwrap(), vec![("id-a".to_string(), phone("id-a", "A").token)]);
+        assert_eq!(e.count("set_ui_props card "), redraws);
+        assert!(e.shared.conn().streaming);
+        assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
     }
 
     #[test]
@@ -3124,6 +3204,44 @@ mod tests {
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
         // The window swapped the settings itself
         assert_eq!(e.host.calls.iter().filter(|c| c.starts_with("switch_device")).count(), switches);
+    }
+
+    #[test]
+    fn capable_phones_use_presence_checks_and_blocked_udp_restores_legacy_polling() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.link.checks.lock().unwrap().clear();
+        *e.link.presence_generation.lock().unwrap() = Some(1);
+        e.plugin.on_timer(&mut e.host, T_POLL);
+        e.settle();
+        assert!(e.link.checks.lock().unwrap().is_empty());
+        e.link.answer(ready(wifi()));
+        e.link.presence_updates.lock().unwrap().push(telescope_core::link::PresenceUpdate::Probe { phone_id: "id-a".into() });
+        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        e.settle_until(|e| e.shared.conn().resolution.as_ref().is_some_and(|r| r.status == PhoneStatus::Ready));
+        assert_eq!(*e.link.checks.lock().unwrap(), ["id-a"]);
+        *e.link.presence_generation.lock().unwrap() = None;
+        e.plugin.on_timer(&mut e.host, T_POLL);
+        e.settle();
+        assert_eq!(*e.link.checks.lock().unwrap(), ["id-a", "id-a"]);
+    }
+
+    #[test]
+    fn presence_only_checks_the_selected_phone_and_reports_bind_degradation() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.link.checks.lock().unwrap().clear();
+        e.link.presence_updates.lock().unwrap().extend([
+            telescope_core::link::PresenceUpdate::Reachable { phone_id: "id-b".into(), address: "10.0.0.6".into(), addresses: vec![] },
+            telescope_core::link::PresenceUpdate::Degraded("bind failed".into()),
+        ]);
+        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        e.settle();
+        assert!(e.link.checks.lock().unwrap().is_empty());
+        assert_eq!(e.issue("presence").unwrap().details, "bind failed");
+        e.link.presence_updates.lock().unwrap().push(telescope_core::link::PresenceUpdate::Restored);
+        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        assert!(e.issue("presence").is_none());
     }
 
     #[test]

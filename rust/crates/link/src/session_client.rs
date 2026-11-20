@@ -39,6 +39,8 @@ pub struct Ping {
     pub streaming_for: Option<String>,
     /// Runs Dynamic over UDP from this desktop's reports; an older phone leaves it out.
     pub udp_dynamic: bool,
+    /// Optional authenticated presence capability; absent on older phones.
+    pub presence: bool,
     /// The phone's `SystemClock.elapsedRealtimeNanos()` and `System.nanoTime()` as it answered (clock_boot_ns, clock_mono_ns), and when the request went
     /// out and the answer came in on this computer's monotonic clock. An older phone leaves the clocks out.
     pub clocks: Option<PhoneClocks>,
@@ -56,7 +58,7 @@ pub struct PhoneClocks {
 impl Ping {
     pub fn status(status: PingStatus) -> Ping {
         Ping { status, streaming: false, busy: false, local_only: false, phone_id: None, phone_name: None,
-               streaming_for: None, udp_dynamic: false, clocks: None }
+               streaming_for: None, udp_dynamic: false, presence: false, clocks: None }
     }
 
     pub fn paired(&self) -> bool {
@@ -282,6 +284,7 @@ pub fn parse_ping(raw: &[u8]) -> Ping {
         phone_name: body.get("phoneName").and_then(Value::as_str).map(clean_name),
         streaming_for: computer_name(body.get("streamingFor")),
         udp_dynamic: body.get("udpDynamic") == Some(&Value::Bool(true)),
+        presence: body.get("presence").and_then(Value::as_u64) == Some(1),
         clocks: parse_clocks(&body),
     }
 }
@@ -307,6 +310,14 @@ mod tests {
 
     fn sent(server: &Server) -> Vec<Seen> {
         server.seen.lock().unwrap().clone()
+    }
+
+    #[test]
+    fn presence_is_an_optional_capability_without_changing_session_protocol() {
+        for raw in [br#"{}"#.as_slice(), br#"{"presence":true}"#, br#"{"presence":2}"#, br#"{"presence":"1"}"#] {
+            assert!(!parse_ping(raw).presence);
+        }
+        assert!(parse_ping(br#"{"presence":1,"protocol":3}"#).presence);
     }
 
     #[test]

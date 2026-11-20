@@ -182,7 +182,7 @@ pub struct Connection {
     /// Watching for a cable while streaming over Wi-Fi.
     pub usb_watch_active: bool,
     pub switch_usb_visible: bool,
-    // Each idle check wakes the phone, so a phone left waiting isn't polled while nobody looks
+    // Visible or wanted phones keep the legacy fast checks; hidden phones retain a slow fallback.
     pub shown: bool,
     pub watched: bool,
     pub wanted: bool,
@@ -331,7 +331,7 @@ impl Connection {
 
     /// The status timer's tick.
     pub fn poll_status(&mut self, now: f64) -> Option<Check> {
-        if self.polling_fast() || (self.polling() && now - self.check_started >= HELD_POLL_S) {
+        if self.polling_fast() || now - self.check_started >= HELD_POLL_S {
             return self.check_status(now);
         }
         None
@@ -1357,10 +1357,11 @@ mod tests {
     }
 
     #[test]
-    fn the_poll_stops_while_the_window_is_hidden() {
+    fn hidden_legacy_phones_keep_a_slow_https_fallback() {
         let mut c = settled();
         c.set_poll_reason("shown", false, 1.0);
         assert!(c.poll_status(2.0).is_none());
+        assert!(c.poll_status(HELD_POLL_S).is_some());
     }
 
     #[test]

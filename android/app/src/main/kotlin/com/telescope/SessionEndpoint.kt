@@ -24,6 +24,7 @@ data class SessionSnapshot(
     // The phone's two clocks sampled as the answer is made, so the desktop can turn frame capture times into its own clock.
     @SerialName("clock_boot_ns") val clockBootNs: Long? = null,
     @SerialName("clock_mono_ns") val clockMonoNs: Long? = null,
+    val presence: Int = 0,
 )
 
 // appVersion/build: lets the desktop say which app needs updating instead of just "unreachable".
@@ -34,6 +35,7 @@ data class Hello(
     val phoneName: String,
     val appVersion: String = "",
     val build: Int = 0,
+    val presence: Int = 0,
 )
 
 // Narrow interface: server owns HTTP, this owns camera lifecycle - they don't cross.
@@ -101,6 +103,10 @@ object SessionEndpoint {
     private val owners = mutableSetOf<String>()
     private var server: SessionServer? = null
     private var announcer: LanAnnouncer? = null
+    private var presence: PresenceWorker? = null
+    private var presenceGeneration = 0L
+    @Volatile var presenceDegraded = false
+        private set
     private var watchdog: java.util.Timer? = null
     private var stoppedHold: java.util.TimerTask? = null
 
@@ -108,6 +114,13 @@ object SessionEndpoint {
     fun acquire(context: Context, owner: String) {
         val app = context.applicationContext
         owners.add(owner)
+        if (presence == null) {
+            val generation = ++presenceGeneration
+            presence = PresenceWorker(app, { isHeldBy(OWNER_WAITING) && !screens.any() }) { degraded ->
+                synchronized(this) { if (generation == presenceGeneration) presenceDegraded = degraded }
+            }
+        }
+        presence?.hint()
         bind(app)
         if (watchdog == null) {
             watchdog = java.util.Timer("session-rebind", true).apply {
@@ -149,6 +162,7 @@ object SessionEndpoint {
                 commands = ServiceSessionCommands(app),
                 socketFactory = PhoneTls.identity(app).serverSocketFactory(),
                 localOnly = { StreamPrefs.localOnly(app) },
+                authenticatedContact = { computer, headers, address -> PairedComputers.authenticatedContact(app, computer, headers, address) },
             ).also { it.start() }
         } catch (e: Exception) {
             android.util.Log.e("SessionEndpoint", "Could not start the session server", e)  // storage full saving the identity, say
@@ -165,6 +179,7 @@ object SessionEndpoint {
     // Local only was toggled: announce or go quiet to match.
     @Synchronized
     fun refreshAnnouncement() {
+        presence?.refresh()
         val a = announcer ?: return
         a.stop()
         a.start(SessionServer.DEFAULT_PORT)
@@ -175,6 +190,10 @@ object SessionEndpoint {
         if (!owners.remove(owner)) return
         if (owners.isNotEmpty()) return
         stoppedHold = null
+        presenceGeneration++
+        presence?.stop()
+        presence = null
+        presenceDegraded = false
         watchdog?.cancel()
         watchdog = null
         server?.stop()
@@ -195,9 +214,10 @@ object SessionEndpoint {
         // The first start reads (or makes) the TLS identity: do it off the main thread while the screen comes up
         kotlin.concurrent.thread(name = "tls-warm", isDaemon = true) { try { PhoneTls.identity(context) } catch (_: Exception) {} }
         screens.started()
+        presence?.hint()
     }
 
-    fun screenStopped() = screens.stopped()
+    fun screenStopped() { screens.stopped(); presence?.hint() }
 
     @Synchronized
     fun isHeldBy(owner: String): Boolean = owner in owners

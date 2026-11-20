@@ -180,7 +180,7 @@ msgstr "Отримати VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Прибрати стукіт клавіш, шум вентилятора та фонове шипіння."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1462 rust/crates/link/src/plugin.rs:1469 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1510 rust/crates/link/src/plugin.rs:1517 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -223,7 +223,7 @@ msgstr "Вимкнути"
 msgid "Switch while held, back on release"
 msgstr "Перемикати під час утримування, повертати після відпускання"
 
-#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:627 rust/crates/outputs/src/stream_output.rs:644 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1464 rust/crates/outputs/src/stream_output.rs:627 rust/crates/outputs/src/stream_output.rs:644 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "Дія"
 
@@ -400,19 +400,19 @@ msgstr "Ступені"
 msgid " stops"
 msgstr " ступені"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1465 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "Наступний"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1465 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "Попередній"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1465 rust/crates/outputs/src/stream_output.rs:628
 msgid "Pick"
 msgstr "Вибрати"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1418 rust/crates/outputs/src/stream_output.rs:629
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1466 rust/crates/outputs/src/stream_output.rs:629
 msgid "Option"
 msgstr "Варіант"
 
@@ -4170,11 +4170,11 @@ msgstr "Назва:"
 msgid "OK"
 msgstr "ОК"
 
-#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:852 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:887 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "Ні"
 
-#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:851 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:886 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "Так"
 
@@ -5022,7 +5022,7 @@ msgstr "Не встигає"
 msgid "Browser"
 msgstr "Браузер"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:380 rust/crates/link/src/plugin.rs:416 rust/crates/link/src/plugin.rs:442 rust/crates/link/src/plugin.rs:776 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1859 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:414 rust/crates/link/src/plugin.rs:450 rust/crates/link/src/plugin.rs:476 rust/crates/link/src/plugin.rs:811 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1859 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Спробувати знову"
 
@@ -5043,7 +5043,7 @@ msgstr "Браузер, останнє підключення {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "Цьому комп'ютеру не вдалося встановити відеоз'єднання."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:393 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:427 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr "Додати пристрій"
 
@@ -5169,12 +5169,12 @@ msgstr "телефон не відповідає через USB"
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "Для підключення вибрано «Лише USB»: {why}. Перемкніться на «Автоматично», щоб натомість використовувати Wi-Fi."
 
-#: rust/crates/link/src/connection.rs:855 rust/crates/link/src/plugin.rs:218
+#: rust/crates/link/src/connection.rs:855 rust/crates/link/src/plugin.rs:220
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "Додаток Telescope на {phone} старіший за цей. Оновіть його на телефоні."
 
-#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:219
+#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:221
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "Додаток Telescope на {phone} новіший за цей. Оновіть Telescope на цьому комп'ютері."
@@ -5250,7 +5250,7 @@ msgstr "невідома помилка"
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "Телефон відхилив запит на початок трансляції ({error})."
 
-#: rust/crates/link/src/connection.rs:996 rust/crates/link/src/service.rs:334
+#: rust/crates/link/src/connection.rs:996 rust/crates/link/src/service.rs:429
 msgid "Lost the connection to the phone. Try again."
 msgstr "Втрачено підключення до телефону. Спробуйте знову."
 
@@ -5325,252 +5325,260 @@ msgstr "через USB підключено інший телефон"
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "телефон підключено, але на ньому не відкрито Telescope"
 
-#: rust/crates/link/src/plugin.rs:220
+#: rust/crates/link/src/plugin.rs:222
 #, python-brace-format
 msgid "Telescope on {phone} and this computer have different app versions."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:223
+#: rust/crates/link/src/plugin.rs:225
 msgid "Different app versions"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:392 rust/crates/link/src/plugin.rs:1128 rust/crates/link/src/plugin.rs:1388 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
+#: rust/crates/link/src/plugin.rs:315
+msgid "Network presence unavailable"
+msgstr ""
+
+#: rust/crates/link/src/plugin.rs:316
+msgid "Phones will be checked over HTTPS instead."
+msgstr ""
+
+#: rust/crates/link/src/plugin.rs:426 rust/crates/link/src/plugin.rs:1170 rust/crates/link/src/plugin.rs:1436 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
 msgid "No device yet"
 msgstr "Ще немає пристроїв"
 
-#: rust/crates/link/src/plugin.rs:392
+#: rust/crates/link/src/plugin.rs:426
 msgid "Add a phone to stream from."
 msgstr "Додайте телефон, з якого транслювати."
 
-#: rust/crates/link/src/plugin.rs:408 rust/crates/link/src/plugin.rs:414
+#: rust/crates/link/src/plugin.rs:442 rust/crates/link/src/plugin.rs:448
 msgid "Can't connect to the phone"
 msgstr "Не вдається підключитися до телефону"
 
-#: rust/crates/link/src/plugin.rs:415 rust/crates/link/src/service.rs:84
+#: rust/crates/link/src/plugin.rs:449 rust/crates/link/src/service.rs:123
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb не вдалося відкрити підключення до телефону. Від'єднайте його, підключіть знову та спробуйте ще раз."
 
-#: rust/crates/link/src/plugin.rs:438 rust/crates/link/ui/connection.slint:476
+#: rust/crates/link/src/plugin.rs:472 rust/crates/link/ui/connection.slint:476
 msgid "Set up the virtual camera"
 msgstr "Налаштувати віртуальну камеру"
 
-#: rust/crates/link/src/plugin.rs:444
+#: rust/crates/link/src/plugin.rs:478
 msgid "Couldn't set up the virtual camera"
 msgstr "Не вдалося налаштувати віртуальну камеру"
 
-#: rust/crates/link/src/plugin.rs:478
+#: rust/crates/link/src/plugin.rs:512
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "Не вдалося оновити додаток на телефоні: {error}"
 
-#: rust/crates/link/src/plugin.rs:572 rust/crates/link/src/plugin.rs:583
+#: rust/crates/link/src/plugin.rs:607 rust/crates/link/src/plugin.rs:618
 msgid "This computer isn't on a network right now. Pair over USB."
 msgstr "Цей комп'ютер зараз не підключений до мережі. Створіть пару через USB."
 
 #. "Scan pairing code" is a button in the phone app: use the phone app's translation of it
-#: rust/crates/link/src/plugin.rs:576
+#: rust/crates/link/src/plugin.rs:611
 msgid "On the phone, tap Scan pairing code and point it at this code."
 msgstr "На телефоні натисніть «Сканувати код створення пари» й наведіть камеру на цей код."
 
-#: rust/crates/link/src/plugin.rs:599 rust/crates/link/src/plugin.rs:720
+#: rust/crates/link/src/plugin.rs:634 rust/crates/link/src/plugin.rs:755
 msgid "Getting adb from Google…"
 msgstr "Отримання adb від Google…"
 
-#: rust/crates/link/src/plugin.rs:601 rust/crates/link/src/plugin.rs:665
+#: rust/crates/link/src/plugin.rs:636 rust/crates/link/src/plugin.rs:700
 msgid "Or plug the phone in over USB."
 msgstr "Або підключіть телефон через USB."
 
-#: rust/crates/link/src/plugin.rs:607
+#: rust/crates/link/src/plugin.rs:642
 #, python-brace-format
 msgid "adb is required for USB and Telescope can <a href=\"{link}\">get it from Google</a>. Wi-Fi works without it."
 msgstr "Для USB потрібен adb, і Telescope може <a href=\"{link}\">отримати його від Google</a>. Wi-Fi працює і без нього."
 
-#: rust/crates/link/src/plugin.rs:608
+#: rust/crates/link/src/plugin.rs:643
 msgid "Get adb from Google"
 msgstr "Отримати adb від Google"
 
-#: rust/crates/link/src/plugin.rs:610
+#: rust/crates/link/src/plugin.rs:645
 msgid "adb is required for USB but isn't installed. Wi-Fi works without it."
 msgstr "Для USB потрібен adb, але його не встановлено. Wi-Fi працює і без нього."
 
-#: rust/crates/link/src/plugin.rs:625
+#: rust/crates/link/src/plugin.rs:660
 #, python-brace-format
 msgid "Pair {phone}"
 msgstr "Створити пару з {phone}"
 
-#: rust/crates/link/src/plugin.rs:630
+#: rust/crates/link/src/plugin.rs:665
 msgid "You can start streaming now."
 msgstr "Тепер ви можете почати трансляцію."
 
-#: rust/crates/link/src/plugin.rs:630
+#: rust/crates/link/src/plugin.rs:665
 msgid "Open the app on the phone first."
 msgstr "Спершу відкрийте додаток на телефоні."
 
-#: rust/crates/link/src/plugin.rs:638
+#: rust/crates/link/src/plugin.rs:673
 #, python-brace-format
 msgid "Paired with {name}"
 msgstr "Створено пару з {name}"
 
-#: rust/crates/link/src/plugin.rs:655
+#: rust/crates/link/src/plugin.rs:690
 #, python-brace-format
 msgid "Pairing {phone}. Keep the app open."
 msgstr "Створення пари з {phone}. Тримайте додаток відкритим."
 
-#: rust/crates/link/src/plugin.rs:659
+#: rust/crates/link/src/plugin.rs:694
 msgid "Pick a phone to pair over USB."
 msgstr "Виберіть телефон, щоб створити пару через USB."
 
-#: rust/crates/link/src/plugin.rs:662
+#: rust/crates/link/src/plugin.rs:697
 msgid "Allow USB debugging on the phone."
 msgstr "Дозвольте налагодження через USB на телефоні."
 
-#: rust/crates/link/src/plugin.rs:703
+#: rust/crates/link/src/plugin.rs:738
 #, python-brace-format
 msgid "Telescope can download adb from Google (about {size}) and save it for your user. adb is Google's software and their Android SDK License applies (<a href=\"{url}\">read it here</a>).<br><br>Wi-Fi works without adb."
 msgstr "Telescope може завантажити adb від Google (близько {size}) і зберегти його для вашого користувача. adb є програмним забезпеченням Google, і на нього поширюється ліцензія Android SDK (<a href=\"{url}\">читати тут</a>).<br><br>Wi-Fi працює без adb."
 
-#: rust/crates/link/src/plugin.rs:709
+#: rust/crates/link/src/plugin.rs:744
 msgid "USB needs adb, Google's tool for talking to Android phones."
 msgstr "Для USB потрібен adb, інструмент Google для зв'язку з телефонами Android."
 
-#: rust/crates/link/src/plugin.rs:712
+#: rust/crates/link/src/plugin.rs:747
 msgid "Agree and download"
 msgstr "Погодитися та завантажити"
 
-#: rust/crates/link/src/plugin.rs:731
+#: rust/crates/link/src/plugin.rs:766
 msgid "Pick adb.exe or the platform-tools zip"
 msgstr "Виберіть adb.exe або архів platform-tools zip"
 
-#: rust/crates/link/src/plugin.rs:732
+#: rust/crates/link/src/plugin.rs:767
 msgid "adb.exe or platform-tools zip (adb.exe *.zip)"
 msgstr "adb.exe або архів platform-tools zip (adb.exe *.zip)"
 
-#: rust/crates/link/src/plugin.rs:738
+#: rust/crates/link/src/plugin.rs:773
 msgid "Copying adb…"
 msgstr "Копіювання adb…"
 
-#: rust/crates/link/src/plugin.rs:773
+#: rust/crates/link/src/plugin.rs:808
 #, python-brace-format
 msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
 msgstr "<a href=\"{get}\">Спробувати знову</a> або <a href=\"{pick}\">вибрати adb, який у вас уже є</a>."
 
-#: rust/crates/link/src/plugin.rs:849
+#: rust/crates/link/src/plugin.rs:884
 msgid "Same phone?"
 msgstr "Той самий телефон?"
 
-#: rust/crates/link/src/plugin.rs:850
+#: rust/crates/link/src/plugin.rs:885
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "Це знову {name}?"
 
-#: rust/crates/link/src/plugin.rs:850
+#: rust/crates/link/src/plugin.rs:885
 #, python-brace-format
 msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
 msgstr "{name} додано в пару як новий телефон. Це відбувається після перевстановлення Telescope на телефоні або очищення даних додатка. Відповідь «Так» перенесе налаштування та пресети {name} до нового запису й вилучить старий."
 
-#: rust/crates/link/src/plugin.rs:1055
+#: rust/crates/link/src/plugin.rs:1090
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "Додаток на телефоні оновлено. Відкрийте Telescope на телефоні."
 
-#: rust/crates/link/src/plugin.rs:1129 rust/crates/link/src/plugin.rs:1150
+#: rust/crates/link/src/plugin.rs:1171 rust/crates/link/src/plugin.rs:1192
 msgctxt "status"
 msgid "Streaming"
 msgstr "Транслює"
 
-#: rust/crates/link/src/plugin.rs:1130
+#: rust/crates/link/src/plugin.rs:1172
 #, python-brace-format
 msgid "Waiting for {source}"
 msgstr "Очікування на {source}"
 
-#: rust/crates/link/src/plugin.rs:1131
+#: rust/crates/link/src/plugin.rs:1173
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr "{source}, створення пари не потрібне"
 
-#: rust/crates/link/src/plugin.rs:1145 rust/crates/shell/src/streams.rs:1188
+#: rust/crates/link/src/plugin.rs:1187 rust/crates/shell/src/streams.rs:1188
 msgid "Reconnecting"
 msgstr "Повторне підключення"
 
-#: rust/crates/link/src/plugin.rs:1148
+#: rust/crates/link/src/plugin.rs:1190
 msgid "Streaming over USB"
 msgstr "Транслює через USB"
 
-#: rust/crates/link/src/plugin.rs:1149
+#: rust/crates/link/src/plugin.rs:1191
 msgid "Streaming over Wi-Fi"
 msgstr "Транслює через Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1153 rust/crates/shell/src/streams.rs:1192
+#: rust/crates/link/src/plugin.rs:1195 rust/crates/shell/src/streams.rs:1192
 msgid "Connecting"
 msgstr "Підключення"
 
-#: rust/crates/link/src/plugin.rs:1169
+#: rust/crates/link/src/plugin.rs:1211
 msgid "Updating the phone app over USB…"
 msgstr "Оновлення додатка на телефоні через USB…"
 
-#: rust/crates/link/src/plugin.rs:1173
+#: rust/crates/link/src/plugin.rs:1215
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Додаток Telescope на {phone} старіший за цей."
 
-#: rust/crates/link/src/plugin.rs:1248 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:763 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1290 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:763 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "Скопіювати команду"
 
-#: rust/crates/link/src/plugin.rs:1256 rust/crates/link/src/plugin.rs:1413 rust/crates/link/src/plugin.rs:1462 rust/crates/link/src/plugin.rs:1469 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
+#: rust/crates/link/src/plugin.rs:1298 rust/crates/link/src/plugin.rs:1461 rust/crates/link/src/plugin.rs:1510 rust/crates/link/src/plugin.rs:1517 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
 msgid "Phone"
 msgstr "Телефон"
 
-#: rust/crates/link/src/plugin.rs:1256
+#: rust/crates/link/src/plugin.rs:1298
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "Телефон · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1257
+#: rust/crates/link/src/plugin.rs:1299
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer and unpairs it on the phone too if Telescope can reach it."
 msgstr "Вилучити \"{name}\"? Це видалить налаштування його камери на цьому комп'ютері, а також розірве пару на телефоні, якщо Telescope зможе з ним зв'язатися."
 
-#: rust/crates/link/src/plugin.rs:1260
+#: rust/crates/link/src/plugin.rs:1302
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "Перейменувати {name}"
 
-#: rust/crates/link/src/plugin.rs:1261 rust/crates/link/src/plugin.rs:1268
+#: rust/crates/link/src/plugin.rs:1303 rust/crates/link/src/plugin.rs:1310
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "Вилучити {name}"
 
-#: rust/crates/link/src/plugin.rs:1262
+#: rust/crates/link/src/plugin.rs:1304
 msgid "Remove phone"
 msgstr "Вилучити телефон"
 
-#: rust/crates/link/src/plugin.rs:1265
+#: rust/crates/link/src/plugin.rs:1307
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
 msgstr "Вилучити \"{name}\"? Це видалить його налаштування на цьому комп'ютері. Браузер усе одно зможе підключитися за кодом і запуститься з налаштуваннями за замовчуванням."
 
-#: rust/crates/link/src/plugin.rs:1269
+#: rust/crates/link/src/plugin.rs:1311
 msgid "Remove browser"
 msgstr "Вилучити браузер"
 
-#: rust/crates/link/src/plugin.rs:1574
+#: rust/crates/link/src/plugin.rs:1622
 msgid "Virtual camera is set up differently"
 msgstr "Віртуальну камеру налаштовано інакше"
 
-#: rust/crates/link/src/plugin.rs:1575
+#: rust/crates/link/src/plugin.rs:1623
 #, python-brace-format
 msgid "Another app loaded v4l2loopback with other settings and without {device}. Close that app and run this command to give Telescope control:"
 msgstr "Інший застосунок завантажив v4l2loopback з іншими налаштуваннями та без {device}. Закрийте той застосунок і виконайте цю команду, щоб надати керування Telescope:"
 
-#: rust/crates/link/src/plugin.rs:1585
+#: rust/crates/link/src/plugin.rs:1633
 msgid "The virtual camera is off"
 msgstr "Віртуальну камеру вимкнено"
 
-#: rust/crates/link/src/plugin.rs:1585
+#: rust/crates/link/src/plugin.rs:1633
 msgid "Your password is needed to switch on the virtual camera."
 msgstr "Для ввімкнення віртуальної камери потрібен ваш пароль."
 
-#: rust/crates/link/src/plugin.rs:1586 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
+#: rust/crates/link/src/plugin.rs:1634 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
 msgid "Switch on"
 msgstr "Увімкнути"
 
@@ -11038,7 +11046,7 @@ msgstr "Завантажений архів розпаковується у бі
 msgid "The download contains unexpected paths and wasn't used."
 msgstr "Завантажений архів містить неочікувані шляхи і не використовувався."
 
-#: rust/crates/link/src/https.rs:646
+#: rust/crates/link/src/https.rs:662
 msgid "Status"
 msgstr ""
 

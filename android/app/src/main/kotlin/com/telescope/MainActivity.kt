@@ -49,6 +49,8 @@ class MainActivity : LookActivity() {
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var cardUpdate: View
     private lateinit var cardPortBusy: View
+    private lateinit var cardComputerVersion: View
+    private lateinit var tvComputerVersion: TextView
     private lateinit var tvUpdateTitle: TextView
     private lateinit var tvUpdateText: TextView
     private lateinit var btnUpdate: MaterialButton
@@ -69,6 +71,7 @@ class MainActivity : LookActivity() {
             if (starting && CameraStreamService.instance == null && !SessionStartWindow.open()) starting = false
             adoptRemoteStart()
             updateStatusText()
+            renderComputerVersion()
             uiHandler.postDelayed(this, 1000)
         }
     }
@@ -172,6 +175,8 @@ class MainActivity : LookActivity() {
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBlackScreen, getString(R.string.black_screen_description))
         cardUpdate    = findViewById(R.id.cardUpdate)
         cardPortBusy  = findViewById(R.id.cardPortBusy)
+        cardComputerVersion = findViewById(R.id.cardComputerVersion)
+        tvComputerVersion = findViewById(R.id.tvComputerVersion)
         tvUpdateTitle = findViewById<CardHeader>(R.id.headerUpdate).title
         tvUpdateText  = findViewById(R.id.tvUpdateText)
         btnUpdate     = findViewById(R.id.btnUpdate)
@@ -295,6 +300,7 @@ class MainActivity : LookActivity() {
             val failures = mutableListOf<PairingAttemptFailure>()
             val startedAt = android.os.SystemClock.elapsedRealtime()
             var success = false
+            var successfulAddress: String? = null
             var untried = 0
             for ((index, route) in routes.withIndex()) {
                 // Bound wait per candidate; many candidates can't cause long delays.
@@ -308,6 +314,7 @@ class MainActivity : LookActivity() {
                     attemptPair(offer, route.candidate, network, deviceName, phoneId, myIps, timeout)
                 if (problem == null) {
                     success = true
+                    successfulAddress = route.candidate.ip
                     break
                 }
                 failures += PairingAttemptFailure(route.candidate.ip, route.via, problem)
@@ -320,6 +327,7 @@ class MainActivity : LookActivity() {
                     name = offer.computerName.ifBlank { getString(R.string.default_computer_name) },
                     token = offer.token,
                     pairedAtMs = System.currentTimeMillis(),
+                    addresses = mergeComputerAddresses(listOfNotNull(successfulAddress) + offer.candidates.map { it.ip }, offer.candidates),
                 ))
             }
             runOnUiThread {
@@ -399,7 +407,20 @@ class MainActivity : LookActivity() {
         }
     } catch (_: Exception) { null }
 
-    private val pairingListener: () -> Unit = { runOnUiThread { renderPairing() } }
+    private val pairingListener: () -> Unit = { runOnUiThread { renderPairing(); renderComputerVersion() } }
+
+    private fun renderComputerVersion() {
+        val lines = PairedComputers.list(this).computers.mapNotNull { computer ->
+            when (desktopVersionNotice(computer.desktopVersion, BuildConfig.VERSION_NAME)) {
+                DesktopVersionNotice.Legacy -> getString(R.string.computer_version_legacy, computer.name)
+                DesktopVersionNotice.Different -> getString(R.string.computer_version_different, computer.name, computer.desktopVersion, BuildConfig.VERSION_NAME)
+                null -> null
+            }
+        }.toMutableList()
+        if (SessionEndpoint.presenceDegraded) lines += getString(R.string.presence_unavailable)
+        cardComputerVersion.visibility = if (lines.isEmpty()) View.GONE else View.VISIBLE
+        tvComputerVersion.text = lines.joinToString("\n")
+    }
     private val updateListener: () -> Unit = { runOnUiThread { renderUpdate() } }
 
     // ── Updates ──────────────────────────────────────────────────────────

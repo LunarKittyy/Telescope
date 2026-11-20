@@ -153,7 +153,8 @@ impl PairingServer {
                 "nonce": nonce, "token": token, "computer_id": computer_id, "computer_name": computer_name,
             }))
         };
-        let usb = [PairingAddress { ip: "127.0.0.1".into(), interface: "USB (adb)".into(), kind: "other" }];
+        let mut usb = vec![PairingAddress { ip: "127.0.0.1".into(), interface: "USB (adb)".into(), kind: "other" }];
+        usb.extend(candidates.iter().cloned());
         let offer = PairingOffer { payload: payload_for(&candidates), usb_payload: payload_for(&usb), port, nonce: nonce.clone(),
                                    token: token.clone(), candidates };
         let shared = Arc::new(Shared { nonce, token, limits, open: Mutex::default(), claimed: Mutex::default(), on_paired: Box::new(on_paired), stop: AtomicBool::new(false) });
@@ -428,6 +429,10 @@ mod tests {
         assert_eq!(payload["candidates"], json!([{"ip": "192.168.1.42", "interface": "Wi-Fi", "kind": "lan"},
                                                  {"ip": "100.90.12.34", "interface": "tailscale0", "kind": "tailscale"}]));
         assert_eq!(offer.candidates, candidates());
+        let usb: Value = serde_json::from_str(&offer.usb_payload).unwrap();
+        assert_eq!(usb["candidates"][0]["ip"], "127.0.0.1");
+        assert_eq!(usb["candidates"][1], payload["candidates"][0]);
+        assert_eq!(usb["candidates"][2], payload["candidates"][1]);
     }
 
     #[test]

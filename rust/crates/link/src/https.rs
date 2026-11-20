@@ -395,6 +395,21 @@ impl<'a> Request<'a> {
     }
 }
 
+static DESKTOP_VERSION: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+pub(crate) fn set_desktop_version(version: &str) {
+    let version: String = version.chars().filter(|c| c.is_ascii() && !c.is_ascii_control()).take(64).collect();
+    *DESKTOP_VERSION.lock().unwrap_or_else(|e| e.into_inner()) = version;
+}
+
+fn desktop_metadata() -> String {
+    let version = DESKTOP_VERSION.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    if version.is_empty() { return String::new() }
+    // Requests already run off the UI thread; never scan adapters while holding a shared lock.
+    let addresses = crate::net::presence_addresses(crate::net::pairing_addresses().into_iter().map(|a| a.ip)).join(",");
+    format!("X-Telescope-Version: {version}\r\nX-Telescope-Addresses: {addresses}\r\nX-Telescope-Presence: 1\r\n")
+}
+
 /// A paired phone's bearer token plus its certificate pin; opens authenticated requests to it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PhoneAuth {
@@ -456,6 +471,7 @@ impl PhoneAuth {
                                req.method, url.target, url.host, url.port);
         if req.token {
             head += &format!("Authorization: Bearer {}\r\n", self.token);
+            if url.tls && !self.token.is_empty() { head += &desktop_metadata(); }
         }
         if let Some(body) = req.body {
             head += &format!("Content-Type: application/json\r\nContent-Length: {}\r\n", body.len());

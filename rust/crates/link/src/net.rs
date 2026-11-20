@@ -85,6 +85,23 @@ fn addresses_from(list: impl FnOnce() -> std::io::Result<Vec<(String, IpAddr)>>)
     list().map_or_else(|_| Vec::new(), |adapters| pick_addresses(&adapters))
 }
 
+/// A bounded presence advertisement that retains a Tailscale route alongside LAN candidates.
+pub(crate) fn presence_addresses(values: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut unique = Vec::new();
+    for value in values {
+        if classify_ip(&value).is_some() && !unique.contains(&value) { unique.push(value); }
+    }
+    let tailscale = unique.iter().find(|ip| classify_ip(ip) == Some("tailscale")).cloned();
+    unique.truncate(4);
+    if let Some(ip) = tailscale {
+        if !unique.contains(&ip) {
+            unique.pop();
+            unique.push(ip);
+        }
+    }
+    unique
+}
+
 /// Preference among a phone's addresses: Tailscale 0, LAN 1, other 2.
 pub fn rank_ip(ip: &str) -> u8 {
     let parts: Vec<&str> = ip.split('.').collect();
@@ -117,6 +134,13 @@ mod tests {
     fn adapters(list: &[(&str, &str)]) -> Vec<PairingAddress> {
         let raw: Vec<(String, IpAddr)> = list.iter().map(|(n, ip)| (n.to_string(), ip.parse().unwrap())).collect();
         pick_addresses(&raw)
+    }
+
+    #[test]
+    fn bounded_presence_addresses_keep_a_vpn_route_and_reject_unusable_addresses() {
+        let values = ["127.0.0.1", "169.254.1.1", "192.168.1.1", "192.168.1.2", "192.168.1.3", "192.168.1.4", "100.90.12.34", "192.168.1.1"];
+        assert_eq!(presence_addresses(values.into_iter().map(str::to_string)),
+                   ["192.168.1.1", "192.168.1.2", "192.168.1.3", "100.90.12.34"]);
     }
 
     #[test]

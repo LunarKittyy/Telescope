@@ -102,7 +102,25 @@ pub trait PairingOffer: Send + Sync {
     fn revoke(&self) {}
 }
 
+/// A presence hint still requires the existing pinned HTTPS readiness check.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PresenceUpdate {
+    Probe { phone_id: String },
+    Reachable { phone_id: String, address: String, addresses: Vec<String> },
+    Degraded(String),
+    Restored,
+}
+
 pub trait Link: Send + Sync {
+    /// Configures the background presence worker without doing network I/O on the caller.
+    fn configure_presence(&self, _computer_id: &str, _version: &str, _phones: &[PairedPhone]) {}
+    /// Coalesces an interaction hint for the background worker.
+    fn presence_hint(&self) {}
+    /// Drains bounded hints without doing network I/O.
+    fn presence_updates(&self) -> Vec<PresenceUpdate> { Vec::new() }
+    /// A capable phone's search generation; None retains legacy recovery polling.
+    fn presence_generation(&self, _phone_id: &str) -> Option<u64> { None }
+
     /// A new computer id and this computer's name, for a settings file that has none yet (what phones know this computer by).
     fn new_identity(&self) -> (String, String);
     /// The way to this phone right now: USB first when it answers over a cable, else the network.
@@ -303,6 +321,9 @@ pub struct Resolution {
     pub phone_version: String,
     /// The phone runs Dynamic over UDP from this desktop's reports.
     pub udp_dynamic: bool,
+    /// Optional HTTPS capability, independent of the session protocol.
+    #[serde(default)]
+    pub presence: bool,
     /// NOT_PAIRED because the pairing predates TLS, not because the phone dropped it.
     pub before_tls: bool,
     /// UNREACHABLE although something answered on the session port that isn't this phone's app (another Telescope build on the phone, say).
@@ -313,7 +334,7 @@ pub struct Resolution {
 impl Resolution {
     pub fn new(status: PhoneStatus) -> Resolution {
         Resolution { status, route: None, usb_note: None, streaming: false, busy: false, streaming_for: String::new(),
-                     phone_version: String::new(), udp_dynamic: false, before_tls: false, other_app: false }
+                     phone_version: String::new(), udp_dynamic: false, presence: false, before_tls: false, other_app: false }
     }
 }
 

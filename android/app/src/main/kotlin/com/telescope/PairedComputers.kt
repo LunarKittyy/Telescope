@@ -16,6 +16,9 @@ data class PairedComputer(
     val name: String,
     val token: String,
     val pairedAtMs: Long,
+    val addresses: List<PairingCandidate> = emptyList(),
+    val desktopVersion: String? = null,
+    val presence: Boolean? = null,
 )
 
 // The paired-computer list as a value; Android-free so it's unit-testable on the JVM.
@@ -91,9 +94,25 @@ object PairedComputers {
 
     fun removeAll(context: Context) = update(context) { PairedComputerList() }
 
+    fun authenticatedContact(context: Context, computer: PairedComputer, headers: Map<String, String>, address: String?) {
+        val addresses = headers["x-telescope-addresses"].orEmpty().split(',') + listOfNotNull(address)
+        contact(context, computer, headers["x-telescope-version"]?.take(64) ?: "", headers["x-telescope-presence"] == "1", addresses)
+    }
+
+    internal fun presenceContact(context: Context, update: PresenceContact) =
+        contact(context, update.computer, update.version, true, listOf(update.address) + update.addresses)
+
+    private fun contact(context: Context, computer: PairedComputer, version: String, capable: Boolean, addresses: List<String>) = update(context) { list ->
+        PairedComputerList(list.computers.map { current ->
+            if (current.id != computer.id || current.token != computer.token) current
+            else current.copy(desktopVersion = version, presence = capable, addresses = mergeComputerAddresses(addresses, current.addresses))
+        })
+    }
+
     @Synchronized
     private fun update(context: Context, change: (PairedComputerList) -> PairedComputerList) {
         val next = change(list(context))
+        if (next.computers == list(context).computers) return
         prefs(context).edit().putString(KEY_COMPUTERS, next.encode()).apply()
         cache = next
         listeners.toList().forEach { it() }
@@ -120,3 +139,9 @@ object PairedComputers {
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }
+
+// Existing adapter kinds remain useful when HTTPS only supplies literal addresses.
+internal fun mergeComputerAddresses(incoming: List<String>, previous: List<PairingCandidate>): List<PairingCandidate> =
+    boundedPresenceAddresses(incoming + previous.map { it.ip }).map { ip ->
+        previous.firstOrNull { it.ip == ip } ?: PairingCandidate(ip, "", presenceKind(ip))
+    }

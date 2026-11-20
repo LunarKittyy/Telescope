@@ -15,6 +15,7 @@ pub mod net;
 pub mod pairing;
 pub mod phone_client;
 pub mod phones;
+pub mod presence;
 pub mod platform;
 pub mod plugin;
 pub mod sensors;
