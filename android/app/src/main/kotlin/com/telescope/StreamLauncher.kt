@@ -43,10 +43,16 @@ object StreamLauncher {
             )
         ) return Result.Rejected(RemoteStartPolicy.REFUSED)
 
+        // Reserve camera ownership atomically so a remote start cannot race an active Camera2 probe.
+        // Overlapping STREAM leases are allowed during startup so a duplicate start still reaches duplicateStart.
+        val lease = CameraOwnership.tryAcquire(CameraOwner.STREAM, adopted = false)
+            ?: return if (CameraStreamService.instance?.isStreaming == true) Result.AlreadyStreaming else Result.Rejected("busy")
+
         val intent = Intent(context, CameraStreamService::class.java).apply {
             putExtra(CameraStreamService.EXTRA_LOCAL_ONLY, StreamPrefs.localOnly(context))
             putExtra(CameraStreamService.EXTRA_REMOTE, remote)
             putExtra(CameraStreamService.EXTRA_COVERED, covered)
+            putExtra(CameraStreamService.EXTRA_OWNERSHIP_LEASE, lease.id)
             if (selection != null) {
                 putExtra(CameraStreamService.EXTRA_CAMERA_ID, selection.cameraId)
                 putExtra(CameraStreamService.EXTRA_LOGICAL_ID, selection.logicalId)
@@ -58,13 +64,18 @@ object StreamLauncher {
             putExtra(CameraStreamService.EXTRA_CAMERA_OFF, cameraOff)
             if (owner != null) putExtra(CameraStreamService.EXTRA_OWNER, owner)
         }
-        // Opened before the start, or a service that settles first would have its settle() undone
-        intent.putExtra(CameraStreamService.EXTRA_START_TICKET, SessionStartWindow.begin(owner))
+        // Opened before the start, or a service that settles first would have its settle() undone;
+        // a stop-before-start abort releases the unadopted lease at once rather than waiting for PENDING_MS.
+        val ticket = SessionStartWindow.begin(owner) {
+            CameraOwnership.releaseIfUnadopted(lease.id)
+        }
+        intent.putExtra(CameraStreamService.EXTRA_START_TICKET, ticket)
         return try {
             // A plain start is allowed: the waiting service already keeps the app in the foreground.
             if (covered) context.startService(intent) else ContextCompat.startForegroundService(context, intent)
             Result.Started
         } catch (e: Exception) {
+            CameraOwnership.release(lease.id)
             SessionStartWindow.cancel()
             android.util.Log.w("StreamLauncher", "Could not start stream service", e)
             Result.Rejected("start_refused")

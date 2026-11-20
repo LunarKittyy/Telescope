@@ -269,6 +269,19 @@
                         app:iconSize="18dp"
                         app:iconGravity="textStart" />
 
+                    <!-- Revealed by tapping the version line five times; kept in-memory only -->
+                    <com.telescope.LookButton
+                        android:id="@+id/btnCameraProbe"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:layout_marginTop="6dp"
+                        android:visibility="gone"
+                        android:text="@string/camera_probe"
+                        app:icon="@drawable/ic_sliders"
+                        app:iconSize="18dp"
+                        app:iconGravity="textStart" />
+
                     <com.telescope.LookButton
                         android:id="@+id/btnReportBug"
                         android:layout_width="match_parent"
