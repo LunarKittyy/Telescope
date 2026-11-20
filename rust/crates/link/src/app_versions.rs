@@ -9,7 +9,7 @@ pub(crate) enum Difference {
 
 pub(crate) fn compare(phone: &str, desktop: &str) -> Option<Difference> {
     let (phone, desktop) = (phone.trim(), desktop.trim());
-    if phone.is_empty() || desktop.is_empty() || phone == desktop {
+    if phone.is_empty() || desktop.is_empty() || phone == desktop || dev_build(phone) || dev_build(desktop) {
         return None;
     }
     let order = match (nightly_build(phone), nightly_build(desktop)) {
@@ -31,6 +31,11 @@ fn release(version: &str) -> Option<[u64; 3]> {
         part.parse().ok()
     }).collect::<Option<Vec<_>>>()?;
     parts.try_into().ok()
+}
+
+// Local builds ("5.1.4-dev.1" on the phone, "5.1.4 dev" here) are someone testing their own change
+fn dev_build(version: &str) -> bool {
+    version.ends_with(" dev") || version.contains("-dev.")
 }
 
 fn nightly_build(version: &str) -> Option<u64> {
@@ -82,8 +87,14 @@ mod tests {
     }
 
     #[test]
+    fn dev_builds_have_no_notice() {
+        assert_eq!(compare("3.6.0-dev.1", "3.6.0 dev"), None);
+        assert_eq!(compare("3.6.0-nightly.123", "3.6.0 dev"), None);
+        assert_eq!(compare("3.5.0-dev.1", "3.6.0"), None);
+    }
+
+    #[test]
     fn unknown_formats_only_differ() {
-        assert_eq!(compare("3.6.0-dev.1", "3.6.0 dev"), Some(Difference::Different));
         assert_eq!(compare("3.6.0-nightly.bad", "3.6.0 nightly 123"), Some(Difference::Different));
         assert_eq!(compare("unknown", "unknown"), None);
         assert_eq!(compare("3.6.0", ""), None);
