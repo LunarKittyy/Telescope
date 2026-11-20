@@ -115,7 +115,6 @@ pub struct Menu {
     pub labels: Vec<String>,
     /// None when the camera is on something not listed (Bulb).
     pub current: Option<usize>,
-    pub bulb: bool,
 }
 
 impl Menu {
@@ -180,14 +179,13 @@ fn menu_of(name: &'static str, s: &Setting, label: fn(&str) -> Option<String>, s
     if s.readonly || !matches!(s.kind, Kind::Choice) {
         return None;
     }
-    let bulb = s.value.to_lowercase().contains("bulb");
     let (mut values, mut labels) = (Vec::new(), Vec::new());
     for choice in s.choices.iter().filter(|c| !skip(c)) {
         labels.push(label(choice).unwrap_or_else(|| choice.clone()));
         values.push(choice.clone());
     }
     let current = values.iter().position(|v| *v == s.value);
-    (values.len() > 1).then_some(Menu { name, values, labels, current, bulb })
+    (values.len() > 1).then_some(Menu { name, values, labels, current })
 }
 
 pub fn read_photo_caps(rig: &mut dyn Rig) -> PhotoCaps {
@@ -910,17 +908,20 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
             }
         }
     };
-    let covered = || guard.is_hidden();
+    if let Some(stop) = guard.stop() {
+        return outcome.annotate(failed(&stop, &[]));
+    }
+    let covered = || guard.stop().is_some();
     let data = match &outcome.result {
         Ok(shots) => match save(folder, shots, &covered) {
             Ok(files) => result(true, &files, "", ""),
-            Err((failure, files)) => failed(&failure, &files),
+            Err((failure, files)) => failed(&guard.stop().unwrap_or(failure), &files),
         },
         // Whatever came of a photo that is only half there is kept, and the card says it is half
         Err(Failure::Partial(shots)) => {
             let files = match save(folder, shots, &covered) {
                 Ok(files) => files,
-                Err((Failure::Hidden, _)) => return outcome.annotate(failed(&Failure::Hidden, &[])),
+                Err((Failure::Hidden, _)) => return outcome.annotate(failed(&guard.stop().unwrap_or(Failure::Hidden), &[])),
                 Err((_, files)) => files,
             };
             failed(&Failure::Partial(shots.clone()), &files)
@@ -993,14 +994,15 @@ impl GphotoStills {
         let on_progress = Arc::new(Mutex::new(on_progress));
         let tell = on_progress.clone();
         let late_folder = folder.clone();
-        let late_hidden = hidden.clone();
+        let guard = Guard { hidden, alive: Arc::new(Mutex::new(alive)) };
+        let late_guard = guard.clone();
         let late: Late = Arc::new(move |outcome| {
             let shots = match &outcome.result {
                 Ok(shots) | Err(Failure::Partial(shots)) => shots.as_slice(),
                 Err(_) => &[],
             };
-            // A photo that comes late is saved unless the picture is hidden by then
-            let covered = || late_hidden.as_ref().is_some_and(|h| h.load(Ordering::SeqCst));
+            // A timeout keeps the photo, but cancellation or a hidden picture discards it.
+            let covered = || late_guard.stop().is_some();
             let files = save(&late_folder, shots, &covered).unwrap_or_else(|(_, files)| files);
             if !files.is_empty() || !outcome.restore_errors.is_empty() {
                 let said = outcome.annotate(json!({"state": "late", "files": files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>() }));
@@ -1009,7 +1011,6 @@ impl GphotoStills {
         });
         let spawned = std::thread::Builder::new().name("dslr-photo".into()).spawn(move || {
             let report = |data: Value| (*on_progress.lock().unwrap_or_else(|e| e.into_inner()))(data);
-            let guard = Guard { hidden, alive: Arc::new(Mutex::new(alive)) };
             let outcome = run_job(&held, wish, &folder, &report, &guard, longest, Some(late));
             held.in_flight.store(false, Ordering::SeqCst);
             on_done(outcome);

@@ -1110,3 +1110,30 @@ fn a_late_restore_failure_is_shown_even_without_files() {
     assert_eq!(rig.props()["status"], "Restore failed");
     assert_eq!(rig.props()["status-kind"], "status_err");
 }
+
+#[test]
+fn returning_iso_to_camera_removes_the_override_and_clears_reset() {
+    let mut value = full_json();
+    value["shot"] = json!({"iso_values": [100, 800]});
+    let mut rig = Rig::new(Some(value), true);
+    assert_eq!(rig.props()["reset-shown"], false);
+    rig.ui("shot-iso-picked", vec![json!(2)]);
+    assert_eq!(rig.plugin.get_config()["shot"], json!({"iso": 800}));
+    assert_eq!(rig.props()["reset-shown"], true);
+    rig.ui("shot-iso-picked", vec![json!(0)]);
+    assert!(rig.plugin.get_config().get("shot").is_none());
+    assert!(rig.plugin.preset_config().get("shot").is_none());
+    assert_eq!(rig.props()["shot-summary"], "Like the camera");
+    assert_eq!(rig.props()["reset-shown"], false);
+}
+
+#[test]
+fn loading_an_empty_shot_override_keeps_reset_clear() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    for shot in [json!({}), json!({"iso": null, "shutter_s": null})] {
+        rig.plugin.set_config(&json!({"shot": shot})).unwrap();
+        rig.caps_changed();
+        assert!(rig.plugin.get_config().get("shot").is_none());
+        assert_eq!(rig.props()["reset-shown"], false);
+    }
+}

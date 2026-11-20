@@ -25,6 +25,7 @@ struct State {
     /// capture() brings the first file and fails for the second.
     partial: bool,
     capture_takes: Duration,
+    capture_release: Option<std::sync::mpsc::Receiver<()>>,
     captures: u32,
     /// Live view as capture() found it.
     live_view_at_capture: Option<String>,
@@ -84,7 +85,7 @@ impl Rig for Fake {
     }
     fn restart_live_view(&mut self) {}
     fn capture(&mut self, expect: usize, _stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
-        let (takes, error, before, panic_capture) = {
+        let (takes, error, before, panic_capture, release) = {
             let mut s = self.0.lock().unwrap();
             s.log.push("capture".into());
             s.captures += 1;
@@ -92,7 +93,7 @@ impl Rig for Fake {
             s.live_view_at_capture = s.settings.get("viewfinder").map(|v| v.2.clone());
             let failing = s.fail_captures > 0;
             s.fail_captures = s.fail_captures.saturating_sub(1);
-            (s.capture_takes, s.capture_error.clone().or(failing.then(|| "the camera hiccuped".to_string())), s.fail_before_shutter && failing, s.panic_capture)
+            (s.capture_takes, s.capture_error.clone().or(failing.then(|| "the camera hiccuped".to_string())), s.fail_before_shutter && failing, s.panic_capture, s.capture_release.take())
         };
         {
             let mut s = self.0.lock().unwrap();
@@ -104,6 +105,9 @@ impl Rig for Fake {
             }
         }
         assert!(!panic_capture, "the camera panicked");
+        if let Some(release) = release {
+            release.recv().unwrap();
+        }
         std::thread::sleep(takes);
         if let Some(why) = error {
             return Err(if before { Incomplete::refused(why) } else { Incomplete::from(why) });
@@ -1214,4 +1218,67 @@ fn applied_reports_the_camera_readback_after_capture_before_restore() {
         assert_eq!(s.settings["iso"].2, "400");
         assert_eq!(s.settings["shutterspeed"].2, "0,0250s");
     }
+}
+
+#[test]
+fn cancelling_a_photo_discards_its_late_files_but_reports_restore_failures() {
+    let state = d5100(true);
+    let mut cap = open_with("gphoto2:usb:X13-cancel", fast(), connecting(&state)).ok().unwrap();
+    cap.read().unwrap();
+    let stills = GphotoStills::new("gphoto2:usb:X13-cancel");
+    wait_for("caps", || stills.caps().is_some());
+    for restore_failed in [false, true] {
+        let dir = folder(if restore_failed { "cancel-restore" } else { "cancel-late" });
+        let (release, hold) = channel();
+        let captures = {
+            let mut s = state.lock().unwrap();
+            s.capture_release = Some(hold);
+            s.fail_writes = if restore_failed { vec!["iso=400".into()] } else { Vec::new() };
+            s.captures
+        };
+        let alive = yes();
+        let taken = take(&stills, json!({"format": "jpeg", "shot": {"iso": 800}}), &dir, alive.clone()).unwrap();
+        wait_for("the shutter to open", || state.lock().unwrap().captures > captures);
+        let previews = state.lock().unwrap().previews;
+        alive.store(false, Ordering::SeqCst);
+        let done = taken.done.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(done["code"], "interrupted");
+        assert_eq!(done["files"], json!([]));
+        release.send(()).unwrap();
+        wait_for("live view after the late photo", || state.lock().unwrap().previews > previews);
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+        let states = taken.states.lock().unwrap();
+        let late = states.iter().find(|p| p["state"] == "late");
+        if restore_failed {
+            let late = late.unwrap();
+            assert_eq!(late["code"], "restore");
+            assert_eq!(late["files"], json!([]));
+            assert_eq!(late["restore"]["ok"], false);
+        } else {
+            assert!(late.is_none());
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+    drop(cap);
+}
+
+#[test]
+fn cancellation_discards_a_photo_already_handed_to_the_waiter() {
+    let shared = Shared::default();
+    let alive = yes();
+    let check_alive = alive.clone();
+    let guard = Guard { hidden: None, alive: Arc::new(Mutex::new(Box::new(move || check_alive.load(Ordering::SeqCst)))) };
+    let dir = folder("cancel-ready");
+    let report = |data: Value| {
+        if data["state"] == "capturing" {
+            let job = shared.pending.lock().unwrap().take().unwrap();
+            alive.store(false, Ordering::SeqCst);
+            assert!(job.reply.send(Ok(vec![shot(1)]).into()).is_ok());
+        }
+    };
+    let done = run_job(&shared, wish(Format::Jpeg), &dir, &report, &guard, Duration::from_secs(5), None);
+    assert_eq!(done["code"], "interrupted");
+    assert_eq!(done["files"], json!([]));
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+    let _ = std::fs::remove_dir_all(dir);
 }

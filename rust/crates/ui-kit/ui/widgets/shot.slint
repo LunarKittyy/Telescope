@@ -32,6 +32,8 @@ export component ShotControls inherits VerticalLayout {
     callback focus-moved(float);
     callback focus-reset();
 
+    property <bool> stacked: root.width < Theme.u(200);
+
     spacing: Theme.gap;
     RailRow {
         icon: Icons.exposure;
@@ -39,12 +41,15 @@ export component ShotControls inherits VerticalLayout {
         hue: root.hue;
         enabled: root.enabled && ((root.show-shutter && root.shutter-enabled) || root.iso-enabled);
         changed: (root.show-shutter && root.shutter-index != 0) || root.iso-index != 0;
-        HorizontalLayout {
+        GridLayout {
             spacing: Theme.gap;
-            if root.show-shutter: Dial {
+            Dial {
+                row: 0;
+                col: 0;
+                visible: root.show-shutter;
                 label: @tr("Shutter");
                 hue: root.hue;
-                enabled: root.enabled && root.shutter-enabled;
+                enabled: root.enabled && root.show-shutter && root.shutter-enabled;
                 tip: @tr("Shutter speed");
                 tip-detail: !root.shutter-enabled ? root.shutter-tip : root.shutter-index == 0 ? @tr("Like the camera") : root.shutter-tip;
                 stops: root.shutter-stops;
@@ -52,6 +57,8 @@ export component ShotControls inherits VerticalLayout {
                 moved(i) => { root.shutter-picked(i); }
             }
             Dial {
+                row: root.show-shutter && root.stacked ? 1 : 0;
+                col: root.show-shutter && !root.stacked ? 1 : 0;
                 label: @tr("ISO");
                 hue: root.hue;
                 enabled: root.enabled && root.iso-enabled;

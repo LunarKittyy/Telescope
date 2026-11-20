@@ -165,7 +165,7 @@ export component PhototrapCard inherits Card {
                         padding-left: Theme.u(6);
                         padding-right: Theme.u(6);
                         spacing: Theme.gap;
-                        if root.width >= Theme.u(200): Text {
+                        Text {
                             text: @tr("Customise camera");
                             font-family: Theme.font;
                             font-size: Theme.body;
@@ -173,8 +173,8 @@ export component PhototrapCard inherits Card {
                             color: active ? Theme.ink : Theme.dis;
                             vertical-alignment: center;
                             overflow: elide;
-                            min-width: 0px;
-                            horizontal-stretch: 1;
+                            min-width: min(self.preferred-width, Theme.u(80));
+                            horizontal-stretch: 0;
                             accessible-role: none;
                         }
                         Text {

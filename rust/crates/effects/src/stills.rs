@@ -294,18 +294,28 @@ pub fn shot_iso_stops(caps: &ShotCaps) -> Vec<i64> {
     stops
 }
 
+pub fn shot_shutter_labels(stops: &[f64], value: Option<f64>) -> (Vec<String>, usize) {
+    let mut labels = vec![tr("Camera")];
+    labels.extend(stops.iter().map(|s| exposure_text(*s)));
+    let index = value.and_then(|v| stops.iter().enumerate()
+        .min_by(|(_, a), (_, b)| (**a - v).abs().total_cmp(&(**b - v).abs())).map(|(i, _)| i + 1)).unwrap_or(0);
+    (labels, index)
+}
+
+pub fn shot_iso_labels(stops: &[i64], value: Option<i64>) -> (Vec<String>, usize) {
+    let mut labels = vec![tr("Camera")];
+    labels.extend(stops.iter().map(ToString::to_string));
+    let index = value.and_then(|v| stops.iter().enumerate().min_by_key(|(_, n)| (**n).abs_diff(v)).map(|(i, _)| i + 1)).unwrap_or(0);
+    (labels, index)
+}
+
 // The shared shot controls use their own property names beside Photos' existing camera dials and focus bracket.
 pub fn shot_control_props(caps: Option<&StillCaps>, choice: &ShotChoice, shutter: bool, suppressed: bool) -> Value {
     let shot = caps.and_then(|c| c.shot.as_ref());
     let shutters = shot.map(shot_shutter_stops).unwrap_or_default();
     let isos = shot.map(shot_iso_stops).unwrap_or_default();
-    let mut shutter_labels = vec![tr("Camera")];
-    shutter_labels.extend(shutters.iter().map(|s| exposure_text(*s)));
-    let mut iso_labels = vec![tr("Camera")];
-    iso_labels.extend(isos.iter().map(ToString::to_string));
-    let shutter_index = choice.shutter_s.and_then(|v| shutters.iter().enumerate()
-        .min_by(|(_, a), (_, b)| (**a - v).abs().total_cmp(&(**b - v).abs())).map(|(i, _)| i + 1)).unwrap_or(0);
-    let iso_index = choice.iso.and_then(|v| isos.iter().enumerate().min_by_key(|(_, n)| (**n).abs_diff(v)).map(|(i, _)| i + 1)).unwrap_or(0);
+    let (shutter_labels, shutter_index) = shot_shutter_labels(&shutters, choice.shutter_s);
+    let (iso_labels, iso_index) = shot_iso_labels(&isos, choice.iso);
     let tip = |offered: bool, action: String, missing: String| {
         if suppressed { tr("Night mode sets its own exposure") }
         else if caps.is_none() { tr("Waiting for the picture") }
@@ -348,12 +358,12 @@ pub fn shot_choice(value: Option<&Value>) -> ShotChoice {
     value.cloned().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default()
 }
 
-// Only supported controls go to this photo; disabled choices remain saved for another lens or mode.
-pub fn add_shot(options: &mut Value, caps: &StillCaps, choice: &ShotChoice, shutter: bool, suppressed: bool) {
+// Keep requested overrides so an unavailable setting is refused instead of silently falling back.
+pub fn add_shot(options: &mut Value, choice: &ShotChoice, shutter: bool, suppressed: bool) {
     if suppressed { return; }
     let shot = ShotChoice {
-        shutter_s: choice.shutter_s.filter(|_| shutter && caps.shot.as_ref().is_some_and(|c| !shot_shutter_stops(c).is_empty())),
-        iso: choice.iso.filter(|_| caps.shot.as_ref().is_some_and(|c| !shot_iso_stops(c).is_empty())),
+        shutter_s: choice.shutter_s.filter(|_| shutter),
+        iso: choice.iso,
         focus_diopters: None,
     };
     if shot != ShotChoice::default() { options["shot"] = shot.to_options_value(); }

@@ -106,10 +106,10 @@ fn shared_controls_suppress_overrides_without_erasing_choices() {
     assert_eq!(props["shot-shutter-enabled"], false);
     assert!(!pick_shot(&mut choice, &c, false, 0, true));
     let mut options = json!({});
-    add_shot(&mut options, &c, &choice, true, true);
+    add_shot(&mut options, &choice, true, true);
     assert_eq!(options, json!({}));
     assert_eq!(choice, kept);
-    add_shot(&mut options, &c, &choice, false, false);
+    add_shot(&mut options, &choice, false, false);
     assert_eq!(options, json!({"shot": {"iso": 800}}));
     assert_eq!(shot_control_props(Some(&c), &choice, false, false)["shot-summary"], "ISO 800 · focus ∞");
 }
@@ -124,4 +124,17 @@ fn the_shared_picker_can_unset_and_rejects_stale_indices() {
     assert!(pick_shot(&mut choice, &c, false, 0, false));
     assert_eq!(choice.iso, None);
     assert!(!pick_shot(&mut choice, &StillCaps::default(), true, 1, false));
+}
+
+#[test]
+fn unavailable_shot_overrides_are_kept_for_validation() {
+    let choice = ShotChoice { shutter_s: Some(10.0), iso: Some(800), ..ShotChoice::default() };
+    let caps = StillCaps::default();
+    let props = shot_control_props(Some(&caps), &choice, true, false);
+    assert_eq!(props["shot-shutter-enabled"], false);
+    assert_eq!(props["shot-iso-enabled"], false);
+    let mut options = json!({});
+    add_shot(&mut options, &choice, true, false);
+    assert_eq!(options["shot"], json!({"shutter_s": 10.0, "iso": 800}));
+    assert!(telescope_core::shot::apply_to_dslr(options.as_object_mut().unwrap(), &json!({})).is_err());
 }

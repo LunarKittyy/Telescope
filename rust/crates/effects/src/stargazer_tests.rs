@@ -901,17 +901,17 @@ fn night_shows_the_failure_and_can_try_again() {
 }
 
 #[test]
-fn night_only_sends_the_keys_the_caps_allow_and_never_focus() {
-    for (caps, expected) in [
-        (json!({}), json!({})),
-        (json!({"shot": {"iso": {"min": 50, "max": 3200}}}), json!({"iso": 800})),
-        (json!({"shot": {"shutter": {"min_ns": 250_000, "max_ns": 10_000_000_000i64}}}), json!({"shutter_s": 10.0})),
+fn night_keeps_requested_overrides_for_validation_and_never_focus() {
+    for caps in [
+        json!({}),
+        json!({"shot": {"iso": {"min": 50, "max": 3200}}}),
+        json!({"shot": {"shutter": {"min_ns": 250_000, "max_ns": 10_000_000_000i64}}}),
     ] {
         let mut host = night_host();
         host.still_caps = Some(caps);
         let mut plugin = night_plugin(&mut host);
         night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-        assert_eq!(host.stills_taken[0].0["shot"], expected);
+        assert_eq!(host.stills_taken[0].0["shot"], json!({"shutter_s": 10.0, "iso": 800}));
         assert!(host.stills_taken[0].0["shot"].get("focus_diopters").is_none());
     }
 }

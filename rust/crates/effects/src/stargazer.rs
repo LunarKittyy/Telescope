@@ -805,10 +805,7 @@ impl StargazerPlugin {
 
     fn shutter_props(&self, caps: Option<&StillCaps>) -> Value {
         let stops = caps.and_then(|c| c.shot.as_ref()).map(stills::shot_shutter_stops).unwrap_or_default();
-        let mut labels = vec![tr("Camera")];
-        labels.extend(stops.iter().map(|s| stills::exposure_text(*s)));
-        let index = self.shot.shutter_s.and_then(|v| stops.iter().enumerate()
-            .min_by(|(_, a), (_, b)| (**a - v).abs().total_cmp(&(**b - v).abs())).map(|(i, _)| i + 1)).unwrap_or(0);
+        let (labels, index) = stills::shot_shutter_labels(&stops, self.shot.shutter_s);
         json!({
             "shutter-stops": labels, "shutter-index": index,
             "shutter-enabled": self.phase == Phase::Idle && caps.is_some() && !stops.is_empty(),
@@ -818,10 +815,7 @@ impl StargazerPlugin {
 
     fn iso_props(&self, caps: Option<&StillCaps>) -> Value {
         let stops = caps.and_then(|c| c.shot.as_ref()).map(stills::shot_iso_stops).unwrap_or_default();
-        let mut labels = vec![tr("Camera")];
-        labels.extend(stops.iter().map(ToString::to_string));
-        let index = self.shot.iso.and_then(|v| stops.iter().enumerate()
-            .min_by_key(|(_, n)| (**n).abs_diff(v)).map(|(i, _)| i + 1)).unwrap_or(0);
+        let (labels, index) = stills::shot_iso_labels(&stops, self.shot.iso);
         let from = stops.iter().position(|v| ISO_LABELS.contains(v)).map_or(1, |i| i + 1);
         json!({
             "iso-stops": labels, "iso-index": index, "iso-per": ISO_STOPS_PER_LABEL, "iso-from": from,
@@ -856,18 +850,8 @@ impl StargazerPlugin {
         if self.mode != Mode::Night || self.phase != Phase::Idle {
             return;
         }
-        let Some(caps) = self.night_caps(host).and_then(|c| c.shot) else { return };
-        let before = self.shot.clone();
-        if which == "shutter-picked" {
-            let stops = stills::shot_shutter_stops(&caps);
-            if stops.is_empty() || index > stops.len() { return; }
-            self.shot.shutter_s = index.checked_sub(1).map(|i| stops[i]);
-        } else {
-            let stops = stills::shot_iso_stops(&caps);
-            if stops.is_empty() || index > stops.len() { return; }
-            self.shot.iso = index.checked_sub(1).map(|i| stops[i]);
-        }
-        if self.shot != before {
+        let Some(caps) = self.night_caps(host) else { return };
+        if stills::pick_shot(&mut self.shot, &caps, which == "shutter-picked", index, false) {
             host.schedule_save();
         }
         self.show(host);
@@ -976,7 +960,7 @@ impl StargazerPlugin {
         let Some(caps) = self.night_caps(host) else { return };
         let mut options = json!({"format": "jpeg", "rotation": 0, "shot": {}, "skip_if_hidden": true});
         if !caps.camera { options["quality"] = json!(95); }
-        stills::add_shot(&mut options, &caps, &self.shot, true, false);
+        stills::add_shot(&mut options, &self.shot, true, false);
         self.problem = None;
         self.note.clear();
         if let Some(request) = host.take_still(&options, &self.folder, Some(&source)) {

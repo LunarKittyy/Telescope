@@ -261,7 +261,7 @@ impl PhototrapPlugin {
         if caps.camera {
             if let Some(map) = options.as_object_mut() { map.remove("quality"); }
         }
-        add_shot(&mut options, caps, &self.shot, true, self.night && self.night_offered());
+        add_shot(&mut options, &self.shot, true, self.night && self.night_offered());
         options
     }
 

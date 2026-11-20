@@ -502,7 +502,11 @@ impl PhotosPlugin {
         if value.is_null() || Self::same(self.choices.get(key), &value) {
             return;
         }
-        self.choices.insert(key.into(), value);
+        if key == "shot" && value.as_object().is_some_and(|v| v.is_empty()) {
+            self.choices.shift_remove(key);
+        } else {
+            self.choices.insert(key.into(), value);
+        }
         self.show_choices(host);
         host.schedule_save();
     }
@@ -708,7 +712,7 @@ impl PhotosPlugin {
         if !caps.camera {
             let can = offered(&caps, &self.choices);
             let maker = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes));
-            add_shot(&mut options, &caps, &shot_choice(self.choices.get("shot")), false, maker);
+            add_shot(&mut options, &shot_choice(self.choices.get("shot")), false, maker);
         }
         if caps.camera {
             camera_options(&mut options, self.camera_picks[0].as_deref(), self.camera_picks[1].as_deref());
@@ -1087,7 +1091,10 @@ impl Plugin for PhotosPlugin {
             choices.insert("timer".into(), json!(0));
         }
         if let Some(value) = cfg.get("shot") {
-            choices.insert("shot".into(), shot_choice(Some(value)).to_options_value());
+            let shot = shot_choice(Some(value));
+            if shot != ShotChoice::default() {
+                choices.insert("shot".into(), shot.to_options_value());
+            }
         }
         self.choices = choices;
         self.folder = cfg.get("folder").and_then(Value::as_str).filter(|f| !f.is_empty()).map_or_else(default_folder, String::from);
