@@ -460,7 +460,13 @@ impl Gpu {
     fn write_plane(&self, tex: &wgpu::Texture, data: &[u8], bytes_per_row: u32) {
         // Too little data for the texture: wgpu refuses the write and says so as an error
         #[cfg(test)]
-        let data = if self.take_fault(|f| matches!(f, Fault::BadUpload)) { &data[..1] } else { data };
+        let data = if self.take_fault(|f| matches!(f, Fault::BadUpload)) {
+            let block = tex.format().block_copy_size(None).unwrap_or(1) as usize;
+            let needed = tex.height().saturating_sub(1) as usize * bytes_per_row as usize + tex.width() as usize * block;
+            &data[..data.len().min(needed.saturating_sub(1))]
+        } else {
+            data
+        };
         self.queue.write_texture(
             tex.as_image_copy(),
             data,
@@ -811,20 +817,23 @@ impl Gpu {
         if self.take_fault(|f| matches!(f, Fault::ShadePanic)) {
             panic!("an injected panic while shading");
         }
-        let past = slot.past(held).filter(|_| history);
-        let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some(), past.is_some()));
         let planes = if slot.wants_planes(held.width, held.height) { self.current_planes(held) } else { None };
         held.planes = None;
         let blurred = slot.blur(self, &mut held.enc, &held.a, planes.as_ref(), &mut held.used);
-        slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask, past.as_ref(), blurred.as_ref());
-        slot.keep(self, &mut held.enc, &held.b, held.time_ns);
         if let (Some(planes), Some((_, room))) = (&planes, &blurred) {
             held.planes = slot.compose(self, &mut held.enc, planes, room, &mut held.used);
-            // Landing reads these planes, so the shaders after this one are given the same picture rather than the step's own composite
-            if let Some(composed) = &held.planes {
-                let views = composed.each_ref().map(|t| t.create_view(&Default::default()));
-                self.convert_pass_with(&mut held.enc, &views, Mode::I420, &held.b, 1, (held.width, held.height), held.block_chroma);
-            }
+        }
+        // When compose produced the I420 planes, the convert pass below overwrites held.b completely, so slot.draw is dead work unless keep() reads held.b for history.
+        if held.planes.is_none() || slot.wants_history {
+            let past = slot.past(held).filter(|_| history);
+            let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some(), past.is_some()));
+            slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask, past.as_ref(), blurred.as_ref());
+            slot.keep(self, &mut held.enc, &held.b, held.time_ns);
+        }
+        // Landing reads these planes, so the shaders after this one are given the same picture rather than the step's own composite
+        if let Some(composed) = &held.planes {
+            let views = composed.each_ref().map(|t| t.create_view(&Default::default()));
+            self.convert_pass_with(&mut held.enc, &views, Mode::I420, &held.b, 1, (held.width, held.height), held.block_chroma);
         }
         std::mem::swap(&mut held.a, &mut held.b);
     }
@@ -1089,6 +1098,8 @@ pub struct ShaderSlot {
     built: Option<Result<Built, String>>,
     /// What the step drew for the stream's last frame, for a shader that asks for it (previous).
     history: Mutex<Option<Past>>,
+    #[cfg(test)]
+    draws: AtomicU64,
 }
 
 /// A step's last frame on the card, and the time of the picture it was drawn for.
@@ -1322,7 +1333,15 @@ impl Pass {
 
 impl ShaderSlot {
     pub fn new(step: ShaderStep) -> ShaderSlot {
-        ShaderSlot { wants_mask: shader::uses_person_mask(&step.wgsl), wants_history: shader::uses_history(&step.wgsl), step, built: None, history: Mutex::new(None) }
+        ShaderSlot {
+            wants_mask: shader::uses_person_mask(&step.wgsl),
+            wants_history: shader::uses_history(&step.wgsl),
+            step,
+            built: None,
+            history: Mutex::new(None),
+            #[cfg(test)]
+            draws: AtomicU64::new(0),
+        }
     }
 
     /// Whether the step says it leaves every pixel where it was (ShaderStep::keeps_geometry).
@@ -1438,6 +1457,8 @@ impl ShaderSlot {
 
     fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>, blurred: Option<&(wgpu::TextureView, wgpu::TextureView)>) {
         let Some(Ok(built)) = &self.built else { return };
+        #[cfg(test)]
+        self.draws.fetch_add(1, Ordering::Relaxed);
         let (src_view, dst_view) = (src.create_view(&Default::default()), dst.create_view(&Default::default()));
         let frame_bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("frame"),
@@ -1530,7 +1551,7 @@ impl ShaderSlot {
             match given.iter().find(|(n, _)| n == name) {
                 Some((_, f)) if built.sources[i].as_ref().is_some_and(|s| Arc::ptr_eq(s, &f.data)) => {}
                 Some((_, f)) => {
-                    let texture = match gpu.picture_texture(f) {
+                    let texture = match gpu.picture_texture(f, is_red_mask(name)) {
                         Ok(Some(texture)) => texture,
                         Ok(None) => {
                             log::warn!("Shader texture {name} wasn't used: {:?} {}x{} can't be uploaded", f.format, f.width, f.height);
@@ -1578,17 +1599,29 @@ fn extras_group(gpu: &Gpu, layout: &wgpu::BindGroupLayout, params: Option<&wgpu:
     gpu.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("plugin"), layout, entries: &e })
 }
 
+/// Single-channel red textures named by core::shader (blur_cutout, blur_weights) whose shaders only read `.r`.
+fn is_red_mask(name: &str) -> bool {
+    name == shader::BLUR_CUTOUT || name == shader::BLUR_WEIGHTS
+}
+
 impl Gpu {
-    /// An Rgba picture as a texture of its own to sample, from the pool; Ok(None) for another format, and an error when the card refuses it.
-    fn picture_texture(&self, f: &Frame) -> Result<Option<wgpu::Texture>, String> {
+    /// An Rgba picture as a texture of its own to sample, from the pool (as R8Unorm when `red_only` is set); Ok(None) for another format, and an error when the card refuses it.
+    fn picture_texture(&self, f: &Frame, red_only: bool) -> Result<Option<wgpu::Texture>, String> {
         if f.format != PixelFormat::Rgba || f.width == 0 || f.height == 0 {
             return Ok(None);
         }
         // A pooled texture still holds the picture it had, so a refused write must not leave it to be sampled
         self.scoped(|| {
-            let t = self.texture(f.width, f.height, WORK);
-            self.write_plane(&t, &f.data, f.width * 4);
-            t
+            if red_only {
+                let red: Vec<u8> = f.data.as_chunks::<4>().0.iter().map(|p| p[0]).collect();
+                let t = self.texture(f.width, f.height, wgpu::TextureFormat::R8Unorm);
+                self.write_plane(&t, &red, f.width);
+                t
+            } else {
+                let t = self.texture(f.width, f.height, WORK);
+                self.write_plane(&t, &f.data, f.width * 4);
+                t
+            }
         })
         .map(Some)
     }
@@ -1629,14 +1662,15 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     let layout = gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("plugin"), bind_group_layouts: &layouts, immediate_size: 0 });
     let pipeline = gpu.render_pipeline("plugin", &layout, &module, (shader::VERTEX_ENTRY, shader::FRAGMENT_ENTRY), WORK);
 
-    // The plugin's pictures go up once, as RGBA whatever they came as
+    // The plugin's pictures go up once, as RGBA (or R8Unorm for single-channel red blur masks) whatever they came as
     let mut keep = Vec::new();
     let mut views = Vec::new();
     let mut enc = gpu.device.create_command_encoder(&Default::default());
-    for (_, f) in &step.textures {
+    for (name, f) in &step.textures {
         let mut used = Vec::new();
         let planes = gpu.upload(f, &mut used);
-        let t = gpu.texture(f.width, f.height, WORK);
+        let format = if is_red_mask(name) { wgpu::TextureFormat::R8Unorm } else { WORK };
+        let t = gpu.texture(f.width, f.height, format);
         gpu.convert_pass(&mut enc, &planes.views, planes.mode, &t, 1, (f.width, f.height));
         views.push(t.create_view(&Default::default()));
         keep.push(t);
@@ -2043,6 +2077,157 @@ mod tests {
         // an identity shader reads the planes' colours and writes them as planes again: a level here and there from the rounding, no more
         let worst = alone.data.iter().zip(then_identity.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap();
         assert!(worst <= 2, "an identity shader after the step changed the picture by {worst} levels");
+    }
+
+    #[test]
+    fn plane_compose_skips_the_dead_draw_unless_history_needs_it() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h) = (160usize, 96usize);
+        let rgb: Vec<u8> = (0..w * h).flat_map(|i| {
+            let (x, y) = (i % w, i / w);
+            [(70 + x * 90 / w + (x / 9 % 2) * 40) as u8, (80 + y * 80 / h + (y / 7 % 2) * 30) as u8, (130 + ((x + y) / 11 % 3) * 25) as u8]
+        }).collect();
+        let mut data = vec![0u8; PixelFormat::I420.size(w as u32, h as u32)];
+        telescope_core::image::rgb_to_420(&rgb, w, h, &mut data, false);
+        let i420 = Frame::new(w as u32, h as u32, PixelFormat::I420, data);
+        let cutout = disc(w as u32, h as u32);
+        let weights = weights_frame((w / 8) as u32, (h / 8) as u32, |x, y| if (6..14).contains(&x) && (3..9).contains(&y) { 0 } else { 255 });
+        let placeholder = Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]);
+        let make = |wgsl: &str| ShaderSlot::new(ShaderStep {
+            keeps_geometry: false,
+            wgsl: wgsl.into(),
+            uniforms: json!({"blur_shrink": 8, "blur_sigma": 2.5, "blur_planes": 1}),
+            textures: vec![("blur_cutout".into(), placeholder.clone()), ("blur_weights".into(), placeholder.clone())],
+        });
+        let bg_wgsl = "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(mix(blurred_weighted(uv).rgb, sample(uv).rgb, sample_texture(blur_cutout, uv).r), 1.0); }";
+        let bg_with_history = "fn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return previous(uv); } return vec4<f32>(mix(blurred_weighted(uv).rgb, sample(uv).rgb, sample_texture(blur_cutout, uv).r), 1.0); }";
+
+        let shade_and_capture = |slot: &mut ShaderSlot, frame: &Frame| -> (Frame, Vec<u8>) {
+            slot.prepare(&gpu).unwrap();
+            slot.set_textures(&gpu, &[("blur_cutout".into(), cutout.clone()), ("blur_weights".into(), weights.clone())]).unwrap();
+            let mut held = gpu.lift_with(frame, true).unwrap();
+            gpu.shade(&mut held, slot, 0.0, None).unwrap();
+            let enc = std::mem::replace(&mut held.enc, gpu.device.create_command_encoder(&Default::default()));
+            let rgba = gpu.download(enc, &[&held.a], &[4]).unwrap();
+            let landed = gpu.land(&mut held).unwrap();
+            gpu.put_down(held);
+            (landed, rgba)
+        };
+
+        let mut plain = make(bg_wgsl);
+        let (plain_landed, plain_rgba) = shade_and_capture(&mut plain, &i420);
+        assert_eq!(plain.draws.load(Ordering::Relaxed), 0, "I420 compose overwrites held.b, so slot.draw is skipped");
+        assert!(plain.history.lock().unwrap().is_none());
+        assert_ne!(plain_landed.data, i420.data);
+
+        let mut with_history = make(bg_with_history);
+        let (history_landed, history_rgba) = shade_and_capture(&mut with_history, &i420);
+        assert_eq!(with_history.draws.load(Ordering::Relaxed), 1, "a step that keeps history still needs slot.draw");
+        assert!(with_history.history.lock().unwrap().is_some());
+        assert_eq!(plain_landed.data, history_landed.data, "skipping slot.draw keeps the landed I420 planes identical");
+        assert_eq!(plain_rgba, history_rgba, "skipping slot.draw keeps the RGBA picture for later shaders identical");
+
+        // On an RGBA frame compose doesn't run, so the same slot still draws
+        let rgba_frame = noisy_rgba(w, h);
+        let _ = shade_and_capture(&mut plain, &rgba_frame);
+        assert_eq!(plain.draws.load(Ordering::Relaxed), 1, "non-I420 frames still run slot.draw");
+    }
+
+    #[test]
+    fn blur_masks_use_r8_and_mask_the_right_pixels() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h) = (160u32, 96u32);
+        let (sw, sh) = (w / 8, h / 8);
+        fn mask_frame(mw: u32, mh: u32, keep: impl Fn(u32) -> bool) -> Frame {
+            let mut data = Vec::with_capacity((mw * mh * 4) as usize);
+            for _ in 0..mh {
+                for x in 0..mw {
+                    // Non-zero G/B where red is 0 so only the red channel can drive the mask
+                    data.extend(if keep(x) { [255, 0, 0, 255] } else { [0, 255, 255, 255] });
+                }
+            }
+            Frame::new(mw, mh, PixelFormat::Rgba, data)
+        }
+        let left_cutout = mask_frame(w, h, |x| x < w / 2);
+        let right_cutout = mask_frame(w, h, |x| x >= w / 2);
+        let zero_cutout = mask_frame(w, h, |_| false);
+        let all_weights = mask_frame(sw, sh, |_| true);
+        let right_weights = mask_frame(sw, sh, |x| x >= sw / 2);
+
+        let mut slot = ShaderSlot::new(ShaderStep {
+            keeps_geometry: false,
+            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(mix(blurred_weighted(uv).rgb, sample(uv).rgb, sample_texture(blur_cutout, uv).r), 1.0); }".into(),
+            uniforms: json!({"blur_shrink": 8, "blur_sigma": 2.5, "blur_planes": 1}),
+            textures: vec![("blur_cutout".into(), left_cutout), ("blur_weights".into(), all_weights.clone())],
+        });
+        slot.prepare(&gpu).unwrap();
+        let built = slot.built.as_ref().unwrap().as_ref().unwrap();
+        assert!(built.first_views.iter().all(|v| v.texture().format() == wgpu::TextureFormat::R8Unorm));
+
+        let run_i420 = |slot: &ShaderSlot, frame: &Frame| -> Frame {
+            let mut held = gpu.lift_with(frame, true).unwrap();
+            gpu.shade(&mut held, slot, 0.0, None).unwrap();
+            let out = gpu.land(&mut held).unwrap();
+            gpu.put_down(held);
+            out
+        };
+
+        // 4-pixel stripes average to 130 in every 8x8 blur block, so kept pixels stay 220/40 and masked ones blur to ~130
+        let striped = yuv_frame(w, h, |x, _| if (x / 4) % 2 == 0 { 220 } else { 40 }, 128, 128);
+        let out = run_i420(&slot, &striped);
+        let y_at = |f: &Frame, x: u32, y: u32| f.data[(y * w + x) as usize];
+        for y in 0..h {
+            for x in 0..w / 2 - 2 {
+                assert_eq!(y_at(&out, x, y), y_at(&striped, x, y), "initial R8 cutout should keep left pixel ({x}, {y})");
+            }
+            for x in w / 2 + 2..w {
+                assert!(y_at(&out, x, y).abs_diff(130) <= 3, "initial R8 cutout should blur right pixel ({x}, {y}): got {}", y_at(&out, x, y));
+            }
+        }
+
+        // Flip the cutout via set_textures so the picture_texture R8 upload path is checked too
+        slot.set_textures(&gpu, &[("blur_cutout".into(), right_cutout), ("blur_weights".into(), all_weights.clone())]).unwrap();
+        let built = slot.built.as_ref().unwrap().as_ref().unwrap();
+        assert!(built.views.iter().all(|v| v.texture().format() == wgpu::TextureFormat::R8Unorm));
+        let flipped = run_i420(&slot, &striped);
+        for y in 0..h {
+            for x in 0..w / 2 - 2 {
+                assert!(y_at(&flipped, x, y).abs_diff(130) <= 3, "replaced R8 cutout should blur left pixel ({x}, {y}): got {}", y_at(&flipped, x, y));
+            }
+            for x in w / 2 + 2..w {
+                assert_eq!(y_at(&flipped, x, y), y_at(&striped, x, y), "replaced R8 cutout should keep right pixel ({x}, {y})");
+            }
+        }
+
+        // Check blur_weights R8 masking: excluding the bright left half leaves the blur just left of the seam dark
+        let split = yuv_frame(w, h, |x, _| if x < w / 2 { 220 } else { 40 }, 128, 128);
+        slot.set_textures(&gpu, &[("blur_cutout".into(), zero_cutout.clone()), ("blur_weights".into(), all_weights)]).unwrap();
+        let plain_blur = run_i420(&slot, &split);
+        slot.set_textures(&gpu, &[("blur_cutout".into(), zero_cutout), ("blur_weights".into(), right_weights)]).unwrap();
+        let weighted_blur = run_i420(&slot, &split);
+        let seam_x = w / 2 - 4;
+        assert!(y_at(&plain_blur, seam_x, h / 2) >= 120, "unweighted blur near seam should mix both halves: {}", y_at(&plain_blur, seam_x, h / 2));
+        assert!(y_at(&weighted_blur, seam_x, h / 2) <= 50, "R8 blur_weights should exclude the bright left half: {}", y_at(&weighted_blur, seam_x, h / 2));
+    }
+
+    #[test]
+    fn bad_upload_fault_fires_on_a_one_by_one_r8_mask() {
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let step = ShaderStep {
+            keeps_geometry: false,
+            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(sample_texture(blur_cutout, uv).r, 0.0, 0.0, 1.0); }".into(),
+            uniforms: json!({}),
+            textures: vec![("blur_cutout".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
+        };
+        let mut slot = ShaderSlot::new(step);
+        slot.prepare(&gpu).unwrap();
+        gpu.inject(Fault::BadUpload);
+        let one_by_one = Frame::new(1, 1, PixelFormat::Rgba, vec![255, 0, 0, 255]);
+        let why = slot.set_textures(&gpu, &[("blur_cutout".into(), one_by_one.clone())]).unwrap_err();
+        assert!(why.contains("refused"), "{why}");
+        slot.set_textures(&gpu, &[("blur_cutout".into(), one_by_one)]).unwrap();
+        let built = slot.built.as_ref().unwrap().as_ref().unwrap();
+        assert_eq!(built.views[0].texture().format(), wgpu::TextureFormat::R8Unorm);
     }
 
     #[test]
