@@ -27,6 +27,8 @@ struct SceneLink {
     network: bool,
     /// A phone pairs as soon as Add device is open (translation_scenes.add_phone_done).
     pairs: bool,
+    /// The phone takes photos, with a flagship lens's abilities (the Photos and Phototrap cards).
+    stills: bool,
 }
 
 /// translation_scenes_connection.pairing_dialog's Server: a fixed payload, and nobody ever pairs.
@@ -87,6 +89,9 @@ impl Link for SceneLink {
     }
     fn adb_available(&self) -> bool {
         self.adb
+    }
+    fn stills(&self) -> Option<Arc<dyn telescope_core::link::PhoneStills>> {
+        self.stills.then(|| Arc::new(ScenePhoneStills) as Arc<dyn telescope_core::link::PhoneStills>)
     }
     fn bundled_apk(&self) -> Option<String> {
         Some("telescope.apk".into())
@@ -271,6 +276,25 @@ impl telescope_core::source::SourceStills for SceneStills {
     fn set_on_change(&self, _: Box<dyn Fn() + Send + Sync>) {}
 }
 
+/// A phone's photo service as the Photos and Phototrap cards see it: a flagship lens, no photo ever taken.
+struct ScenePhoneStills;
+
+impl telescope_core::link::PhoneStills for ScenePhoneStills {
+    fn note_state(&self, _: Option<&str>, _: &serde_json::Value) {}
+    fn note_lens(&self, _: Option<&str>, _: &serde_json::Value) {}
+    fn caps(&self, _: Option<&str>) -> Option<serde_json::Value> {
+        Some(phone_stills())
+    }
+    fn busy(&self, _: Option<&str>) -> bool {
+        false
+    }
+    fn take(&self, _: Option<&str>, _: &str, _: &PairedPhone, _: &serde_json::Value, _: &str, _: Box<dyn Fn(serde_json::Value) + Send>, _: Box<dyn FnOnce(serde_json::Value) + Send>,
+            _: Box<dyn Fn() -> bool + Send>) -> bool {
+        false
+    }
+    fn shutdown(&self) {}
+}
+
 /// What a Nikon D5100 in M mode offers the Photos card (probe/allconfig_M.txt): its ISO and shutter speed lists as the camera words them.
 fn dslr_stills() -> serde_json::Value {
     let iso = ["100", "125", "160", "200", "250", "320", "400", "500", "640", "800", "1000", "1250", "1600", "2000", "2500", "3200", "4000", "5000", "6400", "8000", "10000", "12800", "25600"];
@@ -292,7 +316,8 @@ fn dslr_stills() -> serde_json::Value {
 fn phone_stills() -> serde_json::Value {
     json!({"formats": ["jpeg", "heic", "ultrahdr", "raw"], "size": [4080, 3072], "max_res": [8160, 6144], "max_res_raw": true,
            "extensions": ["night", "hdr", "bokeh"], "exposure_max_ns": 30_000_000_000i64, "bracketing": true, "focus_bracketing": true,
-           "noise_reduction_hq": true, "sharpening_hq": true, "hot_pixel_hq": true, "distortion": true, "burst_max": 60})
+           "noise_reduction_hq": true, "sharpening_hq": true, "hot_pixel_hq": true, "distortion": true, "burst_max": 60,
+           "exposure_min_ns": 62_500, "iso_min": 50, "iso_max": 6400})
 }
 
 /// A webcam with the settings a good USB one offers, for the Webcam card.
@@ -469,6 +494,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
                 // No global shortcuts: the scenes stay away from this computer's desktop
                 Box::new(ShortcutsPlugin::with_backend(RemoteActions::default(), Box::new(|_| None))),
                 Box::new(telescope_effects::photos::PhotosPlugin::new()),
+                Box::new(telescope_effects::phototrap::PhototrapPlugin::new()),
                 Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
             ];
             if changes.no_h264 {
@@ -644,7 +670,7 @@ impl Backend for NoUpdates {
 }
 
 fn quiet() -> SceneLink {
-    SceneLink { answer: None, adb: true, network: true, pairs: false }
+    SceneLink { answer: None, adb: true, network: true, pairs: false, stills: false }
 }
 
 fn res(status: PhoneStatus, route: Option<&str>, note: Option<UsbNote>) -> Resolution {
@@ -712,7 +738,7 @@ fn add_phone_pairing(adb: bool, network: bool, pairs: bool) -> Setup {
     let mut config = main_window_config(false);
     config["plugin_configs"]["connection"]["computer_id"] = json!("computer-id");
     config["plugin_configs"]["connection"]["computer_name"] = json!("Studio PC");
-    let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb, network, pairs };
+    let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb, network, pairs, stills: false };
     Setup {
         page: Page::Dialog { frame: "DialogFrame".into(), owner: "ConnectionCard".into() },
         then: Some(Box::new(move |w| {
@@ -739,7 +765,7 @@ fn add_phone_browser(page: i32) -> Setup {
 
 /// translation_scenes.adb_licence: on Windows without adb, Get adb from Google pressed. Here the question is in Add device.
 fn adb_licence() -> Setup {
-    let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb: false, network: true, pairs: false };
+    let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb: false, network: true, pairs: false, stills: false };
     let mut setup = add_phone(false, true);
     setup.services = Some(services(link));
     setup.then = Some(Box::new(|w| {
@@ -845,7 +871,8 @@ pub fn all() -> Vec<Scene> {
         }));
     }
     // The Photos card for a DSLR in M mode and for a phone, and with a narrow card (where the tiles wrap)
-    for (id, dslr, width) in [("photos-dslr", true, CARD_WIDTH), ("photos-dslr-narrow", true, 350.0), ("photos-phone", false, CARD_WIDTH), ("photos-phone-narrow", false, 350.0)] {
+    for (id, dslr, width, open) in [("photos-dslr", true, CARD_WIDTH, false), ("photos-dslr-narrow", true, 350.0, false), ("photos-phone", false, CARD_WIDTH, false), ("photos-phone-narrow", false, 350.0, false),
+                                    ("photos-phone-shot-open", false, CARD_WIDTH, true), ("photos-phone-shot-open-narrow", false, 350.0, true)] {
         scenes.push(Scene::new(id, move || {
             let mut config = main_window_config(true);
             config["plugins"] = json!({"on": ["photos"]});
@@ -859,8 +886,9 @@ pub fn all() -> Vec<Scene> {
                         let mut state = w.state.borrow_mut();
                         state.streams.live.push(source.into());
                         state.streams.source_id = Some(source.into());
-                        let caps = if dslr { dslr_stills() } else { phone_stills() };
-                        state.source_stills.push((source.into(), Arc::new(SceneStills(caps))));
+                        if dslr {
+                            state.source_stills.push((source.into(), Arc::new(SceneStills(dslr_stills()))));
+                        }
                         if dslr {
                             state.bus.emit(telescope_core::Event::SourceSelected { source_id: source.into() });
                         } else {
@@ -869,8 +897,40 @@ pub fn all() -> Vec<Scene> {
                         state.bus.emit(telescope_core::Event::StillCapsChanged { source_id: source.into() });
                     }
                     w.process();
+                    if open {
+                        let toggle = telescope_core::ui::UiEvent { ui: "card".into(), callback: "customize-toggled".into(), args: vec![json!(true)] };
+                        w.state.borrow_mut().ui_event("photos", toggle);
+                        w.process();
+                    }
                 })),
-                ..Setup::window(Some(services(quiet())), config, width, 700.0)
+                ..Setup::window(Some(services(SceneLink { stills: !dslr, ..quiet() })), config, width, 700.0)
+            }
+        }));
+    }
+    // The Phototrap card with the camera row, closed and open
+    for (id, width, open) in [("phototrap-shot", CARD_WIDTH, false), ("phototrap-shot-narrow", 350.0, false), ("phototrap-shot-open", CARD_WIDTH, true), ("phototrap-shot-open-narrow", 350.0, true)] {
+        scenes.push(Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["plugins"] = json!({"on": ["phototrap"]});
+            Setup {
+                page: Page::Card { plugin: "phototrap".into() },
+                every_optional: false,
+                then: Some(Box::new(move |w| {
+                    {
+                        let mut state = w.state.borrow_mut();
+                        state.streams.live.push("phone:a".into());
+                        state.streams.source_id = Some("phone:a".into());
+                        state.bus.emit(telescope_core::Event::PhonesChanged { count: 1 });
+                        state.bus.emit(telescope_core::Event::StillCapsChanged { source_id: "phone:a".into() });
+                    }
+                    w.process();
+                    if open {
+                        let toggle = telescope_core::ui::UiEvent { ui: "card".into(), callback: "customize-toggled".into(), args: vec![json!(true)] };
+                        w.state.borrow_mut().ui_event("phototrap", toggle);
+                        w.process();
+                    }
+                })),
+                ..Setup::window(Some(services(SceneLink { stills: true, ..quiet() })), config, width, 700.0)
             }
         }));
     }
@@ -904,7 +964,7 @@ pub fn all() -> Vec<Scene> {
     for (id, answer, route, adb, windows) in card_states() {
         scenes.push(Scene::new(format!("connection-{id}"), move || {
             telescope_link::platform::set_windows(windows.then_some(true));
-            let link = SceneLink { answer: Some(answer.clone()), adb, network: true, pairs: false };
+            let link = SceneLink { answer: Some(answer.clone()), adb, network: true, pairs: false, stills: false };
             Setup::window(Some(services(link)), with_route(main_window_config(true), route), WIDTH_THREE_COL, 700.0)
         }));
     }
@@ -1200,7 +1260,7 @@ fn setup_clip_scenes() -> Vec<Scene> {
             if stream {
                 config["plugin_configs"]["onboarding"] = json!({"streamed": true});
             }
-            let link = if phone { SceneLink { answer: Some(res(PhoneStatus::Ready, Some("wifi"), None)), adb: true, network: true, pairs: false } } else { quiet() };
+            let link = if phone { SceneLink { answer: Some(res(PhoneStatus::Ready, Some("wifi"), None)), adb: true, network: true, pairs: false, stills: false } } else { quiet() };
             Setup { page: Page::WindowTop, then: Some(Box::new(move |w| {
                 if phone {
                     w.emit(telescope_core::event::Event::PhonesChanged { count: 1 });
@@ -1424,7 +1484,7 @@ mod tests {
                 let reads = || format!("{:?} {}", telescope_shell::input::focused_box(&w.ui), (0..3).map(|c| number(&w.ui, &format!("scroll{c}")).to_string()).collect::<Vec<_>>().join("/"));
                 let (content, view) = (number(&w.ui, "content-height"), number(&w.ui, "view-height"));
                 assert!(content > 3.0 * view, "the window has to be longer than its view: {content} in {view}");
-                let forward = pressed(&w.ui, Key::Tab, 600, reads);
+                let forward = pressed(&w.ui, Key::Tab, 800, reads);
                 let round = cycle(&forward).unwrap_or_else(|| panic!("Tab comes round to nothing it has been to: {forward:?}"));
                 // The first pass starts with the columns at the top and the others from wherever the last one left them, which is
                 // all the header's stops can show of it; from the first card on it is the same list of places each time

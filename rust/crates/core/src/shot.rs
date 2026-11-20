@@ -36,6 +36,75 @@ pub fn phone_ranges(caps: &Value) -> Value {
     Value::Object(shot)
 }
 
+/// A camera's numeric shutter entry, excluding Bulb and non-finite values.
+pub fn dslr_shutter_seconds(raw: &str) -> Option<f64> {
+    let text = raw.trim().trim_end_matches(['s', 'S', '"']).replace(',', ".");
+    let seconds = match text.split_once('/') {
+        Some((n, d)) => n.trim().parse::<f64>().ok()? / d.trim().parse::<f64>().ok().filter(|d| *d != 0.0)?,
+        None => text.parse::<f64>().ok()?,
+    };
+    (seconds.is_finite() && seconds > 0.0).then_some(seconds)
+}
+
+/// A numeric ISO entry. Automatic and the maker's named boost modes have no numeric equivalent.
+pub fn dslr_iso(raw: &str) -> Option<f64> {
+    raw.trim().parse::<f64>().ok().filter(|n| n.is_finite() && *n > 0.0 && n.fract() == 0.0)
+}
+
+/// Discrete photo settings, retaining the raw labels and current entry alongside numeric values.
+pub fn dslr_ranges(caps: &Value) -> Value {
+    let mut shot = Map::new();
+    for (key, values_key, parse) in [
+        ("shutter", "shutter_values_s", dslr_shutter_seconds as fn(&str) -> Option<f64>),
+        ("iso", "iso_values", dslr_iso as fn(&str) -> Option<f64>),
+    ] {
+        let Some(menu) = caps.get(key) else { continue };
+        let Some(raw) = menu.get("values").and_then(Value::as_array) else { continue };
+        let entries: Vec<(usize, f64)> = raw.iter().enumerate().filter_map(|(i, value)| Some((i, parse(value.as_str()?)?))).collect();
+        if entries.is_empty() { continue; }
+        let values: Vec<f64> = entries.iter().map(|(_, n)| *n).collect();
+        let labels: Vec<&str> = entries.iter().filter_map(|(i, _)| raw[*i].as_str()).collect();
+        let current = menu.get("current").and_then(Value::as_u64).and_then(|i| entries.iter().position(|(raw_i, _)| *raw_i == i as usize));
+        let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let range = if key == "shutter" {
+            json!({"values": values, "labels": labels, "current": current, "min_ns": (min * 1e9).round() as i64, "max_ns": (max * 1e9).round() as i64})
+        } else {
+            json!({"values": values, "labels": labels, "current": current, "min": min as i64, "max": max as i64})
+        };
+        shot.insert(values_key.into(), if key == "iso" { json!(values.iter().map(|v| *v as i64).collect::<Vec<_>>()) } else { json!(values) });
+        shot.insert(key.into(), range);
+    }
+    shot.insert("freezes_from_ns".into(), json!(0));
+    Value::Object(shot)
+}
+
+/// Validate neutral overrides against DSLR caps without replacing the legacy persistent settings.
+pub fn apply_to_dslr(options: &mut Map<String, Value>, ranges: &Value) -> Result<Value, ShotRefused> {
+    let Some(value) = options.get("shot").filter(|v| !v.is_null()) else { return Ok(Value::Null) };
+    let Some(shot) = value.as_object() else {
+        return Err(ShotRefused { code: "bad_option", why: tr("The photo's settings aren't numbers.") });
+    };
+    let mut applied = Map::new();
+    for (key, range_key) in [("shutter_s", "shutter"), ("iso", "iso")] {
+        let Some(wanted) = number(shot, key)? else { continue };
+        let nearest = ranges.get(range_key).and_then(|r| r.get("values")).and_then(Value::as_array)
+            .into_iter().flatten().filter_map(Value::as_f64).filter(|n| n.is_finite() && *n > 0.0)
+            .min_by(|a, b| (a - wanted).abs().total_cmp(&(b - wanted).abs()));
+        let Some(nearest) = nearest else {
+            let what = if key == "iso" { tr("the ISO") } else { tr("the shutter speed") };
+            return Err(ShotRefused { code: "unsupported", why: tr("This camera can't set {what} for one photo.").field("what", what) });
+        };
+        applied.insert(key.into(), if key == "iso" { json!(nearest as i64) } else { json!(nearest) });
+    }
+    for (key, what) in [("focus_diopters", tr("the focus")), ("nr", tr("noise reduction")), ("edge", tr("sharpening"))] {
+        if shot.get(key).is_some_and(|v| !v.is_null()) {
+            return Err(ShotRefused { code: "unsupported", why: tr("This camera can't set {what} for one photo.").field("what", what) });
+        }
+    }
+    Ok(Value::Object(applied))
+}
+
 fn number(shot: &Map<String, Value>, key: &str) -> Result<Option<f64>, ShotRefused> {
     match shot.get(key) {
         None | Some(Value::Null) => Ok(None),
@@ -151,4 +220,68 @@ mod tests {
         assert_eq!(apply_to_phone(&mut o, &Value::Null), Ok(Value::Null));
         assert_eq!(o.len(), 1);
     }
+
+    fn dslr() -> Value {
+        json!({"camera": true, "iso": {"values": ["Auto", "100", "200", "800", "Hi 1"], "current": 2},
+            "shutter": {"values": ["Bulb", "1/4000", "0,0250s", "1", "10", "30"], "current": 2}})
+    }
+
+    #[test]
+    fn dslr_caps_keep_numeric_stops_raw_labels_and_current_index() {
+        let caps = dslr_ranges(&dslr());
+        assert_eq!(caps["shutter"]["values"], json!([0.00025, 0.025, 1.0, 10.0, 30.0]));
+        assert_eq!(caps["shutter"]["labels"], json!(["1/4000", "0,0250s", "1", "10", "30"]));
+        assert_eq!(caps["shutter"]["current"], 1);
+        assert_eq!(caps["iso"]["current"], 1);
+        assert_eq!(caps["iso_values"], json!([100, 200, 800]));
+        assert_eq!(caps["shutter"]["max_ns"], json!(30_000_000_000i64));
+        assert!(caps.get("focus").is_none());
+    }
+
+    #[test]
+    fn dslr_mapping_selects_nearest_numeric_entries_and_retains_legacy_strings() {
+        let mut o = options(json!({"shutter_s": 8.0, "iso": 640}));
+        o.insert("iso".into(), json!("200"));
+        o.insert("shutter".into(), json!("1"));
+        let before = o.clone();
+        assert_eq!(apply_to_dslr(&mut o, &dslr_ranges(&dslr())).unwrap(), json!({"shutter_s": 10.0, "iso": 800}));
+        assert_eq!(o, before, "fresh camera validation still sees the original request and persistent picks");
+        assert_eq!(apply_to_dslr(&mut options(json!({"iso": 1, "shutter_s": 300.0})), &dslr_ranges(&dslr())).unwrap(), json!({"iso": 100, "shutter_s": 30.0}));
+    }
+
+    #[test]
+    fn dslr_refuses_unavailable_malformed_and_unsupported_overrides() {
+        for shot in [json!({"shutter_s": 10}), json!({"iso": 800})] {
+            assert_eq!(apply_to_dslr(&mut options(shot), &dslr_ranges(&json!({}))).unwrap_err().code, "unsupported");
+        }
+        for shot in [json!({"focus_diopters": 0}), json!({"nr": "off"}), json!({"edge": "off"})] {
+            assert_eq!(apply_to_dslr(&mut options(shot), &dslr_ranges(&dslr())).unwrap_err().code, "unsupported");
+        }
+        for shot in [json!({"shutter_s": "Bulb"}), json!({"iso": "800"}), json!(12)] {
+            assert_eq!(apply_to_dslr(&mut options(shot), &dslr_ranges(&dslr())).unwrap_err().code, "bad_option");
+        }
+    }
+
+    #[test]
+    fn dslr_parsers_exclude_automatic_bulb_boost_and_non_finite_values() {
+        for raw in ["Bulb", "Time", "0", "NaN", "inf", "1/0", "-2"] {
+            assert_eq!(dslr_shutter_seconds(raw), None, "{raw}");
+        }
+        assert_eq!(dslr_shutter_seconds("10/25"), Some(0.4));
+        assert_eq!(dslr_shutter_seconds(" 2,5s "), Some(2.5));
+        for raw in ["Auto", "Hi 1", "0", "NaN", "100.5"] {
+            assert_eq!(dslr_iso(raw), None, "{raw}");
+        }
+        assert_eq!(dslr_iso(" 800 "), Some(800.0));
+    }
+
+    #[test]
+    fn dslr_empty_shot_and_legacy_only_requests_need_no_manual_caps() {
+        assert_eq!(apply_to_dslr(&mut options(json!({})), &Value::Null), Ok(json!({})));
+        let mut legacy = json!({"iso": "Auto", "shutter": "1/60"}).as_object().unwrap().clone();
+        let before = legacy.clone();
+        assert_eq!(apply_to_dslr(&mut legacy, &Value::Null), Ok(Value::Null));
+        assert_eq!(legacy, before);
+    }
+
 }

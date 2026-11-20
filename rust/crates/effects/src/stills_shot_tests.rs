@@ -88,3 +88,53 @@ fn the_focus_scale_runs_from_infinity_to_the_nearest_distance() {
     assert_eq!(focus_position(0.0, 2.0), 0.0);
     assert_eq!(focus_position(10.0, 20.0), FOCUS_SCALE);
 }
+
+#[test]
+fn discrete_camera_lists_offer_only_the_reported_numbers() {
+    let c = caps(json!({"shutter_values_s": [30.0, 0.004, 10.0, 10.0, 0.0], "iso_values": [800, 100, 800, 0]}));
+    assert_eq!(shot_shutter_stops(&c), [0.004, 10.0, 30.0]);
+    assert_eq!(shot_iso_stops(&c), [100, 800]);
+}
+
+#[test]
+fn shared_controls_suppress_overrides_without_erasing_choices() {
+    let c: StillCaps = serde_json::from_value(json!({"shot": {"shutter_values_s": [0.004, 10.0], "iso_values": [100, 800]}})).unwrap();
+    let mut choice = ShotChoice { shutter_s: Some(10.0), iso: Some(800), focus_diopters: Some(0.0) };
+    let kept = choice.clone();
+    let props = shot_control_props(Some(&c), &choice, true, true);
+    assert_eq!(props["shot-iso-enabled"], false);
+    assert_eq!(props["shot-shutter-enabled"], false);
+    assert!(!pick_shot(&mut choice, &c, false, 0, true));
+    let mut options = json!({});
+    add_shot(&mut options, &choice, true, true);
+    assert_eq!(options, json!({}));
+    assert_eq!(choice, kept);
+    add_shot(&mut options, &choice, false, false);
+    assert_eq!(options, json!({"shot": {"iso": 800}}));
+    assert_eq!(shot_control_props(Some(&c), &choice, false, false)["shot-summary"], "ISO 800 · focus ∞");
+}
+
+#[test]
+fn the_shared_picker_can_unset_and_rejects_stale_indices() {
+    let c: StillCaps = serde_json::from_value(json!({"shot": {"iso_values": [100, 800]}})).unwrap();
+    let mut choice = ShotChoice::default();
+    assert!(pick_shot(&mut choice, &c, false, 2, false));
+    assert_eq!(choice.iso, Some(800));
+    assert!(!pick_shot(&mut choice, &c, false, 3, false));
+    assert!(pick_shot(&mut choice, &c, false, 0, false));
+    assert_eq!(choice.iso, None);
+    assert!(!pick_shot(&mut choice, &StillCaps::default(), true, 1, false));
+}
+
+#[test]
+fn unavailable_shot_overrides_are_kept_for_validation() {
+    let choice = ShotChoice { shutter_s: Some(10.0), iso: Some(800), ..ShotChoice::default() };
+    let caps = StillCaps::default();
+    let props = shot_control_props(Some(&caps), &choice, true, false);
+    assert_eq!(props["shot-shutter-enabled"], false);
+    assert_eq!(props["shot-iso-enabled"], false);
+    let mut options = json!({});
+    add_shot(&mut options, &choice, true, false);
+    assert_eq!(options["shot"], json!({"shutter_s": 10.0, "iso": 800}));
+    assert!(telescope_core::shot::apply_to_dslr(options.as_object_mut().unwrap(), &json!({})).is_err());
+}
