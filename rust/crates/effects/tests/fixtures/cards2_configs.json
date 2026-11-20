@@ -311,6 +311,7 @@
    "exposure_s": 0,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -335,6 +336,7 @@
    "exposure_s": 0,
    "timer": 3,
    "best": false,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "/x"
   }
@@ -359,6 +361,7 @@
    "exposure_s": 0,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -383,6 +386,7 @@
    "exposure_s": 8,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -405,6 +409,7 @@
    "exposure_s": 0,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -432,6 +437,7 @@
    "exposure_s": 0,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -453,6 +459,7 @@
    "exposure_s": 0,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -475,6 +482,7 @@
    "exposure_s": 0,
    "timer": 10,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -497,6 +505,7 @@
    "exposure_s": 0,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -519,6 +528,7 @@
    "exposure_s": 0,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "<default>"
   }
@@ -541,6 +551,7 @@
    "exposure_s": 0,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "camera",
    "folder": "/photos"
   }
@@ -567,6 +578,7 @@
    "exposure_s": 0.5,
    "timer": 0,
    "best": true,
+   "use_zoom": false,
    "distortion": "off",
    "folder": "<default>"
   }

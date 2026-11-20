@@ -302,7 +302,8 @@ fn a_photo_is_taken_through_the_shell_and_every_plugin_hears_what_became_of_it()
         _ => None,
     }).expect("the window is asked to take it");
     assert_eq!((taken.0.as_str(), taken.2.as_str(), taken.4.as_str()), ("photos", "p1", "/tmp/shots"));
-    assert_eq!(taken.3, json!({"format": "jpeg", "rotation": 0, "raw": 1, "quality": 80, "nr_hq": 1}));
+    assert_eq!(taken.3, json!({"format": "jpeg", "rotation": 0, "raw": 1, "quality": 80, "nr_hq": 1, "use_zoom": false,
+        "desktop_transforms": true, "_photo_lens_ratio": 1.0, "_photo_transform": {"flip_h": false, "flip_v": false, "rotation": 0, "zoom": 1.0, "pan_x": 0.0, "pan_y": 0.0}}));
     assert_eq!(props_of(&state, "photos", "card")["status"], "Taking the photo…");
 
     // The photo's thread reports back through the posts, to the plugin that asked

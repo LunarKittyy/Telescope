@@ -684,7 +684,15 @@ impl HostStills for Ctx<'_> {
         let request = self.state.request_id();
         self.state.stills.push((request, self.me.clone(), id.clone()));
         self.state.still_alive.push((request, id.clone(), Arc::new(std::sync::atomic::AtomicBool::new(true))));
-        self.state.effects.push(Effect::TakeStill { plugin: self.me.clone(), request, source: id, options: options.clone(), folder: folder.into() });
+        let mut options = options.clone();
+        // HEIC and Ultra HDR are only turned, never cropped
+        let croppable = !matches!(options.get("format").and_then(Value::as_str), Some("heic" | "ultrahdr"));
+        let transform = self.state.vc.photo_transform(&id, croppable && options.get("use_zoom").and_then(Value::as_bool).unwrap_or(false));
+        options["_photo_transform"] = serde_json::to_value(transform).unwrap();
+        options["_photo_lens_ratio"] = Value::from(self.state.vc.photo_lens_ratio(&id));
+        options["desktop_transforms"] = Value::Bool(true);
+        options["rotation"] = Value::from(0);
+        self.state.effects.push(Effect::TakeStill { plugin: self.me.clone(), request, source: id, options, folder: folder.into() });
         Some(request)
     }
     fn cancel_still(&mut self, request: RequestId) {

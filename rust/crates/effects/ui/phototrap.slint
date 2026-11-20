@@ -19,6 +19,8 @@ export component PhototrapCard inherits Card {
     callback customize-toggled(bool);
     callback shot-shutter-picked(int);
     callback shot-iso-picked(int);
+    in property <bool> use-zoom;
+    callback use-zoom-toggled(bool);
     in property <bool> active: true;
     idle: !active;
     in property <bool> armed;
@@ -75,7 +77,7 @@ export component PhototrapCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Set the sensitivity, photos, pause and Night back to default. Your zones aren't reset.");
+    reset-detail: @tr("Set the photo settings back to default. Your zones aren't reset.");
     reset => { root.reset-clicked(); }
 
     UnfoldGroup {
@@ -231,6 +233,17 @@ export component PhototrapCard inherits Card {
                 }
             }
         }
+    SwitchRow {
+        icon: Icons.zoom;
+        label: @tr("Use zoom");
+        tip: @tr("Use zoom");
+        tip-detail: @tr("Crop the photo to the zoom and position set in Transforms.");
+        hue: root.hue;
+        enabled: active;
+        changed: use-zoom;
+        checked: use-zoom;
+        toggled(v) => { root.use-zoom-toggled(v); }
+    }
     SwitchRow {
         icon: Icons.moon;
         label: @tr("Night");

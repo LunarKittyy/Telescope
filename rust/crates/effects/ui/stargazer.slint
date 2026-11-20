@@ -1,6 +1,8 @@
 // The Stargazer card. Joined after parts.slint, which has the imports.
 
 export component StargazerCard inherits Card {
+    in property <bool> use-zoom;
+    callback use-zoom-toggled(bool);
     in property <bool> active: true;
     idle: !active;
     in property <int> mode-index;
@@ -264,6 +266,20 @@ export component StargazerCard inherits Card {
                     iso-picked(i) => { root.iso-picked(i); }
                 }
             }
+        }
+    }
+    Unfolding {
+        open: mode-index == 3;
+        SwitchRow {
+            icon: Icons.zoom;
+            label: @tr("Use zoom");
+            tip: @tr("Use zoom");
+            tip-detail: @tr("Crop the photo to the zoom and position set in Transforms.");
+            hue: root.hue;
+            enabled: active && !running;
+            changed: use-zoom;
+            checked: use-zoom;
+            toggled(v) => { root.use-zoom-toggled(v); }
         }
     }
     RailRow {

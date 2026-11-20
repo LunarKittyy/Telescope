@@ -124,7 +124,25 @@ impl Rig for Fake {
 }
 
 fn wish(format: Format) -> Wish {
-    Wish { format, iso: None, shutter: None, timer_s: 0, shot: None }
+    Wish { format, iso: None, shutter: None, timer_s: 0, shot: None, photo_transform: None }
+}
+
+#[test]
+fn camera_jpegs_are_transformed_before_promotion_and_raw_stays_untouched() {
+    let dir = telescope_core::testing::scratch_dir("gphoto-transforms");
+    let jpeg = include_bytes!("../../../media/fixtures/jpeg/cv2_64x48.jpg").to_vec();
+    let raw = b"II*\0unchanged RAW sensor data".to_vec();
+    let transform = telescope_core::photo::PhotoTransform { flip_v: true, rotation: 270, zoom: 2.0, ..Default::default() };
+    let expected = dir.join("expected.jpg");
+    std::fs::write(&expected, &jpeg).unwrap();
+    telescope_core::photo::apply_file(&expected, &transform).unwrap();
+    let expected_bytes = std::fs::read(&expected).unwrap();
+    std::fs::remove_file(expected).unwrap();
+    let shots = [Shot { name: "a.JPG".into(), data: jpeg }, Shot { name: "a.NEF".into(), data: raw.clone() }];
+    let files = save_transformed(&dir, &shots, &|| false, Some(&transform)).unwrap();
+    assert_eq!(std::fs::read(&files[0]).unwrap(), expected_bytes);
+    assert_eq!(std::fs::read(&files[1]).unwrap(), raw);
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2, "no original or partial copy");
 }
 
 fn log(state: &Arc<Mutex<State>>) -> Vec<String> {
@@ -198,7 +216,7 @@ fn a_photo_sets_what_was_asked_sends_the_picture_to_the_computer_and_brings_live
     *shared.pending.lock().unwrap() = {
         let (reply, waiter) = handover();
         std::mem::forget(waiter);
-        Some(Job { wish: Wish { format: Format::RawJpeg, iso: Some("800".into()), shutter: Some("1,0000s".into()), timer_s: 0, shot: None }, reply, late: None, guard: None })
+        Some(Job { wish: Wish { format: Format::RawJpeg, iso: Some("800".into()), shutter: Some("1,0000s".into()), timer_s: 0, shot: None, photo_transform: None }, reply, late: None, guard: None })
     };
     assert!(shared.run_pending(&mut Fake(state.clone())));
     assert_eq!(log(&state), ["viewfinder=0", "iso=800", "shutterspeed=1,0000s", "capturetarget=Internal RAM", "capture", "viewfinder=1"]);
@@ -881,7 +899,7 @@ fn guarded_job(hidden: &Arc<AtomicBool>, alive: &Arc<AtomicBool>) -> (Shared, Wa
     let (reply, waiter) = handover();
     let (hidden, alive) = (hidden.clone(), alive.clone());
     let guard = Guard { hidden: Some(hidden), alive: Arc::new(Mutex::new(Box::new(move || alive.load(Ordering::SeqCst)))) };
-    let asked = Wish { format: Format::Jpeg, iso: Some("800".into()), shutter: None, timer_s: 0, shot: None };
+    let asked = Wish { format: Format::Jpeg, iso: Some("800".into()), shutter: None, timer_s: 0, shot: None, photo_transform: None };
     *shared.pending.lock().unwrap() = Some(Job { wish: asked, reply, late: None, guard: Some(guard) });
     (shared, waiter)
 }

@@ -34,6 +34,19 @@ class StillJobsTest {
     }
 
     @Test
+    fun `files report their captured optical lens ratio without changing older files`() {
+        val jobs = jobs()
+        val id = jobs.start(3, 0)!!
+        writeFile(jobs, id, "dng", 10)
+        val tele = jobs.newFile(id, "jpg")!!.also { it.writeBytes(byteArrayOf(1, 2)) }
+        jobs.fileDone(id, tele, 3.7f)
+        val main = jobs.newFile(id, "jpg")!!.also { it.writeBytes(byteArrayOf(3, 4)) }
+        jobs.fileDone(id, main, 1f)
+        assertEquals(listOf(null, 3.7f, 1f), jobs.status(id)!!.files.map { it.lens_ratio })
+        assertEquals(listOf(10L, 2L, 2L), jobs.status(id)!!.files.map { it.size })
+    }
+
+    @Test
     fun `the status counts down, then lists the files as they're written`() {
         val jobs = jobs()
         val id = jobs.start(2, 5_000)!!

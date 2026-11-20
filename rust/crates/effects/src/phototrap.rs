@@ -106,6 +106,7 @@ pub struct PhototrapPlugin {
     count: u32,
     pause_s: u32,
     night: bool,
+    use_zoom: bool,
     shot: ShotChoice,
     customize_open: bool,
     paired: Paired,
@@ -160,6 +161,7 @@ impl PhototrapPlugin {
             count: DEFAULT_COUNT,
             pause_s: DEFAULT_PAUSE_S,
             night: false,
+            use_zoom: false,
             shot: ShotChoice::default(),
             customize_open: false,
             paired: Paired::default(),
@@ -250,6 +252,7 @@ impl PhototrapPlugin {
     /// The photo options for the picks and what the lens offers.
     fn options(&self, caps: &StillCaps, host: &dyn Host) -> Value {
         let mut choices = defaults();
+        choices.insert("use_zoom".into(), json!(self.use_zoom));
         let burst = caps.burst_max >= 2;
         choices.insert("shots".into(), json!(if burst { "burst" } else { "single" }));
         choices.insert("burst".into(), json!(self.count_now().max(2)));
@@ -320,7 +323,7 @@ impl PhototrapPlugin {
             "count": self.count_now().max(2), "count-max": max.max(3), "count-text": self.count_now().to_string(), "count-enabled": max >= 2,
             "count-tip": tr(if max >= 2 { COUNT_TIP } else { COUNT_OFF_TIP }),
             "pause": self.pause_s, "pause-text": tr("{seconds} s").field("seconds", self.pause_s),
-            "night": self.night, "night-enabled": night_offered,
+            "night": self.night, "night-enabled": night_offered, "use-zoom": self.use_zoom,
             "night-tip": tr(if night_offered { NIGHT_TIP } else { NIGHT_OFF_TIP }),
             "reset-shown": self.reset_shown(), "customize-open": self.customize_open,
         });
@@ -742,6 +745,11 @@ impl Plugin for PhototrapPlugin {
             "count-moved" => self.set_number(host, "count", number),
             "pause-moved" => self.set_number(host, "pause", number),
             "reset-clicked" => self.reset(host),
+            "use-zoom-toggled" => {
+                self.use_zoom = flag;
+                self.show(host);
+                host.schedule_save();
+            }
             "night-toggled" => {
                 self.night = flag;
                 self.show(host);
@@ -753,7 +761,7 @@ impl Plugin for PhototrapPlugin {
 
     /// Armed isn't saved, so a restart never starts taking photos.
     fn get_config(&self) -> Value {
-        let mut cfg = json!({"zones": self.zones, "sensitivity": self.sensitivity, "count": self.count, "pause": self.pause_s, "night": self.night});
+        let mut cfg = json!({"zones": self.zones, "sensitivity": self.sensitivity, "count": self.count, "pause": self.pause_s, "night": self.night, "use_zoom": self.use_zoom});
         if self.shot != ShotChoice::default() { cfg["shot"] = self.shot.to_options_value(); }
         // The zones' orientation, so they follow the view if it's turned another way by the time they're loaded
         if self.orientation != Turn::default() {
@@ -777,6 +785,7 @@ impl Plugin for PhototrapPlugin {
         self.count = number("count", DEFAULT_COUNT, 2, 64);
         self.pause_s = number("pause", DEFAULT_PAUSE_S, 1, MAX_PAUSE_S);
         self.night = cfg.get("night") == Some(&Value::Bool(true));
+        self.use_zoom = cfg.get("use_zoom") == Some(&Value::Bool(true));
         self.shot = shot_choice(cfg.get("shot"));
         self.orientation = cfg.get("turn").and_then(|t| serde_json::from_value(t.clone()).ok()).unwrap_or_default();
         self.pending = true;

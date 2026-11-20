@@ -92,8 +92,11 @@ class StillCapture(
         fun close() = list.forEach { runCatching { it.reader.close() } }
     }
 
-    private inner class Run(val id: String, var request: StillRequest, val caps: StillCaps, val generation: Int,
-                            val cameraId: String, val array: SensorBox?, val maxResArray: SensorBox?) {
+    private inner class Run(val id: String, var request: StillRequest, var caps: StillCaps, val generation: Int,
+                            val cameraId: String, var array: SensorBox?, var maxResArray: SensorBox?) {
+        var physicalId = controller.stillPhysicalId()
+        var pinnedLens = false
+        var lensRatio: Float? = if (request.wholePhoto) 1f else null
         var active = true
         var attempt = 0               // a go without the best quality modes after a stall is the second
         var round = 0                 // bumped by every new go, so callbacks of the one before are ignored
@@ -242,6 +245,11 @@ class StillCapture(
         armTimeout(r)
         try {
             if (request.extension != null) { shootExtension(r, device); return }
+            if (request.wholePhoto && cam.logicalId == null && controller.stillOpticalRatio() > 1f) {
+                if (!pinPreviewLens(r, cam)) return
+                alone(r)
+                return
+            }
             // Two JPEG outputs in one session aren't a combination Camera2 promises, and they brought down an S10+'s camera service
             if (controller.stillVideoIsJpeg() && request.format != null) { alone(r); return }
             val key = outputsKey(request)
@@ -271,6 +279,50 @@ class StillCapture(
             end(r, "failed", "The phone couldn't take the photo")
         }
     }
+
+    private fun pinPreviewLens(r: Run, cam: CameraEntry): Boolean {
+        fun unsupported(): Boolean {
+            end(r, "unsupported", "This lens can't take the requested photo on the preview's camera")
+            return false
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return unsupported()
+        val logical = manager.getCameraCharacteristics(cam.id)
+        val id = controller.stillActiveLens()?.takeIf { it in logical.physicalCameraIds } ?: return unsupported()
+        if (r.request.raw && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return unsupported()
+        val chars = manager.getCameraCharacteristics(id)
+        val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: return unsupported()
+        val full = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION) else null
+        fun largest(map: android.hardware.camera2.params.StreamConfigurationMap?, format: Int): Pair<Int, Int>? =
+            map?.getOutputSizes(format)?.maxByOrNull { it.width.toLong() * it.height }?.let { it.width to it.height }
+        val physical = r.caps.copy(
+            jpeg = largest(map, ImageFormat.JPEG) ?: return unsupported(),
+            heic = largest(map, ImageFormat.HEIC),
+            ultraHdr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) largest(map, ImageFormat.JPEG_R) else null,
+            raw = largest(map, ImageFormat.RAW_SENSOR),
+            maxResJpeg = largest(full, ImageFormat.JPEG), maxResRaw = largest(full, ImageFormat.RAW_SENSOR),
+        )
+        val req = r.request
+        if (req.raw && (if (req.maxRes) physical.maxResRaw else physical.raw) == null ||
+            req.maxRes && physical.maxResJpeg == null || req.format == StillOptions.HEIC && physical.heic == null ||
+            req.format == StillOptions.ULTRA_HDR && physical.ultraHdr == null) return unsupported()
+        val base = CameraStreamService.equivalentFocal(logical)
+        val focal = CameraStreamService.equivalentFocal(chars)
+        if (base <= 0f || focal <= 0f) return unsupported()
+        r.physicalId = id
+        r.pinnedLens = true
+        r.lensRatio = focal / base
+        r.caps = physical
+        r.array = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
+        r.maxResArray = if (req.maxRes && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION)?.let { SensorBox(it.left, it.top, it.width(), it.height()) } else null
+        return true
+    }
+
+    private fun photoRequest(r: Run, device: CameraDevice, template: Int): CaptureRequest.Builder =
+        controller.stillRequest(device, template, wholePhoto = r.request.wholePhoto).also { builder ->
+            if (r.pinnedLens && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, 1f)
+        }
 
     // Images still being written hold their reader's buffers, so the readers close after them
     private fun closeAfterWrites(outputs: Outputs) {
@@ -338,7 +390,7 @@ class StillCapture(
 
     // withMeter: a small output for auto exposure and focus to settle on first, as they don't run on photos
     private fun openAlone(r: Run, device: CameraDevice, withMeter: Boolean) {
-        val physId = controller.stillPhysicalId()
+        val physId = r.physicalId
         val meter = if (withMeter) meterReader() else null
         r.meter = meter
         val stills = r.outputs!!.stills
@@ -397,7 +449,7 @@ class StillCapture(
             shoot(r, s, streamTargets = false)
         }
         try {
-            val request = controller.stillRequest(device, CameraDevice.TEMPLATE_PREVIEW).apply { addTarget(meter.surface) }.build()
+            val request = photoRequest(r, device, CameraDevice.TEMPLATE_PREVIEW).apply { addTarget(meter.surface) }.build()
             s.setRepeatingRequest(request, object : CameraCaptureSession.CaptureCallback() {
                 override fun onCaptureCompleted(session: CameraCaptureSession, req: CaptureRequest, result: TotalCaptureResult) {
                     if (SystemClock.elapsedRealtime() - started >= SETTLE_MIN_MS && settled(result)) go()
@@ -490,7 +542,8 @@ class StillCapture(
     private fun settleFrame(r: Run, device: CameraDevice, focus: Float): CaptureRequest? {
         val targets = r.meter?.let { listOf(it.surface) } ?: if (r.paused) emptyList() else controller.stillStreamTargets()
         if (targets.isEmpty()) return null
-        return controller.stillRequest(device, CameraDevice.TEMPLATE_PREVIEW).apply {
+        return (if (r.pinnedLens) photoRequest(r, device, CameraDevice.TEMPLATE_PREVIEW)
+            else controller.stillRequest(device, CameraDevice.TEMPLATE_PREVIEW)).apply {
             targets.forEach { addTarget(it) }
             set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
             set(CaptureRequest.LENS_FOCUS_DISTANCE, focus)
@@ -501,10 +554,11 @@ class StillCapture(
     private fun buildShot(r: Run, device: CameraDevice, shot: StillShot, index: Int, streamTargets: Boolean,
                           only: Surface? = null): CaptureRequest {
         val req = r.request
-        return controller.stillRequest(device, CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
+        return photoRequest(r, device, CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
             if (only != null) addTarget(only) else r.outputs!!.list.forEach { addTarget(it.reader.surface) }
             // A long or bracketed exposure would flash through the video: those frames stay out of it
-            if (only == null && streamTargets && shot.exposureNs == null) controller.stillStreamTargets().forEach { addTarget(it) }
+            if (only == null && streamTargets && shot.exposureNs == null &&
+                !(req.wholePhoto && controller.stillHasDigitalCrop())) controller.stillStreamTargets().forEach { addTarget(it) }
             set(CaptureRequest.JPEG_QUALITY, req.quality.toByte())
             set(CaptureRequest.JPEG_ORIENTATION, req.rotation)
             if (req.nrHq) set(CaptureRequest.NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY)
@@ -722,11 +776,17 @@ class StillCapture(
             return
         }
         val cam = controller.stillCamera()
-        val id = cam?.id
+        val id = r.physicalId ?: cam?.id
         if (id == null || result == null) { close(output, image); writes.decrementAndGet(); return }
         val chars = manager.getCameraCharacteristics(id)
-        val physical = if (cam.logicalId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        val physical = if (r.physicalId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             result.physicalCameraTotalResults?.get(id) else null
+        if (r.request.desktopTransforms && r.physicalId != null && physical == null) {
+            close(output, image)
+            writes.decrementAndGet()
+            end(r, "failed", "The phone didn't report the photo's physical lens metadata")
+            return
+        }
         val rotation = r.request.rotation
         writer.execute {
             try {
@@ -744,7 +804,7 @@ class StillCapture(
     private fun write(r: Run, file: File, body: (FileOutputStream) -> Unit) {
         try {
             FileOutputStream(file).use(body)
-            jobs.fileDone(r.id, file)
+            jobs.fileDone(r.id, file, r.lensRatio)
             handler()?.post {
                 r.progressAt = SystemClock.elapsedRealtime()
                 r.written++
@@ -767,6 +827,11 @@ class StillCapture(
         val cam = controller.stillCamera() ?: return end(r, "camera_off", "The camera isn't running")
         val type = StillOptions.EXTENSIONS.entries.first { it.value == r.request.extension }.key
         val ext = manager.getCameraExtensionCharacteristics(cam.logicalId ?: cam.id)
+        val keys = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ext.getAvailableCaptureRequestKeys(type) else emptySet()
+        val lensRatio = controller.stillRequest(device, CameraDevice.TEMPLATE_STILL_CAPTURE)
+            .get(CaptureRequest.CONTROL_ZOOM_RATIO)
+        if (r.request.desktopTransforms && (cam.logicalId != null || lensRatio != null && lensRatio > 1f))
+            return end(r, "unsupported", "This photo mode can't select the preview's physical lens")
         val size = r.caps.extensionSizes[r.request.extension] ?: StillCatalog.extensionSize(ext, type)
             ?: return end(r, "unsupported", "This lens has no '${r.request.extension}' mode")
         val reader = ImageReader.newInstance(size.first, size.second, ImageFormat.JPEG, IMAGES)
@@ -783,14 +848,12 @@ class StillCapture(
                 if (!r.active || current !== r) { session.close(); return }
                 r.extension = session
                 try {
-                    val keys = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ext.getAvailableCaptureRequestKeys(type) else emptySet()
                     val built = device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
                         addTarget(reader.surface)
                         set(CaptureRequest.JPEG_QUALITY, r.request.quality.toByte())
                         set(CaptureRequest.JPEG_ORIENTATION, r.request.rotation)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && CaptureRequest.CONTROL_ZOOM_RATIO in keys)
-                            controller.stillRequest(device, CameraDevice.TEMPLATE_STILL_CAPTURE)
-                                .get(CaptureRequest.CONTROL_ZOOM_RATIO)?.let { set(CaptureRequest.CONTROL_ZOOM_RATIO, it) }
+                            lensRatio?.let { set(CaptureRequest.CONTROL_ZOOM_RATIO, it) }
                     }.build()
                     repeat(r.request.shots.size) {
                         session.capture(built, exec, object : CameraExtensionSession.ExtensionCaptureCallback() {

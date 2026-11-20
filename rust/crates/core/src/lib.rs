@@ -34,6 +34,7 @@ pub mod output;
 pub mod pace;
 pub mod perf;
 pub mod people;
+pub mod photo;
 pub mod plugin;
 pub mod plugin_admin;
 pub mod pose;

@@ -26,6 +26,7 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
         var error: String? = null
         var code: String? = null
         val files = mutableListOf<File>()
+        val lensRatios = mutableMapOf<File, Float>()
         var endedAt = 0L
         var named = 0  // files handed out so far
         val fetched = HashSet<Int>()  // files a computer asked for
@@ -77,11 +78,12 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
 
     // A file newFile handed out is written: it can be fetched from now on
     @Synchronized
-    fun fileDone(id: String, part: File) {
+    fun fileDone(id: String, part: File, lensRatio: Float? = null) {
         val job = jobs[id]
         val done = File(part.path.removeSuffix(".part"))
         if (job == null || job.state == "failed" || !part.renameTo(done)) { part.delete(); return }
         job.files += done
+        lensRatio?.takeIf { it.isFinite() && it > 0f }?.let { job.lensRatios[done] = it }
     }
 
     @Synchronized
@@ -117,7 +119,7 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
         val job = jobs[id] ?: return null
         return StillStatus(
             id = job.id, state = job.state, shots = job.shots, taken = job.taken,
-            files = job.files.map { StillFile(publicName(it), it.length(), type(it.name)) },
+            files = job.files.map { StillFile(publicName(it), it.length(), type(it.name), job.lensRatios[it]) },
             countdown_ms = if (job.state == "waiting") (job.shootAt - clock()).coerceAtLeast(0L) else 0L,
             paused = job.paused, error = job.error, code = job.code,
         )

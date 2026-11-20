@@ -174,7 +174,7 @@ pub type Choices = Map<String, Value>;
 
 pub fn defaults() -> Choices {
     let Value::Object(map) = json!({"format": "jpeg", "quality": 95, "mode": "normal", "shots": "single", "burst": 5, "bracket_photos": 3, "bracket_gap": 3,
-                                    "focus_steps": 5, "bracket_merge": "frames", "merge_brightness": 0, "exposure_s": 0, "timer": 0, "best": true, "distortion": "camera"}) else { unreachable!() };
+                                    "focus_steps": 5, "bracket_merge": "frames", "merge_brightness": 0, "exposure_s": 0, "timer": 0, "best": true, "use_zoom": false, "distortion": "camera"}) else { unreachable!() };
     map
 }
 
@@ -467,6 +467,11 @@ pub fn int(choices: &Choices, key: &str, default: i64) -> i64 {
     number(choices, key, default as f64) as i64
 }
 
+/// Whether the photo can be cropped to the zoom without changing its picture. HEIC and Ultra HDR only get turned, by their orientation.
+pub fn can_use_zoom(format: &str) -> bool {
+    !matches!(format, "heic" | "ultrahdr")
+}
+
 /// The /v1/still options for the picks, fitted to what this lens offers.
 pub fn build_options(caps: &StillCaps, choices: &Choices, rotation: i32) -> Value {
     let can = offered(caps, choices);
@@ -476,6 +481,7 @@ pub fn build_options(caps: &StillCaps, choices: &Choices, rotation: i32) -> Valu
     let mut opts = Map::new();
     opts.insert("format".into(), json!(if format == "raw" { "none".to_string() } else { format.replace("raw+", "") }));
     opts.insert("rotation".into(), json!(rotation));
+    opts.insert("use_zoom".into(), json!(choices.get("use_zoom") == Some(&Value::Bool(true)) && can_use_zoom(format)));
     if format.starts_with("raw") {
         opts.insert("raw".into(), json!(1));
     }

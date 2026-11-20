@@ -69,13 +69,13 @@ fn bracketing_has_no_long_exposure_of_its_own() {
 
 #[test]
 fn a_plain_jpeg() {
-    assert_eq!(build_options(&plain(), &choices(json!({"quality": 88})), 0), json!({"format": "jpeg", "rotation": 0, "quality": 88}));
+    assert_eq!(build_options(&plain(), &choices(json!({"quality": 88})), 0), json!({"format": "jpeg", "use_zoom": false, "rotation": 0, "quality": 88}));
 }
 
 #[test]
 fn picks_a_lens_cant_do_are_left_out_rather_than_sent() {
     let picks = choices(json!({"format": "raw+jpeg", "mode": "night", "shots": "bracket", "exposure_s": 8, "distortion": "off"}));
-    assert_eq!(build_options(&plain(), &picks, 0), json!({"format": "jpeg", "rotation": 0, "quality": 95}));
+    assert_eq!(build_options(&plain(), &picks, 0), json!({"format": "jpeg", "use_zoom": false, "rotation": 0, "quality": 95}));
 }
 
 #[test]
@@ -89,14 +89,14 @@ fn raw_and_jpeg_at_full_resolution_with_a_long_exposure_and_the_best_processing(
     let picks = choices(json!({"format": "raw+jpeg", "mode": "max_res", "exposure_s": 4, "timer": 10, "distortion": "off"}));
     assert_eq!(build_options(&full(), &picks, 90), json!({
         "format": "jpeg", "raw": 1, "quality": 95, "max_res": 1, "exposure_ns": 4_000_000_000i64, "timer_s": 10, "nr_hq": 1, "edge_hq": 1,
-        "hot_pixel_hq": 1, "distortion": 0, "rotation": 90,
+        "hot_pixel_hq": 1, "distortion": 0, "use_zoom": false, "rotation": 90,
     }));
 }
 
 #[test]
 fn night_mode_bursts() {
     let picks = choices(json!({"mode": "night", "shots": "burst", "burst": 3, "best": true, "distortion": "on"}));
-    assert_eq!(build_options(&full(), &picks, 0), json!({"format": "jpeg", "quality": 95, "extension": "night", "count": 3, "rotation": 0}));
+    assert_eq!(build_options(&full(), &picks, 0), json!({"format": "jpeg", "quality": 95, "extension": "night", "count": 3, "use_zoom": false, "rotation": 0}));
 }
 
 #[test]
@@ -384,7 +384,7 @@ fn config_round_trips_and_odd_values_go_back_to_defaults() {
     assert_eq!(cfg["folder"], default_folder().as_str());
     // The keys come in the order the file has always had them
     let keys: Vec<&String> = cfg.as_object().unwrap().keys().collect();
-    assert_eq!(keys, ["format", "quality", "mode", "shots", "burst", "bracket_photos", "bracket_gap", "focus_steps", "exposure_s", "timer", "best", "distortion", "folder"]);
+    assert_eq!(keys, ["format", "quality", "mode", "shots", "burst", "bracket_photos", "bracket_gap", "focus_steps", "exposure_s", "timer", "best", "use_zoom", "distortion", "folder"]);
     assert!(rig.plugin.set_config(&json!([1])).is_err());
 }
 
@@ -595,11 +595,11 @@ fn picks_from_the_cameras_lists_go_with_the_photo_without_a_quality_and_are_not_
     rig.ui("take-clicked", vec![]);
     let (options, folder) = rig.host.stills_taken[0].clone();
     assert_eq!(folder, "/tmp/photos");
-    assert_eq!(options, json!({"format": "jpeg", "raw": 1, "rotation": 0, "iso": "800", "shutter": "30,0000s"}));
+    assert_eq!(options, json!({"format": "jpeg", "raw": 1, "use_zoom": false, "rotation": 0, "iso": "800", "shutter": "30,0000s"}));
     // Without a pick nothing is asked of the camera but the format
     let mut quiet = dslr(dslr_json());
     quiet.ui("take-clicked", vec![]);
-    assert_eq!(quiet.host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0}));
+    assert_eq!(quiet.host.stills_taken[0].0, json!({"format": "jpeg", "use_zoom": false, "rotation": 0}));
 }
 
 #[test]
@@ -662,9 +662,9 @@ fn the_self_timer_goes_with_a_camera_photo() {
 
 #[test]
 fn camera_options_drop_the_quality_and_keep_only_picks_that_were_made() {
-    let mut options = json!({"format": "jpeg", "rotation": 0, "quality": 95});
+    let mut options = json!({"format": "jpeg", "use_zoom": false, "rotation": 0, "quality": 95});
     camera_options(&mut options, None, Some("1/60"));
-    assert_eq!(options, json!({"format": "jpeg", "rotation": 0, "shutter": "1/60"}));
+    assert_eq!(options, json!({"format": "jpeg", "use_zoom": false, "rotation": 0, "shutter": "1/60"}));
 }
 
 #[test]
@@ -830,7 +830,7 @@ fn picks_made_on_one_camera_are_not_sent_with_another_cameras_photo() {
     rig.event(Event::DeviceChanged { source_id: "webcam:b".into() });
     assert_eq!((tile(&rig.props(), "iso").unwrap().1, tile(&rig.props(), "shutter").unwrap().1), (2, 1), "the camera's own values show");
     rig.ui("take-clicked", vec![]);
-    assert_eq!(rig.host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0}), "nothing from the other camera goes with it");
+    assert_eq!(rig.host.stills_taken[0].0, json!({"format": "jpeg", "use_zoom": false, "rotation": 0}), "nothing from the other camera goes with it");
     // The same camera again after the stream stops and starts keeps what was picked on it
     let mut same = dslr(dslr_json());
     same.host.focused = Some("webcam:a".into());
@@ -1135,5 +1135,41 @@ fn loading_an_empty_shot_override_keeps_reset_clear() {
         rig.caps_changed();
         assert!(rig.plugin.get_config().get("shot").is_none());
         assert_eq!(rig.props()["reset-shown"], false);
+    }
+}
+
+#[test]
+fn use_zoom_defaults_off_and_is_kept_in_photo_presets() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    assert_eq!(rig.plugin.get_config()["use_zoom"], false);
+    assert_eq!(rig.props()["use-zoom"], false);
+    rig.ui("use-zoom-toggled", vec![json!(true)]);
+    assert_eq!(rig.props()["use-zoom"], true);
+    let saved = rig.plugin.preset_config();
+    assert_eq!(saved["use_zoom"], true);
+    let mut restored = Rig::new(Some(full_json()), true);
+    restored.plugin.apply_preset(&mut restored.host, &saved).unwrap();
+    restored.ui("take-clicked", vec![]);
+    assert_eq!(restored.host.stills_taken[0].0["use_zoom"], true);
+    restored.plugin.apply_preset(&mut restored.host, &json!({"use_zoom": false})).unwrap();
+    assert_eq!(restored.plugin.preset_config()["use_zoom"], false);
+}
+
+#[test]
+fn heic_and_ultra_hdr_are_kept_but_never_cropped_to_the_zoom() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.ui("use-zoom-toggled", vec![json!(true)]);
+    assert_eq!((rig.props()["use-zoom-enabled"].clone(), rig.props()["use-zoom-tip"].clone()), (json!(true), json!("")));
+    for (index, format) in [(1, "heic"), (2, "ultrahdr")] {
+        let options = build_options(&full(), &choices(json!({"format": format, "use_zoom": true})), 0);
+        assert_eq!((options["format"].as_str(), &options["use_zoom"]), (Some(format), &json!(false)));
+        rig.ui("tile-picked", vec![json!("format"), json!(index)]);
+        let p = rig.props();
+        assert_eq!((&p["use-zoom"], &p["use-zoom-enabled"]), (&json!(true), &json!(false)), "{format} greys the switch out and keeps the choice");
+        assert!(p["use-zoom-tip"].as_str().unwrap().contains("JPEG"));
+        rig.ui("take-clicked", vec![]);
+        assert_eq!(rig.host.stills_taken.last().unwrap().0["use_zoom"], false);
+        rig.ui("tile-picked", vec![json!("format"), json!(0)]);
+        assert_eq!(rig.props()["use-zoom-enabled"], true);
     }
 }

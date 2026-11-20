@@ -783,3 +783,19 @@ fn a_late_trap_restore_failure_survives_the_request_ending() {
     p.on_event(&mut h, &Event::RequestProgress { request: RequestId(99), data: json!({"state": "late", "code": "restore", "error": "Restore failed"}) });
     assert_eq!(p.status(&h), ("Restore failed".into(), "status_err"));
 }
+
+#[test]
+fn phototrap_use_zoom_defaults_off_and_survives_a_preset() {
+    let (mut p, mut h, _) = armed();
+    assert_eq!(p.get_config()["use_zoom"], false);
+    assert_eq!(card(&h)["use-zoom"], false);
+    click(&mut p, &mut h, "use-zoom-toggled", json!(true));
+    assert_eq!(card(&h)["use-zoom"], true);
+    let preset = p.preset_config();
+    assert_eq!(preset["use_zoom"], true);
+    let (mut restored, _) = plugin();
+    restored.apply_preset(&mut h, &preset).unwrap();
+    assert_eq!(restored.options(&serde_json::from_value(caps()).unwrap(), &h)["use_zoom"], true);
+    restored.apply_preset(&mut h, &json!({"use_zoom": false})).unwrap();
+    assert_eq!(restored.get_config()["use_zoom"], false);
+}
