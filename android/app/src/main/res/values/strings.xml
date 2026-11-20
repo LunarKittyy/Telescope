@@ -218,5 +218,4 @@
     <string name="computer_version_title">Computer connection</string>
     <string name="computer_version_different">%1$s and this phone have different app versions (%2$s and %3$s).</string>
     <string name="computer_version_legacy">%1$s is using an older desktop app.</string>
-    <string name="presence_unavailable">Network presence unavailable. Normal connection checks are still available.</string>
 </resources>
