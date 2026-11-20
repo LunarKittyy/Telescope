@@ -5,6 +5,7 @@
 use telescope_core::source::BROWSER_SOURCE;
 use telescope_core::i18n::Fields;
 use crate::adb_download;
+use crate::app_versions::{compare, Difference};
 use crate::connection::{self, fix_actions, outdated_action, problem_text, route_text, status_line,
                         Check, Connection, Fix, ProbeOutcome, RouteChange, UsbWatch, UseRoute, PAIR_USB_POLL,
                         STATUS_POLL, USB_WATCH};
@@ -96,6 +97,8 @@ pub struct ConnectionPlugin {
     active_key: Option<String>,
     /// The "No device yet" banner, while it may still be up.
     no_phone_issue: Option<Issue>,
+    desktop_version: String,
+    version_notice: Option<(String, Issue)>,
     updating_phone: bool,
     /// (kind, text) from the last phone update.
     update_note: Option<(String, String)>,
@@ -136,13 +139,18 @@ impl ConnectionPlugin {
             link, shared, poster: None, sources: Vec::new(), remembered: Vec::new(), active_key: None, no_phone_issue: None,
             updating_phone: false, update_note: None, add: None, phones_open: false, add_from_phones: false, same_phone: None, picker_ids: Vec::new(), picker_names: Vec::new(),
             picker_open: false, picker_stale: false, stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
-            outputs: None, vcam_source: None, adb_asked: None,
+            outputs: None, vcam_source: None, adb_asked: None, desktop_version: String::new(), version_notice: None,
         }
     }
 
     /// With the virtual camera to check at Start.
     pub fn with_outputs(mut self, outputs: Arc<dyn Outputs>) -> ConnectionPlugin {
         self.outputs = Some(outputs);
+        self
+    }
+
+    pub fn with_desktop_version(mut self, version: &str) -> ConnectionPlugin {
+        self.desktop_version = version.to_string();
         self
     }
 
@@ -201,6 +209,30 @@ impl ConnectionPlugin {
             })
         };
         host.set_ui_props("card", &props);
+        let notice = {
+            let c = self.conn();
+            c.selected_phone().zip(c.resolution.as_ref()).and_then(|(phone, res)| {
+                if res.status != PhoneStatus::Ready { return None; }
+                let difference = compare(&res.phone_version, &self.desktop_version)?;
+                let text = match difference {
+                    Difference::PhoneOlder => tr("The Telescope app on {phone} is older than this one. Update it on the phone."),
+                    Difference::DesktopOlder => tr("The Telescope app on {phone} is newer than this one. Update Telescope on this computer."),
+                    Difference::Different => tr("Telescope on {phone} and this computer have different app versions."),
+                }.field("phone", &phone.name);
+                Some((phone.id.clone(), Issue {
+                    title: tr("Different app versions"), text, kind: "info".into(), actions: vec![],
+                    details: String::new(), tell_dismiss: false,
+                }))
+            })
+        };
+        if notice != self.version_notice {
+            if let Some((_, issue)) = &notice {
+                host.show_issue("app_version", issue.clone());
+            } else {
+                host.clear_issue(Some("app_version"), None);
+            }
+            self.version_notice = notice;
+        }
     }
 
     fn refresh_picker(&mut self, host: &mut dyn Host) {
@@ -2004,6 +2036,51 @@ mod tests {
         fn answer_vcam(&mut self, ok: bool, persist: bool) {
             self.ui("card", "vcam-answered", vec![json!(ok), json!(persist)]);
         }
+    }
+
+    #[test]
+    fn app_version_notice_is_informational_and_stays_dismissed_between_checks() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.plugin.desktop_version = "3.6.0".into();
+        let res = Resolution { phone_version: "3.5.0".into(), ..ready(wifi()) };
+        e.resolve(res.clone());
+        let issue = e.issue("app_version").unwrap();
+        assert_eq!(issue.kind, "info");
+        assert!(issue.text.contains("Pixel is older"));
+        assert!(issue.actions.is_empty());
+        assert_eq!(e.shared.conn().resolution.as_ref().unwrap().status, PhoneStatus::Ready);
+
+        e.host.issues.retain(|(key, _)| key != "app_version");
+        e.resolve(res);
+        assert!(e.issue("app_version").is_none());
+        assert_eq!(e.count("show_issue app_version"), 1);
+
+        e.resolve(Resolution { phone_version: "3.6.0".into(), ..ready(wifi()) });
+        assert!(e.issue("app_version").is_none());
+        for status in [PhoneStatus::PhoneOutdated, PhoneStatus::DesktopOutdated] {
+            e.resolve(Resolution { phone_version: "3.5.0".into(), ..Resolution::new(status) });
+            assert!(e.issue("app_version").is_none());
+        }
+        e.resolve(Resolution { phone_version: "3.7.0".into(), ..ready(wifi()) });
+        assert!(e.issue("app_version").unwrap().text.contains("Pixel is newer"));
+        e.resolve(ready(wifi()));
+        assert!(e.issue("app_version").is_none());
+        e.resolve(Resolution { phone_version: "3.7.0".into(), ..ready(wifi()) });
+        e.plugin.select(&mut e.host, Some("browser"), false, false);
+        assert!(e.issue("app_version").is_none());
+    }
+
+    #[test]
+    fn starts_with_different_app_versions_and_shows_the_notice() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.plugin.desktop_version = "3.6.0 nightly 123".into();
+        e.link.answer(Resolution { phone_version: "3.6.0".into(), ..ready(wifi()) });
+        assert!(e.ask_start().is_some());
+        assert!(e.issue("app_version").unwrap().text.contains("different app versions"));
+        e.resolve(Resolution { phone_version: "3.6.0-nightly.123".into(), ..ready(wifi()) });
+        assert!(e.issue("app_version").is_none());
     }
 
     #[test]

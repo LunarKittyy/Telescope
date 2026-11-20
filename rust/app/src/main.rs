@@ -211,7 +211,8 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                     setup.log_path = telescope_core::diagnostics::events().path().map(|p| p.display().to_string());
                     setup
                 }),
-                Box::new(connection.connection_plugin().with_outputs(outputs.clone())),
+                Box::new(connection.connection_plugin().with_outputs(outputs.clone())
+                    .with_desktop_version(&telescope_system::version::display_version())),
                 Box::new(browser),
                 Box::new(machine.webcam()),
                 Box::new(machine.spout()),

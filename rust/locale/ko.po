@@ -180,7 +180,7 @@ msgstr "VB-Cable 다운로드"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "타이핑 소리, 팬 소음, 실내 잡음을 제거해요."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1462 rust/crates/link/src/plugin.rs:1469 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -223,7 +223,7 @@ msgstr "끄기"
 msgid "Switch while held, back on release"
 msgstr "누르고 있는 동안 전환, 떼면 복귀"
 
-#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1384 rust/crates/outputs/src/stream_output.rs:627 rust/crates/outputs/src/stream_output.rs:644 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:627 rust/crates/outputs/src/stream_output.rs:644 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "동작"
 
@@ -346,7 +346,7 @@ msgstr "노란색: 리미터가 피크를 억제 중이에요. 빨간색: 소리
 msgid "Click to clear"
 msgstr "클릭하여 지우기"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:921 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:52 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:189 rust/crates/effects/ui/phototrap.slint:77 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:332 rust/crates/shell/ui/cards/preview.slint:333 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:905 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:52 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:189 rust/crates/effects/ui/phototrap.slint:77 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:332 rust/crates/shell/ui/cards/preview.slint:333 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
 msgid "Reset"
 msgstr "초기화"
 
@@ -362,7 +362,7 @@ msgstr "자동 레벨"
 msgid "Even out quiet and loud speech."
 msgstr "작은 목소리와 큰 목소리의 크기를 고르게 맞춰요."
 
-#: rust/crates/audio/ui/microphone.slint:259 rust/crates/audio/ui/microphone.slint:264 rust/crates/shell/src/plugins/camera_control.rs:1505 rust/crates/shell/src/plugins/camera_control.rs:1898 rust/crates/shell/ui/cards/camera.slint:425 rust/crates/shell/ui/cards/camera.slint:433
+#: rust/crates/audio/ui/microphone.slint:259 rust/crates/audio/ui/microphone.slint:264 rust/crates/shell/src/plugins/camera_control.rs:1505 rust/crates/shell/src/plugins/camera_control.rs:1904 rust/crates/shell/ui/cards/camera.slint:425 rust/crates/shell/ui/cards/camera.slint:433
 msgid "Noise reduction"
 msgstr "노이즈 감소"
 
@@ -400,19 +400,19 @@ msgstr "스톱"
 msgid " stops"
 msgstr " 스톱"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "다음"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:218 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "이전"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1417 rust/crates/outputs/src/stream_output.rs:628
 msgid "Pick"
 msgstr "선택"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1386 rust/crates/outputs/src/stream_output.rs:629
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1418 rust/crates/outputs/src/stream_output.rs:629
 msgid "Option"
 msgstr "옵션"
 
@@ -544,7 +544,7 @@ msgstr "플러그인"
 msgid "Updates & About"
 msgstr "업데이트 및 정보"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/stargazer.rs:808 rust/crates/effects/src/stargazer.rs:821 rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1348 rust/crates/effects/src/stargazer.rs:1348 rust/crates/effects/src/stargazer.rs:1349 rust/crates/effects/src/stills.rs:302 rust/crates/effects/src/stills.rs:304 rust/crates/effects/src/stills.rs:327 rust/crates/effects/ui/photos.slint:57 rust/crates/effects/ui/photos.slint:61 rust/crates/effects/ui/photos.slint:68 rust/crates/effects/ui/photos.slint:498 rust/crates/effects/ui/photos.slint:500 rust/crates/effects/ui/phototrap.slint:7 rust/crates/effects/ui/phototrap.slint:11 rust/crates/effects/ui/phototrap.slint:18 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:84 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105 rust/crates/ui-kit/ui/widgets/shot.slint:15 rust/crates/ui-kit/ui/widgets/shot.slint:19 rust/crates/ui-kit/ui/widgets/shot.slint:29
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/stargazer.rs:832 rust/crates/effects/src/stargazer.rs:1332 rust/crates/effects/src/stargazer.rs:1332 rust/crates/effects/src/stargazer.rs:1333 rust/crates/effects/src/stills.rs:298 rust/crates/effects/src/stills.rs:306 rust/crates/effects/src/stills.rs:337 rust/crates/effects/ui/photos.slint:57 rust/crates/effects/ui/photos.slint:61 rust/crates/effects/ui/photos.slint:68 rust/crates/effects/ui/photos.slint:498 rust/crates/effects/ui/photos.slint:500 rust/crates/effects/ui/phototrap.slint:7 rust/crates/effects/ui/phototrap.slint:11 rust/crates/effects/ui/phototrap.slint:18 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:84 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:105 rust/crates/ui-kit/ui/widgets/shot.slint:15 rust/crates/ui-kit/ui/widgets/shot.slint:19 rust/crates/ui-kit/ui/widgets/shot.slint:29
 msgid "Camera"
 msgstr "카메라"
 
@@ -763,7 +763,7 @@ msgstr "미리보기에서 선택한 색상이에요. 다시 선택하려면 클
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "미리보기에서 등 뒤의 스크린을 클릭해 보세요. Esc를 누르면 취소돼요."
 
-#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:243 rust/crates/shell/src/stream_flow.rs:258 rust/crates/shell/src/streams.rs:760 rust/crates/shell/src/streams.rs:1879 rust/crates/shell/src/streams.rs:1901 rust/crates/shell/src/window.rs:1983 rust/crates/shell/src/worker.rs:622 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:243 rust/crates/shell/src/stream_flow.rs:258 rust/crates/shell/src/streams.rs:760 rust/crates/shell/src/streams.rs:1879 rust/crates/shell/src/streams.rs:1901 rust/crates/shell/src/window.rs:1989 rust/crates/shell/src/worker.rs:622 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "스트리밍 중 아님"
 
@@ -1121,7 +1121,7 @@ msgstr "게인 마스터"
 msgid "Offset master"
 msgstr "오프셋 마스터"
 
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:312 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:142 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/src/plugins/camera_control.rs:1890 rust/crates/shell/ui/cards/camera.slint:287 rust/crates/shell/ui/cards/camera.slint:298
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:312 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:142 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/src/plugins/camera_control.rs:1896 rust/crates/shell/ui/cards/camera.slint:287 rust/crates/shell/ui/cards/camera.slint:298
 msgid "Temperature"
 msgstr "색온도"
 
@@ -1129,7 +1129,7 @@ msgstr "색온도"
 msgid "Make the picture warmer or cooler."
 msgstr "화면을 더 따뜻하거나 차갑게 만들어요."
 
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/ui/colour_grading.slint:312 rust/crates/shell/src/plugins/camera_control.rs:1622 rust/crates/shell/src/plugins/camera_control.rs:1892 rust/crates/shell/ui/cards/camera.slint:308 rust/crates/shell/ui/cards/camera.slint:319
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/ui/colour_grading.slint:312 rust/crates/shell/src/plugins/camera_control.rs:1622 rust/crates/shell/src/plugins/camera_control.rs:1898 rust/crates/shell/ui/cards/camera.slint:308 rust/crates/shell/ui/cards/camera.slint:319
 msgid "Tint"
 msgstr "색조"
 
@@ -1486,7 +1486,7 @@ msgid "Black and white"
 msgstr "흑백"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:995 rust/crates/outputs/src/webcam_controls.rs:154 rust/crates/outputs/ui/webcam.slint:137 rust/crates/outputs/ui/webcam.slint:138 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
+#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:995 rust/crates/outputs/src/webcam_controls.rs:154 rust/crates/outputs/ui/webcam.slint:137 rust/crates/outputs/ui/webcam.slint:138 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1875 rust/crates/shell/src/plugins/camera_control.rs:1876 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
 msgid "Auto"
 msgstr "자동"
 
@@ -2470,7 +2470,7 @@ msgstr "온에어 웹후크 실패"
 msgid "The webhook returned: {error}"
 msgstr "웹후크 응답: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:488 rust/crates/shell/src/doc.rs:489 rust/crates/shell/src/doc.rs:979
+#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:493 rust/crates/shell/src/doc.rs:494 rust/crates/shell/src/doc.rs:984
 msgid "Settings"
 msgstr "설정"
 
@@ -2540,7 +2540,7 @@ msgstr "일반"
 msgid "Full resolution"
 msgstr "최대 해상도"
 
-#: rust/crates/effects/src/photos.rs:30 rust/crates/effects/src/stargazer.rs:921 rust/crates/effects/ui/phototrap.slint:236 rust/crates/effects/ui/phototrap.slint:237
+#: rust/crates/effects/src/photos.rs:30 rust/crates/effects/src/stargazer.rs:905 rust/crates/effects/ui/phototrap.slint:236 rust/crates/effects/ui/phototrap.slint:237
 msgid "Night"
 msgstr "야간"
 
@@ -2568,7 +2568,7 @@ msgstr "노출 브라케팅"
 msgid "Focus bracket"
 msgstr "초점 브라케팅"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:277 rust/crates/effects/src/photos.rs:822 rust/crates/effects/src/photos.rs:973 rust/crates/effects/ui/photos.slint:182 rust/crates/effects/ui/photos.slint:460 rust/crates/effects/ui/photos.slint:462 rust/crates/effects/ui/phototrap.slint:114
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:277 rust/crates/effects/src/photos.rs:826 rust/crates/effects/src/photos.rs:977 rust/crates/effects/ui/photos.slint:182 rust/crates/effects/ui/photos.slint:460 rust/crates/effects/ui/photos.slint:462 rust/crates/effects/ui/phototrap.slint:114
 msgid "Photos"
 msgstr "사진"
 
@@ -2684,7 +2684,7 @@ msgstr "카메라가 이미 사진을 찍고 있어요."
 msgid "Still merging the last brackets. Try again in a moment."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:66 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:284
+#: rust/crates/effects/src/photos.rs:66 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:282
 msgid "The camera couldn't take the photo."
 msgstr "카메라가 사진을 찍지 못했어요."
 
@@ -2712,11 +2712,11 @@ msgstr ""
 msgid "{m} m"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:215 rust/crates/effects/src/photos.rs:982 rust/crates/effects/src/photos.rs:998 rust/crates/effects/ui/photos.slint:196
+#: rust/crates/effects/src/photos.rs:215 rust/crates/effects/src/photos.rs:986 rust/crates/effects/src/photos.rs:1002 rust/crates/effects/ui/photos.slint:196
 msgid "Take photo"
 msgstr "사진 촬영"
 
-#: rust/crates/effects/src/photos.rs:215 rust/crates/effects/src/stargazer.rs:922
+#: rust/crates/effects/src/photos.rs:215 rust/crates/effects/src/stargazer.rs:906
 msgid "Open folder"
 msgstr "폴더 열기"
 
@@ -2724,16 +2724,16 @@ msgstr "폴더 열기"
 msgid "Best quality"
 msgstr "최고 화질"
 
-#: rust/crates/effects/src/photos.rs:224 rust/crates/effects/src/phototrap.rs:322 rust/crates/effects/src/phototrap.rs:703 rust/crates/effects/src/stargazer.rs:934 rust/crates/effects/src/stargazer.rs:1345 rust/crates/effects/src/stills.rs:127 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:224 rust/crates/effects/src/phototrap.rs:322 rust/crates/effects/src/phototrap.rs:703 rust/crates/effects/src/stargazer.rs:918 rust/crates/effects/src/stargazer.rs:1329 rust/crates/effects/src/stills.rs:127 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds}초"
 
-#: rust/crates/effects/src/photos.rs:248 rust/crates/effects/ui/photos.slint:217 rust/crates/effects/ui/photos.slint:218 rust/crates/ui-kit/ui/widgets/shot.slint:38 rust/crates/ui-kit/ui/widgets/shot.slint:55 rust/crates/ui-kit/ui/widgets/shot.slint:58
+#: rust/crates/effects/src/photos.rs:248 rust/crates/effects/ui/photos.slint:217 rust/crates/effects/ui/photos.slint:218 rust/crates/ui-kit/ui/widgets/shot.slint:40 rust/crates/ui-kit/ui/widgets/shot.slint:62 rust/crates/ui-kit/ui/widgets/shot.slint:65
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:248 rust/crates/effects/ui/photos.slint:227 rust/crates/effects/ui/photos.slint:228 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229 rust/crates/ui-kit/ui/widgets/shot.slint:45
+#: rust/crates/effects/src/photos.rs:248 rust/crates/effects/ui/photos.slint:227 rust/crates/effects/ui/photos.slint:228 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1878 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229 rust/crates/ui-kit/ui/widgets/shot.slint:50
 msgid "Shutter"
 msgstr "셔터"
 
@@ -2777,7 +2777,7 @@ msgstr "전체"
 msgid "This mode sets its own exposure"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:408 rust/crates/effects/src/photos.rs:900
+#: rust/crates/effects/src/photos.rs:408 rust/crates/effects/src/photos.rs:904
 msgid "Start streaming to take photos."
 msgstr "사진을 촬영하려면 스트리밍을 시작하세요."
 
@@ -2785,95 +2785,95 @@ msgstr "사진을 촬영하려면 스트리밍을 시작하세요."
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "이 휴대폰은 아직 Telescope에서 사진을 촬영할 수 없어요. 휴대폰의 앱을 업데이트하세요."
 
-#: rust/crates/effects/src/photos.rs:629
+#: rust/crates/effects/src/photos.rs:633
 msgid "Darker"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:629
+#: rust/crates/effects/src/photos.rs:633
 msgid "Lighter"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:629
+#: rust/crates/effects/src/photos.rs:633
 msgid "Middle"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:666
+#: rust/crates/effects/src/photos.rs:670
 msgid "Merging the bracket…"
-msgstr ""
-
-#: rust/crates/effects/src/photos.rs:677
-#, python-brace-format
-msgid "Saved {name} from {used} of {frames} photos. The photos are still saved."
-msgstr ""
-
-#: rust/crates/effects/src/photos.rs:679
-#, python-brace-format
-msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:681
 #, python-brace-format
-msgid "Saved the merged picture {name} from {used} of {frames} photos"
+msgid "Saved {name} from {used} of {frames} photos. The photos are still saved."
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:683
 #, python-brace-format
+msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:685
+#, python-brace-format
+msgid "Saved the merged picture {name} from {used} of {frames} photos"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:687
+#, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:692 rust/crates/effects/src/photos.rs:771 rust/crates/effects/src/photos.rs:797
+#: rust/crates/effects/src/photos.rs:696 rust/crates/effects/src/photos.rs:775 rust/crates/effects/src/photos.rs:801
 msgid "Photo saved"
 msgstr "사진 저장됨"
 
-#: rust/crates/effects/src/photos.rs:696
+#: rust/crates/effects/src/photos.rs:700
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:732 rust/crates/effects/src/photos.rs:752
+#: rust/crates/effects/src/photos.rs:736 rust/crates/effects/src/photos.rs:756
 msgid "Taking the photo…"
 msgstr "사진 촬영 중…"
 
-#: rust/crates/effects/src/photos.rs:746
+#: rust/crates/effects/src/photos.rs:750
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "{seconds}초 후 사진 촬영"
 
-#: rust/crates/effects/src/photos.rs:748
+#: rust/crates/effects/src/photos.rs:752
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "사진 {n}/{total}"
 
-#: rust/crates/effects/src/photos.rs:750
+#: rust/crates/effects/src/photos.rs:754
 msgid "The video is paused while the photo is taken…"
 msgstr "사진을 촬영하는 동안 비디오가 일시 중지돼요…"
 
-#: rust/crates/effects/src/photos.rs:766 rust/crates/effects/src/stargazer.rs:929
+#: rust/crates/effects/src/photos.rs:770 rust/crates/effects/src/stargazer.rs:913
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "{name} 저장됨"
 
-#: rust/crates/effects/src/photos.rs:793
+#: rust/crates/effects/src/photos.rs:797
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "사진이 늦게 도착했어요. {name} 저장됨"
 
-#: rust/crates/effects/src/photos.rs:807
+#: rust/crates/effects/src/photos.rs:811
 msgid "Save photos in"
 msgstr "사진 저장 위치"
 
-#: rust/crates/effects/src/photos.rs:823 rust/crates/effects/ui/photos.slint:183
+#: rust/crates/effects/src/photos.rs:827 rust/crates/effects/ui/photos.slint:183
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "카메라가 지원하는 경우 RAW를 포함해 휴대폰이나 DSLR에서 최고 화질로 사진을 찍어요."
 
-#: rust/crates/effects/src/photos.rs:824
+#: rust/crates/effects/src/photos.rs:828
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "사진 플러그인이 없으면 사진 카드가 표시되지 않으며, 사진 촬영 단축키도 사용할 수 없어요."
 
-#: rust/crates/effects/src/photos.rs:975 rust/crates/effects/src/photos.rs:1013
+#: rust/crates/effects/src/photos.rs:979 rust/crates/effects/src/photos.rs:1017
 msgid "Photo mode"
 msgstr "사진 모드"
 
-#: rust/crates/effects/src/photos.rs:980 rust/crates/effects/src/photos.rs:1023
+#: rust/crates/effects/src/photos.rs:984 rust/crates/effects/src/photos.rs:1027
 msgid "Photo timer"
 msgstr "사진 타이머"
 
@@ -2986,7 +2986,7 @@ msgstr ""
 msgid "Without the Phototrap plugin there's no Phototrap card and nothing is watched for movement."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:653 rust/crates/effects/src/stargazer.rs:1306 rust/crates/shell/src/shell.rs:1849
+#: rust/crates/effects/src/phototrap.rs:653 rust/crates/effects/src/stargazer.rs:1290 rust/crates/shell/src/shell.rs:1849
 msgid "Couldn't restore the camera settings."
 msgstr ""
 
@@ -3113,169 +3113,169 @@ msgstr "QR 코드 읽기"
 msgid "Open the folder the stacks are saved in."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/src/stargazer.rs:829 rust/crates/effects/src/stargazer.rs:897 rust/crates/effects/src/stargazer.rs:916 rust/crates/effects/src/stargazer.rs:1346 rust/crates/effects/src/stargazer.rs:1346 rust/crates/effects/src/stargazer.rs:1350 rust/crates/effects/src/stargazer.rs:1350 rust/crates/effects/src/stills.rs:311
+#: rust/crates/effects/src/stargazer.rs:812 rust/crates/effects/src/stargazer.rs:823 rust/crates/effects/src/stargazer.rs:881 rust/crates/effects/src/stargazer.rs:900 rust/crates/effects/src/stargazer.rs:1330 rust/crates/effects/src/stargazer.rs:1330 rust/crates/effects/src/stargazer.rs:1334 rust/crates/effects/src/stargazer.rs:1334 rust/crates/effects/src/stills.rs:321
 msgid "Waiting for the picture"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/src/stills.rs:320
+#: rust/crates/effects/src/stargazer.rs:812 rust/crates/effects/src/stills.rs:330
 msgid "This camera can't set the shutter speed."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/src/stills.rs:320
+#: rust/crates/effects/src/stargazer.rs:812 rust/crates/effects/src/stills.rs:330
 msgid "Set the shutter speed for the photo."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:829 rust/crates/effects/src/stills.rs:323
+#: rust/crates/effects/src/stargazer.rs:823 rust/crates/effects/src/stills.rs:333
 msgid "This camera can't set the ISO."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:829 rust/crates/effects/src/stills.rs:323
+#: rust/crates/effects/src/stargazer.rs:823 rust/crates/effects/src/stills.rs:333
 msgid "Set the ISO for the photo."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:836 rust/crates/effects/src/stargazer.rs:1351 rust/crates/effects/src/stills.rs:324
+#: rust/crates/effects/src/stargazer.rs:830 rust/crates/effects/src/stargazer.rs:1335 rust/crates/effects/src/stills.rs:334
 msgid "Setting the focus from here comes in a later version."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:880
+#: rust/crates/effects/src/stargazer.rs:864
 msgid "Video paused while exposing"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:880 rust/crates/effects/src/stargazer.rs:888
+#: rust/crates/effects/src/stargazer.rs:864 rust/crates/effects/src/stargazer.rs:872
 msgid "Taking the photo"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:882
+#: rust/crates/effects/src/stargazer.rs:866
 msgid "Paused while part of the picture is hidden"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:885
+#: rust/crates/effects/src/stargazer.rs:869
 #, python-brace-format
 msgid "Collecting frame {done} of {total}"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:886
+#: rust/crates/effects/src/stargazer.rs:870
 msgid "Stacking every frame"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:887
+#: rust/crates/effects/src/stargazer.rs:871
 msgid "Recording the trails"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:892
+#: rust/crates/effects/src/stargazer.rs:876
 #, python-brace-format
 msgid "Stacking the sharpest {n} frame"
 msgid_plural "Stacking the sharpest {n} frames"
 msgstr[0] ""
 
-#: rust/crates/effects/src/stargazer.rs:899 rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:709 rust/crates/setup/src/setup.rs:718 rust/crates/setup/src/setup.rs:737 rust/crates/setup/src/setup.rs:761
+#: rust/crates/effects/src/stargazer.rs:883 rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:709 rust/crates/setup/src/setup.rs:718 rust/crates/setup/src/setup.rs:737 rust/crates/setup/src/setup.rs:761
 msgid "Ready"
 msgstr "준비됨"
 
-#: rust/crates/effects/src/stargazer.rs:909
+#: rust/crates/effects/src/stargazer.rs:893
 #, python-brace-format
 msgid "In the stack: {frames}, refused: {refused}, time: {time}"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:915
+#: rust/crates/effects/src/stargazer.rs:899
 #, python-brace-format
 msgid "Now {now}, best {best}"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:921
+#: rust/crates/effects/src/stargazer.rs:905
 msgid "Lucky"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:921 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1190
+#: rust/crates/effects/src/stargazer.rs:905 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1190
 msgid "Live"
 msgstr "라이브"
 
-#: rust/crates/effects/src/stargazer.rs:921 rust/crates/effects/ui/fun_pack.slint:146
+#: rust/crates/effects/src/stargazer.rs:905 rust/crates/effects/ui/fun_pack.slint:146
 msgid "Trails"
 msgstr "잔상"
 
-#: rust/crates/effects/src/stargazer.rs:921 rust/crates/shell/src/plugins/presets.rs:221 rust/crates/system/ui/shortcuts.slint:364
+#: rust/crates/effects/src/stargazer.rs:905 rust/crates/shell/src/plugins/presets.rs:221 rust/crates/system/ui/shortcuts.slint:364
 msgid "Save"
 msgstr "저장"
 
-#: rust/crates/effects/src/stargazer.rs:922
+#: rust/crates/effects/src/stargazer.rs:906
 msgid "Show the stack on the camera"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:932 rust/crates/effects/src/stargazer.rs:1344
+#: rust/crates/effects/src/stargazer.rs:916 rust/crates/effects/src/stargazer.rs:1328
 #, python-brace-format
 msgid "{n} frames"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:935 rust/crates/effects/src/stargazer.rs:1346 rust/crates/effects/ui/stargazer.slint:276 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1993 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:919 rust/crates/effects/src/stargazer.rs:1330 rust/crates/effects/ui/stargazer.slint:276 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1999 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "시작"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:935 rust/crates/effects/ui/stargazer.slint:276 rust/crates/shell/src/window.rs:2003 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:919 rust/crates/effects/ui/stargazer.slint:276 rust/crates/shell/src/window.rs:2009 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "중지"
 
-#: rust/crates/effects/src/stargazer.rs:935 rust/crates/effects/ui/stargazer.slint:276
+#: rust/crates/effects/src/stargazer.rs:919 rust/crates/effects/ui/stargazer.slint:276
 msgid "Stacking"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:989 rust/crates/effects/src/stargazer.rs:1004
+#: rust/crates/effects/src/stargazer.rs:973 rust/crates/effects/src/stargazer.rs:988
 msgid "Couldn't take the photo"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1002
+#: rust/crates/effects/src/stargazer.rs:986
 msgid "Saved the photo"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1060
+#: rust/crates/effects/src/stargazer.rs:1044
 msgid "Stopped. Reset starts a new stack"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1105
+#: rust/crates/effects/src/stargazer.rs:1089
 #, python-brace-format
 msgid "Stopped early and stacked the sharpest {n} frame it had"
 msgid_plural "Stopped early and stacked the sharpest {n} frames it had"
 msgstr[0] ""
 
-#: rust/crates/effects/src/stargazer.rs:1106
+#: rust/crates/effects/src/stargazer.rs:1090
 msgid "Saved the trails"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1107
+#: rust/crates/effects/src/stargazer.rs:1091
 #, python-brace-format
 msgid "Saved a stack of {n} frame"
 msgid_plural "Saved a stack of {n} frames"
 msgstr[0] ""
 
-#: rust/crates/effects/src/stargazer.rs:1113
+#: rust/crates/effects/src/stargazer.rs:1097
 msgid "Stopped before enough frames came in. Nothing was saved"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1122
+#: rust/crates/effects/src/stargazer.rs:1106
 msgid "Couldn't save the picture"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1127
+#: rust/crates/effects/src/stargazer.rs:1111
 #, python-brace-format
 msgid "Memory limits this run to the sharpest {n} frame"
 msgid_plural "Memory limits this run to the sharpest {n} frames"
 msgstr[0] ""
 
-#: rust/crates/effects/src/stargazer.rs:1128
+#: rust/crates/effects/src/stargazer.rs:1112
 msgid "Stopped because the picture size changed"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1230 rust/crates/effects/ui/stargazer.slint:64
+#: rust/crates/effects/src/stargazer.rs:1214 rust/crates/effects/ui/stargazer.slint:64
 msgid "Stargazer"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1231
+#: rust/crates/effects/src/stargazer.rs:1215
 msgid "Stack frames from a phone clipped to a telescope into a sharper moon or planet, a clearer faint sky or a star trail."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1232
+#: rust/crates/effects/src/stargazer.rs:1216
 msgid "Without the Stargazer plugin there's no Stargazer card and no frames are stacked."
 msgstr ""
 
@@ -3429,7 +3429,7 @@ msgstr ""
 msgid "focus {distance}"
 msgstr ""
 
-#: rust/crates/effects/src/stills.rs:116 rust/crates/ui-kit/ui/widgets/shot.slint:49 rust/crates/ui-kit/ui/widgets/shot.slint:59
+#: rust/crates/effects/src/stills.rs:116 rust/crates/ui-kit/ui/widgets/shot.slint:54 rust/crates/ui-kit/ui/widgets/shot.slint:66
 msgid "Like the camera"
 msgstr ""
 
@@ -3442,7 +3442,7 @@ msgstr "동영상과 동일"
 msgid "1/{n} s"
 msgstr ""
 
-#: rust/crates/effects/src/stills.rs:310
+#: rust/crates/effects/src/stills.rs:320
 msgid "Night mode sets its own exposure"
 msgstr ""
 
@@ -4160,11 +4160,11 @@ msgstr "이름:"
 msgid "OK"
 msgstr "확인"
 
-#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:852 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "아니요"
 
-#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:851 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "예"
 
@@ -4654,7 +4654,7 @@ msgstr ""
 msgid "Set the frames, sharpest share, time between frames and photo settings back to default. The mode and the camera switch aren't reset."
 msgstr ""
 
-#: rust/crates/effects/ui/stargazer.slint:89 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:913 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334 rust/crates/ui-kit/ui/widgets/shot.slint:70 rust/crates/ui-kit/ui/widgets/shot.slint:75 rust/crates/ui-kit/ui/widgets/shot.slint:76
+#: rust/crates/effects/ui/stargazer.slint:89 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:913 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334 rust/crates/ui-kit/ui/widgets/shot.slint:77 rust/crates/ui-kit/ui/widgets/shot.slint:82 rust/crates/ui-kit/ui/widgets/shot.slint:83
 msgid "Focus"
 msgstr "초점"
 
@@ -5012,7 +5012,7 @@ msgstr "속도를 따라갈 수 없음"
 msgid "Browser"
 msgstr "브라우저"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1859 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:380 rust/crates/link/src/plugin.rs:416 rust/crates/link/src/plugin.rs:442 rust/crates/link/src/plugin.rs:776 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1859 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "다시 시도"
 
@@ -5033,7 +5033,7 @@ msgstr "브라우저, 최근 연결: {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "이 컴퓨터에서 비디오 연결을 설정하지 못했어요."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:393 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr "기기 추가"
 
@@ -5159,12 +5159,12 @@ msgstr "휴대폰이 USB로 응답하지 않음"
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "연결이 USB 전용으로 설정되어 있어요: {why}. Wi-Fi를 대신 사용하려면 '자동'으로 전환하세요."
 
-#: rust/crates/link/src/connection.rs:855
+#: rust/crates/link/src/connection.rs:855 rust/crates/link/src/plugin.rs:218
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "{phone}의 Telescope 앱이 이 앱보다 이전 버전이에요. 휴대폰에서 앱을 업데이트하세요."
 
-#: rust/crates/link/src/connection.rs:856
+#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:219
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "{phone}의 Telescope 앱이 이 앱보다 최신 버전이에요. 이 컴퓨터에서 Telescope를 업데이트하세요."
@@ -5315,243 +5315,252 @@ msgstr "USB로 연결된 휴대폰이 다른 기기임"
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "휴대폰이 연결되었지만 Telescope가 열려 있지 않음"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1096 rust/crates/link/src/plugin.rs:1356 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
+#: rust/crates/link/src/plugin.rs:220
+#, python-brace-format
+msgid "Telescope on {phone} and this computer have different app versions."
+msgstr ""
+
+#: rust/crates/link/src/plugin.rs:223
+msgid "Different app versions"
+msgstr ""
+
+#: rust/crates/link/src/plugin.rs:392 rust/crates/link/src/plugin.rs:1128 rust/crates/link/src/plugin.rs:1388 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
 msgid "No device yet"
 msgstr "아직 기기 없음"
 
-#: rust/crates/link/src/plugin.rs:360
+#: rust/crates/link/src/plugin.rs:392
 msgid "Add a phone to stream from."
 msgstr "스트리밍할 휴대폰을 추가하세요."
 
-#: rust/crates/link/src/plugin.rs:376 rust/crates/link/src/plugin.rs:382
+#: rust/crates/link/src/plugin.rs:408 rust/crates/link/src/plugin.rs:414
 msgid "Can't connect to the phone"
 msgstr "휴대폰에 연결할 수 없음"
 
-#: rust/crates/link/src/plugin.rs:383 rust/crates/link/src/service.rs:84
+#: rust/crates/link/src/plugin.rs:415 rust/crates/link/src/service.rs:84
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb가 휴대폰과의 연결을 열 수 없었어요. 케이블을 분리했다가 다시 연결한 후 시도해 보세요."
 
-#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:476
+#: rust/crates/link/src/plugin.rs:438 rust/crates/link/ui/connection.slint:476
 msgid "Set up the virtual camera"
 msgstr "가상 카메라 설정"
 
-#: rust/crates/link/src/plugin.rs:412
+#: rust/crates/link/src/plugin.rs:444
 msgid "Couldn't set up the virtual camera"
 msgstr "가상 카메라를 설정할 수 없음"
 
-#: rust/crates/link/src/plugin.rs:446
+#: rust/crates/link/src/plugin.rs:478
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "휴대폰 앱을 업데이트하지 못했어요: {error}"
 
-#: rust/crates/link/src/plugin.rs:540 rust/crates/link/src/plugin.rs:551
+#: rust/crates/link/src/plugin.rs:572 rust/crates/link/src/plugin.rs:583
 msgid "This computer isn't on a network right now. Pair over USB."
 msgstr "이 컴퓨터가 현재 네트워크에 연결되어 있지 않아요. USB로 페어링하세요."
 
 #. "Scan pairing code" is a button in the phone app: use the phone app's translation of it
-#: rust/crates/link/src/plugin.rs:544
+#: rust/crates/link/src/plugin.rs:576
 msgid "On the phone, tap Scan pairing code and point it at this code."
 msgstr "휴대폰에서 '페어링 코드 스캔'을 누르고 이 코드를 비추세요."
 
-#: rust/crates/link/src/plugin.rs:567 rust/crates/link/src/plugin.rs:688
+#: rust/crates/link/src/plugin.rs:599 rust/crates/link/src/plugin.rs:720
 msgid "Getting adb from Google…"
 msgstr "Google에서 adb 다운로드 중…"
 
-#: rust/crates/link/src/plugin.rs:569 rust/crates/link/src/plugin.rs:633
+#: rust/crates/link/src/plugin.rs:601 rust/crates/link/src/plugin.rs:665
 msgid "Or plug the phone in over USB."
 msgstr "또는 휴대폰을 USB로 연결하세요."
 
-#: rust/crates/link/src/plugin.rs:575
+#: rust/crates/link/src/plugin.rs:607
 #, python-brace-format
 msgid "adb is required for USB and Telescope can <a href=\"{link}\">get it from Google</a>. Wi-Fi works without it."
 msgstr "USB를 사용하려면 adb가 필요하며 Telescope가 <a href=\"{link}\">Google에서 다운로드</a>할 수 있어요. Wi-Fi는 adb 없이도 작동해요."
 
-#: rust/crates/link/src/plugin.rs:576
+#: rust/crates/link/src/plugin.rs:608
 msgid "Get adb from Google"
 msgstr "Google에서 adb 설치"
 
-#: rust/crates/link/src/plugin.rs:578
+#: rust/crates/link/src/plugin.rs:610
 msgid "adb is required for USB but isn't installed. Wi-Fi works without it."
 msgstr "USB를 사용하려면 adb가 필요하지만 설치되어 있지 않아요. Wi-Fi는 adb 없이도 작동해요."
 
-#: rust/crates/link/src/plugin.rs:593
+#: rust/crates/link/src/plugin.rs:625
 #, python-brace-format
 msgid "Pair {phone}"
 msgstr "{phone} 페어링"
 
-#: rust/crates/link/src/plugin.rs:598
+#: rust/crates/link/src/plugin.rs:630
 msgid "You can start streaming now."
 msgstr "이제 스트리밍을 시작할 수 있어요."
 
-#: rust/crates/link/src/plugin.rs:598
+#: rust/crates/link/src/plugin.rs:630
 msgid "Open the app on the phone first."
 msgstr "먼저 휴대폰에서 앱을 여세요."
 
-#: rust/crates/link/src/plugin.rs:606
+#: rust/crates/link/src/plugin.rs:638
 #, python-brace-format
 msgid "Paired with {name}"
 msgstr "{name}과(와) 페어링됨"
 
-#: rust/crates/link/src/plugin.rs:623
+#: rust/crates/link/src/plugin.rs:655
 #, python-brace-format
 msgid "Pairing {phone}. Keep the app open."
 msgstr "{phone} 페어링 중이에요. 앱을 열어 두세요."
 
-#: rust/crates/link/src/plugin.rs:627
+#: rust/crates/link/src/plugin.rs:659
 msgid "Pick a phone to pair over USB."
 msgstr "USB로 페어링할 휴대폰을 선택하세요."
 
-#: rust/crates/link/src/plugin.rs:630
+#: rust/crates/link/src/plugin.rs:662
 msgid "Allow USB debugging on the phone."
 msgstr "휴대폰에서 USB 디버깅을 허용하세요."
 
-#: rust/crates/link/src/plugin.rs:671
+#: rust/crates/link/src/plugin.rs:703
 #, python-brace-format
 msgid "Telescope can download adb from Google (about {size}) and save it for your user. adb is Google's software and their Android SDK License applies (<a href=\"{url}\">read it here</a>).<br><br>Wi-Fi works without adb."
 msgstr "Telescope가 Google에서 adb를 다운로드하여(약 {size}) 사용자 계정에 저장할 수 있어요. adb는 Google의 소프트웨어이며 Android SDK 라이선스가 적용돼요(<a href=\"{url}\">여기에서 확인</a>).<br><br>Wi-Fi는 adb 없이도 작동해요."
 
-#: rust/crates/link/src/plugin.rs:677
+#: rust/crates/link/src/plugin.rs:709
 msgid "USB needs adb, Google's tool for talking to Android phones."
 msgstr "USB 연결에는 Android 휴대폰과 통신하기 위한 Google 도구인 adb가 필요해요."
 
-#: rust/crates/link/src/plugin.rs:680
+#: rust/crates/link/src/plugin.rs:712
 msgid "Agree and download"
 msgstr "동의 및 다운로드"
 
-#: rust/crates/link/src/plugin.rs:699
+#: rust/crates/link/src/plugin.rs:731
 msgid "Pick adb.exe or the platform-tools zip"
 msgstr "adb.exe 또는 platform-tools zip 파일 선택"
 
-#: rust/crates/link/src/plugin.rs:700
+#: rust/crates/link/src/plugin.rs:732
 msgid "adb.exe or platform-tools zip (adb.exe *.zip)"
 msgstr "adb.exe 또는 platform-tools zip (adb.exe *.zip)"
 
-#: rust/crates/link/src/plugin.rs:706
+#: rust/crates/link/src/plugin.rs:738
 msgid "Copying adb…"
 msgstr "adb 복사 중…"
 
-#: rust/crates/link/src/plugin.rs:741
+#: rust/crates/link/src/plugin.rs:773
 #, python-brace-format
 msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
 msgstr "<a href=\"{get}\">다시 시도</a>하거나 <a href=\"{pick}\">이미 가지고 있는 adb를 선택</a>하세요."
 
-#: rust/crates/link/src/plugin.rs:817
+#: rust/crates/link/src/plugin.rs:849
 msgid "Same phone?"
 msgstr "동일한 휴대폰인가요?"
 
-#: rust/crates/link/src/plugin.rs:818
+#: rust/crates/link/src/plugin.rs:850
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "{name} 휴대폰이 맞나요?"
 
-#: rust/crates/link/src/plugin.rs:818
+#: rust/crates/link/src/plugin.rs:850
 #, python-brace-format
 msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
 msgstr "{name}이(가) 새 휴대폰으로 페어링되었어요. 휴대폰에 Telescope를 다시 설치했거나 앱 데이터를 삭제한 경우 발생할 수 있어요. '예'를 선택하면 {name}의 설정과 프리셋을 새 항목으로 이동하고 기존 항목을 제거해요."
 
-#: rust/crates/link/src/plugin.rs:1023
+#: rust/crates/link/src/plugin.rs:1055
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "휴대폰 앱이 업데이트되었어요. 휴대폰에서 Telescope를 여세요."
 
-#: rust/crates/link/src/plugin.rs:1097 rust/crates/link/src/plugin.rs:1118
+#: rust/crates/link/src/plugin.rs:1129 rust/crates/link/src/plugin.rs:1150
 msgctxt "status"
 msgid "Streaming"
 msgstr "스트리밍 중"
 
-#: rust/crates/link/src/plugin.rs:1098
+#: rust/crates/link/src/plugin.rs:1130
 #, python-brace-format
 msgid "Waiting for {source}"
 msgstr "{source} 대기 중"
 
-#: rust/crates/link/src/plugin.rs:1099
+#: rust/crates/link/src/plugin.rs:1131
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr "{source}, 페어링 필요 없음"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1188
+#: rust/crates/link/src/plugin.rs:1145 rust/crates/shell/src/streams.rs:1188
 msgid "Reconnecting"
 msgstr "다시 연결 중"
 
-#: rust/crates/link/src/plugin.rs:1116
+#: rust/crates/link/src/plugin.rs:1148
 msgid "Streaming over USB"
 msgstr "USB로 스트리밍 중"
 
-#: rust/crates/link/src/plugin.rs:1117
+#: rust/crates/link/src/plugin.rs:1149
 msgid "Streaming over Wi-Fi"
 msgstr "Wi-Fi로 스트리밍 중"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1192
+#: rust/crates/link/src/plugin.rs:1153 rust/crates/shell/src/streams.rs:1192
 msgid "Connecting"
 msgstr "연결 중"
 
-#: rust/crates/link/src/plugin.rs:1137
+#: rust/crates/link/src/plugin.rs:1169
 msgid "Updating the phone app over USB…"
 msgstr "USB로 휴대폰 앱 업데이트 중…"
 
-#: rust/crates/link/src/plugin.rs:1141
+#: rust/crates/link/src/plugin.rs:1173
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone}의 Telescope 앱이 이 앱보다 이전 버전이에요."
 
-#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:763 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1248 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:763 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "명령어 복사"
 
-#: rust/crates/link/src/plugin.rs:1224 rust/crates/link/src/plugin.rs:1381 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
+#: rust/crates/link/src/plugin.rs:1256 rust/crates/link/src/plugin.rs:1413 rust/crates/link/src/plugin.rs:1462 rust/crates/link/src/plugin.rs:1469 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
 msgid "Phone"
 msgstr "휴대폰"
 
-#: rust/crates/link/src/plugin.rs:1224
+#: rust/crates/link/src/plugin.rs:1256
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "휴대폰 · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1225
+#: rust/crates/link/src/plugin.rs:1257
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer and unpairs it on the phone too if Telescope can reach it."
 msgstr "\"{name}\"을(를) 제거할까요? 이 컴퓨터에서 해당 카메라 설정이 삭제되며, Telescope와 연결할 수 있는 상태라면 휴대폰에서도 페어링이 해제돼요."
 
-#: rust/crates/link/src/plugin.rs:1228
+#: rust/crates/link/src/plugin.rs:1260
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "{name} 이름 바꾸기"
 
-#: rust/crates/link/src/plugin.rs:1229 rust/crates/link/src/plugin.rs:1236
+#: rust/crates/link/src/plugin.rs:1261 rust/crates/link/src/plugin.rs:1268
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "{name} 제거"
 
-#: rust/crates/link/src/plugin.rs:1230
+#: rust/crates/link/src/plugin.rs:1262
 msgid "Remove phone"
 msgstr "휴대폰 제거"
 
-#: rust/crates/link/src/plugin.rs:1233
+#: rust/crates/link/src/plugin.rs:1265
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
 msgstr "\"{name}\"을(를) 제거할까요? 이 컴퓨터에 저장된 설정이 삭제돼요. 브라우저는 코드를 통해 계속 연결할 수 있으며 기본 설정으로 시작돼요."
 
-#: rust/crates/link/src/plugin.rs:1237
+#: rust/crates/link/src/plugin.rs:1269
 msgid "Remove browser"
 msgstr "브라우저 제거"
 
-#: rust/crates/link/src/plugin.rs:1542
+#: rust/crates/link/src/plugin.rs:1574
 msgid "Virtual camera is set up differently"
 msgstr "가상 카메라가 다르게 설정되어 있음"
 
-#: rust/crates/link/src/plugin.rs:1543
+#: rust/crates/link/src/plugin.rs:1575
 #, python-brace-format
 msgid "Another app loaded v4l2loopback with other settings and without {device}. Close that app and run this command to give Telescope control:"
 msgstr "다른 앱에서 {device} 없이 다른 설정으로 v4l2loopback을 로드했어요. 해당 앱을 닫고 다음 명령어를 실행하여 Telescope에 제어권을 부여하세요:"
 
-#: rust/crates/link/src/plugin.rs:1553
+#: rust/crates/link/src/plugin.rs:1585
 msgid "The virtual camera is off"
 msgstr "가상 카메라가 꺼져 있음"
 
-#: rust/crates/link/src/plugin.rs:1553
+#: rust/crates/link/src/plugin.rs:1585
 msgid "Your password is needed to switch on the virtual camera."
 msgstr "가상 카메라를 켜려면 비밀번호가 필요해요."
 
-#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
+#: rust/crates/link/src/plugin.rs:1586 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
 msgid "Switch on"
 msgstr "켜기"
 
@@ -6359,51 +6368,51 @@ msgstr "다른 프로그램이 카메라를 드라이브로 마운트했어요. 
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "웹캠에서 아무것도 전송하지 않고 있어요. 다른 해상도나 프레임 레이트를 시도해 보세요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
 msgid "The camera is busy. Try again in a moment."
 msgstr "카메라가 사용 중이에요. 잠시 후 다시 시도해 보세요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:279
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:277
 msgid "The camera's mode doesn't allow that setting."
 msgstr "카메라 모드에서 지원하지 않는 설정이에요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:280
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
 msgid "The camera is on Bulb. Pick a shutter speed first."
 msgstr "카메라가 벌브 모드로 설정되어 있어요. 먼저 셔터 속도를 선택하세요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:281
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:279
 msgid "This camera can't take that kind of photo."
 msgstr "이 카메라로는 해당 유형의 사진을 촬영할 수 없어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:283
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:281
 msgid "The camera's photo settings could not be restored. Check its ISO and shutter speed."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:285
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:283
 msgid "Telescope couldn't save the photo."
 msgstr "Telescope가 사진을 저장하지 못했어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:286
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:284
 msgid "The photo was interrupted because the camera stopped."
 msgstr "카메라가 중지되어 사진 촬영이 중단되었어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:287
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:285
 msgid "The camera took too long to take the photo. The photo is saved and you get a notification if it still arrives."
 msgstr "카메라의 사진 촬영 시간이 너무 오래 걸렸어요. 사진이 나중에라도 전송되면 저장되고 알림을 받게 돼요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:288 rust/crates/shell/src/streams.rs:844
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:286 rust/crates/shell/src/streams.rs:844
 msgid "No photo was taken while part of the picture is hidden."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:289
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:287
 msgid "The camera can't take a JPEG alone with its image quality locked to RAW and JPEG together."
 msgstr "카메라의 화질 설정이 RAW 및 JPEG 동시 저장으로 고정되어 있어 JPEG만 단독으로 촬영할 수 없어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:290
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:288
 msgid "The camera can't take a JPEG with its image quality locked to RAW."
 msgstr "카메라의 화질 설정이 RAW로 고정되어 있어 JPEG를 촬영할 수 없어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:291
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:289
 msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr "카메라에서 사진의 일부만 전송했어요. 수신된 부분만 저장돼요."
 
@@ -6431,7 +6440,7 @@ msgstr ""
 msgid "Flash"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam_controls.rs:162 rust/crates/outputs/ui/webcam.slint:137 rust/crates/outputs/ui/webcam.slint:138 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275
+#: rust/crates/outputs/src/webcam_controls.rs:162 rust/crates/outputs/ui/webcam.slint:137 rust/crates/outputs/ui/webcam.slint:138 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1875 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275
 msgid "Manual"
 msgstr "수동"
 
@@ -8173,15 +8182,15 @@ msgstr "Telescope가 다시 시작되는 동안 스트리밍이 중지돼요. �
 msgid "Restart to apply changes."
 msgstr "변경 사항을 적용하려면 다시 시작하세요."
 
-#: rust/crates/shell/src/doc.rs:498 rust/crates/shell/src/doc.rs:499
+#: rust/crates/shell/src/doc.rs:503 rust/crates/shell/src/doc.rs:504
 msgid "Add camera"
 msgstr "카메라 추가"
 
-#: rust/crates/shell/src/doc.rs:500
+#: rust/crates/shell/src/doc.rs:505
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr "별도의 가상 카메라에서 다른 카메라를 동시에 스트리밍해요."
 
-#: rust/crates/shell/src/doc.rs:1017 rust/crates/shell/src/doc.rs:1018
+#: rust/crates/shell/src/doc.rs:1022 rust/crates/shell/src/doc.rs:1023
 msgid "Search settings"
 msgstr "설정 검색"
 
@@ -8393,56 +8402,56 @@ msgstr "이 휴대폰의 앱 버전이 낮아 저조도 모드를 쓸 수 없어
 msgid "Start streaming to use low light"
 msgstr "저조도 모드를 사용하려면 스트리밍을 시작하세요"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1491 rust/crates/shell/src/plugins/camera_control.rs:1883 rust/crates/shell/ui/cards/camera.slint:128 rust/crates/shell/ui/cards/camera.slint:139
+#: rust/crates/shell/src/plugins/camera_control.rs:1491 rust/crates/shell/src/plugins/camera_control.rs:1889 rust/crates/shell/ui/cards/camera.slint:128 rust/crates/shell/ui/cards/camera.slint:139
 msgid "Lens"
 msgstr "렌즈"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1497 rust/crates/shell/src/plugins/camera_control.rs:1884
+#: rust/crates/shell/src/plugins/camera_control.rs:1497 rust/crates/shell/src/plugins/camera_control.rs:1890
 msgid "Exposure mode"
 msgstr "노출 모드"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1499 rust/crates/shell/src/plugins/camera_control.rs:1889
+#: rust/crates/shell/src/plugins/camera_control.rs:1499 rust/crates/shell/src/plugins/camera_control.rs:1895
 msgid "White balance mode"
 msgstr "화이트 밸런스 모드"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1501 rust/crates/shell/src/plugins/camera_control.rs:1894
+#: rust/crates/shell/src/plugins/camera_control.rs:1501 rust/crates/shell/src/plugins/camera_control.rs:1900
 msgid "Focus mode"
 msgstr "초점 모드"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1870
+#: rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1876
 msgid "Tap a point"
 msgstr "지점 탭"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
+#: rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1876 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
 msgctxt "focus"
 msgid "Manual"
 msgstr "수동"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1505 rust/crates/shell/src/plugins/camera_control.rs:1899 rust/crates/shell/ui/cards/camera.slint:444 rust/crates/shell/ui/cards/camera.slint:452
+#: rust/crates/shell/src/plugins/camera_control.rs:1505 rust/crates/shell/src/plugins/camera_control.rs:1905 rust/crates/shell/ui/cards/camera.slint:444 rust/crates/shell/ui/cards/camera.slint:452
 msgid "Sharpening"
 msgstr "선명도"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1557 rust/crates/shell/src/plugins/camera_control.rs:1897 rust/crates/shell/ui/cards/camera.slint:376 rust/crates/shell/ui/cards/camera.slint:377
+#: rust/crates/shell/src/plugins/camera_control.rs:1557 rust/crates/shell/src/plugins/camera_control.rs:1903 rust/crates/shell/ui/cards/camera.slint:376 rust/crates/shell/ui/cards/camera.slint:377
 msgid "Stabilisation"
 msgstr "손떨림 보정"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1558 rust/crates/shell/src/plugins/camera_control.rs:1900 rust/crates/shell/ui/cards/camera.slint:401 rust/crates/shell/ui/cards/camera.slint:402
+#: rust/crates/shell/src/plugins/camera_control.rs:1558 rust/crates/shell/src/plugins/camera_control.rs:1906 rust/crates/shell/ui/cards/camera.slint:401 rust/crates/shell/ui/cards/camera.slint:402
 msgid "Black level lock"
 msgstr "블랙 레벨 고정"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1559 rust/crates/shell/src/plugins/camera_control.rs:1901 rust/crates/shell/ui/cards/camera.slint:387 rust/crates/shell/ui/cards/camera.slint:388
+#: rust/crates/shell/src/plugins/camera_control.rs:1559 rust/crates/shell/src/plugins/camera_control.rs:1907 rust/crates/shell/ui/cards/camera.slint:387 rust/crates/shell/ui/cards/camera.slint:388
 msgid "Low light"
 msgstr "저조도"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1560 rust/crates/shell/src/plugins/camera_control.rs:1902 rust/crates/shell/ui/cards/camera.slint:412 rust/crates/shell/ui/cards/camera.slint:413
+#: rust/crates/shell/src/plugins/camera_control.rs:1560 rust/crates/shell/src/plugins/camera_control.rs:1908 rust/crates/shell/ui/cards/camera.slint:412 rust/crates/shell/ui/cards/camera.slint:413
 msgid "Torch"
 msgstr "손전등"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/src/plugins/camera_control.rs:1887
+#: rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/src/plugins/camera_control.rs:1893
 msgid "Compensation"
 msgstr "보정"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1632 rust/crates/shell/src/plugins/camera_control.rs:1895
+#: rust/crates/shell/src/plugins/camera_control.rs:1632 rust/crates/shell/src/plugins/camera_control.rs:1901
 msgid "Focus distance"
 msgstr "초점 거리"
 
@@ -9443,31 +9452,31 @@ msgstr "초당 이 컴퓨터에 도달하는 데이터 양이에요."
 msgid "Throughput"
 msgstr "처리량"
 
-#: rust/crates/shell/src/window.rs:1992 rust/crates/shell/src/window.rs:1993
+#: rust/crates/shell/src/window.rs:1998 rust/crates/shell/src/window.rs:1999
 msgid "Start mic only"
 msgstr "마이크만 시작"
 
-#: rust/crates/shell/src/window.rs:1992
+#: rust/crates/shell/src/window.rs:1998
 msgid "Start streaming"
 msgstr "스트리밍 시작"
 
-#: rust/crates/shell/src/window.rs:2002 rust/crates/shell/src/window.rs:2004
+#: rust/crates/shell/src/window.rs:2008 rust/crates/shell/src/window.rs:2010
 msgid "Stop all streams"
 msgstr ""
 
-#: rust/crates/shell/src/window.rs:2002
+#: rust/crates/shell/src/window.rs:2008
 msgid "Stop streaming"
 msgstr "스트리밍 중지"
 
-#: rust/crates/shell/src/window.rs:2003
+#: rust/crates/shell/src/window.rs:2009
 msgid "Stop all"
 msgstr ""
 
-#: rust/crates/shell/src/window.rs:2005
+#: rust/crates/shell/src/window.rs:2011
 msgid "Stops every stream you have running."
 msgstr ""
 
-#: rust/crates/shell/src/window.rs:2323 rust/crates/shell/src/worker.rs:1522
+#: rust/crates/shell/src/window.rs:2329 rust/crates/shell/src/worker.rs:1522
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera}에 {size}, {fps} fps로 스트리밍 중"
@@ -10945,11 +10954,11 @@ msgstr "하단 바에 고정"
 msgid "Add keyboard shortcut…"
 msgstr "키보드 단축키 추가…"
 
-#: rust/crates/ui-kit/ui/widgets/shot.slint:38
+#: rust/crates/ui-kit/ui/widgets/shot.slint:40
 msgid "Shutter and ISO"
 msgstr ""
 
-#: rust/crates/ui-kit/ui/widgets/shot.slint:48
+#: rust/crates/ui-kit/ui/widgets/shot.slint:53
 msgid "Shutter speed"
 msgstr ""
 
@@ -11007,7 +11016,7 @@ msgid "Light"
 msgstr "조명"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:460
+#: rust/app/src/main.rs:461
 msgid ", "
 msgstr ", "
 
@@ -11054,7 +11063,7 @@ msgstr "°C"
 msgid "Add your phone"
 msgstr "휴대폰 추가"
 
-#: rust/crates/effects/src/photos.rs:764
+#: rust/crates/effects/src/photos.rs:768
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
