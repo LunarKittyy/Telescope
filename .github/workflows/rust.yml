@@ -70,6 +70,7 @@ jobs:
 
       # FFmpeg's headers for the decoder (bindgen needs clang to read them) and fontconfig for Slint's text
       - name: Install system libraries
+        timeout-minutes: 8
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends clang pkg-config libavcodec-dev libavformat-dev \
