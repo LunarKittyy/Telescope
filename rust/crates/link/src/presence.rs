@@ -15,6 +15,7 @@ const MAX_PEERS: usize = 64;
 const MAX_PENDING: usize = 256;
 const CHALLENGE_LIFE: f64 = 10.0;
 const REPLAY_LIFE: f64 = 300.0;
+const HEARD_TIMEOUT: f64 = 120.0;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PresenceEvent {
@@ -44,6 +45,7 @@ struct Controls {
     revision: AtomicU64,
     capabilities: Mutex<HashMap<String, bool>>,
     events: Mutex<VecDeque<PresenceEvent>>,
+    checks: Mutex<VecDeque<(PairedPhone, bool)>>,
     hint: AtomicBool,
     stopped: AtomicBool,
 }
@@ -66,6 +68,7 @@ impl Presence {
         if previous.as_ref() != Some(&credentials) {
             self.controls.revision.fetch_add(1, Ordering::AcqRel);
             self.controls.events.lock().unwrap().clear();
+            self.controls.checks.lock().unwrap().clear();
             *previous = Some(credentials);
         }
         let revision = self.controls.revision.load(Ordering::Acquire);
@@ -85,6 +88,13 @@ impl Presence {
 
     pub fn take_events(&self) -> Vec<PresenceEvent> {
         self.controls.events.lock().unwrap().drain(..).collect()
+    }
+
+    // Keep route-check diagnostics on the presence worker's clock.
+    pub fn checked(&self, phone: &PairedPhone, unreachable: bool) {
+        let mut checks = self.controls.checks.lock().unwrap();
+        if checks.len() == MAX_PEERS { checks.pop_front(); }
+        checks.push_back((phone.clone(), unreachable));
     }
 
     pub fn stop(&self) {
@@ -213,7 +223,48 @@ struct Peer {
     replay: VecDeque<(String, f64)>,
     last_request: f64,
     confirmed: Option<(SocketAddr, f64)>,
+    last_heard: Option<Heard>,
+    quiet: bool,
+    unreachable: bool,
     cursor: usize,
+}
+
+struct Heard {
+    source: SocketAddr,
+    at: f64,
+    initiator: &'static str,
+}
+
+impl Peer {
+    fn heard(&mut self, source: SocketAddr, now: f64, initiator: &'static str) {
+        if self.last_heard.is_none() || self.quiet {
+            let state = if self.last_heard.is_none() { "first heard" } else { "heard again" };
+            log::info!("Presence: {} {state} from {source} ({initiator} started the exchange)", self.phone.name);
+        }
+        self.last_heard = Some(Heard { source, at: now, initiator });
+        self.quiet = false;
+    }
+
+    fn timeout(&mut self, now: f64) {
+        if let Some(heard) = &self.last_heard {
+            if !self.quiet && now - heard.at >= HEARD_TIMEOUT {
+                log::info!("Presence: {} went quiet; last heard {:.1}s ago from {} ({} started the exchange)",
+                    self.phone.name, now - heard.at, heard.source, heard.initiator);
+                self.quiet = true;
+            }
+        }
+    }
+
+    fn checked(&mut self, unreachable: bool, now: f64) {
+        if unreachable && !self.unreachable {
+            if let Some(heard) = &self.last_heard {
+                log::info!("{} is unreachable; presence last heard {:.1}s ago from {}", self.phone.name, now - heard.at, heard.source);
+            } else {
+                log::info!("{} is unreachable; presence last heard: never since start", self.phone.name);
+            }
+        }
+        self.unreachable = unreachable;
+    }
 }
 
 struct Pending {
@@ -255,7 +306,8 @@ impl Engine {
         for phone in config.phones.into_iter().take(MAX_PEERS) {
             let id = phone.id.clone();
             let mut peer = old.remove(&id).filter(|p| p.phone.token == phone.token).unwrap_or_else(|| Peer {
-                phone: phone.clone(), schedule: Schedule::new(now), capable: false, replay: VecDeque::new(), last_request: f64::NEG_INFINITY, confirmed: None, cursor: 0,
+                phone: phone.clone(), schedule: Schedule::new(now), capable: false, replay: VecDeque::new(), last_request: f64::NEG_INFINITY,
+                confirmed: None, last_heard: None, quiet: false, unreachable: false, cursor: 0,
             });
             peer.phone = phone;
             self.peers.insert(id, peer);
@@ -267,6 +319,12 @@ impl Engine {
         for peer in self.peers.values_mut() { peer.schedule.hint(now); }
     }
 
+    fn checked(&mut self, phone: &PairedPhone, unreachable: bool, now: f64) {
+        if let Some(peer) = self.peers.get_mut(&phone.id).filter(|peer| peer.phone.token == phone.token) {
+            peer.checked(unreachable, now);
+        }
+    }
+
     fn question(&mut self, id: &str, target: SocketAddr, local: Option<IpAddr>, now: f64, nonce: String) -> Option<Send> {
         if self.pending.len() >= MAX_PENDING { return None; }
         let peer = self.peers.get(id)?;
@@ -276,6 +334,7 @@ impl Engine {
     }
 
     fn tick(&mut self, now: f64, mut nonce: impl FnMut() -> String) -> Vec<Send> {
+        for peer in self.peers.values_mut() { peer.timeout(now); }
         self.pending.retain(|_, value| value.expires > now);
         let mut ids: Vec<_> = self.peers.keys().cloned().collect();
         ids.sort();
@@ -316,6 +375,7 @@ impl Engine {
             if pending.peer != packet.sender || pending.source != source || pending.expires <= now { return (vec![], None); }
             self.pending.remove(packet.challenge);
             peer.confirmed = Some((source, now));
+            peer.heard(source, now, "desktop");
             return (vec![], Some(PresenceEvent::Reachable { phone_id: packet.sender.into(), address: source.ip().to_string(),
                 addresses: packet.addresses, version: packet.version.into() }));
         }
@@ -324,6 +384,7 @@ impl Engine {
         peer.last_request = now;
         peer.replay.push_back((packet.challenge.into(), now));
         if peer.replay.len() > 512 { peer.replay.pop_front(); }
+        peer.heard(source, now, "phone");
         let mut sends = Vec::new();
         if let Some(bytes) = encode("a", &self.id, packet.sender, packet.challenge, &self.version, &self.local, &peer.phone.token) {
             sends.push(Send { bytes, target: source, local: Some(local) });
@@ -447,6 +508,9 @@ fn run(controls: Arc<Controls>) {
             let (sends, received) = engine.receive(&bytes, source, local, now, crate::util::random_hex(16));
             dispatch(&mut sockets, sends);
             if let Some(received) = received { event(&controls, received, revision); }
+        }
+        for (phone, unreachable) in controls.checks.lock().unwrap().drain(..) {
+            engine.checked(&phone, unreachable, now);
         }
         std::thread::sleep(Duration::from_millis(25));
     }

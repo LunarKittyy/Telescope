@@ -176,3 +176,130 @@ fn malformed_oversized_or_unroutable_packets_are_rejected() {
     let bad = encode("q", "phone", "desktop", &nonce(1), "3.6.0", &["127.0.0.1".into()], "secret").unwrap();
     assert!(Packet::parse(&bad).is_none());
 }
+
+struct LogLines;
+
+thread_local! {
+    static LOG_LINES: std::cell::RefCell<Vec<(log::Level, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+impl log::Log for LogLines {
+    fn enabled(&self, _: &log::Metadata) -> bool { true }
+    fn log(&self, record: &log::Record) {
+        if record.target() == module_path!().trim_end_matches("::tests") {
+            LOG_LINES.with(|lines| lines.borrow_mut().push((record.level(), record.args().to_string())));
+        }
+    }
+    fn flush(&self) {}
+}
+
+fn log_lines() -> Vec<String> {
+    static LOGGER: std::sync::Once = std::sync::Once::new();
+    LOGGER.call_once(|| {
+        log::set_logger(&LogLines).unwrap();
+        log::set_max_level(log::LevelFilter::Info);
+    });
+    LOG_LINES.with(|lines| lines.borrow_mut().drain(..).map(|(level, line)| {
+        assert_eq!(level, log::Level::Info);
+        line
+    }).collect())
+}
+
+#[test]
+fn presence_logs_first_contact_timeout_and_return_without_packet_or_probe_noise() {
+    log_lines();
+    let mut engine = engine();
+    engine.tick(0.0, || nonce(1));
+    engine.tick(2.0, || nonce(2));
+    assert!(log_lines().is_empty(), "probes and phones never heard from stay quiet");
+    let request = |n| encode("q", "phone", "desktop", &nonce(n), "3.7.0", &[], "secret").unwrap();
+    engine.receive(&request(3), source(), local(), 3.0, nonce(4));
+    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:8769 (phone started the exchange)"]);
+    engine.receive(&request(5), source(), local(), 10.0, nonce(6));
+    engine.tick(129.9, || nonce(7));
+    assert!(log_lines().is_empty(), "fresh traffic extends the timeout without another line");
+    engine.tick(130.0, || nonce(8));
+    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:8769 (phone started the exchange)"]);
+    engine.tick(200.0, || nonce(9));
+    assert!(log_lines().is_empty(), "remaining quiet does not repeat the loss");
+    let moved = "192.168.1.21:8769".parse().unwrap();
+    engine.receive(&request(10), moved, local(), 201.0, nonce(11));
+    assert_eq!(log_lines(), ["Presence: Phone heard again from 192.168.1.21:8769 (phone started the exchange)"]);
+    engine.receive(&request(12), moved, local(), 202.0, nonce(13));
+    assert!(log_lines().is_empty());
+}
+
+#[test]
+fn only_fresh_authenticated_requests_and_matched_answers_refresh_presence_logs() {
+    log_lines();
+    let mut engine = engine();
+    let answer = encode("a", "phone", "desktop", &nonce(1), "3.7.0", &[], "secret").unwrap();
+    engine.receive(&answer, source(), local(), 0.0, nonce(2));
+    engine.question("phone", source(), None, 0.0, nonce(1));
+    let other = "192.168.1.21:8769".parse().unwrap();
+    engine.receive(&answer, other, local(), 1.0, nonce(2));
+    assert!(log_lines().is_empty());
+    engine.receive(&answer, source(), local(), 1.0, nonce(2));
+    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:8769 (desktop started the exchange)"]);
+    engine.receive(&answer, source(), local(), 5.0, nonce(2));
+    let request = encode("q", "phone", "desktop", &nonce(3), "3.7.0", &[], "wrong-secret").unwrap();
+    engine.receive(&request, source(), local(), 10.0, nonce(4));
+    engine.question("phone", source(), None, 10.0, nonce(1));
+    engine.receive(&answer, source(), local(), 20.0, nonce(2));
+    engine.tick(121.0, || nonce(5));
+    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:8769 (desktop started the exchange)"]);
+    let request = encode("q", "phone", "desktop", &nonce(6), "3.7.0", &[], "secret").unwrap();
+    engine.receive(&request, source(), local(), 122.0, nonce(7));
+    assert_eq!(log_lines().len(), 1);
+    engine.receive(&request, source(), local(), 200.0, nonce(8));
+    engine.tick(242.0, || nonce(9));
+    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:8769 (phone started the exchange)"]);
+}
+
+#[test]
+fn unreachable_logs_distinguish_silence_from_a_phone_that_still_sends_requests() {
+    log_lines();
+    let mut engine = engine();
+    engine.checked(&phone("secret"), true, 0.0);
+    assert_eq!(log_lines(), ["Phone is unreachable; presence last heard: never since start"]);
+    engine.checked(&phone("secret"), true, 1.0);
+    assert!(log_lines().is_empty());
+    engine.checked(&phone("secret"), false, 2.0);
+    let request = encode("q", "phone", "desktop", &nonce(1), "3.7.0", &[], "secret").unwrap();
+    let moved = "192.168.1.21:8769".parse().unwrap();
+    assert!(engine.receive(&request, moved, local(), 3.0, nonce(2)).1.is_none());
+    log_lines();
+    engine.checked(&phone("secret"), true, 3.5);
+    assert_eq!(log_lines(), ["Phone is unreachable; presence last heard 0.5s ago from 192.168.1.21:8769"]);
+    engine.tick(123.0, || nonce(3));
+    log_lines();
+    engine.checked(&phone("secret"), false, 123.0);
+    engine.checked(&phone("secret"), true, 124.0);
+    assert_eq!(log_lines(), ["Phone is unreachable; presence last heard 121.0s ago from 192.168.1.21:8769"]);
+}
+
+#[test]
+fn reconfiguration_keeps_log_state_but_new_credentials_clear_it() {
+    log_lines();
+    let mut engine = engine();
+    let request = |token| encode("q", "phone", "desktop", &nonce(1), "3.7.0", &[], token).unwrap();
+    engine.receive(&request("secret"), source(), local(), 1.0, nonce(2));
+    engine.checked(&phone("secret"), true, 2.0);
+    log_lines();
+    let mut renamed = phone("secret");
+    renamed.name = "Renamed phone".into();
+    engine.configure(Config { id: "desktop".into(), version: "3.7.0".into(), phones: vec![renamed] }, 3.0);
+    engine.checked(&phone("secret"), true, 4.0);
+    assert!(log_lines().is_empty());
+    engine.tick(121.0, || nonce(3));
+    assert_eq!(log_lines(), ["Presence: Renamed phone went quiet; last heard 120.0s ago from 192.168.1.20:8769 (phone started the exchange)"]);
+    engine.configure(Config { id: "desktop".into(), version: "3.7.0".into(), phones: vec![phone("new-secret")] }, 122.0);
+    engine.checked(&phone("secret"), true, 123.0);
+    assert!(log_lines().is_empty(), "a check with revoked credentials cannot report the new pairing");
+    engine.checked(&phone("new-secret"), true, 123.0);
+    assert_eq!(log_lines(), ["Phone is unreachable; presence last heard: never since start"]);
+    engine.receive(&request("secret"), source(), local(), 124.0, nonce(4));
+    assert!(log_lines().is_empty());
+    engine.receive(&request("new-secret"), source(), local(), 125.0, nonce(5));
+    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:8769 (phone started the exchange)"]);
+}
