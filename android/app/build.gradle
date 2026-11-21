@@ -33,9 +33,16 @@ android {
         resValues = true
     }
 
-    // Lists every values-<lang> folder as a language in Android's per-app language setting (Android 13+)
+    // Lists every values-<lang> folder as a language in Android's per-app language setting (Android 13+),
+    // and drops unused locales that AppCompat, Material and ZXing bring into resources.arsc
+    def shippedLocales = (['en'] + file('src/main/res').listFiles()
+        .findAll { it.directory && it.name.startsWith('values-') }
+        .collect { it.name.substring('values-'.length()) })
+        .sort()
     androidResources {
         generateLocaleConfig = true
+        localeFilters += shippedLocales
+        if (shippedLocales.contains('in')) localeFilters += ['id']
     }
 
     // A translation that's still missing some strings falls back to English for those, so it can ship part done
