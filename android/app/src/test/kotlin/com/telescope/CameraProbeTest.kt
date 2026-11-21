@@ -493,6 +493,17 @@ class CameraProbeTest {
     }
 
     @Test
+    fun `a late device is closed before the open settles and the lease can go`() {
+        val tracker = PendingOpenTracker()
+        val order = mutableListOf<String>()
+        val token = tracker.begin()
+        tracker.whenSettled { order += "settled" }
+        assertTrue(order.isEmpty())
+        tracker.resolveAfter(token) { order += "closed" }
+        assertEquals(listOf("closed", "settled"), order)
+    }
+
+    @Test
     fun `pending open tracker waits for every open and settles at once when idle`() {
         val tracker = PendingOpenTracker()
         var settled = 0
