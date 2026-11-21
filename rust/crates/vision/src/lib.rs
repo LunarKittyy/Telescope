@@ -83,6 +83,13 @@ fn model_rgb(frame: &Frame) -> Option<Rgb> {
     small_rgb(frame, mw, mh, true).map(|data| Rgb::new(mw, mh, data))
 }
 
+/// The frame as RGB at the size the high quality cutout takes (see matting::model_picture). A frame at least four times that on each side is shrunk on its planes first like model_rgb, so a 4K frame never becomes a full-size picture. A smaller one (1080p) goes whole and the model shrinks it, the old way, where the half-size colour planes don't divide into whole blocks and shrinking them is the slower route.
+fn cutout_rgb(frame: &Frame) -> Option<Rgb> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let Some((mw, mh)) = ops::model_input_size(w, h, matting::input_size(w, h)).filter(|&(mw, mh)| w >= mw * 4 && h >= mh * 4) else { return rgb(frame) };
+    small_rgb(frame, mw, mh, true).map(|data| Rgb::new(mw, mh, data))
+}
+
 /// The frame as RGB at the size the pose model gets (see ops::people_size), shrunk on its planes first.
 fn people_rgb(frame: &Frame) -> Option<Rgb> {
     let (w, h) = (frame.width as usize, frame.height as usize);
@@ -268,7 +275,7 @@ impl VisionHost {
         let (w, h) = size;
         let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: MaskSpace { crop_unsure: false, ..frame.mask_space }, unsure: frame.mask_space.crop_unsure };
         let shared = frame.clone();
-        let hq = self.shared.vision.newest_cutout_snapshot(source_id, frame.number, w, h, Box::new(move || rgb(&shared)), epoch, view);
+        let hq = self.shared.vision.newest_cutout_snapshot(source_id, frame.number, w, h, Box::new(move || cutout_rgb(&shared)), epoch, view);
         let normal = |frame: &Frame| {
             let shared = frame.clone();
             self.shared.vision.newest_normal_snapshot(source_id, false, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)

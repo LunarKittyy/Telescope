@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::service::tests::{wait, Fake};
+use crate::service::{PoseModel, Segmenter, VisionError};
 use std::io::Cursor;
 use telescope_core::bus::EventBus;
 use telescope_core::people::Track;
@@ -224,14 +225,16 @@ fn measure(f: &mut dyn FnMut()) -> (f64, f64) {
 #[test]
 #[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
 fn bench_model_pictures() {
-    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+    for (w, h) in [(1920usize, 1080usize), (2560, 1440), (3840, 2160)] {
         let frame = yuv_frame(w, h);
         let (pw, ph) = ops::people_size(w, h, service::PEOPLE_WIDTH);
         let old = measure(&mut || { let full = rgb(&frame).unwrap(); crate::ops::model_input(&full, ops::MODEL_SIZE).unwrap(); });
         let new = measure(&mut || { model_rgb(&frame).unwrap(); });
         let old_people = measure(&mut || { rgb(&frame).unwrap().area(pw, ph); });
         let new_people = measure(&mut || { people_rgb(&frame).unwrap(); });
-        println!("vision pictures {w}x{h} (wall ms, cpu ms): segmenter input old {old:.2?} new {new:.2?}; people input old {old_people:.2?} new {new_people:.2?}");
+        let old_cut = measure(&mut || { let full = rgb(&frame).unwrap(); crate::matting::model_picture(&full).unwrap(); });
+        let new_cut = measure(&mut || { let p = cutout_rgb(&frame).unwrap(); crate::matting::model_picture(&p); });
+        println!("vision pictures {w}x{h} (wall ms, cpu ms): segmenter input old {old:.2?} new {new:.2?}; people input old {old_people:.2?} new {new_people:.2?}; cutout input old {old_cut:.2?} new {new_cut:.2?}");
     }
 }
 
@@ -531,6 +534,73 @@ fn while_the_crop_label_is_a_guess_the_newer_mask_is_used_whichever_model_made_i
     assert_eq!(*preferred_mask(Some(snapshot(1, behind * 0.5)), Some(snapshot(2, 0.0)), true).unwrap().mask, [2]);
     // And a cutout as recent as the normal one is still the cutout
     assert_eq!(*preferred_mask(Some(snapshot(1, 0.0)), Some(snapshot(2, 0.0)), true).unwrap().mask, [1]);
+}
+
+/// A cutout model that notes the size of the picture it is first handed and of the one it runs on.
+struct Seen {
+    handed: Arc<Mutex<Vec<(usize, usize)>>>,
+    ran: Arc<Mutex<Vec<(usize, usize)>>>,
+}
+
+impl Segmenter for Seen {
+    fn segment(&mut self, frame: &Rgb, _ts: i64) -> Result<crate::service::Gray, VisionError> {
+        self.ran.lock().unwrap().push((frame.w, frame.h));
+        Ok(crate::service::Gray { w: frame.w, h: frame.h, data: vec![200; frame.w * frame.h] })
+    }
+    fn input(&self, frame: &Rgb) -> Option<Rgb> {
+        self.handed.lock().unwrap().push((frame.w, frame.h));
+        crate::matting::model_picture(frame)
+    }
+    fn blends_last(&self) -> bool {
+        false
+    }
+}
+
+struct SeenCutout(Arc<Mutex<Vec<(usize, usize)>>>, Arc<Mutex<Vec<(usize, usize)>>>);
+
+impl Backend for SeenCutout {
+    fn version(&self) -> String {
+        "seen".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        Ok(Box::new(Seen { handed: self.0.clone(), ran: self.1.clone() }))
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        Err(VisionError::new("Nope", "no pose"))
+    }
+}
+
+#[test]
+fn the_cutout_is_handed_a_small_picture_made_from_the_planes() {
+    let (handed, ran): (Arc<Mutex<Vec<(usize, usize)>>>, Arc<Mutex<Vec<(usize, usize)>>>) = Default::default();
+    let cutout = Arc::new(SeenCutout(handed.clone(), ran.clone()));
+    let (h, _bus, _normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let h = h.with_cutout(Box::new(move || Ok(cutout.clone() as Arc<dyn Backend>)), None, scratch_dir("small-cutout"), PackInfo::default());
+    h.load();
+    wait(|| h.state() == READY);
+    let base = yuv_frame(3840, 2160);
+    let n = std::cell::Cell::new(0);
+    wait(|| {
+        std::thread::sleep(Duration::from_millis(5));
+        n.set(n.get() + 1);
+        let mut frame = base.clone();
+        frame.number = n.get();
+        h.person_mask_hq("a", &frame, 3840, 2160, 0);
+        !ran.lock().unwrap().is_empty()
+    });
+    assert_eq!(handed.lock().unwrap()[0], (640, 360), "the model was handed a full size picture");
+    assert_eq!(ran.lock().unwrap()[0], (640, 360));
+    h.shutdown();
+}
+
+#[test]
+fn the_cutouts_picture_is_already_the_size_its_model_wants() {
+    // the model's own shrink then has nothing left to do, at any shape
+    for (w, h) in [(3840usize, 2160usize), (1920, 1080), (1280, 720), (640, 480), (1080, 1920), (3000, 2000), (4000, 3000), (2560, 1080), (1000, 1000), (1333, 777)] {
+        let (mw, mh) = ops::model_input_size(w, h, matting::input_size(w, h)).unwrap();
+        let picture = Rgb::new(mw, mh, vec![0; mw * mh * 3]);
+        assert!(matting::model_picture(&picture).is_none(), "{w}x{h} came out {mw}x{mh} and was shrunk again");
+    }
 }
 
 #[test]
