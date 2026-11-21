@@ -28,7 +28,7 @@ fn body(line: &str) -> &str {
 #[test]
 fn sanitize_removes_addresses_and_secrets() {
     for text in [
-        "GET http://192.168.1.20:8765/v1/state failed",
+        "GET http://192.168.1.20:7479/v1/state failed",
         "phone at 10.0.0.5 didn't answer",
         "reached fe80::1c2:3aff:fe44:5566 over wifi",
         "Authorization: Bearer abc123def456",
@@ -164,7 +164,7 @@ fn without_a_file_it_keeps_the_last_lines_in_memory() {
 fn file_lines_are_sanitized() {
     let path = scratch_dir("diag").join("telescope.log");
     let events = EventLog::with_file(&path, MAX_BYTES);
-    events.note("Can't reach http://192.168.1.4:8766/v1/ping");
+    events.note("Can't reach http://192.168.1.4:7480/v1/ping");
     events.close();
     assert!(!fs::read_to_string(&path).unwrap().contains("192.168"));
 }
@@ -313,10 +313,10 @@ fn the_log_folder_is_where_the_python_app_kept_it_on_linux_and_windows() {
 fn sanitize_gives_what_the_python_app_gave() {
     // What diagnostics.sanitize() made of each, with the home folder at /home/someone
     let samples: [(&str, &str); 30] = [
-        ("GET http://192.168.1.20:8765/v1/state failed", "GET <url> failed"),
+        ("GET http://192.168.1.20:7479/v1/state failed", "GET <url> failed"),
         ("see HTTPS://Example.com/a?b=c, then", "see <url> then"),
         ("ftp+x://host/path next", "<url> next"),
-        ("phone at 10.0.0.5:8766 didn't answer", "phone at <ip> didn't answer"),
+        ("phone at 10.0.0.5:7480 didn't answer", "phone at <ip> didn't answer"),
         ("1.2.3 and 1.2.3.4.5 and 999.999.999.999", "1.2.3 and <ip>.5 and <ip>"),
         ("v1.2.3.4x", "v1.2.3.4x"),
         ("a.b.c.d", "a.b.c.d"),
@@ -455,7 +455,7 @@ fn a_whole_report_fits_a_comment_and_has_nothing_private_in_it() {
     let events = EventLog::new();
     for i in 0..3000 {
         let w = letters(i);
-        events.note(&format!("Status: Streaming {w} fps to http://192.168.1.{}:8765/v1/state from {home}/.config", i % 250));
+        events.note(&format!("Status: Streaming {w} fps to http://192.168.1.{}:7479/v1/state from {home}/.config", i % 250));
         events.add("INFO", &format!("telescope::worker: frame {w} took {i} ms, phone 10.0.0.{} mac aa:bb:cc:dd:ee:{:02x} luna@example.com", i % 200, i % 256));
         if i % 200 == 0 {
             events.add("WARNING", &format!("telescope::link: unreachable {w} 2001:db8:85a3::8a2e:370:{i} at {home}\\AppData serial 0A1B2C3D4E5F{i}"));

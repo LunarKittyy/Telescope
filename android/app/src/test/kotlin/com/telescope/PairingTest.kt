@@ -12,7 +12,7 @@ class PairingTest {
 
     private fun payload(
         version: Int = PAIRING_PROTOCOL_VERSION,
-        port: String = "8765",
+        port: String = "7479",
         candidates: String = """[{"ip":"192.168.1.42","interface":"Wi-Fi","kind":"lan"}]""",
         nonce: String = "nonce-abc",
         token: String = "token-xyz",
@@ -36,7 +36,7 @@ class PairingTest {
         ]"""))
 
         assertEquals(PAIRING_PROTOCOL_VERSION, offer.version)
-        assertEquals(8765, offer.port)
+        assertEquals(7479, offer.port)
         assertEquals("nonce-abc", offer.nonce)
         assertEquals("token-xyz", offer.token)
         assertEquals(
@@ -47,6 +47,20 @@ class PairingTest {
             ),
             offer.candidates,
         )
+    }
+
+    @Test
+    fun `pairs on pairing_port when the offer has one, else on port`() {
+        val raw = payload(port = "8765").dropLast(1) + ""","pairing_port":7479}"""
+        assertEquals(8765, ok(raw).port)
+        assertEquals(7479, ok(raw).connectPort)
+        // An older desktop's offer
+        assertEquals(8765, ok(payload(port = "8765")).connectPort)
+    }
+
+    @Test
+    fun `rejects a pairing_port that is not a port`() {
+        assertEquals(PairingParse.Invalid, parsePairingOffer(payload().dropLast(1) + ""","pairing_port":0}"""))
     }
 
     @Test
@@ -61,7 +75,7 @@ class PairingTest {
         // V1 lacks "candidates"; distinguish from parse error.
         assertEquals(
             PairingParse.UnsupportedVersion,
-            parsePairingOffer("""{"version":1,"port":8765,"ips":["192.168.1.42"],"nonce":"n","token":"t"}"""),
+            parsePairingOffer("""{"version":1,"port":7479,"ips":["192.168.1.42"],"nonce":"n","token":"t"}"""),
         )
     }
 

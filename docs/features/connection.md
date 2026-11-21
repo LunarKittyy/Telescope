@@ -24,8 +24,9 @@ How it works with Telescope:
 
 - The QR code lists the computer's addresses, LAN ones first and the Tailscale one after. The phone tries the LAN ones over Wi-Fi first, then every address on whatever network it has. Away from home that ends on the Tailscale address. Each attempt gets 2 seconds and the whole run 12.
 - The computer remembers all of the phone's addresses. Later it tries the phone's address it found on the local network, then the last one that worked, then the rest with Tailscale first.
-- Pairing needs the **Add phone** dialog open on the computer, because that's the only time its pairing server on port 8765 runs. The phone has to reach the computer for this. After that both devices exchange presence packets and the computer checks the phone over HTTPS.
-- If you use Tailscale access rules, the phone needs to reach the computer on 8765 while pairing. The computer needs to reach the phone on 8766 and 8080. [Browser camera](sources.md#browser-camera) uses 8767 on the computer. Both devices also need UDP 7483 for presence. Tailscale's default rules allow all of this.
+- Pairing needs the **Add phone** dialog open on the computer, because that's the only time its pairing server (port 7479 by default) runs. The phone has to reach the computer for this. After that both devices exchange presence packets and the computer checks the phone over HTTPS.
+- If you use Tailscale access rules, the phone needs to reach the computer on 7479 while pairing. The computer needs to reach the phone on 7480 and 8080. [Browser camera](sources.md#browser-camera) uses 7481 on the computer. Both devices also need UDP 7483 for presence. Tailscale's default rules allow all of this.
+- Telescope on the phone and the computer have to be the same version. Older versions used ports 8765 to 8768. If one side is older the other one shows a message with the one to update: "Update the Telescope app on your phone to connect" on the computer or "Update Telescope on your computer to keep using this phone with it" on the phone. If you open ports by hand open 7479 to 7482 (see [troubleshooting](../troubleshooting.md#pairing-and-connecting)).
 
 ### Which path Tailscale uses
 
@@ -45,8 +46,8 @@ If it never leaves DERP a stricter router on either side is usually why. Tailsca
 - The pairing token only travels in the QR code (or over adb) and inside the encrypted connection
 - Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app takes the stream, controls and presence off the network entirely
 - **Wait for my computer** (off by default) lets you start the camera from your PC with the phone's screen off or the app closed. Tap **Stop waiting** in its notification to end it
-- Browser camera only listens on port 8767 while it is picked or a browser is streaming. Anyone can load the page but sending video needs the token in the code, which changes on every start and on **New link**. Its certificate isn't pinned like a phone's. Use a phone on a network you don't trust
-- The On Air sign listens on port 8768 while it's switched on. It serves nothing but the sign page and whether you're on air (that part only to its link's token)
+- Browser camera only listens on its port (7481 by default) while it is picked or a browser is streaming. Anyone can load the page but sending video needs the token in the code, which changes on every start and on **New link**. Its certificate isn't pinned like a phone's. Use a phone on a network you don't trust
+- The On Air sign listens on port 7482 while it's switched on. It serves nothing but the sign page and whether you're on air (that part only to its link's token)
 - The apps only go online to check GitHub for updates. On Windows the desktop also fetches adb from Google and VB-Cable from VB-Audio but only after you click to get them
 - On Linux only your user can read the config folder with the pairing tokens. On Windows the camera driver sits in Program Files where other programs can't swap it
 

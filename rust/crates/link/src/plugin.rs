@@ -817,6 +817,7 @@ impl ConnectionPlugin {
     fn close_add(&mut self, host: &mut dyn Host) {
         log::debug!("Add device closed");
         self.add = None; // revokes the offer
+        host.clear_issue(Some("old_phone"), None);
         host.cancel_schedule(T_PAIR_POLL);
         host.cancel_schedule(T_PAIR_USB);
         host.set_ui_props("card", &json!({"add-open": false}));
@@ -825,11 +826,19 @@ impl ConnectionPlugin {
     fn poll_pairing(&mut self, host: &mut dyn Host) {
         let Some(add) = self.add.as_mut() else { return };
         let Some(offer) = add.offer.clone() else { return };
+        if let Some(name) = offer.poll_old_phone() {
+            log::info!("{name} tried to pair with an older app");
+            host.show_issue("old_phone", Issue {
+                title: tr("Phone app is out of date"), text: tr("Update the Telescope app on {phone} to connect").field("phone", &name),
+                kind: "warn".into(), actions: vec![], details: String::new(), tell_dismiss: false,
+            });
+        }
         let Some(phone) = offer.poll() else {
             host.schedule(PAIR_POLL_MS, T_PAIR_POLL);
             return;
         };
         log::info!("Paired with {} ({})", phone.name, phone.id);
+        host.clear_issue(Some("old_phone"), None);
         add.paired = Some(phone.name.clone());
         offer.revoke();
         add.offer = None;
@@ -1762,6 +1771,7 @@ mod tests {
     #[derive(Default)]
     struct FakeOffer {
         paired: Mutex<Option<PairedPhone>>,
+        old_phone: Mutex<Option<String>>,
         offline: bool,
         offered: Mutex<Vec<String>>,
         revoked: std::sync::atomic::AtomicBool,
@@ -1772,7 +1782,7 @@ mod tests {
             "{\"v\": 4}".into()
         }
         fn port(&self) -> u16 {
-            8765
+            7479
         }
         fn addresses(&self) -> Vec<String> {
             if self.offline { Vec::new() } else { vec!["192.168.1.2".into()] }
@@ -1782,6 +1792,9 @@ mod tests {
         }
         fn poll(&self) -> Option<PairedPhone> {
             self.paired.lock().unwrap().take()
+        }
+        fn poll_old_phone(&self) -> Option<String> {
+            self.old_phone.lock().unwrap().take()
         }
         fn offer_to(&self, serial: &str, _package: &str) -> bool {
             self.offered.lock().unwrap().push(serial.to_string());
@@ -3321,6 +3334,35 @@ mod tests {
         *held.paired.lock().unwrap() = Some(phone("id-a", "Pixel"));
         e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
         assert!(held.revoked.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn a_phone_with_an_older_app_knocking_gets_an_update_notice() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        let held = offer(&e);
+        assert!(e.issue("old_phone").is_none());
+        *held.old_phone.lock().unwrap() = Some("Pixel 6".into());
+        e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
+        let issue = e.issue("old_phone").expect("a notice");
+        assert_eq!(issue.text, "Update the Telescope app on Pixel 6 to connect");
+        // It keeps listening: the person may fix the phone and scan again
+        assert!(!held.revoked.load(std::sync::atomic::Ordering::SeqCst));
+        e.ui("card", "add-closed", vec![]);
+        assert!(e.issue("old_phone").is_none());
+    }
+
+    #[test]
+    fn the_update_notice_goes_when_another_phone_pairs() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        let held = offer(&e);
+        *held.old_phone.lock().unwrap() = Some("Pixel 6".into());
+        e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
+        assert!(e.issue("old_phone").is_some());
+        *held.paired.lock().unwrap() = Some(phone("id-a", "Pixel"));
+        e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
+        assert!(e.issue("old_phone").is_none());
     }
 
     #[test]

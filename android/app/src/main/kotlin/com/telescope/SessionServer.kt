@@ -24,6 +24,10 @@ class SessionServer(
     // adb forward connects from the phone's own loopback, so that's what USB looks like here.
     private val isUsbPeer: (Socket) -> Boolean = { it.inetAddress?.isLoopbackAddress == true },
     private val authenticatedContact: (PairedComputer, Map<String, String>, String?) -> Unit = { _, _, _ -> },
+    // An old port: a computer with an older Telescope still comes here. It is told to update (426), whatever it asked,
+    // and this is told its name when its token is known.
+    private val oldPort: Boolean = false,
+    private val onOldPortContact: (String?) -> Unit = {},
 ) {
     private var serverSocket: ServerSocket? = null
     private val running = AtomicBoolean(false)
@@ -87,6 +91,10 @@ class SessionServer(
         try {
             val request = HttpWire.readRequest(socket, requestDeadlineMs) ?: return  // already responded/closed
             val out = socket.getOutputStream()
+            if (oldPort) {
+                onOldPortContact(computers().matchToken(HttpWire.bearerToken(request))?.name)
+                HttpWire.sendError(out, 426, "Upgrade Required"); return
+            }
             val route = route(request.method, request.path)
 
             // Still listening on Wi-Fi in Local only on purpose: ping lets the desktop see the toggle is on and tell the user
@@ -166,7 +174,11 @@ class SessionServer(
     enum class Route { Hello, Ping, Session, Unpair, NotFound, MethodNotAllowed }
 
     companion object {
-        const val DEFAULT_PORT = 8766
+        const val DEFAULT_PORT = 7480
+
+        // Where the desktop's pairing server and the phone's session server were before the move to 7479 and 7480. Still
+        // listened on for a couple of releases, only to tell an older Telescope on a computer to update.
+        val OLD_PORTS = listOf(8765, 8766)
         const val ACCEPT_RETRY_MS = 200L
 
         // Optional metadata and presence capability are additive and do not bump this strictly matched protocol.

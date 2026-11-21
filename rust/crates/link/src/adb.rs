@@ -550,16 +550,16 @@ mod tests {
     #[test]
     fn adb_forward_auto_reads_the_port_adb_picked() {
         let (adb, calls) = fake((0, "41234\n".into(), String::new()));
-        assert_eq!(adb.forward_auto(8766, Some("SER")), Some(41234));
-        assert_eq!(*calls.lock().unwrap(), [words(&["adb", "-s", "SER", "forward", "tcp:0", "tcp:8766"])]);
-        assert_eq!(fake((0, "junk\n".into(), String::new())).0.forward_auto(8766, None), None);
+        assert_eq!(adb.forward_auto(7480, Some("SER")), Some(41234));
+        assert_eq!(*calls.lock().unwrap(), [words(&["adb", "-s", "SER", "forward", "tcp:0", "tcp:7480"])]);
+        assert_eq!(fake((0, "junk\n".into(), String::new())).0.forward_auto(7480, None), None);
     }
 
     #[test]
     fn adb_reverse_builds_serial_specific_command() {
         let (adb, calls) = fake((0, String::new(), String::new()));
-        assert_eq!(adb.reverse(8765, Some("phone")), (true, "Port 8765 reversed".into()));
-        assert_eq!(*calls.lock().unwrap(), [words(&["adb", "-s", "phone", "reverse", "tcp:8765", "tcp:8765"])]);
+        assert_eq!(adb.reverse(7479, Some("phone")), (true, "Port 7479 reversed".into()));
+        assert_eq!(*calls.lock().unwrap(), [words(&["adb", "-s", "phone", "reverse", "tcp:7479", "tcp:7479"])]);
     }
 
     #[test]
@@ -604,7 +604,7 @@ mod tests {
     fn adb_helpers_degrade_when_adb_is_missing() {
         let adb = Adb { exe: None, runner: Box::new(|_, _, _| panic!("ran without adb")) };
         assert!(adb.devices().is_empty());
-        let (ok, err) = adb.forward(8766, None);
+        let (ok, err) = adb.forward(7480, None);
         assert!(!ok && err.contains("adb"));
     }
 

@@ -122,7 +122,7 @@ function makePage() {
 
   const sandbox = {
     console, performance: { now: () => world.now },
-    location: { hash: "#token", host: "computer:8767" },
+    location: { hash: "#token", host: "computer:7481" },
     navigator: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) Chrome/120", mediaDevices: {
       getUserMedia, enumerateDevices: async () => world.devices },
       wakeLock: { request: async () => new FakeLock() } },

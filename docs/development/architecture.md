@@ -6,7 +6,7 @@ How Telescope fits together, for contributors. The wire format is in [protocol.m
 ## Overview
 
 ```
-Android phone  (Telescope app, HTTPS on port 8080, session responder on 8766)
+Android phone  (Telescope app, HTTPS on port 8080, session responder on 7480)
       |
       |  USB:   adb forward tcp:0 tcp:8080 (adb picks the local port)
       |  Wi-Fi: HTTPS, certificate pinned at pairing, address from mDNS or stored
@@ -77,7 +77,7 @@ On first launch the top card is **Get set up**: camera access, notifications and
 
 A foreground service (type `camera`, plus `microphone` once allowed) owns a Camera2 session and an HTTPS server on port 8080. Everything needs the bearer token issued at pairing. The endpoints (`/v1/video`, `/v1/video.h264`, `/v1/video.udp`, `/v1/audio`, `/v1/state` and `/v1/control`) are in [protocol.md](protocol.md).
 
-A second responder, `SessionServer` on port 8766, runs independently so the desktop can reach the phone while it is idle. It answers `/v1/hello`, `/v1/ping`, `/v1/session` (start or stop the camera) and `/v1/unpair`. That's why the desktop's Start button is the only one anyone has to press and why a stream can be stopped and restarted from the desktop after the phone's screen went dark.
+A second responder, `SessionServer` on port 7480, runs independently so the desktop can reach the phone while it is idle. It answers `/v1/hello`, `/v1/ping`, `/v1/session` (start or stop the camera) and `/v1/unpair`. That's why the desktop's Start button is the only one anyone has to press and why a stream can be stopped and restarted from the desktop after the phone's screen went dark.
 
 `SessionServer` remains up while any of four owners holds it (refcounted in `SessionEndpoint`): `MainActivity` is on screen, `CameraStreamService` is running, `WaitingService` is running because **Wait for my computer** is on, or a stream stopped less than 6 seconds ago. With **Wait for my computer** off (the default) a backgrounded idle app can't be told to open the camera, which is also what makes the start legal, as Android 12 and newer blocks starting a camera foreground service from the background. `WaitingService` is the opt-in exception. It holds the port, opens neither camera nor mic and starts `CameraStreamService` as a plain service running under it.
 

@@ -960,7 +960,7 @@ impl crate::web::Web for FakeWeb {
         if let Some(why) = self.serve_error.lock().unwrap().clone() {
             return Err(why);
         }
-        let port = if serve.port == 0 { 8768 } else { serve.port };
+        let port = if serve.port == 0 { 7482 } else { serve.port };
         let stats = Arc::new(crate::web::ServerStats::new(port, serve.port, false, &serve.label));
         let stopped = Arc::new(AtomicU64::new(0));
         self.served.lock().unwrap().push(FakeServed { serve: serve.clone(), handler, stats: stats.clone(), stopped: stopped.clone() });

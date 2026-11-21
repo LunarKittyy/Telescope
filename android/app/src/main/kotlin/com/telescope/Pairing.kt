@@ -33,13 +33,18 @@ data class PairingCandidate(
 @Serializable
 data class PairingOffer(
     val version: Int,
+    /** Where phones from before the port move connect, so a new offer still reaches them (and tells them to update). */
     val port: Int,
+    /** Where the desktop's pairing server is; an offer from an older desktop doesn't have it and pairs on [port]. */
+    @SerialName("pairing_port") val pairingPort: Int? = null,
     val candidates: List<PairingCandidate>,
     val nonce: String,
     val token: String,
     @SerialName("computer_id") val computerId: String,
     @SerialName("computer_name") val computerName: String,
-)
+) {
+    val connectPort: Int get() = pairingPort ?: port
+}
 
 sealed interface PairingParse {
     data class Ok(val offer: PairingOffer) : PairingParse
@@ -74,7 +79,7 @@ fun parsePairingOffer(raw: String): PairingParse {
             PairingParse.Invalid
     }
     if (offer.version != PAIRING_PROTOCOL_VERSION) return PairingParse.UnsupportedVersion
-    if (offer.port !in 1..65535) return PairingParse.Invalid
+    if (offer.port !in 1..65535 || offer.pairingPort?.let { it !in 1..65535 } == true) return PairingParse.Invalid
     if (offer.nonce.isBlank() || offer.token.isBlank() || offer.computerId.isBlank()) return PairingParse.Invalid
     if (offer.candidates.isEmpty()) return PairingParse.Invalid
     if (offer.candidates.any { !isValidIpv4(it.ip) }) return PairingParse.Invalid

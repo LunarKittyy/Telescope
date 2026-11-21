@@ -37,7 +37,7 @@ impl PairingOffer for Offer {
         "{}".into()
     }
     fn port(&self) -> u16 {
-        8765
+        7479
     }
     fn addresses(&self) -> Vec<String> {
         Vec::new()

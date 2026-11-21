@@ -12,7 +12,7 @@ use telescope_core::web::{PageHandler, Reply, Request, ServerStats, Step};
 use ureq::unversioned::resolver::DefaultResolver;
 use ureq::unversioned::transport::{Buffers, ConnectionDetails, Connector, DefaultConnector, NextTimeout, Transport};
 
-pub const ON_AIR_PORT: u16 = 8768;
+pub const ON_AIR_PORT: u16 = 7482;
 /// The raw answer has to hold this long before the sign goes on.
 pub const ON_AFTER_S: f64 = 1.0;
 /// ...and this long before it goes off (apps close and reopen the camera when settings change).

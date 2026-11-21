@@ -1,7 +1,7 @@
 <!-- covers: android/app/src/main/kotlin/com/telescope/Protocol.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/SessionEndpoint.kt android/app/src/main/kotlin/com/telescope/SessionServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/SensorStream.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/Pairing.kt rust/crates/link/src/phone_client.rs rust/crates/link/src/pairing.rs rust/crates/link/src/udp.rs rust/crates/link/src/stills.rs rust/crates/link/src/sensors.rs rust/crates/link/src/session_client.rs rust/crates/link/src/browser rust/crates/link/web; checked: 0d35dc883 -->
 # Control API reference
 
-Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/video.udp`, `/v1/audio`, `/v1/sensors`, `/v1/state` and `/v1/control` (all only exist while actively streaming); a separate responder on port 8766 serves `/v1/hello`, `/v1/ping`, `/v1/session` and `/v1/unpair`. Every request below except `/v1/hello` requires an `Authorization: Bearer <token>` header carrying the token this computer got when it paired; missing or unknown tokens get `401`. With **Local only** on, port 8766 answers anything that didn't arrive over USB (the phone's loopback, where `adb forward` lands) with `403`, except `/v1/ping` and `/v1/unpair`. The desktop reads a `403` on `/v1/hello` as "this phone is in Local only" and checks with `/v1/ping`.
+Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/video.udp`, `/v1/audio`, `/v1/sensors`, `/v1/state` and `/v1/control` (all only exist while actively streaming); a separate responder on port 7480 serves `/v1/hello`, `/v1/ping`, `/v1/session` and `/v1/unpair`. Every request below except `/v1/hello` requires an `Authorization: Bearer <token>` header carrying the token this computer got when it paired; missing or unknown tokens get `401`. With **Local only** on, port 8766 answers anything that didn't arrive over USB (the phone's loopback, where `adb forward` lands) with `403`, except `/v1/ping` and `/v1/unpair`. The desktop reads a `403` on `/v1/hello` as "this phone is in Local only" and checks with `/v1/ping`.
 
 ## `GET /v1/state`
 
@@ -248,7 +248,7 @@ The phone's motion and light sensors, for as long as the request remains open. T
 
 ## `GET /v1/hello`
 
-On port 8766. It's the one request without auth and it only identifies the phone, to let the desktop tell its phone from any other one before trusting a USB forward or an address.
+On port 7480. It's the one request without auth and it only identifies the phone, to let the desktop tell its phone from any other one before trusting a USB forward or an address.
 
 ```json
 { "protocol": 3, "phoneId": "3f9c…", "phoneName": "Pixel 8 Pro", "appVersion": "3.0.0", "build": 236, "presence": 1 }
@@ -258,7 +258,7 @@ On port 8766. It's the one request without auth and it only identifies the phone
 
 ## `GET /v1/ping`
 
-Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists whether or not a stream is running (while the app's main screen is up, while the camera service is running, while **Wait for my computer** is on, and for 6 s after a stream stops - in any combination). Returns `200` if the token belongs to a paired computer, `401` if not.
+Served on port 7480 by `SessionServer` - unlike the endpoints above, it exists whether or not a stream is running (while the app's main screen is up, while the camera service is running, while **Wait for my computer** is on, and for 6 s after a stream stops - in any combination). Returns `200` if the token belongs to a paired computer, `401` if not.
 
 ```json
 {
@@ -305,7 +305,7 @@ Use `rust/tools/fake_phone.py --legacy-presence` for a phone without the capabil
 
 ## `POST /v1/session`
 
-Also on 8766. JSON body `{"action": "start"}` or `{"action": "stop"}`; same auth and the same `{"ok": true}` / `{"ok": false, "error": "..."}` responses as `/v1/control`. This is what makes the desktop's Start button sufficient.
+Also on 7480. JSON body `{"action": "start"}` or `{"action": "stop"}`; same auth and the same `{"ok": true}` / `{"ok": false, "error": "..."}` responses as `/v1/control`. This is what makes the desktop's Start button sufficient.
 
 | `action` | effect |
 |---|---|
@@ -324,7 +324,7 @@ The desktop polls `/v1/ping` after a start until `streaming` goes true (12s budg
 
 ## `POST /v1/unpair`
 
-Also on 8766 with the body `{}`. Removes the computer whose token made the request and only that one - a computer can't unpair others. The desktop calls it when you remove a phone, to make the phone stop accepting a computer that has forgotten it. Answers `{"ok": true}` or `401` for an unknown token.
+Also on 7480 with the body `{}`. Removes the computer whose token made the request and only that one - a computer can't unpair others. The desktop calls it when you remove a phone, to make the phone stop accepting a computer that has forgotten it. Answers `{"ok": true}` or `401` for an unknown token.
 
 ## QR pairing payload
 
@@ -334,6 +334,7 @@ Generated by the desktop (`rust/crates/link/src/pairing.rs`), rendered as the QR
 {
   "version": 4,
   "port": 8765,
+  "pairing_port": 7479,
   "candidates": [
     { "ip": "192.168.1.42",  "interface": "Wi-Fi",      "kind": "lan" },
     { "ip": "100.90.12.34",  "interface": "tailscale0", "kind": "tailscale" }
@@ -347,6 +348,21 @@ Generated by the desktop (`rust/crates/link/src/pairing.rs`), rendered as the QR
 
 `kind` is one of `lan`, `tailscale` or `other`. Candidates are ordered best-first. The phone rejects the payload outright if any candidate carries a malformed IPv4 literal or an unrecognised `kind`, if the list is empty, or if the port/nonce/token are unusable. `interface` is the desktop-side adapter name, carried for diagnostics. The copy pushed over adb puts `127.0.0.1`, kind `other`, first for the `adb reverse` tunnel and includes real adapter candidates for later network presence. The phone remembers the desktop candidates and the successful address, excluding loopback. Existing pairings learn these addresses on their next authenticated HTTPS contact, including USB.
 
+`pairing_port` is where the desktop's pairing server listens (7479 by default, any free port if that's taken) and what the phone connects to. An offer without it comes from a desktop before the port move so the phone uses `port`. `port` is only for phones from before the move, which connect to it. It is the desktop's listen-only old pairing port (8765) where nothing pairs. A phone knocking there with a valid proof gets `426` and the desktop shows "Update the Telescope app on <phone> to connect". If that port is taken `port` holds the same number as `pairing_port` so an old phone pairs but can't connect to the computer afterwards.
+
+## Ports
+
+| Port | Use |
+|---|---|
+| 7479 | Pairing (desktop, only while Add phone is open) |
+| 7480 | Phone session responder (`/v1/hello`, `/v1/ping`, `/v1/session`, `/v1/unpair`) |
+| 7481 | Browser camera page (desktop) |
+| 7482 | On Air sign (desktop) |
+| 7483 | Presence (UDP, both) |
+| 8080 | Phone stream |
+
+The phone also still listens on 8765 and 8766 and the desktop's pairing server on 8765 for a couple of releases. They answer every request with `426 Upgrade Required` and only exist so an older app on the other side can tell its person to update. A phone contacted there shows "Update Telescope on <computer> to keep using this phone with it" (the computer's name when its token is known). The desktop has no fallback to the old ports: apps on different versions don't connect to each other.
+
 `computer_id` is made once per desktop install and is what the phone files the token under. Pairing again from the same computer replaces its token instead of adding a second entry. `computer_name` is what the phone's list shows (the desktop's host name unless renamed in **Your devices**).
 
 The phone then `POST`s to `http://<ip>:<port>/pair/<nonce>` with `{"name": ..., "phone_id": ..., "ips": [...], "cert_sha256": ..., "proof": ...}`. `cert_sha256` is the SHA-256 of the phone's TLS certificate, which the desktop pins from then on. `proof` is HMAC-SHA256 keyed with the token over `telescope-pair-v4\n<nonce>\n<phone_id>\n<cert_sha256>`, in lowercase hex. It shows the phone read the current code without sending the token and ties the fingerprint to it. Someone watching the network can neither reuse the token nor swap in their own certificate. The pairing server takes at most 32 connections at once (4 per address) and drops any connection still sending after 15 seconds.
@@ -357,7 +373,7 @@ One code pairs one phone: once a phone has paired from it, a POST from a differe
 
 ## Browser camera
 
-Not the phone: the desktop serves this itself (`rust/crates/link/src/browser/server.rs`) on port 8767 (any free port if that's taken) while Browser camera is picked, over HTTPS with a self-signed certificate it stores next to the config. The QR code is `https://<desktop>:8767/#<token>`. The token is after `#` and loading the page (`/`, `/app.js`) never sends it.
+Not the phone: the desktop serves this itself (`rust/crates/link/src/browser/server.rs`) on port 7481 (any free port if that's taken) while Browser camera is picked, over HTTPS with a self-signed certificate it stores next to the config. The QR code is `https://<desktop>:7481/#<token>`. The token is after `#` and loading the page (`/`, `/app.js`) never sends it.
 
 The camera and mic go over WebRTC (`rust/crates/link/src/browser/rtc.rs`, using str0m). A WebSocket on `/ws?token=<token>&id=<browser id>` carries everything else: the offer and answer, the settings and the page's stats. It's also how the desktop knows the browser is there. A wrong token gets `403`. A second connection from the same browser id takes over and the first is closed with code `4000`. A browser that would need a virtual camera when none is free is closed with `4001`. **New link** closes every browser with `4002`, which tells the page to stop instead of retrying a code that no longer works, and switching Browser camera off closes them with `1001`. The desktop pings every 3 seconds (browsers answer those on their own) and a connection it hears nothing from for 10 seconds is closed.
 

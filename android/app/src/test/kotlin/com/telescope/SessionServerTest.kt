@@ -121,6 +121,30 @@ class SessionServerTest {
     }
 
     @Test
+    fun `the ports are the new block and the old ones are still listened on`() {
+        assertEquals(7480, SessionServer.DEFAULT_PORT)
+        assertEquals(listOf(8765, 8766), SessionServer.OLD_PORTS)
+    }
+
+    @Test
+    fun `an old port tells the computer to update and names it when its token is known`() {
+        val knocks = mutableListOf<String?>()
+        val commands = FakeCommands()
+        val server = SessionServer(0, { computersOf("secret-token") }, commands, oldPort = true, onOldPortContact = { knocks += it })
+        server.start()
+        try {
+            val port = actualPort(server)
+            assertEquals(426, get(port, "/v1/ping", "secret-token").status)
+            assertEquals(426, get(port, "/v1/hello", null).status)
+            assertEquals(426, post(port, "/v1/session", "secret-token", """{"action":"start"}""").status)
+            assertEquals(listOf<String?>("PC 0", null, "PC 0"), knocks)
+            assertTrue(commands.calls.isEmpty(), "an old port never starts anything")
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `a port another app holds is reported as busy`() {
         ServerSocket(0).use { holder ->
             val server = SessionServer(holder.localPort, { computersOf("t") }, FakeCommands())
