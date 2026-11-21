@@ -45,3 +45,27 @@ Settings had a "Go back to the Python version" button pinned to 4.4.2, which Rus
 ## The phone's screen timing out and a lower capture rate after Dynamic (November 2026)
 
 Two ideas for the phone app, to save battery. One was letting the idle screen time out and releasing the wake lock. The other was lowering the camera's capture rate after a Dynamic cap. Many phones kill apps while the screen is off whatever the settings say, so Wait for the computer only works there with the screen kept on, and the wake lock stays on purpose. A lower capture rate makes the picture hitch. Dynamic's cap stays in the encoder.
+
+## Whiteboard detection (November 2026)
+
+The idea was for Telescope to find a whiteboard's corners itself, follow it as the phone moves and even out shadows and glare. It's big and most of the work would be tuning against real rooms for a small group of people. Desk mode already covers marking the corners by hand. Using presets as scenes already works, which left nothing else of the idea.
+
+## AI models in plugins (November 2026)
+
+The idea was for a plugin to bundle a small `.onnx` model and run it as a frame stage. A GPU ONNX runtime would make the downloads much bigger while the app is trying to get smaller and is hard to support across platforms.
+
+## Live captions (November 2026)
+
+A plugin that wrote captions from the microphone with Whisper or Vosk. Call apps already caption. It would also have needed a second optional download.
+
+## Spout capture with zero-copy (November 2026)
+
+The idea was to hand a Spout sender's GPU buffer straight to the picture work. The frame would never leave the card. It's big for a small group and no measurement shows the copy is a bottleneck.
+
+## Undo across the app (November 2026)
+
+One undo and redo for everything, from Ctrl+Z or a button in the header. Each card's Reset and presets cover most of what people would use it for. It would also have needed a rule for what counts as one step in every plugin.
+
+## The front of the chain on the phone (November 2026)
+
+Doing the first effect steps on the phone to take load off the desktop. The phone is where heat already limits the app.
