@@ -1123,15 +1123,22 @@ impl Shared {
             }
         }
         // vision looks for people in the frame before the view (view_controller.process_frame)
-        if let Some(feed) = self.vision.as_ref().filter(|f| f.service.wants_people()) {
+        // A frame still on the card is only brought into memory when one of them is going to look at it
+        let people_due = self.vision.as_ref().is_some_and(|f| f.service.people_due(&self.source_id));
+        let now_s = telescope_core::time::monotonic_ns() as f64 / 1e9;
+        let motion_due = self.vision.as_ref().and_then(|f| f.motion.as_ref()).is_some_and(|m| m.due(&self.source_id, now_s));
+        if people_due || motion_due {
             frame = frame.materialise();
+        }
+        if people_due {
+            let feed = self.vision.as_ref().expect("a feed");
             let upright = feed.upright.lock().unwrap().for_frame(frame.width, frame.height);
             feed.service.feed_raw(&self.source_id, &frame, upright);
         }
-        if let Some(motion) = self.vision.as_ref().and_then(|f| f.motion.as_ref()).filter(|m| m.watching()) {
-            frame = frame.materialise();
-            let upright = self.vision.as_ref().map(|f| f.upright.lock().unwrap().for_frame(frame.width, frame.height)).expect("a feed");
-            motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
+        if motion_due {
+            let feed = self.vision.as_ref().expect("a feed");
+            let upright = feed.upright.lock().unwrap().for_frame(frame.width, frame.height);
+            feed.motion.as_ref().expect("a watch").feed(&frame, &self.source_id, Some(&upright), now_s);
         }
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
