@@ -144,6 +144,8 @@ pub(crate) struct MaskState {
     /// As the model gave it, with the last ones carried in.
     pub(crate) small: Option<Gray>,
     pub(crate) at: f64,
+    /// The frame the model last ran on, which `small` is of: a frame that got `small` again without a run is not it.
+    pub(crate) ran: Option<u64>,
     pub(crate) motion: Motion,
     pub(crate) asked: f64,
     /// The view's turns it has seen (Inner::turns): when that moves on, everything above is of another picture.
@@ -230,8 +232,6 @@ struct MaskJob {
     seq: u64,
     size: (usize, usize),
     picture: Picture,
-    /// When the frame was handed over.
-    at: f64,
     /// The view's turns its picture was made under (Inner::turns when its step asked).
     epoch: u64,
     unsure: bool,
@@ -245,7 +245,7 @@ struct MadeMask {
     w: usize,
     h: usize,
     mask: Arc<Vec<u8>>,
-    /// When its frame was handed over.
+    /// When the model ran, which for a mask got again without a run is the run it came from.
     at: f64,
     seq: u64,
     /// The same mask at other sizes asked for since, dropped with it when the next one comes.
@@ -345,7 +345,7 @@ pub(crate) struct StreamVision {
 impl StreamVision {
     fn new() -> StreamVision {
         StreamVision {
-            mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0,
+            mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0, ran: None,
                                          motion: Motion::default(), asked: 0.0, turns: 0, fails: 0, geometry: None, space: MaskSpace::default(), unsure: false }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
@@ -624,7 +624,7 @@ impl Vision {
             let mut m = sv.mask.lock().unwrap();
             m.geometry(view.geometry, view.space, view.unsure);
             m.asked = monotonic();
-            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at, seq });
+            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at, seq: m.ran.unwrap_or(seq) });
         }
         let Some(backend) = self.ready() else {
             self.load();
@@ -662,7 +662,7 @@ impl Vision {
             let mut m = sv.mask.lock().unwrap();
             m.asked = monotonic();
             m.geometry(view.geometry, view.space, view.unsure);
-            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at, seq });
+            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at, seq: m.ran.unwrap_or(seq) });
         }
         self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, picture, epoch, view)
     }
@@ -678,7 +678,7 @@ impl Vision {
         }
         if n.asked != Some(seq) {
             n.asked = Some(seq);
-            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic(), epoch, geometry: view.geometry, space: view.space, unsure: view.unsure });
+            n.job = Some(MaskJob { seq, size: (w, h), picture, epoch, geometry: view.geometry, space: view.space, unsure: view.unsure });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2, which)).is_ok();
@@ -758,7 +758,7 @@ impl Vision {
         }
         if m.turns != epoch {
             // The view turned since what was kept was made: it, and what the next mask would blend in, is of the old picture
-            (m.turns, m.seq, m.mask, m.small, m.motion) = (epoch, None, None, None, Motion::default());
+            (m.turns, m.seq, m.mask, m.small, m.motion, m.ran) = (epoch, None, None, None, Motion::default(), None);
             // A model that keeps its own memory of the last frames (the cutout's) forgets them too
             if let Some(segment) = m.segment.as_mut() {
                 segment.reset();
@@ -822,6 +822,7 @@ impl Vision {
             m.motion.used();
             m.small = Some(mask);
             m.at = now;
+            m.ran = Some(seq);
             m.mask = None;
         }
         let small = m.small.as_ref().unwrap();
@@ -1194,7 +1195,7 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
                 }
             }
         };
-        let MaskJob { seq, size: (w, h), picture, at, epoch, geometry, space, unsure } = job;
+        let MaskJob { seq, size: (w, h), picture, epoch, geometry, space, unsure } = job;
         let mut picture = Some(picture);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
@@ -1203,6 +1204,8 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         if sv.stopping.load(Ordering::SeqCst) {
             m.segment = None;
         }
+        // What the model last ran on, and when: a mask got again without a run is no newer than that
+        let (at, seq) = (m.at, m.ran.unwrap_or(seq));
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;
