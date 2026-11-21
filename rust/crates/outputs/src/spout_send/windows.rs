@@ -1,6 +1,6 @@
 //! Spout send on Windows: a Spout sender for each shared stream, which programs like OBS list and read as a shared texture.
 
-use super::{Backend, Sender};
+use super::{Backend, Resized, Sender};
 use crate::spout_shared::win::sender::TextureSender;
 use std::sync::Arc;
 
@@ -23,8 +23,8 @@ impl Sender for SpoutSender {
         self.0.send(bgra)
     }
 
-    fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
-        self.0.resize(width, height).map(|()| true)
+    fn resize(&mut self, width: u32, height: u32) -> Result<Resized, String> {
+        self.0.resize(width, height).map(|done| if done { Resized::Yes } else { Resized::Busy })
     }
 }
 

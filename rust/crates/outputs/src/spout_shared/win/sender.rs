@@ -24,6 +24,12 @@ const LIST_CAPACITY: usize = 10;
 /// The DXGI number of the texture's format, B8G8R8A8_UNORM.
 const FORMAT: u32 = 87;
 
+/// How many views this thread has mapped and not yet unmapped, for the test that a failed Mapping::create leaves none.
+#[cfg(test)]
+thread_local! {
+    static VIEWS: std::cell::Cell<isize> = const { std::cell::Cell::new(0) };
+}
+
 /// A writable named file mapping with the mutex Spout keeps beside it.
 struct Mapping {
     _map: Owned,
@@ -53,17 +59,20 @@ impl Mapping {
             .map_err(|e| format!("making the shared memory {name}: {e}"))?;
         // SAFETY: read straight after the call it describes, on the same thread
         let existed = unsafe { GetLastError() } == ERROR_ALREADY_EXISTS;
+        // Before the view, which only Mapping's Drop unmaps: a lock that can't be made must not leave a view behind
+        let mutex = mutex_named(&protocol::map_mutex(name))?;
         // SAFETY: a live mapping handle; the whole mapping is wanted
         let view = unsafe { MapViewOfFile(map.0, FILE_MAP_ALL_ACCESS, 0, 0, 0) };
         if view.Value.is_null() {
             return Err(format!("mapping the shared memory {name}"));
         }
         // From here the view is unmapped by Drop
-        let mutex = mutex_named(&protocol::map_mutex(name));
+        #[cfg(test)]
+        VIEWS.with(|n| n.set(n.get() + 1));
         let mut info = MEMORY_BASIC_INFORMATION::default();
         // SAFETY: info is an out buffer of the size given and the view is mapped
         let filled = unsafe { VirtualQuery(Some(view.Value as *const c_void), &mut info, std::mem::size_of::<MEMORY_BASIC_INFORMATION>()) };
-        let memory = Mapping { _map: map, view: view.Value, size: if filled == 0 { 0 } else { info.RegionSize }, mutex: mutex?, existed };
+        let memory = Mapping { _map: map, view: view.Value, size: if filled == 0 { 0 } else { info.RegionSize }, mutex, existed };
         if memory.size < bytes {
             return Err(format!("the shared memory {name} is smaller than a sender needs"));
         }
@@ -91,6 +100,8 @@ impl Drop for Mapping {
         unsafe {
             let _ = UnmapViewOfFile(MEMORY_MAPPED_VIEW_ADDRESS { Value: self.view });
         }
+        #[cfg(test)]
+        VIEWS.with(|n| n.set(n.get() - 1));
     }
 }
 
@@ -169,17 +180,18 @@ impl TextureSender {
     }
 
     /// Shares pictures of another size from now on under the same name, mapping and counter: a new texture and its handle go into the existing info.
-    pub fn resize(&mut self, width: u32, height: u32) -> Result<(), String> {
+    /// Ok(false) when a receiver holds the picture just now: nothing changed, and the sender (and so its place in the list) stays as it is for another try.
+    pub fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
         if width == 0 || height == 0 {
             return Err("the picture has no size".into());
         }
         if (width, height) == (self.width, self.height) {
-            return Ok(());
+            return Ok(true);
         }
         let texture = make_shared_texture(&self.gpu, width, height)?;
         // Receivers are held off while the info and the texture change together
         if !got(self.access.0, LOCK_WAIT_MS) {
-            return Err("a receiver is holding the picture".into());
+            return Ok(false);
         }
         let written = write_info(&mut self.info, &texture, width, height);
         if written.is_ok() {
@@ -190,7 +202,7 @@ impl TextureSender {
         unsafe {
             let _ = ReleaseMutex(self.access.0);
         }
-        written
+        written.map(|()| true)
     }
 
     /// Adds the name to the sender list.
@@ -328,5 +340,60 @@ impl StaleList {
         })
         .expect("the list's lock");
         StaleList { _list: list }
+    }
+}
+
+/// A receiver that holds a sender's access mutex, as OBS does while it reads the picture, until it is dropped.
+#[cfg(test)]
+pub struct HeldAccess {
+    release: Option<std::sync::mpsc::Sender<()>>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+#[cfg(test)]
+impl HeldAccess {
+    pub fn of(sender: &str) -> HeldAccess {
+        let (release, wait) = std::sync::mpsc::channel::<()>();
+        let (held, ready) = std::sync::mpsc::channel::<()>();
+        let name = protocol::access_mutex(sender);
+        let thread = std::thread::spawn(move || {
+            let mutex = mutex_named(&name).expect("the access mutex");
+            assert!(got(mutex.0, 5000), "the receiver couldn't take the access mutex");
+            held.send(()).unwrap();
+            let _ = wait.recv();
+            // SAFETY: this thread got the mutex above
+            unsafe {
+                let _ = ReleaseMutex(mutex.0);
+            }
+        });
+        ready.recv().expect("the receiver to hold the mutex");
+        HeldAccess { release: Some(release), thread: Some(thread) }
+    }
+}
+
+#[cfg(test)]
+impl Drop for HeldAccess {
+    fn drop(&mut self) {
+        drop(self.release.take());
+        let _ = self.thread.take().unwrap().join();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_mapping_whose_lock_cant_be_made_leaves_no_view_behind() {
+        let name = "Telescope test lockless mapping";
+        // A semaphore under the name the lock would take: making the mutex fails
+        let taken = wide(&protocol::map_mutex(name));
+        // SAFETY: NUL-terminated name that outlives the call
+        let _in_the_way = unsafe { CreateSemaphoreW(None, 1, 1, PCWSTR(taken.as_ptr())) }.map(Owned).expect("a semaphore");
+        let before = VIEWS.with(|n| n.get());
+        for _ in 0..3 {
+            assert!(Mapping::create(name, 64).is_err());
+        }
+        assert_eq!(VIEWS.with(|n| n.get()), before, "a failed Mapping::create left a view mapped");
     }
 }
