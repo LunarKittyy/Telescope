@@ -23,6 +23,8 @@ unicode-script = "0.5"
 # Finding what to hide in the log: URLs, addresses and tokens
 regex = { version = "1", default-features = false, features = ["std", "unicode"] }
 unicode-normalization = "0.1"
+# The embedded translations are zlib, on the same zlib as zip
+flate2.workspace = true
 libjpeg-turbo-rs = { version = "0.9.0", default-features = false, features = ["std"] }
 
 [target.'cfg(unix)'.dependencies]

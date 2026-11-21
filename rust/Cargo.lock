@@ -5792,6 +5792,7 @@ version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "chrono",
+ "flate2",
  "fontique",
  "harfrust",
  "libc",
