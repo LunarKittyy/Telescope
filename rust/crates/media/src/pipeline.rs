@@ -247,6 +247,8 @@ pub struct Pipeline {
     surface_wish: Arc<AtomicBool>,
     /// This stream's last submission to the card, so streams sharing the card don't wait for each other's pictures.
     pacing: gpu::Pacing,
+    /// Whether the last frame ran its either-way steps off the card, so leaving the card releases cached textures once.
+    was_off_card: bool,
 }
 
 impl Drop for Pipeline {
@@ -272,7 +274,7 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default() }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false }
     }
 
     fn run(&mut self, mut frame: Frame, ctx: &dyn FrameContext, finish: Finish) -> PipelineFrame {
@@ -395,8 +397,14 @@ impl Pipeline {
             self.balance.note_wait(chain.waited_ns);
         }
         if off_card {
+            if !self.was_off_card && ON_THE_CARD.load(Ordering::SeqCst) <= 1 {
+                if let Some(gpu) = self.gpu.clone().flatten() {
+                    gpu.release_idle();
+                }
+            }
             self.try_card(&frame);
         }
+        self.was_off_card = off_card;
         self.count(chain.ups, chain.downs);
         self.applied = self.hiding.clone();
         self.note_surface_wish();

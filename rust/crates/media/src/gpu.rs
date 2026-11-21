@@ -625,22 +625,27 @@ impl Gpu {
         self.download_until(enc, textures, bpp, &|| false)
     }
 
-    /// As download_timed, giving up with an error as soon as cancel says so (a stop doesn't wait out a card that has stalled).
-    fn download_until(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool) -> Result<(Vec<u8>, u64), String> {
-        self.guarded("reading a picture back", || self.read_back(enc, textures, bpp, cancel))
+    /// As download_timed, without reusing or keeping the staging buffer afterwards (for one-off latency trials).
+    fn download_unkept(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<u8>, u64), String> {
+        self.guarded("reading a picture back", || self.read_back(enc, textures, bpp, &|| false, false))
     }
 
-    fn read_back(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool) -> Result<(Vec<u8>, u64), String> {
+    /// As download_timed, giving up with an error as soon as cancel says so (a stop doesn't wait out a card that has stalled).
+    fn download_until(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool) -> Result<(Vec<u8>, u64), String> {
+        self.guarded("reading a picture back", || self.read_back(enc, textures, bpp, cancel, true))
+    }
+
+    fn read_back(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool, keep_buf: bool) -> Result<(Vec<u8>, u64), String> {
         let mut offsets = Vec::new();
         let mut size = 0u64;
         for (t, b) in textures.iter().zip(bpp) {
             offsets.push(size);
             size += aligned_row(t.width() * b) as u64 * t.height() as u64;
         }
-        let kept = {
+        let kept = keep_buf.then(|| {
             let mut kept = self.downloads.lock().unwrap();
             kept.iter().position(|b| b.size() == size).map(|i| kept.swap_remove(i))
-        };
+        }).flatten();
         let buf = kept.unwrap_or_else(|| self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("download"),
             size,
@@ -710,12 +715,16 @@ impl Gpu {
         }
         drop(mapped);
         buf.unmap();
-        let mut kept = self.downloads.lock().unwrap();
-        // Only what a few sizes of picture need stays; the newest is at the end
-        if kept.len() == KEPT_DOWNLOADS {
-            kept.remove(0);
+        if keep_buf {
+            let mut kept = self.downloads.lock().unwrap();
+            // Only what a few sizes of picture need stays; the newest is at the end
+            if kept.len() == KEPT_DOWNLOADS {
+                kept.remove(0);
+            }
+            kept.push(buf);
+        } else {
+            drop(buf);
         }
-        kept.push(buf);
         span("readback", began);
         Ok((out, waited))
     }
@@ -1090,9 +1099,10 @@ impl Gpu {
         let planes = self.upload(frame, &mut used);
         let target = self.texture(frame.width, frame.height, WORK);
         self.convert_pass(&mut enc, &planes.views, planes.mode, &target, 1, (planes.width, planes.height));
-        let (_, waited) = self.download_timed(enc, &[&target], &[4])?;
-        used.push(target);
-        self.give_back(used);
+        let (_, waited) = self.download_unkept(enc, &[&target], &[4])?;
+        drop(target);
+        drop(used);
+        let _ = self.device.poll(wgpu::PollType::Poll);
         Ok(waited)
     }
 
