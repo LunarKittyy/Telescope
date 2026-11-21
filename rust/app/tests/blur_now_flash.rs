@@ -5,6 +5,7 @@ use telescope_core::frame::{Frame, FrameContext, FrameStage, PixelFormat};
 use telescope_core::media::{FramePipeline, StagedStep};
 use telescope_core::plugin::Plugin;
 use telescope_core::testing::FakeHost;
+use telescope_core::ui::UiEvent;
 use telescope_effects::composite::{Layout, Tile};
 use telescope_effects::compositor::{Compositor, Frames};
 use telescope_effects::privacy_blur::PrivacyBlurPlugin;
@@ -40,6 +41,10 @@ fn mean_of(frame: &Frame) -> f64 {
     luma.iter().map(|v| *v as f64).sum::<f64>() / luma.len() as f64
 }
 
+fn click(plugin: &mut PrivacyBlurPlugin, host: &mut FakeHost) {
+    plugin.on_ui(host, &UiEvent { ui: "card".into(), callback: "now-clicked".into(), args: vec![] });
+}
+
 fn stream(plugin: &mut PrivacyBlurPlugin) -> Pipeline {
     let mut p = Pipeline::new();
     p.set_steps(vec![StagedStep { owner: "privacy_blur".into(), stage: FrameStage::Privacy, step: plugin.frame_step().unwrap() }]);
@@ -72,7 +77,7 @@ fn blur_now_on_off_and_on_again_never_sends_a_dark_frame_on_any_output() {
     for i in 0..60usize {
         match i {
             10 | 40 => {
-                plugin.run_action(&mut host, "privacy_blur.now", &json!({"mode": "on"}));
+                click(&mut plugin, &mut host);
                 // Blur now: the shown stream takes the new step and hides its last frame, then the one behind hides its own
                 let step = StagedStep { owner: "privacy_blur".into(), stage: FrameStage::Privacy, step: plugin.frame_step().unwrap() };
                 shown.set_steps(vec![step]);
@@ -86,7 +91,7 @@ fn blur_now_on_off_and_on_again_never_sends_a_dark_frame_on_any_output() {
                 }
             }
             25 => {
-                plugin.run_action(&mut host, "privacy_blur.now", &json!({"mode": "off"}));
+                click(&mut plugin, &mut host);
                 let step = StagedStep { owner: "privacy_blur".into(), stage: FrameStage::Privacy, step: plugin.frame_step().unwrap() };
                 shown.set_steps(vec![step]);
             }
