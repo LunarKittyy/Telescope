@@ -1676,6 +1676,8 @@ impl Window {
     /// HostUi::close_window, or the person closed it: gone, and the plugin hears "closed".
     /// A plugin that panicked is off until the next start: its card and header widget are hidden, its windows close and its frame steps come out.
     fn plugin_stopped(self: &Rc<Self>, plugin: &str) {
+        // A timer it scheduled would wake the window for nobody
+        self.timers.borrow_mut().retain(|(owner, _), _| owner != plugin);
         for r in self.pieces.iter().filter(|r| r.plugin == plugin) {
             let _ = self.ui.set_property(&format!("{}-visible", r.id), SValue::Bool(false));
         }
