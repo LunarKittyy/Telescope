@@ -424,7 +424,7 @@ struct SceneServer(Arc<telescope_core::web::ServerStats>);
 
 impl telescope_core::web::WebServer for SceneServer {
     fn port(&self) -> u16 {
-        8768
+        7482
     }
     fn stats(&self) -> Arc<telescope_core::web::ServerStats> {
         self.0.clone()
@@ -440,7 +440,7 @@ impl telescope_core::web::Web for SceneWeb {
         Ok(telescope_core::web::Certificate { cert: Default::default(), key: Default::default() })
     }
     fn serve(&self, _certificate: &telescope_core::web::Certificate, serve: &telescope_core::web::Serve, _handler: Arc<dyn telescope_core::web::PageHandler>) -> Result<Box<dyn telescope_core::web::WebServer>, String> {
-        Ok(Box::new(SceneServer(Arc::new(telescope_core::web::ServerStats::new(8768, serve.port, false, &serve.label)))))
+        Ok(Box::new(SceneServer(Arc::new(telescope_core::web::ServerStats::new(7482, serve.port, false, &serve.label)))))
     }
 }
 

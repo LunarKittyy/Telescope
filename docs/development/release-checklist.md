@@ -78,7 +78,7 @@ The APK signing key lives in the repository secrets (see [Packaging and CI](pack
 
 QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
-<!-- due: android/app/src/main/kotlin/com/telescope/Pairing.kt android/app/src/main/kotlin/com/telescope/PairedComputers.kt android/app/src/main/kotlin/com/telescope/SessionServer.kt android/app/src/main/kotlin/com/telescope/SessionEndpoint.kt android/app/src/main/kotlin/com/telescope/LanAnnouncer.kt android/app/src/main/kotlin/com/telescope/Presence.kt android/app/src/main/kotlin/com/telescope/PresenceWorker.kt android/app/src/main/kotlin/com/telescope/PresenceSockets.kt android/app/src/main/kotlin/com/telescope/WifiLink.kt android/app/src/main/kotlin/com/telescope/TlsIdentity.kt android/app/src/main/kotlin/com/telescope/PhoneTls.kt android/app/src/main/kotlin/com/telescope/ScanActivity.kt android/app/src/main/kotlin/com/telescope/SetupSteps.kt android/app/src/main/kotlin/com/telescope/WaitingService.kt android/app/src/main/kotlin/com/telescope/RemoteStartNotice.kt rust/crates/link/** rust/tools/test_fake_presence.py ; packages: certifi -->
+<!-- due: android/app/src/main/kotlin/com/telescope/Pairing.kt android/app/src/main/kotlin/com/telescope/PairedComputers.kt android/app/src/main/kotlin/com/telescope/SessionServer.kt android/app/src/main/kotlin/com/telescope/SessionEndpoint.kt android/app/src/main/kotlin/com/telescope/LanAnnouncer.kt android/app/src/main/kotlin/com/telescope/Presence.kt android/app/src/main/kotlin/com/telescope/PresenceWorker.kt android/app/src/main/kotlin/com/telescope/PresenceSockets.kt android/app/src/main/kotlin/com/telescope/WifiLink.kt android/app/src/main/kotlin/com/telescope/TlsIdentity.kt android/app/src/main/kotlin/com/telescope/PhoneTls.kt android/app/src/main/kotlin/com/telescope/ScanActivity.kt android/app/src/main/kotlin/com/telescope/SetupSteps.kt android/app/src/main/kotlin/com/telescope/WaitingService.kt android/app/src/main/kotlin/com/telescope/RemoteStartNotice.kt android/app/src/main/kotlin/com/telescope/OldComputerNotice.kt rust/crates/link/** rust/tools/test_fake_presence.py ; packages: certifi -->
 
 - [ ] Add phone by QR over Wi-Fi on Linux and on Windows and by plugging in over USB on Windows.
 - [ ] The setup guide ticks each step as it's done and the video stage replaces it after the first stream. The APK installs through its QR download link and through its own Install over USB button.
@@ -180,7 +180,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Black screen (portrait and landscape): the page goes black and, on Android, full screen without the status and nav bars. One tap shows the hint and fades again, a double tap brings the page back and the stream keeps going the whole time.
 - [ ] Black screen on iPhone: a black video opens in the system player and hides the status bar, the stream keeps going behind it and closing the player brings the page back.
 - [ ] Android in Chrome and a second computer's browser: the same. Resolution and Frame rate on the card change what arrives. New link drops the browser and the old code stops working. Opening the link in a second tab takes over from the first.
-- [ ] Windows: the firewall prompt (or a rule) lets port 8767 through and picking a phone again stops the server.
+- [ ] Windows: the firewall prompt (or a rule) lets port 7481 through and picking a phone again stops the server.
 
 ### Webcams
 
@@ -213,7 +213,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 - [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen remaining on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
 - [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner, not one per change.
-- [ ] Windows: the firewall prompt (or a rule) lets port 8768 through. New link makes an open sign show that its link doesn't work any more.
+- [ ] Windows: the firewall prompt (or a rule) lets port 7482 through. New link makes an open sign show that its link doesn't work any more.
 
 ### Settings, keyboard and folding
 

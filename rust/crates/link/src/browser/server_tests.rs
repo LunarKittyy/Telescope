@@ -10,6 +10,11 @@ use rustls::pki_types::{CertificateDer, ServerName};
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::TcpStream;
+
+#[test]
+fn the_browser_camera_port_is_in_the_new_block() {
+    assert_eq!(BROWSER_PORT, 7481);
+}
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};

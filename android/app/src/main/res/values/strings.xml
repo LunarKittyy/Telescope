@@ -19,6 +19,9 @@
     <!-- Update card -->
     <string name="port_busy_title">Another app is using Telescope\'s port</string>
     <string name="port_busy_text">Your computer can\'t reach this phone because another app is using the port Telescope needs. It is probably another Telescope build, such as Telescope (dev). Close it, then reopen this app.</string>
+    <string name="old_computer_title">Computer app is out of date</string>
+    <string name="old_computer_text">Update Telescope on %1$s to keep using this phone with it</string>
+    <string name="old_computer_text_unnamed">Update Telescope on your computer to keep using this phone with it</string>
     <string name="update_available">Update available</string>
     <string name="update_failed_title">Update didn\'t finish</string>
     <string name="update">Update</string>

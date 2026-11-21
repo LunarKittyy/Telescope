@@ -127,7 +127,7 @@ fn pair_as_phone(offer: &Value, phone_id: &str, name: &str) -> u16 {
     let cert = "ab".repeat(32);
     let body = json!({"name": name, "phone_id": phone_id, "cert_sha256": cert, "ips": ["127.0.0.9"],
                       "proof": telescope_link::pairing::pairing_proof(token, nonce, phone_id, &cert)}).to_string();
-    let mut conn = TcpStream::connect(("127.0.0.1", offer["port"].as_u64().unwrap() as u16)).unwrap();
+    let mut conn = TcpStream::connect(("127.0.0.1", offer["pairing_port"].as_u64().unwrap() as u16)).unwrap();
     conn.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
     write!(conn, "POST /pair/{nonce} HTTP/1.1\r\nHost: x\r\nContent-Length: {}\r\n\r\n{body}", body.len()).unwrap();
     let mut reply = String::new();

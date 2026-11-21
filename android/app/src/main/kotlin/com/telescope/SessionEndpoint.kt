@@ -102,6 +102,9 @@ object SessionEndpoint {
 
     private val owners = mutableSetOf<String>()
     private var server: SessionServer? = null
+    private val oldServers = mutableMapOf<Int, SessionServer>()
+    private val oldPorts = SessionServer.oldPortsFor(BuildConfig.BUILD_TYPE)
+    val oldComputer = OldComputerNotice()
     private var announcer: LanAnnouncer? = null
     private var presence: PresenceWorker? = null
     private var presenceGeneration = 0L
@@ -149,7 +152,7 @@ object SessionEndpoint {
     // The port was busy (the other Telescope build, an old socket after an update) or the accept loop died: try again
     @Synchronized
     private fun rebind(app: Context) {
-        if (owners.isNotEmpty() && server?.listening != true) bind(app)
+        if (owners.isNotEmpty() && (server?.listening != true || oldServers.size < oldPorts.size)) bind(app)
     }
 
     // Callers are often the main thread: the first start makes the TLS identity (keys and a file) and opens the port, so a worker does both
@@ -166,6 +169,7 @@ object SessionEndpoint {
         // A server whose bind failed or whose accept loop died is replaced, not kept forever.
         if (server?.listening == true) {
             announcer?.start(SessionServer.DEFAULT_PORT)  // retries an announcement that failed; a no-op otherwise
+            bindOldPorts(app)
             return
         }
         server?.stop()
@@ -184,7 +188,29 @@ object SessionEndpoint {
             null
         }
         if (server?.listening == true) announcer = LanAnnouncer(app).also { it.start(SessionServer.DEFAULT_PORT) }
+        if (server?.listening == true) bindOldPorts(app)
         portBusyListener?.invoke(portBusy)
+    }
+
+    // The old ports, only to tell an older Telescope on a computer to update. Busy ones (an older phone app) are retried.
+    private fun bindOldPorts(app: Context) {
+        for (port in oldPorts) {
+            if (oldServers[port]?.listening == true) continue
+            oldServers.remove(port)?.stop()
+            val old = try {
+                SessionServer(
+                    port = port,
+                    computers = { PairedComputers.list(app) },
+                    commands = ServiceSessionCommands(app),
+                    socketFactory = PhoneTls.identity(app).serverSocketFactory(),
+                    oldPort = true,
+                    onOldPortContact = { oldComputer.knocked(it) },
+                ).also { it.start() }
+            } catch (e: Exception) {
+                null
+            }
+            if (old?.listening == true) oldServers[port] = old
+        }
     }
 
     // Another app holds the session port: the main screen says so instead of the phone just not answering.
@@ -213,6 +239,8 @@ object SessionEndpoint {
         watchdog = null
         server?.stop()
         server = null
+        oldServers.values.forEach { it.stop() }
+        oldServers.clear()
         announcer?.stop()
         announcer = null
     }

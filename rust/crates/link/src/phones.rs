@@ -416,7 +416,7 @@ pub(crate) mod tests {
 
     const USB0: &str = "https://127.0.0.1:40000";
     const USB1: &str = "https://127.0.0.1:40001";
-    const WIFI: &str = "https://192.168.1.40:8766";
+    const WIFI: &str = "https://192.168.1.40:7480";
 
     fn wifi(ip: &str) -> Option<RouteSpec> {
         Some(RouteSpec::Network { address: ip.into() })
@@ -483,7 +483,7 @@ pub(crate) mod tests {
 
     #[test]
     fn discovered_address_is_tried_so_a_new_dhcp_lease_still_works() {
-        let net = FakeNet::new(&[("https://192.168.1.77:8766", answers("ph-1", PingStatus::Paired, false))]);
+        let net = FakeNet::new(&[("https://192.168.1.77:7480", answers("ph-1", PingStatus::Paired, false))]);
         let res = resolver(&net, &[], true, &["192.168.1.77"]).0.resolve(&phone(), RoutePreference::Auto);
         assert_eq!(res.route, wifi("192.168.1.77"));
     }
@@ -551,7 +551,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_working_address_beats_an_outdated_answer_elsewhere() {
-        let net = FakeNet::new(&[(WIFI, Answer::OldApp), ("https://192.168.1.77:8766", answers("ph-1", PingStatus::Paired, false))]);
+        let net = FakeNet::new(&[(WIFI, Answer::OldApp), ("https://192.168.1.77:7480", answers("ph-1", PingStatus::Paired, false))]);
         let res = resolver(&net, &[], true, &["192.168.1.77"]).0.resolve(&phone(), RoutePreference::Auto);
         assert_eq!((res.status, res.phone_version.as_str()), (PhoneStatus::Ready, "1.0"));
     }
@@ -564,11 +564,11 @@ pub(crate) mod tests {
             a.lock().unwrap().push(format!("fwd {s}"));
             Some(5000)
         }, move |s, l| b.lock().unwrap().push(format!("unfwd {s} {l}")));
-        assert_eq!(tunnels.acquire("A", 8766), Some(5000));
-        assert_eq!(tunnels.acquire("A", 8766), Some(5000));
-        tunnels.release("A", 8766);
+        assert_eq!(tunnels.acquire("A", 7480), Some(5000));
+        assert_eq!(tunnels.acquire("A", 7480), Some(5000));
+        tunnels.release("A", 7480);
         assert_eq!(*calls.lock().unwrap(), ["fwd A"]);
-        tunnels.release("A", 8766);
+        tunnels.release("A", 7480);
         assert_eq!(*calls.lock().unwrap(), ["fwd A", "unfwd A 5000"]);
     }
 
@@ -611,7 +611,7 @@ pub(crate) mod tests {
         let resolver = RouteResolver {
             adb_available: Box::new(|| false), adb_device_states: Box::new(Vec::new),
             tunnels: Arc::new(UsbTunnels::new(|_, _| None, |_, _| {})), discover: Box::new(|_| vec!["127.0.0.1".into()]),
-            client: Box::new(move |base, auth| Box::new(SessionClient::new(&base.replace(":8766", &format!(":{port}")), auth))),
+            client: Box::new(move |base, auth| Box::new(SessionClient::new(&base.replace(":7480", &format!(":{port}")), auth))),
             wifi_timeout: Duration::from_secs(1),
         };
         let phone = PairedPhone { ips: vec![], cert_sha256: pin_of("phone"), ..phone() };

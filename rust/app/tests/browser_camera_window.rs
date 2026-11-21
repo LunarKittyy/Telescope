@@ -51,7 +51,7 @@ impl Serving for Running {
         self.0.stopped.store(true, Ordering::SeqCst);
     }
     fn url_for(&self, host: &str) -> String {
-        format!("https://{host}:8767/#t1")
+        format!("https://{host}:7481/#t1")
     }
     fn new_token(&self) {}
     fn stats(&self) -> Option<Arc<ServerStats>> {

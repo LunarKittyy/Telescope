@@ -67,6 +67,9 @@ pub fn pair(args: &Args, services: &Services) -> Result<(), String> {
     }
     let until = Instant::now() + Duration::from_secs(120);
     let phone = loop {
+        if let Some(name) = offer.poll_old_phone() {
+            println!("{name} has an older Telescope app: update it on the phone, then scan again");
+        }
         if let Some(p) = offer.poll() {
             break p;
         }

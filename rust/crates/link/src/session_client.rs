@@ -1,11 +1,11 @@
-//! The phone's session port (8766), reachable whenever the app is up, unlike the stream port (session_client.py).
+//! The phone's session port (7480), reachable whenever the app is up, unlike the stream port (session_client.py).
 
 use crate::https::{self, Error, PhoneAuth, Request, MAX_REPLY_BYTES};
 use crate::util::clean_name;
 use serde_json::{json, Map, Value};
 use std::time::Duration;
 
-pub const PING_PORT: u16 = 8766;
+pub const PING_PORT: u16 = 7480;
 /// Shape of the phone's session API (its SessionServer.PROTOCOL_VERSION); both apps must match.
 /// 3: TLS on both of the phone's ports, pinned to the certificate fingerprint it gave at pairing.
 pub const SESSION_PROTOCOL: i64 = 3;
@@ -300,6 +300,11 @@ mod tests {
     use super::*;
     use crate::https::testing::*;
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn the_phone_session_port_is_in_the_new_block() {
+        assert_eq!(PING_PORT, 7480);
+    }
 
     /// A plain-HTTP phone answering every request with (status, body), recording what it got.
     fn phone(status: u16, body: &'static [u8]) -> (Server, SessionClient) {

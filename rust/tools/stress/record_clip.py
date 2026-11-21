@@ -51,7 +51,7 @@ def main():
     config = json.loads((args.profile / "telescope_config.json").read_text())
     phone = next(p for p in config["plugin_configs"]["connection"]["phones"] if p["name"] == args.phone_name)
     token = phone["token"]
-    session, stream = adb_forward(8766), adb_forward(8080)
+    session, stream = adb_forward(7480), adb_forward(8080)
     print(post(session, token, "/v1/session", {"action": "start", "width": 1920, "height": 1080, "fps": 30}), flush=True)
     # The lens used last could be anything, and the wrong one on a phone lying on a desk sees nothing
     print(post(stream, token, "/v1/control", {"action": "camera", "id": args.lens}), flush=True)
