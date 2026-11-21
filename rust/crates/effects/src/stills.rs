@@ -335,10 +335,11 @@ pub fn shot_control_props(caps: Option<&StillCaps>, choice: &ShotChoice, shutter
     json!({
         "shot-summary": summary,
         "shot-shutter-stops": shutter_labels, "shot-shutter-index": shutter_index,
-        "shot-shutter-enabled": shutter && !suppressed && !shutters.is_empty(),
+        // An override the camera has no stops for stays enabled so Camera can clear it
+        "shot-shutter-enabled": shutter && !suppressed && (!shutters.is_empty() || choice.shutter_s.is_some()),
         "shot-shutter-tip": tip(!shutters.is_empty(), tr("Set the shutter speed for the photo."), tr("This camera can't set the shutter speed.")),
         "shot-iso-stops": iso_labels, "shot-iso-index": iso_index,
-        "shot-iso-enabled": !suppressed && !isos.is_empty(),
+        "shot-iso-enabled": !suppressed && (!isos.is_empty() || choice.iso.is_some()),
         "shot-iso-tip": tip(!isos.is_empty(), tr("Set the ISO for the photo."), tr("This camera can't set the ISO.")),
         "shot-focus-tip": tr("Setting the focus from here comes in a later version."),
         "shot-focus-value": focus_position(shot.and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters), choice.focus_diopters.unwrap_or(0.0)),

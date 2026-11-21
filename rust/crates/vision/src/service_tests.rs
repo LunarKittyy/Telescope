@@ -1372,3 +1372,22 @@ fn a_crop_that_moves_a_little_keeps_the_masks_steadying_carry() {
     let jumped = ask(3, 3.0);
     assert!(jumped[72 * 256 + 128] >= 200, "a crop that jumps starts the mask afresh, with nothing of the old one in it");
 }
+
+#[test]
+fn a_mask_got_again_without_a_run_keeps_the_frame_it_was_made_for() {
+    for waiting in [true, false] {
+        let (v, _) = finder(Duration::from_millis(1));
+        if waiting { v.wait_for_masks(); }
+        let ask = |seq: u64| v.newest_normal_snapshot("a", true, seq, 256, 144, Box::new(|| Some(someone_at(50))), v.view_epoch(), MaskView::default()).unwrap();
+        assert_eq!(ask(1).seq, 1);
+        // Nothing moved and the last run is recent, so the next frames get that run's mask again
+        v.stream("a").mask.lock().unwrap().at = monotonic() + 100.0;
+        if waiting {
+            assert_eq!(ask(2).seq, 1);
+        } else {
+            ask(2);
+            while v.stream("a").newest.lock().unwrap().done < 2 { std::thread::sleep(Duration::from_millis(5)); }
+            assert_eq!(ask(3).seq, 1);
+        }
+    }
+}
