@@ -3,7 +3,6 @@
 use crate::frame::{Frame, FrameContext, FrameStage, FrameStep};
 use crate::host::{FrameStore, PacketStepFactory};
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -329,14 +328,11 @@ impl PipelineFrame {
 
     /// The RAM picture if it is there, else a dark one with the same size and stamps standing in for it, for a thread that can't wait for the card.
     pub fn landed_or_dark(&self) -> Frame {
-        self.landed().unwrap_or_else(|| self.dark())
-    }
-
-    /// A dark frame with this one's size and stamps, whatever state the picture is in.
-    pub fn dark(&self) -> Frame {
-        let mut dark = Frame::dark(self.frame.width, self.frame.height, self.frame.format);
-        (dark.number, dark.time_ns, dark.capture_ns) = (self.frame.number, self.frame.time_ns, self.frame.capture_ns);
-        dark
+        self.landed().unwrap_or_else(|| {
+            let mut dark = Frame::dark(self.frame.width, self.frame.height, self.frame.format);
+            (dark.number, dark.time_ns, dark.capture_ns) = (self.frame.number, self.frame.time_ns, self.frame.capture_ns);
+            dark
+        })
     }
 
     pub fn stamp(&mut self, number: u64, time_ns: u64) {
@@ -348,27 +344,6 @@ impl PipelineFrame {
 impl From<Frame> for PipelineFrame {
     fn from(frame: Frame) -> Self {
         Self::new(frame, None)
-    }
-}
-
-/// Goes up whenever steps that hide things are put in (Blur now), after the pictures out have been made dark. Everything that carries a frame from before the change to
-/// somewhere it can be seen (a frame still being made, a composite, a queued send) notes the count it began under and drops the frame if the count has moved by the time it would show.
-#[derive(Clone, Default)]
-pub struct PrivacyGate(Arc<AtomicU64>);
-
-impl PrivacyGate {
-    pub fn current(&self) -> u64 {
-        self.0.load(Ordering::SeqCst)
-    }
-
-    /// Moves the count on and hands back the new one.
-    pub fn advance(&self) -> u64 {
-        self.0.fetch_add(1, Ordering::SeqCst) + 1
-    }
-
-    /// Whether `began` is still the count.
-    pub fn holds(&self, began: u64) -> bool {
-        self.current() == began
     }
 }
 
@@ -403,10 +378,6 @@ pub trait FramePipeline: Send {
 
 /// One stream's newest frames: what it made, and what goes out on its virtual camera (which replace_frame can swap).
 pub trait FrameSlot: Send + Sync {
-    /// The count every stream of one host shares (PrivacyGate). A slot with none has a gate of its own that nothing moves.
-    fn privacy(&self) -> PrivacyGate {
-        PrivacyGate::default()
-    }
     /// Publish a picture that may still be on the card; the publisher already landed it if ram_wanted said so, so readers of pixels find them there.
     fn publish_picture_at(&self, frame: PipelineFrame, epoch: u64) -> u64 {
         self.publish_at(frame.land(), epoch)

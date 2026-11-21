@@ -254,38 +254,3 @@ fn a_picture_that_waits_for_a_busy_reader_gives_way_to_a_newer_one() {
     wait_for("the newest", || log.sent.lock().unwrap().len() >= 2);
     assert_eq!(log.sent.lock().unwrap()[1][0], 9, "the picture that was waiting went out over a newer one");
 }
-
-#[test]
-fn a_picture_queued_while_a_blur_came_on_is_never_sent_and_a_newer_one_is() {
-    use telescope_core::media::PrivacyGate;
-    let log = Arc::new(Log::default());
-    let (worker, _) = spawn(&log, Duration::from_secs(5));
-    let gate = PrivacyGate::default();
-    log.hold_open.store(true, Ordering::SeqCst);
-    // The first picture holds the thread while its sender opens, and the clear one waits behind it
-    worker.put(picture(2, 2, 1));
-    wait_for("the open", || log.open_asked.load(Ordering::SeqCst) == 1);
-    worker.put_under(picture(2, 2, 2), Some((gate.clone(), gate.current())));
-    gate.advance();
-    log.hold_open.store(false, Ordering::SeqCst);
-    wait_for("the first", || log.sent.lock().unwrap().len() == 1);
-    worker.put_under(picture(2, 2, 3), Some((gate.clone(), gate.current())));
-    wait_for("the newer one", || log.sent.lock().unwrap().len() == 2);
-    let sent: Vec<u8> = log.sent.lock().unwrap().iter().map(|b| b[0]).collect();
-    assert_eq!(sent, [1, 3], "the picture from before the Blur was skipped");
-}
-
-#[test]
-fn a_picture_taken_before_a_blur_and_waiting_for_its_sender_to_open_is_not_sent_after_it() {
-    use telescope_core::media::PrivacyGate;
-    let log = Arc::new(Log::default());
-    let (worker, _) = spawn(&log, Duration::from_secs(5));
-    let gate = PrivacyGate::default();
-    log.hold_open.store(true, Ordering::SeqCst);
-    worker.put_under(picture(2, 2, 2), Some((gate.clone(), gate.current())));
-    wait_for("the open", || log.open_asked.load(Ordering::SeqCst) == 1);
-    gate.advance();
-    log.hold_open.store(false, Ordering::SeqCst);
-    std::thread::sleep(Duration::from_millis(150));
-    assert!(log.sent.lock().unwrap().is_empty(), "the last look before it leaves missed the Blur");
-}

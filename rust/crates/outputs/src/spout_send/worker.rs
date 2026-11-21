@@ -7,7 +7,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use telescope_core::frame::Frame;
-use telescope_core::media::PrivacyGate;
 
 /// Without a new picture for this long the sender is taken down, so a stream that stopped doesn't leave one behind.
 pub const IDLE: Duration = Duration::from_secs(3);
@@ -38,15 +37,8 @@ pub enum State {
     Idle,
 }
 
-/// The privacy count a picture began under (FrameContext::privacy): once the gate has moved on it is from before a Blur and is never sent.
-pub type Guard = (PrivacyGate, u64);
-
-pub fn fresh(guard: &Option<Guard>) -> bool {
-    guard.as_ref().is_none_or(|(gate, began)| gate.holds(*began))
-}
-
 struct Slot {
-    latest: Mutex<Option<(Frame, Option<Guard>)>>,
+    latest: Mutex<Option<Frame>>,
     ready: Condvar,
     stop: AtomicBool,
     alive: AtomicBool,
@@ -87,16 +79,11 @@ impl Worker {
 
     /// Hands over a picture, in place of the one that hadn't been taken yet. False when the thread has ended.
     pub fn put(&self, frame: Frame) -> bool {
-        self.put_under(frame, None)
-    }
-
-    /// `put` for a picture made under a privacy count: it is not sent once the count has moved, however long it waited here.
-    pub fn put_under(&self, frame: Frame, guard: Option<Guard>) -> bool {
         let mut latest = self.slot.latest.lock().unwrap_or_else(|e| e.into_inner());
         if !self.alive() {
             return false;
         }
-        *latest = Some((frame, guard));
+        *latest = Some(frame);
         self.slot.ready.notify_all();
         true
     }
@@ -120,7 +107,7 @@ impl Drop for Worker {
 }
 
 enum Next {
-    Picture(Frame, Option<Guard>),
+    Picture(Frame),
     /// No picture for the idle time.
     Quiet,
     Stopped,
@@ -133,14 +120,14 @@ fn next(slot: &Slot, idle: Duration) -> Next {
     if slot.stop.load(Ordering::SeqCst) {
         return Next::Stopped;
     }
-    latest.take().map_or(Next::Quiet, |(frame, guard)| Next::Picture(frame, guard))
+    latest.take().map_or(Next::Quiet, Next::Picture)
 }
 
 /// Puts a picture back to be taken again, unless a newer one has come meanwhile (which is then the one that goes out).
-fn requeue(slot: &Slot, frame: Frame, guard: Option<Guard>) {
+fn requeue(slot: &Slot, frame: Frame) {
     let mut latest = slot.latest.lock().unwrap_or_else(|e| e.into_inner());
     if latest.is_none() {
-        *latest = Some((frame, guard));
+        *latest = Some(frame);
     }
 }
 
@@ -159,18 +146,14 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
     let mut open: Option<(u32, u32, Box<dyn Sender>)> = None;
     let mut bytes = Vec::new();
     loop {
-        let (frame, guard) = match next(slot, idle) {
-            Next::Picture(frame, guard) => (frame, guard),
+        let frame = match next(slot, idle) {
+            Next::Picture(frame) => frame,
             Next::Quiet if keep => {
                 tell(State::Idle);
                 continue;
             }
             Next::Quiet | Next::Stopped => break,
         };
-        // A picture that waited here while a Blur came on is from before it
-        if !fresh(&guard) {
-            continue;
-        }
         let size = (frame.width, frame.height);
         if size.0 == 0 || size.1 == 0 {
             continue;
@@ -182,7 +165,7 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
                 Ok(Resized::Remake) => open = None,
                 // A reader holds the picture just now: the sender stays where it is (a reader that is busy is not a sender that is gone) and this picture is tried again
                 Ok(Resized::Busy) => {
-                    requeue(slot, frame, guard);
+                    requeue(slot, frame);
                     pause(slot, RESIZE_RETRY);
                     continue;
                 }
@@ -223,9 +206,6 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
         // The last look before the picture leaves
         if stopped(slot) {
             break;
-        }
-        if !fresh(&guard) {
-            continue;
         }
         if let Some((_, _, sender)) = open.as_mut() {
             match sender.send_buffer(&mut bytes) {

@@ -142,11 +142,7 @@ impl Shared {
     }
 
     /// Hands a stream's newest picture to its sender thread, starting one if the last ended.
-    fn offer(&self, source: &str, frame: &Frame, guard: Option<worker::Guard>) {
-        // Made across a Blur: it is not shared
-        if !worker::fresh(&guard) {
-            return;
-        }
+    fn offer(&self, source: &str, frame: &Frame) {
         let Some(backend) = self.backend.clone() else { return };
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let Some(entry) = entries.get_mut(source) else { return };
@@ -171,7 +167,7 @@ impl Shared {
             entry.worker = Worker::spawn(entry.name.clone(), backend, tell, self.idle, self.retry, keep);
         }
         if let Some(worker) = &entry.worker {
-            worker.put_under(frame, guard);
+            worker.put(frame);
         }
     }
 
@@ -229,7 +225,7 @@ struct Tap(Arc<Shared>);
 
 impl CpuStep for Tap {
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
-        self.0.offer(ctx.source_id(), frame, ctx.privacy());
+        self.0.offer(ctx.source_id(), frame);
     }
 
     fn touch(&self, ctx: &dyn FrameContext) -> Touch {
