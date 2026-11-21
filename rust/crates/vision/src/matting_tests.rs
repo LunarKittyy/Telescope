@@ -192,3 +192,62 @@ fn real_cost_of_one_mask_at_1080p() {
     let (s, r, u) = (median(shrink), median(run), median(scale));
     println!("1080p mask: shrink {s:.1} ms, model {r:.1} ms, back up to 1080p {u:.1} ms, in all {:.1} ms", s + r + u);
 }
+
+/// Frames of the clip at 3840 x 2160 as I420, the way a 4K camera hands them over.
+fn clip_frames_4k(count: usize, every: usize) -> Vec<telescope_core::frame::Frame> {
+    use telescope_core::frame::{Frame, PixelFormat};
+    let clip = std::env::var("TELESCOPE_MATTING_CLIP").expect("TELESCOPE_MATTING_CLIP is a video");
+    let (w, h) = (3840usize, 2160usize);
+    let out = std::process::Command::new("ffmpeg")
+        .args(["-v", "error", "-i", &clip, "-vf", &format!("select='not(mod(n\\,{every}))',scale={w}:{h}"), "-vsync", "0", "-frames:v", &count.to_string(), "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
+        .output()
+        .expect("ffmpeg");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let size = PixelFormat::I420.size(w as u32, h as u32);
+    out.stdout.chunks_exact(size).map(|f| Frame::new(w as u32, h as u32, PixelFormat::I420, f.to_vec())).collect()
+}
+
+#[test]
+#[ignore = "needs the real model and library (TELESCOPE_MATTING_PACK), a clip (TELESCOPE_MATTING_CLIP) and TELESCOPE_COMPARE_OUT, a folder for the pictures"]
+fn real_masks_from_the_small_picture_match_the_ones_from_the_full_one() {
+    let out = PathBuf::from(std::env::var("TELESCOPE_COMPARE_OUT").expect("TELESCOPE_COMPARE_OUT is a folder"));
+    std::fs::create_dir_all(&out).unwrap();
+    let (mut before, mut after) = (segmenter(), segmenter());
+    let frames = clip_frames_4k(40, 3);
+    let (mut worst, mut sum, mut count, mut edge_worst) = (0u8, 0u64, 0u64, 0u8);
+    for (i, frame) in frames.iter().enumerate() {
+        let full = crate::rgb(frame).unwrap();
+        let (old_in, new_in) = (small_of(&*before, &full), crate::cutout_rgb(frame).unwrap());
+        assert_eq!((old_in.w, old_in.h), (new_in.w, new_in.h));
+        let a = before.segment(&old_in, 0).map_err(|e| e.message).unwrap();
+        let b = after.segment(&new_in, 0).map_err(|e| e.message).unwrap();
+        let (mut frame_sum, mut frame_worst) = (0u64, 0u8);
+        for (x, y) in a.data.iter().zip(&b.data) {
+            let d = x.abs_diff(*y);
+            frame_sum += d as u64;
+            frame_worst = frame_worst.max(d);
+            if (16..240).contains(x) || (16..240).contains(y) {
+                edge_worst = edge_worst.max(d);
+            }
+        }
+        worst = worst.max(frame_worst);
+        sum += frame_sum;
+        count += a.data.len() as u64;
+        let differing = a.data.iter().zip(&b.data).filter(|(x, y)| x.abs_diff(**y) > 25).count();
+        println!("frame {i}: mean {:.3} max {frame_worst} pixels differing by over 25 levels: {differing}", frame_sum as f64 / a.data.len() as f64);
+        if i % 13 == 12 || i == 0 {
+            let write = |name: &str, header: &str, data: &[u8]| {
+                let mut file = header.as_bytes().to_vec();
+                file.extend_from_slice(data);
+                std::fs::write(out.join(name), file).unwrap();
+            };
+            let head = format!("P5\n{} {}\n255\n", a.w, a.h);
+            write(&format!("frame{i}-before.pgm"), &head, &a.data);
+            write(&format!("frame{i}-after.pgm"), &head, &b.data);
+            let diff: Vec<u8> = a.data.iter().zip(&b.data).map(|(x, y)| x.abs_diff(*y).saturating_mul(8)).collect();
+            write(&format!("frame{i}-diffx8.pgm"), &head, &diff);
+            write(&format!("frame{i}-input.ppm"), &format!("P6\n{} {}\n255\n", new_in.w, new_in.h), &new_in.data);
+        }
+    }
+    println!("all {} frames: mean {:.4} levels, max {worst}, max where either mask is an edge {edge_worst}", frames.len(), sum as f64 / count as f64);
+}
