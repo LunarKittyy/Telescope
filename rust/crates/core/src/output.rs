@@ -165,6 +165,10 @@ pub trait Outputs: Send + Sync {
     fn watch(&self, _on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn Held>> {
         None
     }
+    /// watch for slot's camera: the extra cameras' wait screens move (an animation) only while an app reads their camera. None when this system can't tell for that slot.
+    fn watch_slot(&self, slot: u32, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn Held>> {
+        if slot == 0 { self.watch(on_change) } else { None }
+    }
     /// Whether the watch can tell for sure that nobody reads the camera (v4l2loopback usage events, the Windows 11 camera's heartbeat), so
     /// that "not watched" is safe to act on. False for the /proc fallback, UnityCapture and anything unknown.
     fn watch_reliable(&self) -> bool {

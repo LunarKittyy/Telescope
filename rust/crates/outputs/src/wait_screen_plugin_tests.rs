@@ -65,6 +65,8 @@ struct FakeOutputs {
     watch: FakeWatch,
     /// What the watch thread would call when an app opens or closes the camera.
     on_change: Mutex<Option<OnChange>>,
+    /// The same for each extra camera's watch.
+    slot_changes: Mutex<std::collections::BTreeMap<u32, OnChange>>,
 }
 
 impl Outputs for FakeOutputs {
@@ -83,6 +85,13 @@ impl Outputs for FakeOutputs {
     fn watch(&self, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn Held>> {
         *self.on_change.lock().unwrap() = Some(on_change);
         Some(Box::new(FakeWatch { started: self.watch.started.clone(), stopped: self.watch.stopped.clone() }))
+    }
+    fn watch_slot(&self, slot: u32, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn Held>> {
+        if slot == 0 {
+            return self.watch(on_change);
+        }
+        self.slot_changes.lock().unwrap().insert(slot, on_change);
+        Some(Box::new(FakeWatch::default()))
     }
 }
 
@@ -154,6 +163,20 @@ impl Rig {
         for (token, data) in self.host.take_posted() {
             self.event(Event::Posted { owner: NAME.into(), token, data });
         }
+    }
+}
+
+impl Rig {
+    /// An app opens or lets go of an extra camera, the way the watch of that camera says it.
+    fn app_reads_slot(&mut self, slot: u32, reads: bool) {
+        (self.outputs.slot_changes.lock().unwrap().get(&slot).expect("a watch for the slot"))(reads);
+        for (token, data) in self.host.take_posted() {
+            self.event(Event::Posted { owner: NAME.into(), token, data });
+        }
+    }
+
+    fn watched(&self, slot: u32) -> Vec<bool> {
+        self.outputs.log.lock().unwrap().watched.iter().filter(|w| w.0 == slot).map(|w| w.1).collect()
     }
 }
 
@@ -875,4 +898,32 @@ fn the_host_is_told_the_moment_the_picture_is_covered_or_let_go() {
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)), "someone still wants it");
     r.event(Event::CoverRequested { owner: "Other".into(), on: false, note: None });
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+}
+
+#[test]
+fn an_extra_cameras_screen_hears_whether_an_app_reads_its_own_camera() {
+    let mut r = Rig::new();
+    r.idle(&[1, 2]);
+    r.app_reads_slot(1, true);
+    assert_eq!(r.watched(1), [true]);
+    assert!(r.watched(2).is_empty(), "another camera's reader isn't this one's");
+    r.app_reads_slot(2, true);
+    r.app_reads_slot(1, false);
+    assert_eq!(r.watched(1), [true, false]);
+    assert_eq!(r.watched(2), [true]);
+    assert!(r.watched(0).is_empty(), "the main camera's screen is not told for them");
+    assert!(!r.host.events.iter().any(|e| matches!(e, Event::CameraWatched { .. })), "the main camera's reader state is only the main camera's");
+    // The main camera's reader doesn't move an extra camera's screen
+    r.app_reads(true);
+    assert_eq!(r.watched(0), [true]);
+    assert_eq!(r.watched(1), [true, false]);
+}
+
+#[test]
+fn a_report_from_the_watch_of_an_extra_camera_that_stopped_idling_is_ignored() {
+    let mut r = Rig::new();
+    r.idle(&[1]);
+    r.idle(&[]);
+    r.app_reads_slot(1, true);
+    assert!(r.watched(1).is_empty());
 }
