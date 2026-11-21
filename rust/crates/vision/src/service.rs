@@ -152,16 +152,19 @@ pub(crate) struct MaskState {
     pub(crate) fails: u32,
     geometry: Option<Geometry>,
     space: MaskSpace,
+    /// The crop `geometry` was a guess: what the model remembers isn't moved along with a guessed crop.
+    unsure: bool,
 }
 
 impl MaskState {
-    fn geometry(&mut self, geometry: Option<Geometry>, space: MaskSpace) {
+    fn geometry(&mut self, geometry: Option<Geometry>, space: MaskSpace, unsure: bool) {
+        let was_unsure = std::mem::replace(&mut self.unsure, unsure);
         if self.geometry == geometry && self.space == space {
             return;
         }
         // A small move of the crop keeps what the model remembers, moved with it: dropping it on every step of a moving crop leaves every mask unsteadied
         let carried = match (self.geometry, geometry) {
-            (Some(old), Some(new)) if self.space == space && compatible_geometry(Some(old), Some(new)) && crop_jump(&old, &new) <= CARRY_JUMP => Some((old, new)),
+            (Some(old), Some(new)) if !unsure && !was_unsure && self.space == space && compatible_geometry(Some(old), Some(new)) && crop_jump(&old, &new) <= CARRY_JUMP => Some((old, new)),
             _ => None,
         };
         self.geometry = geometry;
@@ -205,6 +208,8 @@ pub(crate) struct MaskView {
 pub(crate) struct MaskSnapshot {
     pub(crate) mask: Arc<Vec<u8>>,
     pub(crate) at: f64,
+    /// The frame it was made for: two masks of one frame are equally recent whichever was asked for first.
+    pub(crate) seq: u64,
 }
 
 impl MaskSnapshot {
@@ -229,6 +234,7 @@ struct MaskJob {
     at: f64,
     /// The view's turns its picture was made under (Inner::turns when its step asked).
     epoch: u64,
+    unsure: bool,
 }
 
 /// The newest mask a frame step can get at once.
@@ -241,6 +247,7 @@ struct MadeMask {
     mask: Arc<Vec<u8>>,
     /// When its frame was handed over.
     at: f64,
+    seq: u64,
     /// The same mask at other sizes asked for since, dropped with it when the next one comes.
     sizes: Vec<MaskSize>,
     /// Which inference this is, so a size made outside the lock is only kept if it still belongs.
@@ -339,7 +346,7 @@ impl StreamVision {
     fn new() -> StreamVision {
         StreamVision {
             mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0,
-                                         motion: Motion::default(), asked: 0.0, turns: 0, fails: 0, geometry: None, space: MaskSpace::default() }),
+                                         motion: Motion::default(), asked: 0.0, turns: 0, fails: 0, geometry: None, space: MaskSpace::default(), unsure: false }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
             mask_done: Condvar::new(),
@@ -615,9 +622,9 @@ impl Vision {
             };
             let sv = self.stream(key);
             let mut m = sv.mask.lock().unwrap();
-            m.geometry(view.geometry, view.space);
+            m.geometry(view.geometry, view.space, view.unsure);
             m.asked = monotonic();
-            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at });
+            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at, seq });
         }
         let Some(backend) = self.ready() else {
             self.load();
@@ -654,8 +661,8 @@ impl Vision {
             let sv = self.stream(&key);
             let mut m = sv.mask.lock().unwrap();
             m.asked = monotonic();
-            m.geometry(view.geometry, view.space);
-            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at });
+            m.geometry(view.geometry, view.space, view.unsure);
+            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at, seq });
         }
         self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, picture, epoch, view)
     }
@@ -671,7 +678,7 @@ impl Vision {
         }
         if n.asked != Some(seq) {
             n.asked = Some(seq);
-            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic(), epoch, geometry: view.geometry, space: view.space });
+            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic(), epoch, geometry: view.geometry, space: view.space, unsure: view.unsure });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2, which)).is_ok();
@@ -679,7 +686,7 @@ impl Vision {
             sv.mask_wanted.notify_all();
         }
         let usable = |n: &NewestMask| n.for_view(view).is_some_and(|m| (view.keep_late || m.epoch == epoch)
-            && (view.keep_late || m.usable(w, h)) && m.space == view.space && compatible_geometry(m.geometry, view.geometry));
+            && (view.keep_late && !view.unsure || m.usable(w, h)) && m.space == view.space && compatible_geometry(m.geometry, view.geometry));
         if wait && !usable(&n) && !n.gave_up {
             let (done, until) = (n.done, std::time::Instant::now() + std::time::Duration::from_secs_f64(FIRST_MASK_WAIT_S));
             while !usable(&n) && n.done == done {
@@ -694,12 +701,12 @@ impl Vision {
             return None;
         }
         let made = n.for_view(view)?;
-        let at = made.at;
+        let (at, made_seq) = (made.at, made.seq);
         if (made.w, made.h) == (w, h) && made.geometry == view.geometry {
-            return Some(MaskSnapshot { mask: made.mask.clone(), at });
+            return Some(MaskSnapshot { mask: made.mask.clone(), at, seq: made_seq });
         }
         if let Some(m) = made.sizes.iter().find(|m| m.size == (w, h) && m.geometry == view.geometry) {
-            return Some(MaskSnapshot { mask: m.mask.clone(), at });
+            return Some(MaskSnapshot { mask: m.mask.clone(), at, seq: made_seq });
         }
         let (base, (bw, bh), geometry, generation) = (made.mask.clone(), (made.w, made.h), made.geometry, made.generation);
         drop(n);
@@ -711,13 +718,13 @@ impl Vision {
         let made = if view.keep_late { &mut n.background } else { &mut n.mask };
         if let Some(made) = made.as_mut().filter(|m| m.generation == generation) {
             if let Some(m) = made.sizes.iter().find(|m| m.size == (w, h) && m.geometry == view.geometry) {
-                return Some(MaskSnapshot { mask: m.mask.clone(), at });
+                return Some(MaskSnapshot { mask: m.mask.clone(), at, seq: made_seq });
             }
             // Moving crops must not keep a resized mask for every position they pass.
             made.sizes.truncate(3);
             made.sizes.insert(0, MaskSize { size: (w, h), geometry: view.geometry, mask: resized.clone() });
         }
-        Some(MaskSnapshot { mask: resized, at })
+        Some(MaskSnapshot { mask: resized, at, seq: made_seq })
     }
 
     /// From now on a frame step waits for its own mask, as a test with a real model wants.
@@ -1187,11 +1194,11 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
                 }
             }
         };
-        let MaskJob { seq, size: (w, h), picture, at, epoch, geometry, space } = job;
+        let MaskJob { seq, size: (w, h), picture, at, epoch, geometry, space, unsure } = job;
         let mut picture = Some(picture);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
-        m.geometry(geometry, space);
+        m.geometry(geometry, space, unsure);
         let mask = vision.mask(&mut m, &*backend, which, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
         if sv.stopping.load(Ordering::SeqCst) {
             m.segment = None;
@@ -1201,7 +1208,7 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         n.done += 1;
         // Without one the last stays until it's too old: a failed frame now and then doesn't show. One of a picture from before a turn of the view is dropped, whenever the turn came.
         if let Some(mask) = mask {
-            let made = MadeMask { w, h, mask, at, sizes: Vec::new(), generation: n.done, epoch, geometry, space };
+            let made = MadeMask { w, h, mask, at, seq, sizes: Vec::new(), generation: n.done, epoch, geometry, space };
             if geometry.is_some() {
                 n.background = Some(made.clone());
             }

@@ -301,7 +301,7 @@ fn hq_may_be_behind(unsure: bool) -> f64 {
 /// is within the age limit and no more than hq_may_be_behind behind a normal mask that is too; else the normal one while it is within the limit; else whichever was made last.
 fn preferred_mask(hq: Option<MaskSnapshot>, normal: Option<MaskSnapshot>, unsure: bool) -> Option<MaskSnapshot> {
     let behind = hq_may_be_behind(unsure);
-    let normal_leads = |hq: &MaskSnapshot| normal.as_ref().is_some_and(|n| n.fresh() && n.at - hq.at > behind);
+    let normal_leads = |hq: &MaskSnapshot| normal.as_ref().is_some_and(|n| n.fresh() && n.seq != hq.seq && n.at - hq.at > behind);
     if hq.as_ref().is_some_and(|h| h.fresh() && !normal_leads(h)) {
         return hq;
     }
