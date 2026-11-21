@@ -231,6 +231,8 @@ class CameraStreamService : Service() {
         const val EXTRA_REMOTE     = "remote"
         // Start with the camera off: the stream is just the mic until the computer turns the camera on.
         const val EXTRA_CAMERA_OFF = "camera_off"
+        // The codec the computer's start said it will read, so the camera opens once with it.
+        const val EXTRA_CODEC      = "codec"
         // Started as a plain service under WaitingService's foreground service (see StreamLauncher).
         const val EXTRA_COVERED    = "covered"
         // The id of the paired computer whose start this is; absent for a start on the phone.
@@ -831,6 +833,8 @@ class CameraStreamService : Service() {
             onCodecFailed  = { server?.closeH264Clients() },
         )
         controller = ctrl
+        // Before the first open: the video request that follows then finds the codec it wants and doesn't reopen the camera
+        intent?.getStringExtra(EXTRA_CODEC)?.takeIf { it == H264Stream.CODEC_H264 && h264Available }?.let { ctrl.presetCodec(it) }
         stills = StillCapture(this, ctrl, stillJobs,
             onBusy = { busy -> server?.holdViewers(busy) },
             onError = { op, error -> recordControlError(op, error) })

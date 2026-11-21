@@ -42,4 +42,18 @@ class StreamOpeningTest {
         assertEquals(StreamOpening(1280, 720, null),
             StreamOpening.from(mapOf("width" to "1280", "height" to "720", "fps" to "0")))
     }
+
+    @Test
+    fun `the codec the computer will read comes through, alone or with a size`() {
+        assertEquals(StreamOpening(null, null, null, codec = "h264"),
+            StreamOpening.from(mapOf("action" to "start", "codec" to "h264")))
+        assertEquals(StreamOpening(1280, 720, 30, codec = "mjpeg"),
+            StreamOpening.from(mapOf("width" to "1280", "height" to "720", "fps" to "30", "codec" to "mjpeg")))
+    }
+
+    @Test
+    fun `a codec the phone doesn't know is left out`() {
+        assertNull(StreamOpening.from(mapOf("action" to "start", "codec" to "av1")))
+        assertEquals(StreamOpening(null, null, 30), StreamOpening.from(mapOf("fps" to "30", "codec" to "H265")))
+    }
 }

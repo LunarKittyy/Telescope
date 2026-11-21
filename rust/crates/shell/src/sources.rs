@@ -919,6 +919,8 @@ impl SourceKind for PhoneKind {
                     None
                 })?;
                 let path = video_path(&target.video_url);
+                // So the phone opens its camera once, with the codec this route reads
+                let opening = StreamRequest { h264: path != "/v1/video", ..opening };
                 let session: Arc<dyn PhoneSession> = link.open_route(&target.phone, &target.route, path, None).map_err(Some)?.into();
                 if let Err(e) = link.ensure_streaming(&target.phone, &target.route, Some(opening), after_stop, &progress) {
                     session.release();
@@ -1485,7 +1487,7 @@ mod tests {
         let link = Arc::new(FakeLink::default());
         let posted: Arc<Mutex<Vec<Report>>> = Arc::default();
         let post: Post = { let p = posted.clone(); Arc::new(move |r| p.lock().unwrap().push(r)) };
-        let request = StreamRequest { width: 0, height: 0, fps: 30, camera_off: false };
+        let request = StreamRequest { width: 0, height: 0, fps: 30, camera_off: false, h264: false };
         let phone = PhoneKind::new(Some("p1".into()), link.clone(), Rc::new(StreamPlan::default), request, post, Rc::new(|_, _| {}));
         let wifi = Arc::new(FakeSession { url: "https://192.168.1.20:8080/v1/video".into(), released: AtomicBool::new(false),
                                           controls: link.controls.clone() });
@@ -1648,7 +1650,7 @@ mod tests {
     fn streaming_on(link: Arc<FakeLink>) -> (SourceRef, Arc<FakeLink>, Posted, Stand) {
         let posted: Posted = Arc::default();
         let post: Post = { let p = posted.clone(); Arc::new(move |r| p.lock().unwrap().push(r)) };
-        let request = StreamRequest { width: 0, height: 0, fps: 30, camera_off: false };
+        let request = StreamRequest { width: 0, height: 0, fps: 30, camera_off: false, h264: false };
         let phone = PhoneKind::new(Some("p1".into()), link.clone(), Rc::new(StreamPlan::default), request, post, Rc::new(|_, _| {}));
         let wifi_session = Arc::new(FakeSession { url: "https://192.168.1.20:8080/v1/video".into(), released: AtomicBool::new(false),
                                                   controls: link.controls.clone() });

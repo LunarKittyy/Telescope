@@ -659,7 +659,7 @@ impl Drop for Rig {
 }
 
 pub fn options() -> WindowOptions {
-    WindowOptions { prefs: RoutePrefs::default(), request: StreamRequest { width: 0, height: 0, fps: 30, camera_off: false }, hardware_decode: false,
+    WindowOptions { prefs: RoutePrefs::default(), request: StreamRequest { width: 0, height: 0, fps: 30, camera_off: false, h264: false }, hardware_decode: false,
                     package: String::new(), autostart: false, quit_after: None, snapshot: None, minimized: false, on_shown: None }
 }
 
@@ -1052,7 +1052,7 @@ impl Plugin for Output {
     }
     fn opening(&self) -> Option<StreamRequest> {
         let size = |key: &str| self.config[key].as_u64().unwrap_or(0) as u32;
-        Some(StreamRequest { width: size("width"), height: size("height"), fps: size("fps"), camera_off: false })
+        Some(StreamRequest { width: size("width"), height: size("height"), fps: size("fps"), camera_off: false, h264: false })
     }
 }
 
