@@ -209,6 +209,7 @@ impl Shared {
         let Some(res) = c.resolution.as_mut() else { return };
         if res.phone_version == version { return; }
         res.phone_version = version.to_string();
+        c.check_id += 1;
         drop(c);
         self.changed(false);
     }
@@ -505,6 +506,16 @@ mod tests {
         shared.conn().on_resolved(check.check_id, "id-a", ready(wifi()));
         assert_eq!(shared.conn().resolution, Some(updated));
         assert_eq!(host.take_posted(), vec![(POST_CHANGED.into(), json!({"save": false}))]);
+    }
+
+    #[test]
+    fn a_late_check_cannot_bring_back_a_version_presence_just_replaced() {
+        let (shared, _host) = with_phone(Arc::new(FakeTunnels::default()));
+        shared.conn().apply_resolution(Resolution { phone_version: "5.1.3".into(), ..ready(wifi()) });
+        let check = shared.conn().check_status(0.0).unwrap();
+        shared.presence_version("id-a", "5.1.4");
+        shared.conn().on_resolved(check.check_id, "id-a", Resolution { phone_version: "5.1.3".into(), ..ready(wifi()) });
+        assert_eq!(shared.conn().resolution.as_ref().map(|r| r.phone_version.as_str()), Some("5.1.4"));
     }
 
     #[test]
