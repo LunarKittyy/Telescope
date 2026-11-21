@@ -44,6 +44,9 @@ data class PairingOffer(
     @SerialName("computer_name") val computerName: String,
 ) {
     val connectPort: Int get() = pairingPort ?: port
+
+    /** An older desktop made it: its session port isn't the one this phone listens on, so pairing would only look like it worked. */
+    val fromOlderComputer: Boolean get() = pairingPort == null
 }
 
 sealed interface PairingParse {

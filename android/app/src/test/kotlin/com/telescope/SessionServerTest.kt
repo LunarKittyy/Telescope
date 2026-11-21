@@ -127,21 +127,56 @@ class SessionServerTest {
     }
 
     @Test
-    fun `an old port tells the computer to update and names it when its token is known`() {
+    fun `an old port tells the computer to update and names it only when a ping carries its token`() {
         val knocks = mutableListOf<String?>()
         val commands = FakeCommands()
         val server = SessionServer(0, { computersOf("secret-token") }, commands, oldPort = true, onOldPortContact = { knocks += it })
         server.start()
         try {
             val port = actualPort(server)
-            assertEquals(426, get(port, "/v1/ping", "secret-token").status)
-            assertEquals(426, get(port, "/v1/hello", null).status)
+            assertEquals(426, get(port, "/v1/ping", "wrong-token").status)
+            assertEquals(426, get(port, "/v1/ping", null).status)
             assertEquals(426, post(port, "/v1/session", "secret-token", """{"action":"start"}""").status)
-            assertEquals(listOf<String?>("PC 0", null, "PC 0"), knocks)
-            assertTrue(commands.calls.isEmpty(), "an old port never starts anything")
+            assertEquals(listOf<String?>(), knocks)
+            assertEquals(426, get(port, "/v1/ping", "secret-token").status)
+            assertEquals(listOf<String?>("PC 0"), knocks)
+            assertTrue(commands.calls.none { it == "start" || it == "stop" }, "an old port never starts anything")
         } finally {
             server.stop()
         }
+    }
+
+    @Test
+    fun `an old port still says who the phone is, so an older computer goes on to ping with its token`() {
+        val knocks = mutableListOf<String?>()
+        val server = SessionServer(0, { computersOf("secret-token") }, FakeCommands(), oldPort = true, onOldPortContact = { knocks += it })
+        server.start()
+        try {
+            val hello = get(actualPort(server), "/v1/hello", null)
+            assertEquals(200, hello.status)
+            assertTrue(hello.body.contains("phone-1"), hello.body)
+            assertEquals(listOf<String?>(), knocks)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `an old port in Local only answers hello over the network with a 403, like the real port`() {
+        val server = SessionServer(0, { computersOf("t") }, FakeCommands(), localOnly = { true }, isUsbPeer = { false }, oldPort = true)
+        server.start()
+        try {
+            assertEquals(403, get(actualPort(server), "/v1/hello", null).status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `a dev build leaves the old ports to the real app`() {
+        assertEquals(SessionServer.OLD_PORTS, SessionServer.oldPortsFor("release"))
+        assertEquals(SessionServer.OLD_PORTS, SessionServer.oldPortsFor("debug"))
+        assertEquals(emptyList<Int>(), SessionServer.oldPortsFor("dev"))
     }
 
     @Test

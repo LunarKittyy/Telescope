@@ -12,6 +12,8 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub const PAIRING_PORT: u16 = 7479;
+/// How many names of phones with an older app wait to be shown at once (a replayed request can't grow the list).
+const MAX_OLD_PHONES: usize = 4;
 /// Where phones from before the port move pair. Listen only: whoever knocks there is told to update, nothing pairs.
 pub const OLD_PAIRING_PORT: u16 = 8765;
 /// Desktop and app ship together.
@@ -171,11 +173,12 @@ impl PairingServer {
                                           old_phones: Mutex::default(), stop: AtomicBool::new(false) });
         let serving = shared.clone();
         std::thread::Builder::new().name("pairing-server".into()).spawn(move || serve(listener, serving, false))?;
+        // From here the server's drop stops the thread above, if the one below can't start
+        let server = PairingServer { offer, shared: shared.clone() };
         if let Some(listener) = old_listener {
-            let serving = shared.clone();
-            std::thread::Builder::new().name("pairing-server-old".into()).spawn(move || serve(listener, serving, true))?;
+            std::thread::Builder::new().name("pairing-server-old".into()).spawn(move || serve(listener, shared, true))?;
         }
-        Ok(PairingServer { offer, shared })
+        Ok(server)
     }
 
     /// Refuses every request from now on, ones on a connection already open too (idempotent); the port closes within a
@@ -330,7 +333,11 @@ fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared, old: bool) -> std:
     }
     if old {
         // Nothing pairs here: the phone proved it read this offer, so its name is worth showing
-        shared.old_phones.lock().unwrap().push(result.name);
+        let mut seen = shared.old_phones.lock().unwrap();
+        if seen.len() < MAX_OLD_PHONES && !seen.contains(&result.name) {
+            seen.push(result.name);
+        }
+        drop(seen);
         return respond(conn, "426 Upgrade Required", b"");
     }
     let taken = {
@@ -624,6 +631,33 @@ mod tests {
         assert_eq!(server.take_old_phone(), None);
         // The real port still pairs the same offer
         assert_eq!(post(offer.port, &format!("/pair/{}", offer.nonce), &pair_body(&offer)), 200);
+    }
+
+    #[test]
+    fn a_phone_knocking_again_is_named_once() {
+        let (server, _) = with_old_port(Some(free_port()));
+        let offer = server.offer.clone();
+        let old = offer.old_port.unwrap();
+        for _ in 0..3 {
+            assert_eq!(post(old, &format!("/pair/{}", offer.nonce), &body(&offer, "Old Phone", &[], "ph-1", PIN, None)), 426);
+        }
+        assert_eq!(server.take_old_phone().as_deref(), Some("Old Phone"));
+        assert_eq!(server.take_old_phone(), None);
+    }
+
+    #[test]
+    fn only_a_few_names_wait_to_be_shown() {
+        let (server, _) = with_old_port(Some(free_port()));
+        let offer = server.offer.clone();
+        let old = offer.old_port.unwrap();
+        for i in 0..MAX_OLD_PHONES + 3 {
+            assert_eq!(post(old, &format!("/pair/{}", offer.nonce), &body(&offer, &format!("Phone {i}"), &[], "ph-1", PIN, None)), 426);
+        }
+        let mut taken = 0;
+        while server.take_old_phone().is_some() {
+            taken += 1;
+        }
+        assert_eq!(taken, MAX_OLD_PHONES);
     }
 
     #[test]

@@ -59,6 +59,12 @@ class PairingTest {
     }
 
     @Test
+    fun `an offer without pairing_port is from an older computer`() {
+        assertTrue(ok(payload(port = "8765")).fromOlderComputer)
+        assertFalse(ok(payload(port = "8765").dropLast(1) + ""","pairing_port":7479}""").fromOlderComputer)
+    }
+
+    @Test
     fun `rejects a pairing_port that is not a port`() {
         assertEquals(PairingParse.Invalid, parsePairingOffer(payload().dropLast(1) + ""","pairing_port":0}"""))
     }

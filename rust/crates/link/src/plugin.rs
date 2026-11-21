@@ -213,7 +213,8 @@ impl ConnectionPlugin {
         let notice = {
             let c = self.conn();
             c.selected_phone().zip(c.resolution.as_ref()).and_then(|(phone, res)| {
-                if res.status != PhoneStatus::Ready { return None; }
+                // An unreachable phone still tells its version over presence: an app from before the port move can't be reached on the new one
+                if !matches!(res.status, PhoneStatus::Ready | PhoneStatus::Unreachable) { return None; }
                 let difference = compare(&res.phone_version, &self.desktop_version)?;
                 let text = match difference {
                     Difference::PhoneOlder => tr("The Telescope app on {phone} is older than this one. Update it on the phone."),
@@ -2134,6 +2135,11 @@ mod tests {
             e.resolve(Resolution { phone_version: "3.5.0".into(), ..Resolution::new(status) });
             assert!(e.issue("app_version").is_none());
         }
+        // Unreachable still shows it: a phone from before the port move is only heard over presence
+        e.resolve(Resolution { phone_version: "3.5.0".into(), ..Resolution::new(PhoneStatus::Unreachable) });
+        assert!(e.issue("app_version").unwrap().text.contains("Pixel is older"));
+        e.resolve(Resolution::new(PhoneStatus::Unreachable));
+        assert!(e.issue("app_version").is_none());
         e.resolve(Resolution { phone_version: "3.7.0".into(), ..ready(wifi()) });
         assert!(e.issue("app_version").unwrap().text.contains("Pixel is newer"));
         e.resolve(ready(wifi()));

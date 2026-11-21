@@ -299,7 +299,18 @@ class MainActivity : LookActivity() {
                     R.string.scan_other_version,
                     Toast.LENGTH_LONG,
                 ).show()
-            is PairingParse.Ok -> startPairing(parsed.offer)
+            is PairingParse.Ok ->
+                // Pairing with it would save a token it can't use and say "Paired"
+                if (parsed.offer.fromOlderComputer) {
+                    val name = parsed.offer.computerName
+                    Toast.makeText(
+                        this,
+                        if (name.isBlank()) getString(R.string.old_computer_text_unnamed) else getString(R.string.old_computer_text, name),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                } else {
+                    startPairing(parsed.offer)
+                }
         }
     }
 
