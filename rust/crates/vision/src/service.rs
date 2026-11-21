@@ -771,6 +771,8 @@ impl Vision {
                 return Some(mask.clone());
             }
         }
+        // The frame is stamped from when this began, not after the model opened: a slow first open must not make the first mask look newer than the masks of frames that came after it
+        let began = monotonic();
         if m.segment.is_none() {
             match backend.segmenter() {
                 Ok(s) => m.segment = Some(s),
@@ -783,7 +785,7 @@ impl Vision {
         }
         let frame = picture()?;
         let small = m.segment.as_ref().and_then(|s| s.input(&frame)).unwrap_or(frame);
-        let now = monotonic();
+        let now = began;
         // Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
         let moved = m.motion.moved(&small);
         let saving = self.power_saving();

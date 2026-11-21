@@ -1403,3 +1403,31 @@ fn a_mask_got_again_without_a_run_keeps_the_frame_it_was_made_for() {
         }
     }
 }
+
+struct SlowOpen(Arc<Fake>);
+
+impl Backend for SlowOpen {
+    fn version(&self) -> String {
+        "slow".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        std::thread::sleep(Duration::from_millis(400));
+        self.0.segmenter()
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        self.0.pose()
+    }
+}
+
+#[test]
+fn the_first_mask_after_a_slow_model_open_is_stamped_from_when_its_frame_was_taken() {
+    let backend: Arc<dyn Backend> = Arc::new(SlowOpen(Fake::new()));
+    let (v, _, _) = make(Box::new(move || Ok(backend.clone())));
+    v.load();
+    wait(|| v.state() == READY);
+    let asked = monotonic();
+    v.newest_normal_snapshot("a", true, 1, 256, 144, Box::new(|| Some(Rgb::filled(256, 144, 200))), v.view_epoch(), MaskView::default());
+    v.wait_for_masks();
+    let at = v.stream("a").mask.lock().unwrap().at;
+    assert!(at < asked + 0.2, "stamped {:.2}s after its frame, once the model had opened", at - asked);
+}
