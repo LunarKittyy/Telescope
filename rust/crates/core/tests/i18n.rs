@@ -356,6 +356,20 @@ fn a_first_draft_says_so() {
     assert!(!i18n::is_draft("de")); // no catalog at all
 }
 
+#[test]
+fn a_first_draft_with_windows_line_endings_still_says_so() {
+    let _q = quiet();
+    let folder = catalogs();
+    write_po(&folder, "fr", "", "nplurals=2; plural=(n > 1);\\n\"\n\"X-Telescope-Draft: yes");
+    let mut text = std::fs::read_to_string(folder.join("fr.po")).unwrap();
+    for i in 0..300 {
+        text += &format!("msgid \"Line number {i}\"\nmsgstr \"Ligne numero {i}\"\n\n");
+    }
+    std::fs::write(folder.join("fr.po"), text.replace('\n', "\r\n")).unwrap();
+    assert!(std::fs::metadata(folder.join("fr.po")).unwrap().len() > 4096);
+    assert!(i18n::is_draft("fr"));
+}
+
 // test_i18n.py::test_an_unreadable_catalog_leaves_english
 #[test]
 fn an_unreadable_catalog_leaves_english() {

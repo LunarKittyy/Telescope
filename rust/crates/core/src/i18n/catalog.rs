@@ -218,8 +218,9 @@ impl Source {
             Ok(text) => text,
             Err(e) => std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or_default(),
         };
-        let head = text.split("\n\n").next().unwrap_or("");
-        match read_po(head) {
+        // Up to the first blank line, whether the lines end in \n or \r\n
+        let head = text.lines().take_while(|l| !l.trim().is_empty()).collect::<Vec<_>>().join("\n");
+        match read_po(&head) {
             Ok((_, header)) => po::header_field(&header, "X-Telescope-Draft").eq_ignore_ascii_case("yes"),
             Err(_) => false,
         }

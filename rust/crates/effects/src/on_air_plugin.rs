@@ -9,7 +9,7 @@ use crate::on_air::{self, Debounce, Sign, WebhookRequest, WebhookSender, DEFAULT
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr, tr_ctx};
@@ -585,13 +585,17 @@ impl Plugin for OnAirPlugin {
         host.cancel_schedule(T_SETTLE);
         let retrying = std::mem::take(&mut self.retrying);
         host.cancel_schedule(T_RETRY);
-        // An "off" still going out counts too: leaving it unfinished can leave the light on
         let unfinished = self.sender.as_ref().is_some_and(|sender| sender.slot_busy("state"));
-        if (self.on() || retrying || unfinished) && self.webhook_ready() {
-            if let Some(sender) = &self.sender {
+        if let Some(sender) = self.sender.as_ref().filter(|_| self.webhook_ready()) {
+            let deadline = Instant::now() + QUIT_WAIT;
+            if self.on() || retrying {
                 // Behind anything still going out, so a late "on" can't land after it; quitting waits only so long
                 sender.send(self.request(false), "quit", Some("state"));
                 sender.wait_idle(QUIT_WAIT);
+            } else if unfinished && sender.wait_idle(QUIT_WAIT) && sender.last_error("state").is_some_and(|e| !e.is_empty()) {
+                // An "off" that was already going out is waited for, and sent again only if it failed
+                sender.send(self.request(false), "quit", Some("state"));
+                sender.wait_idle(deadline.saturating_duration_since(Instant::now()));
             }
         }
         self.stop_server();

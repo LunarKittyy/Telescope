@@ -187,6 +187,18 @@ avx2_too! {
     }
 }
 
+/// The brightness light_row compares with the level.
+fn grey(p: &[u8; 3]) -> u8 {
+    ((p[0] as u32 * 9798 + p[1] as u32 * 19235 + p[2] as u32 * 3735 + (1 << 14)) >> 15) as u8
+}
+
+/// One pixel the way to_rgb makes it.
+fn pixel_rgb(y: u8, u: u8, v: u8) -> [u8; 3] {
+    let mut out = [0u8; 3];
+    to_rgb(&[y], &[u], &[v], &mut out);
+    out
+}
+
 /// One pair of rows (y: both rows of the frame's luma, u and v: the row of chroma they share, trail: both rows of the trail) over the
 /// columns x0..x1: the trail fades and takes what is lit, the picture goes over it. Returns where the trail is not black now.
 #[allow(clippy::too_many_arguments)]
@@ -211,6 +223,12 @@ fn strip(rows: &mut Rows, y: &mut [u8], (u, v): (&mut [u8], &mut [u8]), trail: &
             rows.v[i * 2..i * 2 + 2].fill(rows.cell_v[i]);
         }
         to_rgb(&luma[done..], &rows.u[done..], &rows.v[done..], &mut line[done * 3..]);
+        // The vector path rounds a little differently, so a pixel near the cutoff is decided from the plain conversion like the tail's
+        for (i, p) in line[..done * 3].as_chunks_mut::<3>().0.iter_mut().enumerate() {
+            if grey(p).abs_diff(level) <= 2 {
+                *p = pixel_rgb(luma[i], rows.cell_u[i / 2], rows.cell_v[i / 2]);
+            }
+        }
     }
     let mut now: Option<Span> = None;
     for r in 0..2 {

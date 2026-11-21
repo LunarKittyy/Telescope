@@ -109,15 +109,21 @@ impl VirtualCameras {
     /// slot's /dev/video node on Linux, if it's set up.
     #[cfg(target_os = "linux")]
     fn node(&self, slot: u32) -> Option<String> {
-        if slot == 0 {
-            if let Some(d) = &self.device {
-                return Some(d.clone());
-            }
-            // The usual node unless another app's loopback holds it, else found under its label
-            return v4l2::slot_device_in(v4l2::SYSFS, 0).filter(|d| std::path::Path::new(d).exists());
-        }
-        v4l2::slot_device_in(v4l2::SYSFS, slot)
+        node_for(self.device.as_deref(), slot)
     }
+}
+
+/// slot's /dev/video node given the main camera's configured one (VirtualCameras::node, which a watch repeats later on its own).
+#[cfg(target_os = "linux")]
+fn node_for(preset: Option<&str>, slot: u32) -> Option<String> {
+    if slot == 0 {
+        if let Some(d) = preset {
+            return Some(d.to_string());
+        }
+        // The usual node unless another app's loopback holds it, else found under its label
+        return v4l2::slot_device_in(v4l2::SYSFS, 0).filter(|d| std::path::Path::new(d).exists());
+    }
+    v4l2::slot_device_in(v4l2::SYSFS, slot)
 }
 
 /// Open slot's camera on this system (vcam.open_camera).
@@ -243,21 +249,24 @@ impl Outputs for VirtualCameras {
 
     fn watch_slot(&self, slot: u32, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn telescope_core::output::Held>> {
         #[cfg(target_os = "linux")]
-        let device = match self.node(slot) {
-            Some(device) => device,
-            None if slot == 0 => v4l2::PHONE_DEV.into(),
+        let device: Arc<dyn Fn() -> String + Send + Sync> = {
             // An extra camera that isn't set up has nothing to watch
-            None => return None,
+            if slot != 0 && self.node(slot).is_none() {
+                return None;
+            }
+            let preset = self.device.clone();
+            // Looked up at every open: a camera can come back under another number
+            Arc::new(move || node_for(preset.as_deref(), slot).unwrap_or_else(|| if slot == 0 { v4l2::PHONE_DEV.into() } else { String::new() }))
         };
         #[cfg(not(target_os = "linux"))]
-        let device = String::new();
+        let device: Arc<dyn Fn() -> String + Send + Sync> = Arc::new(String::new);
         let holder_device = device.clone();
         let deps = watch::WatchDeps {
             device,
             retry_open: RETRY_OPEN,
             proc_scan: PROC_SCAN_PERIOD,
             #[cfg(target_os = "linux")]
-            holders: Arc::new(move || v4l2::camera_holders(&holder_device, std::process::id(), "/proc")),
+            holders: Arc::new(move || v4l2::camera_holders(&holder_device(), std::process::id(), "/proc")),
             #[cfg(not(target_os = "linux"))]
             holders: Arc::new(move || { let _ = &holder_device; Vec::new() }),
             #[cfg(windows)]

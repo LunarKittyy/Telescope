@@ -95,9 +95,12 @@ pub fn find_by_label(label: &str) -> Option<String> {
     find_by_label_in(SYSFS, label)
 }
 
-/// The usual node of the main camera unless another app's loopback holds it (an unreadable name doesn't count against).
+/// The usual node of the main camera unless it's missing or another app's loopback holds it (an unreadable name doesn't count against).
 pub fn phone_dev_in(sysfs: &str) -> Option<String> {
     let node = std::path::Path::new(PHONE_DEV).file_name()?.to_string_lossy().to_string();
+    if !std::path::Path::new(&format!("{sysfs}/{node}")).exists() {
+        return None;
+    }
     match std::fs::read_to_string(format!("{sysfs}/{node}/name")) {
         Ok(name) if !crate::linux_setup::slot_labels(0).iter().any(|l| *l == name.trim()) => None,
         _ => Some(PHONE_DEV.into()),
@@ -252,6 +255,13 @@ mod tests {
         assert_eq!(slot_device_in(&moved.to_string_lossy(), 0).as_deref(), Some("/dev/video30"));
         let old = sysfs(&[("video11", "Phone Camera", "")]);
         assert_eq!(slot_device_in(&old.to_string_lossy(), 0).as_deref(), Some(PHONE_DEV));
+    }
+
+    #[test]
+    fn a_hand_made_main_camera_is_found_when_the_usual_node_is_missing() {
+        let hand_made = sysfs(&[("video30", "Telescope", "")]);
+        assert_eq!(slot_device_in(&hand_made.to_string_lossy(), 0).as_deref(), Some("/dev/video30"));
+        assert_eq!(phone_dev_in(&hand_made.to_string_lossy()), None);
     }
 
     #[test]

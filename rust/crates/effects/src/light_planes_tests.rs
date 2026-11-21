@@ -197,3 +197,22 @@ fn bench_light_planes() {
         println!("light step {w}x{h}: through rgb {:.2} ms, on the planes {:.2} ms", time(false), time(true));
     }
 }
+
+#[test]
+fn a_uniform_picture_at_the_cutoff_leaves_no_seam_between_the_vector_columns_and_the_tail() {
+    let (w, h) = (854usize, 480usize);
+    let mut data = vec![197u8; w * h];
+    data.extend(vec![147u8; w * h / 4]);
+    data.extend(vec![129u8; w * h / 4]);
+    let look = Look { effect: "light".into(), fade: 6, brightness: 6, ..Look::default() };
+    let mut effect = Effect::named("light").unwrap();
+    let mut frame = Frame::new(w as u32, h as u32, PixelFormat::I420, data);
+    assert!(effect.run_frame(&mut frame, &look).is_some());
+    let d = frame.data_mut();
+    d[..w * h].fill(16);
+    d[w * h..].fill(128);
+    assert!(effect.run_frame(&mut frame, &look).is_some());
+    for row in frame.data[..w * h].chunks(w) {
+        assert!(row.iter().all(|&y| y == row[0]), "a seam in the trail: {} then {}", row[0], row[w - 1]);
+    }
+}

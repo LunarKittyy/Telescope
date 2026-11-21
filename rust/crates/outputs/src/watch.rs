@@ -25,11 +25,54 @@ fn poll_failed(n: i32, revents: i16, err: std::io::ErrorKind) -> bool {
     n > 0 && revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0
 }
 
+/// A counter whose readiness wakes a poll early.
+#[cfg(target_os = "linux")]
+fn wake_fd() -> Option<std::os::fd::OwnedFd> {
+    use std::os::fd::FromRawFd;
+    // SAFETY: eventfd takes plain integers and returns a new descriptor or -1
+    let fd = unsafe { libc::eventfd(0, libc::EFD_NONBLOCK | libc::EFD_CLOEXEC) };
+    // SAFETY: fd is a fresh descriptor nothing else owns
+    (fd >= 0).then(|| unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) })
+}
+
+/// How a wait on the usage subscription ended.
+#[cfg(target_os = "linux")]
+#[derive(Debug, PartialEq)]
+enum Polled {
+    Event,
+    Quiet,
+    /// The wake descriptor fired (a stop is on its way); it is emptied.
+    Woken,
+    Failed,
+}
+
+/// Waits up to ms for a usage event on fd or for wake to fire.
+#[cfg(target_os = "linux")]
+fn poll_usage(fd: i32, wake: i32, ms: i32) -> Polled {
+    let mut pfds = [libc::pollfd { fd, events: libc::POLLPRI, revents: 0 }, libc::pollfd { fd: wake, events: libc::POLLIN, revents: 0 }];
+    // SAFETY: two pollfds for open descriptors (a negative one is ignored)
+    let n = unsafe { libc::poll(pfds.as_mut_ptr(), 2, ms) };
+    let err = std::io::Error::last_os_error().kind();
+    if pfds[1].revents & libc::POLLIN != 0 {
+        let mut count = [0u8; 8];
+        // SAFETY: reads at most 8 bytes into count, which resets the counter
+        unsafe { libc::read(wake, count.as_mut_ptr().cast(), 8) };
+        return Polled::Woken;
+    }
+    if poll_failed(n, pfds[0].revents, err) {
+        Polled::Failed
+    } else if n > 0 {
+        Polled::Event
+    } else {
+        Polled::Quiet
+    }
+}
+
 /// What the watch reads, so tests can stand in for the system.
 #[derive(Clone)]
 pub struct WatchDeps {
-    /// Linux: the main camera's node.
-    pub device: String,
+    /// Linux: the camera's node, looked up again each time the watch opens it (the number can change while Telescope runs).
+    pub device: Arc<dyn Fn() -> String + Send + Sync>,
     pub retry_open: Duration,
     pub proc_scan: Duration,
     /// Other processes holding the device (the fallback).
@@ -50,11 +93,20 @@ pub struct Watcher {
     on_change: Box<dyn Fn(bool) + Send + Sync>,
     watched: Mutex<Option<bool>>,
     deps: WatchDeps,
+    /// Linux: written to cut a poll short when the watch is told to stop.
+    #[cfg(target_os = "linux")]
+    wake: Option<std::os::fd::OwnedFd>,
 }
 
 impl Watcher {
     pub fn new(on_change: Box<dyn Fn(bool) + Send + Sync>, deps: WatchDeps) -> Watcher {
-        Watcher { on_change, watched: Mutex::new(None), deps }
+        Watcher {
+            on_change,
+            watched: Mutex::new(None),
+            deps,
+            #[cfg(target_os = "linux")]
+            wake: wake_fd(),
+        }
     }
 
     pub fn watched(&self) -> bool {
@@ -90,14 +142,16 @@ impl Watcher {
 
     #[cfg(target_os = "linux")]
     fn run_linux(&self, stop: &Stop) {
-        use std::os::fd::AsRawFd;
         use std::os::unix::fs::OpenOptionsExt;
         const V4L2_EVENT_CLIENT_USAGE: u32 = 0x0800_0000 + 0x08E0_0000 + 1;
         const VIDIOC_SUBSCRIBE_EVENT: libc::c_ulong = (1 << 30) | (32 << 16) | ((b'V' as libc::c_ulong) << 8) | 90;
         const VIDIOC_DQEVENT: libc::c_ulong = (2 << 30) | (136 << 16) | ((b'V' as libc::c_ulong) << 8) | 89;
         const SEND_INITIAL: u32 = 1;
+        use std::os::fd::AsRawFd;
+        let wake = self.wake.as_ref().map_or(-1, |f| f.as_raw_fd());
         while !stop.is_set() {
-            let file = std::fs::OpenOptions::new().read(true).write(true).custom_flags(libc::O_NONBLOCK).open(&self.deps.device);
+            let device = (self.deps.device)();
+            let file = std::fs::OpenOptions::new().read(true).write(true).custom_flags(libc::O_NONBLOCK).open(&device);
             let Ok(file) = file else {
                 stop.wait(self.deps.retry_open);
                 continue;
@@ -114,13 +168,13 @@ impl Watcher {
             }
             self.deps.reliable.store(true, Ordering::SeqCst);
             while !stop.is_set() {
-                let mut pfd = libc::pollfd { fd, events: libc::POLLPRI, revents: 0 };
-                // SAFETY: one pollfd for an open descriptor
-                let n = unsafe { libc::poll(&mut pfd, 1, 500) };
-                if poll_failed(n, pfd.revents, std::io::Error::last_os_error().kind()) {
-                    break;
+                match poll_usage(fd, wake, 500) {
+                    Polled::Failed => break,
+                    Polled::Woken => continue,
+                    Polled::Event => {}
+                    Polled::Quiet => continue,
                 }
-                if n > 0 {
+                {
                     let mut buf = [0u8; 136];
                     // SAFETY: the ioctl writes a 136-byte v4l2_event into buf
                     if unsafe { libc::ioctl(fd, VIDIOC_DQEVENT, buf.as_mut_ptr()) } < 0 {
@@ -214,6 +268,16 @@ impl Job for Watcher {
         self.run_windows(stop);
     }
 
+    fn wake(&self) {
+        #[cfg(target_os = "linux")]
+        if let Some(fd) = &self.wake {
+            use std::os::fd::AsRawFd;
+            let one = 1u64.to_ne_bytes();
+            // SAFETY: writes the 8 bytes of one to the eventfd; a full counter just means a wake is already pending
+            unsafe { libc::write(fd.as_raw_fd(), one.as_ptr().cast(), 8) };
+        }
+    }
+
     fn suspended(&self) {
         self.unwatched();
         self.report(false);
@@ -255,7 +319,7 @@ mod tests {
 
     fn deps() -> WatchDeps {
         WatchDeps {
-            device: "/nonexistent/video99".into(), retry_open: Duration::from_millis(10), proc_scan: Duration::from_millis(10),
+            device: Arc::new(|| "/nonexistent/video99".into()), retry_open: Duration::from_millis(10), proc_scan: Duration::from_millis(10),
             holders: Arc::new(Vec::new), use_mf: Arc::new(|| true), mf_open: Arc::new(|| None),
             mf_period: Duration::from_millis(10), linger: Duration::from_secs(3), uc_want: Arc::new(|| None),
             reliable: Arc::default(),
@@ -317,6 +381,45 @@ mod tests {
         std::thread::sleep(Duration::from_millis(50));
         held.stop();
         assert!(!held.running());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_wake_cuts_the_usage_poll_short() {
+        use std::os::fd::{AsRawFd, FromRawFd};
+        let (w, _seen) = watcher(deps());
+        let mut fds = [0; 2];
+        // SAFETY: pipe fills two descriptors
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        // SAFETY: both are fresh descriptors nothing else owns
+        let (r, _w) = unsafe { (std::os::fd::OwnedFd::from_raw_fd(fds[0]), std::os::fd::OwnedFd::from_raw_fd(fds[1])) };
+        let wake = w.wake.as_ref().unwrap().as_raw_fd();
+        let started = Instant::now();
+        let waiter = {
+            let (r, wake) = (r.as_raw_fd(), wake);
+            std::thread::spawn(move || poll_usage(r, wake, 5000))
+        };
+        std::thread::sleep(Duration::from_millis(50));
+        Job::wake(&*w);
+        assert_eq!(waiter.join().unwrap(), Polled::Woken);
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_device_is_looked_up_again_each_time_the_watch_opens_it() {
+        let asked = Arc::new(AtomicUsize::new(0));
+        let a = asked.clone();
+        let device: Arc<dyn Fn() -> String + Send + Sync> = Arc::new(move || {
+            a.fetch_add(1, Ordering::SeqCst);
+            "/nonexistent/video99".into()
+        });
+        let (w, _seen) = watcher(WatchDeps { use_mf: Arc::new(|| false), device, ..deps() });
+        let gate = Arc::new(Gate::default());
+        let held = crate::held::Held::new(Arc::try_unwrap(w).ok().unwrap(), &gate);
+        held.start();
+        wait_for(|| asked.load(Ordering::SeqCst) >= 3);
+        held.stop();
     }
 
     // test_vcam.py::test_windows_watch_counts_a_camera_no_app_has_opened_as_unwatched
