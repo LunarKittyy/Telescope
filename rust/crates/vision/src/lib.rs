@@ -275,19 +275,19 @@ impl VisionHost {
 
 impl VisionHost {
     fn mask_normal(&self, source_id: &str, frame: &Frame, (w, h): (usize, usize), epoch: u64, keep_late: bool) -> Option<Arc<Vec<u8>>> {
-        let shared = frame.clone();
+        let (look_frame, shared) = (frame.clone(), frame.clone());
         let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: MaskSpace { crop_unsure: false, ..frame.mask_space }, unsure: frame.mask_space.crop_unsure };
-        self.shared.vision.newest_normal_for(source_id, !keep_late, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)
+        self.shared.vision.newest_normal_snapshot_with_look(source_id, !keep_late, frame.number, w, h, Some(Box::new(move || people_look(&look_frame))), Box::new(move || model_rgb(&shared)), epoch, view).map(|m| m.mask)
     }
 
     fn mask_hq(&self, source_id: &str, frame: &Frame, size: (usize, usize), epoch: u64, keep_late: bool) -> Option<Arc<Vec<u8>>> {
         let (w, h) = size;
         let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: MaskSpace { crop_unsure: false, ..frame.mask_space }, unsure: frame.mask_space.crop_unsure };
-        let shared = frame.clone();
-        let hq = self.shared.vision.newest_cutout_snapshot(source_id, frame.number, w, h, Box::new(move || cutout_rgb(&shared)), epoch, view);
+        let (look_frame, shared) = (frame.clone(), frame.clone());
+        let hq = self.shared.vision.newest_cutout_snapshot_with_look(source_id, frame.number, w, h, Some(Box::new(move || people_look(&look_frame))), Box::new(move || cutout_rgb(&shared)), epoch, view);
         let normal = |frame: &Frame| {
-            let shared = frame.clone();
-            self.shared.vision.newest_normal_snapshot(source_id, false, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)
+            let (look_frame, shared) = (frame.clone(), frame.clone());
+            self.shared.vision.newest_normal_snapshot_with_look(source_id, false, frame.number, w, h, Some(Box::new(move || people_look(&look_frame))), Box::new(move || model_rgb(&shared)), epoch, view)
         };
         // While the cutout gives the masks the normal model still gets a frame now and then, so it has a fresh mask to fall back on the moment the cutout is late
         let now = service::monotonic();
