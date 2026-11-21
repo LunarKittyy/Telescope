@@ -265,7 +265,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
                     label: Some("telescope window"),
                     required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
                     required_limits: adapter.limits(),
-                    memory_hints: wgpu::MemoryHints::MemoryUsage,
+                    memory_hints: wgpu::MemoryHints::Manual { suballocated_device_memory_block_size: (4 << 20)..(8 << 20) },
                     ..Default::default()
                 })).map_err(|e| e.to_string())?;
                 let config = slint::wgpu_30::WGPUConfiguration::Manual { instance: instance.clone(), adapter: adapter.clone(), device: device.clone(), queue: queue.clone() };
@@ -297,7 +297,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
             label: Some("telescope window"),
             required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
             required_limits: adapter.limits(),
-            memory_hints: wgpu::MemoryHints::MemoryUsage,
+            memory_hints: wgpu::MemoryHints::Manual { suballocated_device_memory_block_size: (4 << 20)..(8 << 20) },
             ..Default::default()
         })).map_err(|e| e.to_string())?;
         let config = slint::wgpu_30::WGPUConfiguration::Manual { instance, adapter, device: device.clone(), queue: queue.clone() };
