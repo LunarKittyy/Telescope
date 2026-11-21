@@ -564,6 +564,19 @@ impl Pipeline {
         }
     }
 
+    /// The picture a replay (hide_again) sends out in place of the one that went out is also what the steps at the end of the chain (Spout send) get to see, or they keep showing the clear picture until the next frame comes.
+    fn tap_final(&mut self, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) {
+        // A replay that was replaced or a stream that stopped makes nothing that goes out
+        if ctx.stopped() {
+            return;
+        }
+        for i in 0..self.steps.len() {
+            if self.steps[i].stage == FrameStage::Final && !self.steps[i].skipped() && matches!(self.steps[i].kind, Kind::Cpu(_) | Kind::Either(..)) {
+                self.run_cpu(i, frame, chain, ctx);
+            }
+        }
+    }
+
     fn lost_card(&mut self, why: &str) {
         if !self.card_lost {
             log::error!("The graphics card failed a frame ({why}); steps that can run on the CPU stay there until the stream restarts");
@@ -1004,6 +1017,7 @@ impl FramePipeline for Pipeline {
             self.bring_down(&mut chain, &mut frame, ctx, false);
             frame.number = number;
             frame.capture_ns = capture_ns;
+            self.tap_final(&mut frame, &mut chain, ctx);
             // A hurried pass left the shaders undone, and a dark frame says nothing of what was done: a step that failed is still to be tried
             if !ctx.hurried() && !self.steps.iter().any(|e| e.fails > 0 && e.hides()) {
                 self.applied = self.hiding.clone();
@@ -1432,6 +1446,46 @@ pub(crate) mod tests {
         assert!(hidden.data.iter().all(|v| *v == 9));
         assert!(seen.lock().unwrap().is_empty(), "only the steps that hide ran, not the rest of the pipeline");
         assert_eq!(went_out.data[0], 200);
+    }
+
+    #[test]
+    fn a_frame_sent_again_hidden_is_also_what_the_last_steps_see() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let read = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Privacy, HidesOnCue(on.clone())), step("spout", FrameStage::Final, Looks(read.clone()))]);
+        let went_out = grey(4, 2, 200);
+        assert!(p.hide_again(went_out.clone(), &NoContext).is_none());
+        assert!(read.lock().unwrap().is_empty(), "nothing was hidden, so the last steps keep what they have");
+        on.store(true, Ordering::SeqCst);
+        let hidden = p.hide_again(went_out, &NoContext).expect("hidden now");
+        assert_eq!(*read.lock().unwrap(), [hidden.data[0]], "the picture that goes out in place is the one they get");
+        assert_eq!(hidden.data[0], 9);
+    }
+
+    #[test]
+    fn a_replay_that_was_stopped_gives_the_last_steps_nothing() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let read = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Privacy, HidesOnCue(on)), step("spout", FrameStage::Final, Looks(read.clone()))]);
+        struct Stopped;
+        impl FrameContext for Stopped {
+            fn source_id(&self) -> &str {
+                ""
+            }
+            fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+                None
+            }
+            fn colour_preview(&self, frame: &Frame) -> Frame {
+                frame.clone()
+            }
+            fn stopped(&self) -> bool {
+                true
+            }
+        }
+        p.hide_again(grey(4, 2, 200), &Stopped);
+        assert!(read.lock().unwrap().is_empty());
     }
 
     /// Notes where the pixels were when the step got them and when it was done.
