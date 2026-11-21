@@ -65,6 +65,12 @@ pub mod scalar_switch {
         PLAIN.store(true, Ordering::Relaxed);
         f()
     }
+
+    /// f while no other test has the plain loops switched on, for a test that has to see the AVX2 ones.
+    pub fn vector<R>(f: impl FnOnce() -> R) -> R {
+        let _lock = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+        f()
+    }
 }
 
 /// Rounds to a byte. The cast saturates, so this clamps too, and x86-64's baseline has no round instruction: f32::round is a call
@@ -287,9 +293,29 @@ pub fn read_420(frame: &Frame, out: &mut [u8], floored: bool) -> Option<()> {
     let (u, v, step) = if frame.format == PixelFormat::Nv12 { (chroma, &chroma[1..], 2) } else { (chroma, &chroma[cw * ch..], 1) };
     over_rows(out, w * 3, |row, line| {
         let (ys, us, vs) = (&y[row * w..][..w], &u[(row / 2) * cw * step..], &v[(row / 2) * cw * step..]);
+        // The vector kernel takes the whole 32 pixel blocks (4096 pixels at most at a time, so NV12's chroma is split into a pair of small arrays), the loop below the rest
+        let mut done = 0;
+        let (mut cu, mut cv) = ([0u8; 2048], [0u8; 2048]);
+        while w - done >= 32 {
+            let n = (w - done).min(4096);
+            let cells = done / 2..done / 2 + n.div_ceil(2);
+            let (cu, cv): (&[u8], &[u8]) = if step == 1 {
+                (&us[cells.clone()], &vs[cells])
+            } else {
+                for (i, c) in cells.enumerate() {
+                    (cu[i], cv[i]) = (us[c * step], vs[c * step]);
+                }
+                (&cu, &cv)
+            };
+            let did = crate::yuv::row::<{ crate::yuv::RGB }>(&ys[done..done + n], cu, cv, floored, &mut line[done * 3..(done + n) * 3]);
+            if did == 0 {
+                break;
+            }
+            done += did;
+        }
         let (mut each_u, mut each_v) = ([0u8; PLANAR_RUN], [0u8; PLANAR_RUN]);
-        for (i, (ys, line)) in ys.chunks(PLANAR_RUN).zip(line.chunks_mut(PLANAR_RUN * 3)).enumerate() {
-            let cell = i * (PLANAR_RUN / 2) * step;
+        for (i, (ys, line)) in ys[done..].chunks(PLANAR_RUN).zip(line[done * 3..].chunks_mut(PLANAR_RUN * 3)).enumerate() {
+            let cell = done / 2 * step + i * (PLANAR_RUN / 2) * step;
             doubled(&us[cell..], step, &mut each_u);
             doubled(&vs[cell..], step, &mut each_v);
             run_to_rgb(ys, &each_u, &each_v, black, line);
