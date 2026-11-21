@@ -149,6 +149,16 @@ pub fn denied_in(text: &str) -> bool {
 #[cfg(windows)]
 pub use real::{device_source, open, present, WindowsScanner};
 
+/// Whether the reader's picture format is no longer the one frames are decoded as (nothing to compare when none was negotiated).
+pub fn format_changed(before: &Option<Choice>, now: &Option<Choice>) -> bool {
+    let key = |c: &Choice| (c.fourcc.clone(), c.width, c.height);
+    match (before, now) {
+        (Some(b), Some(n)) => key(b) != key(n),
+        (Some(_), None) => true,
+        (None, _) => false,
+    }
+}
+
 #[cfg(windows)]
 mod real {
     use super::*;
@@ -357,7 +367,6 @@ mod real {
     pub struct MfCapture {
         reader: IMFSourceReader,
         watch: Arc<Watch>,
-        first: Option<Vec<u8>>,
         negotiated: Option<Choice>,
     }
 
@@ -377,6 +386,14 @@ mod real {
     }
 
     impl MfCapture {
+        /// What the reader delivers right now, in our terms.
+        fn reader_choice(&self) -> Option<Choice> {
+            // SAFETY: COM call on the reader this capture owns
+            let t = unsafe { self.reader.GetCurrentMediaType(STREAM) }.ok()?;
+            let m = media_type(&t)?;
+            Some(Choice { fourcc: our_fourcc(&m.subtype)?.into(), width: m.width, height: m.height, fps: m.fps_max })
+        }
+
         fn read_sample(&mut self) -> Result<Vec<u8>, (bool, String)> {
             loop {
                 if self.watch.done.load(Ordering::SeqCst) {
@@ -396,6 +413,13 @@ mod real {
                 if flags & (MF_SOURCE_READERF_ERROR.0 as u32 | MF_SOURCE_READERF_ENDOFSTREAM.0 as u32) != 0 {
                     return Err((false, format!("the camera stopped (flags {flags:#x})")));
                 }
+                if flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED.0 as u32 != 0 {
+                    // Frames are decoded as the type negotiated at open, so a new one ends the feed to be opened again
+                    let now = self.reader_choice();
+                    if format_changed(&self.negotiated, &now) {
+                        return Err((false, "the camera changed its picture format".into()));
+                    }
+                }
                 let Some(sample) = sample else { continue }; // a gap in the stream, not a frame
                 // SAFETY: the buffer is locked while its bytes are copied out
                 return unsafe {
@@ -412,10 +436,12 @@ mod real {
 
     impl Capture for MfCapture {
         fn read(&mut self) -> Result<Vec<u8>, String> {
-            match self.first.take() {
-                Some(first) => Ok(first),
-                None => self.read_sample().map_err(|(_, why)| why),
-            }
+            self.read_sample().map_err(|(_, why)| why)
+        }
+
+        fn read_first(&mut self) -> Result<Vec<u8>, (bool, String)> {
+            // Held by another app: busy rather than silent
+            self.read_sample().map_err(|(held, why)| (!held, why))
         }
 
         fn stopper(&self) -> Box<dyn telescope_core::media::FeedStopper> {
@@ -496,16 +522,8 @@ mod real {
         };
         let watch = Arc::new(Watch { source: Source(source), reading: Mutex::new(None), done: AtomicBool::new(false), timed_out: AtomicBool::new(false) });
         watchdog(watch.clone());
-        let mut capture = MfCapture { reader, watch, first: None, negotiated };
-        match capture.read_sample() {
-            Ok(first) => {
-                capture.first = Some(first);
-                Ok(Box::new(capture))
-            }
-            // Held by another app: busy rather than silent
-            Err((true, why)) => Err((false, why)),
-            Err((false, why)) => Err((true, why)),
-        }
+        // The first frame is read by the caller, once a stop can reach this camera
+        Ok(Box::new(MfCapture { reader, watch, negotiated }))
     }
 }
 
@@ -577,6 +595,16 @@ mod tests {
         assert_eq!(device_instance(mf), device_instance(ds));
         assert!(held_elsewhere(0xC00D_3EA2_u32 as i32));
         assert!(!held_elsewhere(0x8000_4005_u32 as i32), "E_FAIL is just a failure");
+    }
+
+    #[test]
+    fn a_new_picture_format_is_noticed() {
+        let c = |f: &str, w, h| Some(Choice { fourcc: f.into(), width: w, height: h, fps: 30.0 });
+        assert!(!format_changed(&c("YUYV", 1920, 1080), &c("YUYV", 1920, 1080)));
+        assert!(format_changed(&c("YUYV", 1920, 1080), &c("YUYV", 1280, 720)), "the capture card switched HDMI resolution");
+        assert!(format_changed(&c("NV12", 1280, 720), &c("YUYV", 1280, 720)));
+        assert!(format_changed(&c("NV12", 1280, 720), &None));
+        assert!(!format_changed(&None, &c("YUYV", 640, 480)));
     }
 
     #[test]

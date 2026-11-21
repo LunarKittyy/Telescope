@@ -13,6 +13,9 @@ pub const DENIED_TEXT: &str = n_("Windows or your security software is blocking 
 pub const CLAIMED_TEXT: &str = n_("Something else has the camera mounted as a drive. Unmount it in your file manager, then start the webcam again.");
 pub const NO_FRAMES_TEXT: &str = n_("The webcam isn't sending anything. Try another resolution or frame rate.");
 
+/// What an opener says when the node holds another camera than the one that was scanned there.
+pub const REPLACED: &str = "another webcam took its place";
+
 /// How an opening went, for the plugin: ("ok", the Choice's text), ("busy", the program holding it or ""),
 /// ("denied", ""), ("gone", "") or ("silent", "").
 pub type Report = std::sync::Arc<dyn Fn(&str, &str) + Send + Sync>;
@@ -21,6 +24,10 @@ pub type Report = std::sync::Arc<dyn Fn(&str, &str) + Send + Sync>;
 pub trait Capture: Send {
     /// The next frame's bytes as the camera sent them.
     fn read(&mut self) -> Result<Vec<u8>, String>;
+    /// The first frame, read once a stop can reach the camera: Err((opened at all, why)) as an Opener has it.
+    fn read_first(&mut self) -> Result<Vec<u8>, (bool, String)> {
+        self.read().map_err(|why| (true, why))
+    }
     /// Unblocks a read from another thread.
     fn stopper(&self) -> Box<dyn telescope_core::media::FeedStopper>;
     /// What the driver actually gave when it adjusted the request, which raw frames have to be decoded as.
@@ -77,7 +84,7 @@ pub fn open_stoppable(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mut
         // Before the wait, so a stop in the middle of it reaches the camera (a DSLR can take seconds to send its first frame)
         let stopper = cap.stopper();
         stop.watch(move || stopper.stop());
-        cap.read().map(|first| (cap, first)).map_err(|why| (true, why))
+        cap.read_first().map(|first| (cap, first))
     });
     if stop.stopped() {
         return Err("stopped".into());
@@ -92,7 +99,7 @@ pub fn open_stoppable(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mut
         Err((opened, why)) => {
             log::info!("{} gave nothing: {why}", device.name);
             // Gone, held by another program, or opened but silent
-            if (deps.locate)().is_none() || !(deps.exists)(&device.location) {
+            if (deps.locate)().is_none() || !(deps.exists)(&device.location) || why == REPLACED {
                 return say(GONE_TEXT, "gone", "");
             }
             #[cfg(target_os = "linux")]
