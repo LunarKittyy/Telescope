@@ -55,6 +55,7 @@ struct Rig {
     sent: Arc<Mutex<Vec<WebhookRequest>>>,
     /// Sends wait while this is on: a hub that takes its time.
     hold: Arc<AtomicBool>,
+    refuse: Arc<AtomicBool>,
     watch: Arc<Mutex<WatchState>>,
     watches: Arc<Mutex<u32>>,
 }
@@ -72,6 +73,8 @@ impl Rig {
         let (clock, record) = (now.clone(), sent.clone());
         let held = Arc::new(AtomicBool::new(false));
         let holding = held.clone();
+        let refuse = Arc::new(AtomicBool::new(false));
+        let refusing = refuse.clone();
         let mut plugin = OnAirPlugin::for_test(
             web.clone(), Some(Arc::new(FakeOutputs(watch.clone(), watches.clone()))), scratch_dir("on-air"),
             move || *clock.lock().unwrap(),
@@ -80,7 +83,7 @@ impl Rig {
                 while holding.load(Ordering::SeqCst) {
                     std::thread::sleep(Duration::from_millis(5));
                 }
-                String::new()
+                if refusing.load(Ordering::SeqCst) { "Connection refused".into() } else { String::new() }
             },
         );
         let mut host = FakeHost::new();
@@ -91,7 +94,7 @@ impl Rig {
         plugin.set_config(&cfg).unwrap();
         plugin.on_plugins_ready(&mut host);
         plugin.sender.as_ref().unwrap().wait_idle(Duration::from_secs(2));
-        Rig { plugin, host, web, now, sent, hold: held, watch, watches }
+        Rig { plugin, host, web, now, sent, hold: held, refuse, watch, watches }
     }
 
     fn event(&mut self, event: Event) {
@@ -482,7 +485,32 @@ fn quitting_while_the_off_request_is_still_going_out_waits_for_it() {
     let started = Instant::now();
     rig.plugin.shutdown(&mut rig.host);
     assert!(started.elapsed() >= Duration::from_millis(250), "{:?}", started.elapsed());
-    assert_eq!(rig.sent.lock().unwrap().len(), 2, "the off request and the last one behind it");
+    assert_eq!(rig.sent.lock().unwrap().len(), 1, "the off request that was going out is not sent twice");
+}
+
+#[test]
+fn quitting_while_the_off_request_fails_sends_it_once_more() {
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    rig.watched(true);
+    rig.later(2.0);
+    rig.bodies();
+    rig.sent.lock().unwrap().clear();
+    rig.hold.store(true, Ordering::SeqCst);
+    rig.refuse.store(true, Ordering::SeqCst);
+    rig.plugin.on_event(&mut rig.host, &Event::CameraWatched { watched: false });
+    *rig.now.lock().unwrap() += 30.0;
+    rig.plugin.on_event(&mut rig.host, &Event::TimerFired { owner: NAME.into(), token: "settle".into() });
+    let waited = Instant::now();
+    while rig.sent.lock().unwrap().is_empty() && waited.elapsed() < Duration::from_secs(5) {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let release = rig.hold.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(100));
+        release.store(false, Ordering::SeqCst);
+    });
+    rig.plugin.shutdown(&mut rig.host);
+    assert_eq!(rig.sent.lock().unwrap().len(), 2, "the failed off request and one more");
 }
 
 #[test]

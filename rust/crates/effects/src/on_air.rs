@@ -427,6 +427,8 @@ struct Queue {
     busy: bool,
     /// The slot of the request going out right now.
     sending: Option<String>,
+    /// slot: how its last finished request ended ("" it worked).
+    last: Vec<(String, String)>,
 }
 
 /// Sends requests one at a time on a thread of its own. Each slot holds one waiting request and a newer one replaces it, so a quick
@@ -477,6 +479,12 @@ impl WebhookSender {
         queue.sending.as_deref() == Some(slot) || queue.pending.iter().any(|(s, ..)| s == slot)
     }
 
+    /// How the last request finished for `slot` ("" it worked), if one has.
+    pub fn last_error(&self, slot: &str) -> Option<String> {
+        let queue = self.queue.0.lock().unwrap_or_else(|e| e.into_inner());
+        queue.last.iter().find(|(s, _)| s == slot).map(|(_, e)| e.clone())
+    }
+
     /// Waits up to `timeout` for everything sent to be through; false if it isn't.
     pub fn wait_idle(&self, timeout: Duration) -> bool {
         let deadline = Instant::now() + timeout;
@@ -512,7 +520,13 @@ impl WebhookSender {
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (self.on_result)(&tag, &error))).is_err() {
                 log::error!("On Air webhook result callback failed");
             }
-            self.queue.0.lock().unwrap_or_else(|e| e.into_inner()).sending = None;
+            let mut queue = self.queue.0.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(slot) = queue.sending.take() {
+                match queue.last.iter_mut().find(|(s, _)| *s == slot) {
+                    Some(last) => last.1 = error,
+                    None => queue.last.push((slot, error)),
+                }
+            }
         }
     }
 }
