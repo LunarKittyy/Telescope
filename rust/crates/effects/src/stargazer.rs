@@ -243,7 +243,8 @@ enum Msg {
     Photo { run: u64, source: String, path: PathBuf },
     Stop,
     Save,
-    Reset,
+    /// Wipes the stack, answered for that run (a new one when nothing was going, so earlier progress is left behind).
+    Reset { run: u64 },
     Publish,
     Quit,
 }
@@ -459,7 +460,7 @@ impl Worker {
             Msg::Photo { run, source, path } => self.photo(run, source, path),
             Msg::Stop => self.stop(),
             Msg::Save => self.save_live(),
-            Msg::Reset => self.reset(),
+            Msg::Reset { run } => self.reset(run),
             Msg::Publish => self.publish(true),
             Msg::Quit => {}
         }
@@ -684,7 +685,7 @@ impl Worker {
         }
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self, run: u64) {
         if let Some(job) = self.job.as_mut() {
             if job.active && job.mode == Mode::Live {
                 job.stacker = Some(live_stacker(job.input));
@@ -694,7 +695,6 @@ impl Worker {
             }
         }
         *self.shared.result.lock().unwrap() = None;
-        let run = self.job.as_ref().map_or(0, |j| j.run);
         self.post("progress", json!({"run": run, "stacking": false, "collected": 0, "target": 0, "count": 0, "refused": 0, "reset": true}));
     }
 
@@ -1076,8 +1076,8 @@ impl StargazerPlugin {
         let (labels, index) = stills::shot_shutter_labels(&stops, self.shot.shutter_s);
         json!({
             "shutter-stops": labels, "shutter-index": index,
-            "shutter-enabled": self.phase == Phase::Idle && caps.is_some() && !stops.is_empty(),
-            "shutter-tip": if caps.is_none() { tr("Waiting for the picture") } else if stops.is_empty() { tr("This camera can't set the shutter speed.") } else { tr("Set the shutter speed for the photo.") },
+            "shutter-enabled": self.phase == Phase::Idle && (!stops.is_empty() || self.shot.shutter_s.is_some()),
+            "shutter-tip": if stops.is_empty() && self.shot.shutter_s.is_some() { tr("Use the camera's own shutter speed.") } else if caps.is_none() { tr("Waiting for the picture") } else if stops.is_empty() { tr("This camera can't set the shutter speed.") } else { tr("Set the shutter speed for the photo.") },
         })
     }
 
@@ -1087,8 +1087,8 @@ impl StargazerPlugin {
         let from = stops.iter().position(|v| ISO_LABELS.contains(v)).map_or(1, |i| i + 1);
         json!({
             "iso-stops": labels, "iso-index": index, "iso-per": ISO_STOPS_PER_LABEL, "iso-from": from,
-            "iso-enabled": self.phase == Phase::Idle && caps.is_some() && !stops.is_empty(),
-            "iso-tip": if caps.is_none() { tr("Waiting for the picture") } else if stops.is_empty() { tr("This camera can't set the ISO.") } else { tr("Set the ISO for the photo.") },
+            "iso-enabled": self.phase == Phase::Idle && (!stops.is_empty() || self.shot.iso.is_some()),
+            "iso-tip": if stops.is_empty() && self.shot.iso.is_some() { tr("Use the camera's own ISO.") } else if caps.is_none() { tr("Waiting for the picture") } else if stops.is_empty() { tr("This camera can't set the ISO.") } else { tr("Set the ISO for the photo.") },
         })
     }
 
@@ -1118,7 +1118,7 @@ impl StargazerPlugin {
         if self.input != Input::Photos || self.phase != Phase::Idle {
             return;
         }
-        let Some(caps) = self.still_caps(host) else { return };
+        let caps = self.still_caps(host).unwrap_or_default();
         if stills::pick_shot(&mut self.shot, &caps, which == "shutter-picked", index, false) {
             host.schedule_save();
         }
@@ -1646,8 +1646,9 @@ impl StargazerPlugin {
         (self.mode, self.input) = (mode, input);
         self.shared.mode.store(mode.index() as u8, Ordering::SeqCst);
         self.shared.input.store(input.index() as u8, Ordering::SeqCst);
+        self.run += 1;
         if let Some(feed) = &self.feed {
-            feed.send(Msg::Reset);
+            feed.send(Msg::Reset { run: self.run });
         }
         (self.collected, self.target, self.count, self.refused, self.banked) = (0, 0, 0, 0, 0.0);
         (self.note, self.problem, self.photo_problem, self.limit, self.unsaved) = (String::new(), None, false, String::new(), false);
@@ -1658,7 +1659,10 @@ impl StargazerPlugin {
         if self.mode != Mode::Live {
             return;
         }
-        self.send(Msg::Reset);
+        if self.phase == Phase::Idle {
+            self.run += 1;
+        }
+        self.send(Msg::Reset { run: self.run });
         (self.collected, self.target, self.count, self.refused, self.banked) = (0, 0, 0, 0, 0.0);
         (self.note, self.problem, self.unsaved) = (String::new(), None, false);
         self.began = self.now();
