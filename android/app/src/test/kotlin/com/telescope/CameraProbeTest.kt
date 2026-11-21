@@ -449,6 +449,75 @@ class CameraProbeTest {
     }
 
     @Test
+    fun `cancel during a pending open keeps ownership until the late callback closes the device`(
+        @TempDir tempDir: File,
+    ) {
+        val lock = CameraOwnerLock(clock = { 1_000L })
+        val lens = ProbeLens("0", null, "Back ~26mm", LensLabel.BACK, 26, true, "")
+        val opening = CountDownLatch(1)
+        val finishedLatch = CountDownLatch(1)
+        val token = AtomicReference<Int?>()
+        val hostRef = AtomicReference<ProbeLensHost?>()
+        lateinit var backend: FakeProbeBackend
+        backend = FakeProbeBackend(tempDir, listOf(lens)) { _, _, host ->
+            token.set(backend.beginPendingOpen())
+            hostRef.set(host)
+            opening.countDown()
+        }
+        val runner = CameraProbeRunner(
+            backend = backend,
+            listener = object : CameraProbeRunner.Listener {
+                override fun onProgress(progress: ProbeProgress) {}
+                override fun onFinished(data: ProbeReportData, reportText: String, savedToCache: Boolean) {
+                    finishedLatch.countDown()
+                }
+            },
+            ownership = lock,
+        )
+        assertEquals(CameraProbeRunner.StartResult.Started, runner.start())
+        assertTrue(opening.await(5, TimeUnit.SECONDS))
+
+        runner.cancel()
+        assertTrue(finishedLatch.await(5, TimeUnit.SECONDS))
+        Thread.sleep(100)
+
+        // The open has not reported back yet, so streams must stay locked out.
+        assertTrue(lock.isHeldBy(CameraOwner.PROBE))
+        assertNull(lock.tryAcquire(CameraOwner.STREAM, adopted = false))
+
+        backend.deliverLateOpen(token.get()!!, hostRef.get()!!.worker)
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (lock.isHeld() && System.nanoTime() < deadline) Thread.sleep(10)
+        assertEquals(1, backend.lateClosedDevices.get())
+        assertFalse(lock.isHeld())
+    }
+
+    @Test
+    fun `pending open tracker waits for every open and settles at once when idle`() {
+        val tracker = PendingOpenTracker()
+        var settled = 0
+        tracker.whenSettled { settled++ }
+        assertEquals(1, settled)
+
+        val a = tracker.begin()
+        val b = tracker.begin()
+        tracker.whenSettled { settled++ }
+        tracker.resolve(a)
+        assertEquals(1, settled)
+        tracker.resolve(a)
+        assertEquals(1, settled)
+        tracker.resolve(b)
+        assertEquals(2, settled)
+    }
+
+    @Test
+    fun `a stale or late disconnect does not fail the run`() {
+        assertTrue(ProbeOpenPolicy.disconnectIsFatal(runFinished = false, isCurrentLens = true))
+        assertFalse(ProbeOpenPolicy.disconnectIsFatal(runFinished = false, isCurrentLens = false))
+        assertFalse(ProbeOpenPolicy.disconnectIsFatal(runFinished = true, isCurrentLens = true))
+    }
+
+    @Test
     fun `thermal policy refuses hot start and stops mid-run when heat rises`() {
         assertFalse(ProbeThermalPolicy.tooHotToStart(ProbeThermalSnapshot(status = 0, headroom = 0.5f, batteryTempC = 35.0)))
         assertFalse(ProbeThermalPolicy.tooHotToStart(ProbeThermalSnapshot(status = 2, headroom = 0.8f, batteryTempC = 41.9)))
@@ -747,6 +816,21 @@ class CameraProbeTest {
             closeCount.incrementAndGet()
             lastAbort.set(abort)
         }
+
+        private val tracker = PendingOpenTracker()
+        val lateClosedDevices = AtomicInteger(0)
+
+        fun beginPendingOpen(): Int = tracker.begin()
+
+        // Mirrors a late onOpened: it arrives on the worker thread and the device gets closed.
+        fun deliverLateOpen(token: Int, worker: ProbeWorker) {
+            worker.post {
+                lateClosedDevices.incrementAndGet()
+                tracker.resolve(token)
+            }
+        }
+
+        override fun whenOpensSettled(onSettled: () -> Unit) = tracker.whenSettled(onSettled)
     }
 
     @Test
