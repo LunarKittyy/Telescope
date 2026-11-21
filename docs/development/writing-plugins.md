@@ -143,7 +143,7 @@ function plugin.card()
 end
 ```
 
-`region` is the column the card goes in (`left`, `right` or `center`). The `.slint` file is written in [Slint](https://slint.dev/), the toolkit the window is built with. It can use the same widgets as Telescope's own cards:
+`component` is only the component's name (letters, digits, `_` and `-`). `region` is the column the card goes in (`left`, `right` or `center`). The `.slint` file is written in [Slint](https://slint.dev/), the toolkit the window is built with. It can use the same widgets as Telescope's own cards:
 
 ```slint
 import { Card, RailRow, Icons, Slider, SwitchTile } from "@ui-kit/ui-kit.slint";
@@ -311,6 +311,9 @@ fn a_drop_shows_one_notification() {
 
 - **Don't reach into other plugins.** Use events and the host. Other plugins can be switched off and yours has to work without them.
 - **Keep your functions quick.** They run on the window's thread. One that takes longer than 3 seconds is stopped with an error. A plugin can use up to 64 MB of memory.
+- **A failing `frame_step()` in a plugin that hides things shows a dark picture.** For `background`, `privacy` and `cover` plugins an error or a timeout in `frame_step()` isn't taken as "no shader" (that would show the clear picture). Return `nil` when there's nothing to hide.
+- **Don't flood the bus.** A plugin can have about 4000 of its own events waiting to be delivered. `host.emit` raises an error past that.
+- **Name files differently on Windows.** Two files in a `.zip` whose names differ only in capital letters can't be installed, since Windows treats them as one file.
 - **Don't count on the order of a table's keys.** Lua doesn't preserve it and neither does `json.encode`.
 - **Don't write files into your plugin's folder.** Telescope doesn't let your code do that anyway. If you or anyone else changes a file there by hand it counts as a new version, which remains off until it's switched on again.
 - **Ship source code.** A plugin with compiled files in it (Lua bytecode, `.so`, `.dll` and the like) isn't loaded.

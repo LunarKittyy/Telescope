@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
-use telescope_core::frame::{FrameStep, ShaderStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStep, ShaderStep};
 use telescope_core::host::{ColourStage, Host, OutputChange, PickKind, PreviewLayer, PreviewMessage, ViewChange};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::source::RouteSpec;
@@ -75,6 +75,10 @@ pub struct HostCalls<'a> {
 /// can't fill the host's queues with effects and events before the time limit stops it.
 pub const MAX_CALLS_PER_HOOK: usize = 10_000;
 pub const MAX_BYTES_PER_HOOK: usize = 32 * 1024 * 1024;
+/// How many events of its own one plugin may have waiting on the bus, and how many bytes of data they carry, so a handler that emits more
+/// than it hears can't grow the queue without end (each delivery gives the plugin a fresh call budget).
+const MAX_PENDING_EVENTS: usize = 4096;
+const MAX_PENDING_EVENT_BYTES: usize = 8 * 1024 * 1024;
 /// How many banners one plugin can have up at once.
 const MAX_BANNERS: usize = 256;
 const MAX_BANNER_KEY: usize = 128;
@@ -278,11 +282,17 @@ pub struct PluginContext {
     deferred_bytes: usize,
     /// The keys of the banners this plugin has shown, as it knows them.
     banners: BTreeSet<String>,
+    /// The plugin's .lua files as they were when it started, so a module it loads later is the one that was approved and not one a newer
+    /// version of the plugin has since put in the same folder. None where they couldn't be listed: modules are then read from the folder.
+    modules: Option<std::collections::BTreeMap<String, String>>,
+    /// Events of its own this plugin emitted that haven't come back to it yet, and their weight.
+    pending_events: usize,
+    pending_event_bytes: usize,
 }
 
 impl PluginContext {
     pub fn new(info: PluginInfo, folder: impl Into<PathBuf>, permissions: Vec<String>) -> PluginContext {
-        PluginContext { info, folder: folder.into(), permissions, catalog: None, deferred: Vec::new(), deferred_bytes: 0, banners: BTreeSet::new() }
+        PluginContext { info, folder: folder.into(), permissions, catalog: None, modules: None, deferred: Vec::new(), deferred_bytes: 0, banners: BTreeSet::new(), pending_events: 0, pending_event_bytes: 0 }
     }
 
     /// Loads the plugin's locale/<lang>.po for lang ("en" or "" for English).
@@ -313,6 +323,25 @@ impl PluginContext {
         Ok(telescope_core::system::plain_path(real))
     }
 
+    /// Keeps the plugin's .lua files as they are now (see modules).
+    pub fn snapshot_modules(&mut self) {
+        let Ok(found) = crate::package::files(&self.folder, true) else { return };
+        let mut modules = std::collections::BTreeMap::new();
+        for rel in found.iter().filter(|r| r.extension().is_some_and(|e| e == "lua")) {
+            let Ok(text) = std::fs::read_to_string(self.folder.join(rel)) else { return };
+            modules.insert(rel.to_string_lossy().replace('\\', "/"), text);
+        }
+        self.modules = Some(modules);
+    }
+
+    /// A module's source by its path inside the plugin: from the files kept when it started, or the folder when none were kept.
+    pub fn module_source(&self, relative: &str) -> Result<String, String> {
+        match &self.modules {
+            Some(modules) => modules.get(relative).cloned().ok_or_else(|| format!("the plugin has no {relative}")),
+            None => self.read_text(relative),
+        }
+    }
+
     pub fn read_text(&self, relative: &str) -> Result<String, String> {
         std::fs::read_to_string(self.resolve(relative)?).map_err(|e| format!("couldn't read {relative}: {e}"))
     }
@@ -325,8 +354,10 @@ impl PluginContext {
                 return Err(format!("host.{method} needs \"{p}\" in the \"permissions\" of plugin.json"));
             }
         }
+        let mut reserved = 0;
         if method == "emit" {
             self.check_emit(&args)?;
+            reserved = self.reserve_event(&args)?;
         }
         if method == "show_issue" {
             self.check_issue(&args)?;
@@ -339,10 +370,11 @@ impl PluginContext {
             };
         }
         match host {
-            Some(host) => call_host(host, &self.info, method, &args),
+            Some(host) => call_host(host, &self.info, method, &args).inspect_err(|_| self.release_event(reserved)),
             None if spec.deferrable => {
                 let size = weight(&args);
                 if self.deferred.len() >= MAX_CALLS_PER_HOOK || self.deferred_bytes + size > MAX_BYTES_PER_HOOK {
+                    self.release_event(reserved);
                     return Err(format!("host.{method}: too many calls are waiting for the host"));
                 }
                 self.deferred_bytes += size;
@@ -400,6 +432,41 @@ impl PluginContext {
             self.banners.remove(&key);
         }
         Ok(Value::Null)
+    }
+
+    /// The weight of the plugin's own event (the name starts with the plugin's name and a dot, as guest_event reads it) in args, 0 for any other.
+    fn own_event_weight(&self, args: &Value) -> usize {
+        let name = args.get("name").and_then(Value::as_str).unwrap_or("");
+        let own = !(Event::NAMES.contains(&name) && name != "custom") && name.strip_prefix(&self.info.name).is_some_and(|rest| rest.len() > 1 && rest.starts_with('.'));
+        if own { 1 + name.len() + args.get("data").map_or(0, weight) } else { 0 }
+    }
+
+    /// Counts a plugin's own event as waiting on the bus, or refuses it while too many are. Returns what to give back if it's not sent.
+    fn reserve_event(&mut self, args: &Value) -> Result<usize, String> {
+        let size = self.own_event_weight(args);
+        if size == 0 {
+            return Ok(0);
+        }
+        if self.pending_events >= MAX_PENDING_EVENTS || self.pending_event_bytes + size > MAX_PENDING_EVENT_BYTES {
+            return Err("host.emit: too many of this plugin's events are waiting to be delivered".into());
+        }
+        self.pending_events += 1;
+        self.pending_event_bytes += size;
+        Ok(size)
+    }
+
+    fn release_event(&mut self, size: usize) {
+        if size > 0 {
+            self.pending_events = self.pending_events.saturating_sub(1);
+            self.pending_event_bytes = self.pending_event_bytes.saturating_sub(size);
+        }
+    }
+
+    /// The plugin's own event came back round from the bus: it's no longer waiting.
+    fn event_delivered(&mut self, name: &str, data: &Value) {
+        if name.strip_prefix(&self.info.name).is_some_and(|rest| rest.len() > 1 && rest.starts_with('.')) {
+            self.release_event(1 + name.len() + weight(data));
+        }
     }
 
     /// Holds an emitted built-in event to the permission of the host operation it triggers; events that name an owner are never a plugin's to send.
@@ -606,6 +673,11 @@ impl<G: Guest> GuestPlugin<G> {
 
     /// Calls hook if the guest defines it; a failure is logged and treated as no answer, as Telescope treats a plugin's exceptions.
     pub fn hook(&self, host: Option<&mut dyn Host>, hook: &str, args: Vec<Value>) -> Option<Value> {
+        self.try_hook(host, hook, args)?.ok()
+    }
+
+    /// hook, with what went wrong kept: None when the guest doesn't define it, Some(Err) when it failed (logged, once per hook until it works).
+    fn try_hook(&self, host: Option<&mut dyn Host>, hook: &str, args: Vec<Value>) -> Option<Result<Value, String>> {
         let mut host = host;
         if let Some(h) = host.as_mut() {
             self.context.borrow_mut().flush(&mut **h);
@@ -614,10 +686,10 @@ impl<G: Guest> GuestPlugin<G> {
         if hook != "on_event" && !self.guest.borrow().defines(hook) {
             return None;
         }
-        match self.call(host, hook, args) {
-            Ok(v) => {
+        let result = self.call(host, hook, args);
+        match &result {
+            Ok(_) => {
                 self.failing.borrow_mut().take();
-                Some(v)
             }
             Err(e) => {
                 let mut failing = self.failing.borrow_mut();
@@ -625,9 +697,9 @@ impl<G: Guest> GuestPlugin<G> {
                     log::error!("Plugin {} failed in {hook}: {e}", self.info.name);
                     *failing = Some(hook.to_string());
                 }
-                None
             }
         }
+        Some(result)
     }
 
     fn with_host(&mut self, host: &mut dyn Host, hook: &str, args: Vec<Value>) -> Option<Value> {
@@ -645,6 +717,10 @@ impl<G: Guest> GuestPlugin<G> {
     pub fn ui_spec(&self, v: &Value) -> Result<UiSpec, String> {
         let file = v.get("file").and_then(Value::as_str).ok_or("it needs a \"file\" (the .slint file)")?;
         let component = v.get("component").and_then(Value::as_str).ok_or("it needs a \"component\" (the exported component)")?;
+        // The name goes into the window's generated Slint document as it is, so anything but a name would be code in a trusted file
+        if !slint_identifier(component) {
+            return Err(format!("{component:?} isn't the name of a component"));
+        }
         let path = self.context.borrow().resolve(file)?;
         Ok(UiSpec { source: SlintSource::File(path.to_string_lossy().into_owned()), component: component.to_string(),
                     props: v.get("props").cloned().unwrap_or_else(|| json!({})) })
@@ -666,6 +742,29 @@ impl<G: Guest> GuestPlugin<G> {
         telescope_core::shader::assemble(&step)?;
         telescope_core::shader::pack_uniforms(&step.wgsl, &step.uniforms)?;
         Ok(step)
+    }
+}
+
+/// A name Slint takes for a component: letters, digits, _ and -, not starting with a digit or -.
+fn slint_identifier(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_') && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// What a hiding plugin's frame step becomes while its frame_step() fails: a dark frame in place of the picture it was there to hide in.
+struct Withhold;
+
+impl CpuStep for Withhold {
+    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        let mut dark = Frame::dark(frame.width, frame.height, frame.format);
+        (dark.number, dark.time_ns, dark.capture_ns) = (frame.number, frame.time_ns, frame.capture_ns);
+        dark.geometry = frame.geometry.clone();
+        dark.mask_space = frame.mask_space;
+        *frame = dark;
+    }
+
+    fn hides(&self) -> bool {
+        true
     }
 }
 
@@ -692,6 +791,9 @@ impl<G: Guest> Plugin for GuestPlugin<G> {
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        if let Event::Custom { name, data } = event {
+            self.context.borrow_mut().event_delivered(name, data);
+        }
         let name = match event {
             Event::Custom { name, .. } => name.as_str(),
             // Another plugin's timer or post, should a host hand it round
@@ -798,16 +900,16 @@ impl<G: Guest> Plugin for GuestPlugin<G> {
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {
-        let v = self.hook(None, "frame_step", vec![])?;
-        if v.is_null() {
-            return None;
-        }
-        match self.shader_step(&v) {
+        // A step that fails is not a step that isn't there: for a plugin that hides things, no step would let the clear picture through
+        let outcome = match self.try_hook(None, "frame_step", vec![])? {
+            Ok(Value::Null) => return None,
+            Ok(v) => self.shader_step(&v).inspect_err(|e| log::error!("Plugin {}: frame_step: {e}", self.info.name)),
+            Err(e) => Err(e),
+        };
+        match outcome {
             Ok(step) => Some(FrameStep::Shader(step)),
-            Err(e) => {
-                log::error!("Plugin {}: frame_step: {e}", self.info.name);
-                None
-            }
+            Err(_) if self.info.frame_stage.hides() => Some(FrameStep::Cpu(Box::new(Withhold))),
+            Err(_) => None,
         }
     }
 

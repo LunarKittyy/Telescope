@@ -24,6 +24,7 @@ const SHARED: &str = "Other users on this computer could change the plugin, so i
 const LINK: &str = "The plugin contains a link to somewhere else, which plugins can't have.";
 const BAD_NAME: &str = "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter).";
 const TOO_BIG: &str = "The plugin is too big (over 500 files or 20 MB).";
+const SAME_NAME: &str = "The .zip holds two files with names that differ only in capital letters, which Windows treats as one file.";
 const NOT_A_ZIP: &str = "The file isn't a .zip file Telescope can open.";
 const NOT_IN_FOLDER: &str = "That isn't a folder in the plugins folder.";
 const TAKEN: &str = "A plugin included in Telescope already has that name.";
@@ -437,6 +438,7 @@ fn check_central_directory<R: Read + io::Seek>(file: &mut R) -> Result<(), Insta
 fn zip_name<R: io::Read + io::Seek>(zip: &mut zip::ZipArchive<R>) -> Result<String, InstallError> {
     let mut total = 0u64;
     let mut tops = BTreeSet::new();
+    let (mut files, mut dirs) = (BTreeSet::new(), BTreeSet::new());
     if zip.len() > MAX_FILES {
         return Err(invalid(TOO_BIG));
     }
@@ -452,6 +454,17 @@ fn zip_name<R: io::Read + io::Seek>(zip: &mut zip::ZipArchive<R>) -> Result<Stri
             return Err(invalid(LINK));
         }
         tops.insert(parts[0].to_string());
+        // Two names Windows reads as one (capitals, a trailing dot or space) are two files here and one there, where the later one wins
+        let key: Vec<String> = parts.iter().map(|p| p.trim_end_matches(['.', ' ']).to_lowercase()).collect();
+        dirs.extend((1..key.len()).map(|n| key[..n].join("/")));
+        if entry.is_dir() {
+            dirs.insert(key.join("/"));
+        } else if !files.insert(key.join("/")) {
+            return Err(invalid(SAME_NAME));
+        }
+    }
+    if files.iter().any(|f| dirs.contains(f)) {
+        return Err(invalid(SAME_NAME));
     }
     if total > MAX_BYTES {
         return Err(invalid(TOO_BIG));

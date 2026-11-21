@@ -22,6 +22,7 @@ pub fn load(plugin: &Installed, lang: &str) -> Result<LuaPlugin, String> {
 pub fn load_unchecked(plugin: &Installed, lang: &str) -> Result<LuaPlugin, String> {
     let mut context = PluginContext::new(plugin.info(), &plugin.folder, plugin.permissions.clone());
     context.set_language(lang);
+    context.snapshot_modules();
     let guest = LuaGuest::load(&mut HostCalls::new(&mut context, None), &plugin.main)?;
     Ok(GuestPlugin::new(context, guest))
 }
