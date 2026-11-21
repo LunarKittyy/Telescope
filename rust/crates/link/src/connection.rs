@@ -836,7 +836,8 @@ pub fn status_line(res: Option<&Resolution>) -> (&'static str, String) {
 /// What's wrong and what to do about it, for the card note and Start failures.
 pub fn problem_text(res: &Resolution, phone: &str, adb_available: bool) -> String {
     match res.status {
-        PhoneStatus::Unreachable if res.other_app => with_phone(tr("Something else on {phone} is answering where Telescope should, probably another Telescope app such as Telescope (dev). Close it there, then try again."), phone),
+        PhoneStatus::Unreachable if res.other_telescope => with_phone(tr("The Telescope app on {phone} isn't the one this computer paired with. It was uninstalled or reinstalled, or another Telescope app such as Telescope (dev) is answering instead. Click Add device to pair it again."), phone),
+        PhoneStatus::Unreachable if res.other_app => with_phone(tr("Something else on {phone} is answering where Telescope should. Close it there, then try again."), phone),
         PhoneStatus::Unreachable => with_phone(tr("Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."), phone),
         // LEGACY MIGRATION PATH
         PhoneStatus::NotPaired if res.before_tls => with_phone(tr("This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."), phone),
@@ -1191,7 +1192,9 @@ mod tests {
         let text = |s: PhoneStatus| problem_text(&Resolution::new(s), "Pixel", true);
         assert!(text(PhoneStatus::Unreachable).contains("Open Telescope on Pixel"));
         let other = problem_text(&Resolution { other_app: true, ..Resolution::new(PhoneStatus::Unreachable) }, "Pixel", true);
-        assert!(other.contains("Telescope (dev)") && other.contains("Close it"));
+        assert!(other.contains("Something else") && other.contains("Close it") && !other.contains("Add device"));
+        let swapped = problem_text(&Resolution { other_telescope: true, ..Resolution::new(PhoneStatus::Unreachable) }, "Pixel", true);
+        assert!(swapped.contains("isn't the one this computer paired with") && swapped.contains("Add device"));
         assert!(text(PhoneStatus::NotPaired).contains("Add device"));
         assert!(text(PhoneStatus::LocalOnly).contains("Local only"));
         let forced = problem_text(&Resolution { usb_note: Some(UsbNote::AppClosed), ..Resolution::new(PhoneStatus::UsbNeedsAttention) }, "Pixel", true);

@@ -76,8 +76,10 @@ pub enum HelloStatus {
     None,
     /// The phone has Local only on and answers only ping off USB (403).
     UsbOnly,
-    /// Something answered, but not as the phone this one paired with: another certificate, or no TLS at all.
+    /// Something answered over TLS, but not with the certificate this phone paired with: a reinstalled or other Telescope app, or any other TLS program.
     OtherCert,
+    /// Something answered without TLS at all, so not a Telescope app.
+    NotTelescope,
 }
 
 /// What GET /v1/hello said.
@@ -158,7 +160,7 @@ impl SessionClient {
             Err(Error::Http(403)) => return Hello::status(HelloStatus::UsbOnly),
             Err(e) if https::pin_rejected(&e) => return Hello::status(HelloStatus::OtherCert),
             // A paired phone speaks TLS with its pin, so a plain HTTP listener here is something else (a recycled address, say), never proof of an old app
-            Err(e) if https::handshake_failed(&e) && plain_look(timeout) => return Hello::status(HelloStatus::OtherCert),
+            Err(e) if https::handshake_failed(&e) && plain_look(timeout) => return Hello::status(HelloStatus::NotTelescope),
             Err(_) => return Hello::status(HelloStatus::None),
         };
         let Some(phone_id) = body.get("phoneId").and_then(Value::as_str).filter(|id| !id.is_empty()) else {
@@ -519,7 +521,7 @@ mod tests {
             let timeout = Duration::from_millis(300);
             let status = client.hello_with(timeout, &|t| { probes.lock().unwrap().push(t); true }).status;
             assert_eq!(!probes.lock().unwrap().is_empty(), expect_probe, "port {port}");
-            assert_eq!(status, if expect_probe { HelloStatus::OtherCert } else { HelloStatus::None }, "port {port}");
+            assert_eq!(status, if expect_probe { HelloStatus::NotTelescope } else { HelloStatus::None }, "port {port}");
         }
     }
 
@@ -578,7 +580,7 @@ mod tests {
     fn a_plain_http_listener_is_not_the_phone_and_is_not_sent_the_token() {
         let server = serve(None, phone_handler());
         let client = SessionClient::new(&format!("https://127.0.0.1:{}", server.port), PhoneAuth::new("secret", &pin_of("phone")));
-        assert_eq!(client.hello(Duration::from_secs(1)).status, HelloStatus::OtherCert);
+        assert_eq!(client.hello(Duration::from_secs(1)).status, HelloStatus::NotTelescope);
         assert!(sent(&server).iter().all(|s| s.auth.is_none()));
     }
 
