@@ -2,10 +2,11 @@
 
 use super::*;
 use crate::stereo::HISTORY_FRAMES;
+use crate::stereo_headset::Message;
 use std::collections::BTreeMap;
 use telescope_core::clock::ClockSync;
 use telescope_core::frame::PixelFormat;
-use telescope_core::testing::FakeHost;
+use telescope_core::testing::{scratch_dir, FakeHost, FakeWeb};
 
 const MS: u64 = 1_000_000;
 
@@ -104,6 +105,10 @@ struct Rig {
 }
 
 fn rig() -> Rig {
+    rig_with(StereoPlugin::new())
+}
+
+fn rig_with(mut plugin: StereoPlugin) -> Rig {
     let store = Arc::new(Store::default());
     let mut host = FakeHost::new();
     host.frame_store = Some(store.clone());
@@ -113,7 +118,6 @@ fn rig() -> Rig {
     host.streaming = true;
     host.streams = Some(2);
     host.live = vec!["a".into(), "b".into()];
-    let mut plugin = StereoPlugin::new();
     plugin.setup(&mut host);
     plugin.on_stream_start(&mut host, &StreamInfo { source_id: "a".into(), url: "a".into(), session: 0 });
     Rig { plugin, host, store, step: None }
@@ -166,6 +170,12 @@ impl Rig {
     fn status(&self) -> String {
         self.plugin.status(&self.host).0
     }
+}
+
+/// The settings without the headset's link and address, which are made and not set.
+fn plain(mut cfg: Value) -> Value {
+    cfg.as_object_mut().unwrap().retain(|k, _| !k.starts_with("headset"));
+    cfg
 }
 
 fn same(a: &Frame, b: &Frame) -> bool {
@@ -953,7 +963,7 @@ fn the_fine_tune_group_opens_and_shuts_without_touching_the_picture() {
 fn every_new_row_has_a_one_sentence_tooltip() {
     let r = rig();
     let props = r.props();
-    for key in ["size-tip", "tilt-tip", "timing-tip", "fine-tip", "match-tip", "reset-tip", "brightness-tip"] {
+    for key in ["size-tip", "tilt-left-tip", "tilt-right-tip", "timing-tip", "fine-tip", "match-tip", "reset-tip", "brightness-tip"] {
         let tip = props[key].as_str().unwrap();
         assert!(tip.ends_with('.') && tip.matches(". ").count() == 0 && !tip.contains('\u{2014}') && !tip.contains('\u{2013}'), "{key}: {tip}");
     }
@@ -964,10 +974,10 @@ fn every_new_row_has_a_one_sentence_tooltip() {
 #[test]
 fn the_settings_come_back_and_are_held_to_the_sliders() {
     let mut r = rig();
-    r.plugin.set_config(&json!({"on": true, "look": "red_cyan", "depth": 1.26, "height": -40.0, "size": 140.0, "tilt": 2.34, "timing": -250.4, "swap": true})).unwrap();
-    assert_eq!(r.plugin.get_config(), json!({"on": true, "look": "red_cyan", "depth": 1.3, "height": -5.0, "size": 125.0, "tilt": 2.3, "timing": -200.0, "swap": true}));
+    r.plugin.set_config(&json!({"on": true, "look": "red_cyan", "depth": 1.26, "height": -40.0, "size": 140.0, "tilt": 2.34, "tilt-left": -9.0, "timing": -250.4, "swap": true})).unwrap();
+    assert_eq!(plain(r.plugin.get_config()), json!({"on": true, "look": "red_cyan", "depth": 1.3, "height": -15.0, "size": 125.0, "tilt-left": -5.0, "tilt-right": 2.3, "timing": -200.0, "swap": true}));
     r.plugin.set_config(&json!({"look": "nonsense", "depth": "far"})).unwrap();
-    assert_eq!(r.plugin.get_config(), json!({"on": false, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
+    assert_eq!(plain(r.plugin.get_config()), json!({"on": false, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt-left": 0.0, "tilt-right": 0.0, "timing": 0.0, "swap": false}));
     // a preset brings them back too
     r.plugin.apply_preset(&mut r.host, &json!({"on": true, "look": "red_cyan"})).unwrap();
     assert_eq!(r.plugin.get_config()["look"], json!("red_cyan"));
@@ -978,23 +988,24 @@ fn the_settings_come_back_and_are_held_to_the_sliders() {
 fn the_card_callbacks_change_the_settings_and_save_them() {
     let mut r = rig();
     r.card("look-picked", json!(1));
-    r.card("depth-moved", json!(9.0));
+    r.card("depth-moved", json!(20.0));
     r.card("height-moved", json!(-1.5));
     r.card("swap-toggled", json!(true));
     r.card("size-moved", json!(92.46));
-    r.card("tilt-moved", json!(-9.0));
+    r.card("tilt-left-moved", json!(-9.0));
+    r.card("tilt-right-moved", json!(2.46));
     r.card("timing-moved", json!(35.4));
     assert_eq!(
-        r.plugin.get_config(),
-        json!({"on": false, "look": "red_cyan", "depth": 5.0, "height": -1.5, "size": 92.5, "tilt": -5.0, "timing": 35.0, "swap": true})
+        plain(r.plugin.get_config()),
+        json!({"on": false, "look": "red_cyan", "depth": 15.0, "height": -1.5, "size": 92.5, "tilt-left": -5.0, "tilt-right": 2.5, "timing": 35.0, "swap": true})
     );
     assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
     let props = r.props();
-    assert_eq!((props["look-current"].clone(), props["depth-text"].clone(), props["height-text"].clone()), (json!(1), json!("+5.0%"), json!("-1.5%")));
-    assert_eq!((props["size-text"].clone(), props["tilt-text"].clone(), props["timing-text"].clone()), (json!("92.5%"), json!("-5.0°"), json!("+35 ms")));
+    assert_eq!((props["look-current"].clone(), props["depth-text"].clone(), props["height-text"].clone()), (json!(1), json!("+15.0%"), json!("-1.5%")));
+    assert_eq!((props["size-text"].clone(), props["tilt-left-text"].clone(), props["tilt-right-text"].clone(), props["timing-text"].clone()), (json!("92.5%"), json!("-5.0°"), json!("+2.5°"), json!("+35 ms")));
     // the sliders sit at their defaults at first
     let fresh = rig().props();
-    assert_eq!((fresh["size-text"].clone(), fresh["tilt-text"].clone(), fresh["timing-text"].clone()), (json!("100.0%"), json!("0.0°"), json!("0 ms")));
+    assert_eq!((fresh["size-text"].clone(), fresh["tilt-left-text"].clone(), fresh["tilt-right-text"].clone(), fresh["timing-text"].clone()), (json!("100.0%"), json!("0.0°"), json!("0.0°"), json!("0 ms")));
     // a look that isn't there is ignored
     r.card("look-picked", json!(7));
     assert_eq!(r.plugin.get_config()["look"], json!("red_cyan"));
@@ -1331,7 +1342,7 @@ fn reset_is_lit_for_a_moved_look_swap_slider_or_a_match_and_not_otherwise() {
     assert_eq!(r.props()["reset-shown"], json!(false));
     r.switch(true);
     assert_eq!(r.props()["reset-shown"], json!(false), "the switch isn't part of it");
-    for (callback, arg) in [("look-picked", json!(1)), ("swap-toggled", json!(true)), ("depth-moved", json!(1.0)), ("height-moved", json!(1.0)), ("size-moved", json!(110.0)), ("tilt-moved", json!(1.0)), ("timing-moved", json!(10.0))] {
+    for (callback, arg) in [("look-picked", json!(1)), ("swap-toggled", json!(true)), ("depth-moved", json!(1.0)), ("height-moved", json!(1.0)), ("size-moved", json!(110.0)), ("tilt-left-moved", json!(1.0)), ("tilt-right-moved", json!(1.0)), ("timing-moved", json!(10.0))] {
         let back = match callback { "look-picked" => json!(0), "swap-toggled" => json!(false), "size-moved" => json!(100.0), _ => json!(0.0) };
         r.card(callback, arg);
         assert_eq!(r.props()["reset-shown"], json!(true), "{callback}");
@@ -1351,8 +1362,8 @@ fn reset_puts_everything_back_drops_the_match_and_leaves_the_phones_and_the_swit
     let sent = r.controls();
     r.host.calls.clear();
     r.card("reset-clicked", json!(null));
-    let cfg = r.plugin.get_config();
-    assert_eq!(cfg, json!({"on": true, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
+    let cfg = plain(r.plugin.get_config());
+    assert_eq!(cfg, json!({"on": true, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt-left": 0.0, "tilt-right": 0.0, "timing": 0.0, "swap": false}));
     assert!(r.plugin.lut.is_none());
     assert_eq!(r.match_badge(), "");
     assert_eq!(r.props()["reset-shown"], json!(false));
@@ -1800,4 +1811,200 @@ fn the_header_shows_one_badge_with_what_needs_a_look_first() {
 #[test]
 fn the_declared_settings_round_trip() {
     telescope_core::testing::settings_round_trip(&mut StereoPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
+
+// ── The headset ───────────────────────────────────────────────────────────
+
+fn headset_rig() -> (Rig, Arc<FakeWeb>) {
+    let web = Arc::new(FakeWeb::default());
+    web.addresses.lock().unwrap().push("192.168.1.7".into());
+    (rig_with(StereoPlugin::for_test(web.clone(), scratch_dir("headset"))), web)
+}
+
+fn stopped(web: &FakeWeb, at: usize) -> u64 {
+    web.served.lock().unwrap()[at].stopped.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[test]
+fn the_headset_page_is_served_only_while_3d_and_the_headset_switch_are_both_on() {
+    let (mut r, web) = headset_rig();
+    assert!(web.served.lock().unwrap().is_empty() && r.plugin.headset_url().is_empty());
+    r.switch(true);
+    assert!(web.served.lock().unwrap().is_empty(), "the headset switch is off by default");
+    r.card("headset-toggled", json!(true));
+    {
+        let served = web.served.lock().unwrap();
+        assert_eq!((served.len(), served[0].serve.port, served[0].serve.label.as_str()), (1, stereo_headset::HEADSET_PORT, "3D headset"));
+    }
+    let url = r.plugin.headset_url();
+    let token = r.plugin.headset_token.clone();
+    assert_eq!(url, format!("https://192.168.1.7:7484/#{token}"));
+    let props = r.plugin.headset_props();
+    assert_eq!((props["headset"].clone(), props["headset-url-text"].clone(), props["headset-url-shown"].clone()), (json!(true), json!(url), json!(true)));
+    assert_eq!(r.plugin.headset_qr_url, url, "the code is drawn for the link");
+    // staying on doesn't start another
+    r.plugin.show(&mut r.host);
+    assert_eq!(web.served.lock().unwrap().len(), 1);
+    // 3D off: the page goes, and comes back with 3D
+    r.switch(false);
+    assert_eq!((stopped(&web, 0), r.plugin.headset_url()), (1, String::new()));
+    assert!(!r.plugin.shared.headset.is_open());
+    r.switch(true);
+    assert_eq!(web.served.lock().unwrap().len(), 2);
+    // the headset switch off
+    r.card("headset-toggled", json!(false));
+    assert_eq!(stopped(&web, 1), 1);
+    // and the plugin switched off or the app quitting
+    r.card("headset-toggled", json!(true));
+    assert_eq!(web.served.lock().unwrap().len(), 3);
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(stopped(&web, 2), 1);
+    assert!(r.plugin.headset_url().is_empty());
+    r.plugin.show(&mut r.host);
+    assert_eq!(web.served.lock().unwrap().len(), 3, "nothing starts after quitting");
+}
+
+#[test]
+fn a_headset_page_that_cannot_start_says_why_and_is_not_tried_again_until_asked() {
+    let (mut r, web) = headset_rig();
+    *web.serve_error.lock().unwrap() = Some("address in use".into());
+    r.switch(true);
+    r.card("headset-toggled", json!(true));
+    let props = r.plugin.headset_props();
+    assert_eq!((props["headset-problem"].clone(), props["headset-url-shown"].clone()), (json!("Couldn't start: address in use"), json!(false)));
+    r.plugin.show(&mut r.host);
+    r.plugin.show(&mut r.host);
+    assert_eq!(web.certificates.lock().unwrap().len(), 1, "the status timer doesn't retry");
+    *web.serve_error.lock().unwrap() = None;
+    r.card("headset-toggled", json!(false));
+    r.card("headset-toggled", json!(true));
+    assert_eq!(web.served.lock().unwrap().len(), 1);
+    assert_eq!(r.plugin.headset_props()["headset-problem"], json!(""));
+}
+
+#[test]
+fn the_link_is_kept_across_restarts_in_a_file_of_its_own_and_a_new_one_stops_the_old() {
+    let (mut r, web) = headset_rig();
+    let folder = r.plugin.cert_folder.clone().unwrap();
+    let first = r.plugin.headset_token.clone();
+    assert!(crate::shared::token_ok(&first));
+    assert_eq!(r.plugin.headset_address, "", "nothing chosen until it starts");
+    r.switch(true);
+    r.card("headset-toggled", json!(true));
+    assert_eq!(r.plugin.headset_address, "192.168.1.7");
+    let saved: Value = serde_json::from_slice(&std::fs::read(folder.join(LINK_FILE)).unwrap()).unwrap();
+    assert_eq!(saved, json!({"token": first, "address": "192.168.1.7"}), "the link is saved as soon as it is up");
+    // a restart: the next run takes the saved link, and the link the plugin made for itself isn't the one served
+    let mut again = rig_with(StereoPlugin::for_test(web.clone(), folder.clone()));
+    assert_ne!(again.plugin.headset_token, first);
+    again.switch(true);
+    again.card("headset-toggled", json!(true));
+    assert_eq!((again.plugin.headset_token.clone(), again.plugin.headset_address.clone()), (first.clone(), "192.168.1.7".to_string()));
+    assert!(again.plugin.shared.headset.token_ok(&first));
+    drop(again);
+    // a file that isn't a link is replaced
+    std::fs::write(folder.join(LINK_FILE), b"{\"token\": \"short\"}").unwrap();
+    let mut third = rig_with(StereoPlugin::for_test(web.clone(), folder.clone()));
+    third.switch(true);
+    third.card("headset-toggled", json!(true));
+    assert!(crate::shared::token_ok(&third.plugin.headset_token) && third.plugin.headset_token != "short");
+    let saved: Value = serde_json::from_slice(&std::fs::read(folder.join(LINK_FILE)).unwrap()).unwrap();
+    assert_eq!(saved["token"], json!(third.plugin.headset_token));
+    drop(third);
+    // a new link is saved and stops the old
+    let before = r.plugin.headset_token.clone();
+    r.card("headset-new-link-clicked", json!(null));
+    let after = r.plugin.headset_token.clone();
+    assert_ne!(before, after);
+    assert!(!r.plugin.shared.headset.token_ok(&before) && r.plugin.shared.headset.token_ok(&after));
+    let saved: Value = serde_json::from_slice(&std::fs::read(folder.join(LINK_FILE)).unwrap()).unwrap();
+    assert_eq!(saved["token"], json!(after));
+    // the link isn't a setting at all, so Reset and a preset neither put back nor copy it
+    r.card("depth-moved", json!(2.0));
+    r.card("reset-clicked", json!(null));
+    assert_eq!(r.plugin.headset_token, after);
+    assert_eq!(r.props()["reset-shown"], json!(false));
+    // and the switch is off at start whatever was saved
+    let (mut fresh, _web) = headset_rig();
+    fresh.plugin.set_config(&json!({"on": true, "headset": true})).unwrap();
+    assert!(!fresh.plugin.headset);
+}
+
+#[test]
+fn what_presets_save_has_no_link_or_address() {
+    let (mut r, _web) = headset_rig();
+    r.switch(true);
+    r.card("headset-toggled", json!(true));
+    let (token, address) = (r.plugin.headset_token.clone(), r.plugin.headset_address.clone());
+    assert!(!address.is_empty());
+    let saved = r.plugin.get_config().to_string();
+    assert!(!saved.contains(&token) && !saved.contains(&address) && !saved.contains("headset"), "{saved}");
+    // a preset that carries a link (from an older build) changes nothing
+    let mut cfg = r.plugin.get_config();
+    cfg["headset_token"] = json!("abcdefghijklmnopqrstuvwx");
+    cfg["headset_address"] = json!("10.0.0.9");
+    r.plugin.apply_preset(&mut r.host, &cfg).unwrap();
+    r.plugin.set_config(&cfg).unwrap();
+    assert_eq!((r.plugin.headset_token.clone(), r.plugin.headset_address.clone()), (token, address));
+}
+
+#[test]
+fn the_step_hands_a_pair_over_only_while_a_headset_is_connected() {
+    let (mut r, _web) = headset_rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    let feed = r.plugin.shared.headset.clone();
+    feed.open();
+    r.process(&shot(RED, None), "a");
+    assert!(!feed.pending(), "no headset, nothing kept");
+    let _slot = feed.claim().expect("a place");
+    let out = r.process(&shot(RED, None), "a");
+    let job = feed.take_job(Duration::ZERO).expect("the pair");
+    assert_eq!((px(&job.left, 5, 5), px(&job.right, 5, 5)), (RED, BLUE), "the eyes as the camera's picture was made from them");
+    assert!(Arc::ptr_eq(&job.handed, &out.data) && job.target == "a");
+    assert!(r.plugin.shared.hub().was_ours(&out));
+    assert_eq!(feed.built(), 0);
+}
+
+#[test]
+fn the_headset_gets_the_picture_the_step_made_through_the_worker() {
+    let (mut r, _web) = headset_rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    r.card("headset-toggled", json!(true));
+    let feed = r.plugin.shared.headset.clone();
+    let _slot = feed.claim().expect("a place");
+    // the pipeline publishes what the step made, which is what the camera then sends
+    let out = r.process(&shot(RED, None), "a");
+    *r.store.outgoing.lock().unwrap() = Some(out);
+    let (_, message) = feed.next(0, Duration::from_secs(10)).expect("a picture");
+    let Message::Jpeg(jpeg) = message else { panic!("a picture, not black") };
+    assert_eq!(&jpeg[..2], &[0xFF, 0xD8]);
+    assert_eq!(feed.built(), 1);
+}
+
+#[test]
+fn an_old_single_tilt_becomes_the_right_eyes_tilt() {
+    let mut r = rig();
+    r.plugin.set_config(&json!({"tilt": -3.2})).unwrap();
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["tilt-left"].clone(), cfg["tilt-right"].clone(), cfg.get("tilt").cloned()), (json!(0.0), json!(-3.2), None));
+    assert_eq!(r.plugin.shared.hub().tune.tilt_right, -3.2);
+    // the new keys win over an old one
+    r.plugin.set_config(&json!({"tilt": 4.0, "tilt-right": 1.0, "tilt-left": 2.0})).unwrap();
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["tilt-left"].clone(), cfg["tilt-right"].clone()), (json!(2.0), json!(1.0)));
+}
+
+#[test]
+fn swapping_the_eyes_hands_each_phone_its_own_tilt() {
+    let mut r = rig();
+    r.card("tilt-left-moved", json!(1.5));
+    r.card("tilt-right-moved", json!(-2.0));
+    r.card("swap-toggled", json!(true));
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["tilt-left"].clone(), cfg["tilt-right"].clone()), (json!(-2.0), json!(1.5)));
+    r.card("swap-toggled", json!(false));
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["tilt-left"].clone(), cfg["tilt-right"].clone()), (json!(1.5), json!(-2.0)));
 }

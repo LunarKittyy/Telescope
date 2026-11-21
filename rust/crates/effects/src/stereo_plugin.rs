@@ -16,9 +16,12 @@
 //! picture going from its last frame for a few seconds, then from the other eye alone, so the camera never sits on one frozen picture.
 
 use crate::stereo::{self, Eye, Look, SyncStatus, Tune, DEFAULT_FRAME_NS, SHIFT_LIMIT, TILT_LIMIT, TIMING_LIMIT_MS};
+use crate::shared::{new_token, token_ok};
+use crate::stereo_headset::{self, Feed, Headset, Job};
 use crate::stereo_match::{self, Act, Lut, Outcome, Run, Stats, BRIGHTNESS_LIMIT, OWN_LOOK_NS, SIZE_MAX, SIZE_MIN};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, VecDeque};
+use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -26,11 +29,12 @@ use telescope_core::actions;
 use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, StreamFrame, Touch};
 use telescope_core::host::{FrameStore, Host};
-use telescope_core::i18n::{n_, tr};
+use telescope_core::i18n::{n_, tr, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::settings::{off_default, reset_config};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
+use telescope_core::web::{Serve, Web, WebServer};
 
 pub const NAME: &str = "stereo";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/stereo.slint"));
@@ -58,15 +62,24 @@ const LOOK_TIP: &str = n_("Side by side suits a headset or a 3D screen and red a
 const DEPTH_TIP: &str = n_("Slide the two pictures apart or together to change how far forward the 3D reaches.");
 const HEIGHT_TIP: &str = n_("Lift or lower the right picture when the phones don't sit level.");
 const SIZE_TIP: &str = n_("Zoom in on the phone that sees the wider view (the right one over 100%, the left one under it) to make both show the same thing.");
-const TILT_TIP: &str = n_("Roll the right picture a little when one phone is tilted against the other.");
+const TILT_LEFT_TIP: &str = n_("Turn the left eye's picture to line it up with the right.");
+const TILT_RIGHT_TIP: &str = n_("Turn the right eye's picture to line it up with the left.");
 const TIMING_TIP: &str = n_("Move the right picture earlier or later in time when it moves ahead of or behind the left one.");
 const FINE_TIP: &str = n_("Show the sliders that line the two pictures up by hand.");
 const SWAP_TIP: &str = n_("Swap which phone is the left eye and which is the right if the 3D looks inside out.");
 const MATCH_TIP: &str = n_("Even out two different phones with the same shutter, similar brightness and a colour curve that makes the right picture look like the left.");
 const BRIGHTNESS_TIP: &str = n_("Make both phones brighter or darker together after Match, keeping them matched.");
+const HEADSET_TIP: &str = n_("Watch the 3D picture in a headset's browser on the same Wi-Fi.");
+const HEADSET_QR_TIP: &str = n_("Scan the code with a phone, or type the link into the headset's browser.");
+const HEADSET_ADDRESS_TIP: &str = n_("The address of this computer that the link uses.");
+const HEADSET_LINK_TIP: &str = n_("Open the link in the headset's browser on the same Wi-Fi and accept the certificate warning once, then press Enter VR.");
+const HEADSET_COPY_TIP: &str = n_("Copy the link to open it in a browser that can't scan the code.");
+const HEADSET_NEW_LINK_TIP: &str = n_("Make a new link. The old link stops working and headsets on it are disconnected.");
 const RESET_TIP: &str = n_("Drop the colour curve Match made and leave the phones' exposure as it is.");
 /// How often the picture is drawn while the stream it goes out on stalls.
 const FALLBACK_FPS: u64 = 30;
+/// How many of its last pictures the plugin remembers having put out.
+const RECENT_SENT: usize = 6;
 
 /// What the frame step of every stream and the plugin share.
 pub(crate) struct Hub {
@@ -74,7 +87,7 @@ pub(crate) struct Hub {
     /// The source id of the stream going to the Telescope camera, where the picture goes out.
     pub(crate) target: Option<String>,
     pub(crate) look: Look,
-    /// The right eye's fixing: depth, height, size, tilt and the colour curves.
+    /// The right eye's fixing: depth, height, size, the tilts and the colour curves.
     pub(crate) tune: Tune,
     /// How much later the right eye's moment is than the left's, nanoseconds.
     pub(crate) timing_ns: i64,
@@ -104,6 +117,8 @@ pub(crate) struct Hub {
     handed: Option<Frame>,
     drawn: Option<Frame>,
     stalled_key: Option<Vec<(String, u64)>>,
+    /// The pixels of the last few pictures this plugin put out, so the headset can tell them from one something later put in their place.
+    recent: VecDeque<Arc<Vec<u8>>>,
     shut: bool,
 }
 
@@ -120,6 +135,8 @@ pub(crate) struct Shared {
     pub(crate) hub: Mutex<Hub>,
     wake: Condvar,
     store: Mutex<Arc<dyn FrameStore>>,
+    /// The pictures for the headsets watching.
+    pub(crate) headset: Arc<Feed>,
 }
 
 struct NoFrames;
@@ -268,6 +285,7 @@ impl Hub {
     }
 
     fn forget(&mut self) {
+        self.recent.clear();
         self.drop_frames();
         (self.last_in, self.seen, self.reading, self.handed, self.drawn) = (None, None, None, None, None);
         self.generation += 1;
@@ -277,6 +295,18 @@ impl Hub {
     /// something after it.
     fn is_ours(&self, frame: &Frame) -> bool {
         [&self.handed, &self.drawn].into_iter().flatten().any(|f| Arc::ptr_eq(&f.data, &frame.data))
+    }
+
+    fn note_sent(&mut self, data: &Arc<Vec<u8>>) {
+        self.recent.push_back(data.clone());
+        while self.recent.len() > RECENT_SENT {
+            self.recent.pop_front();
+        }
+    }
+
+    /// Whether a frame is one of the last few this plugin put out.
+    pub(crate) fn was_ours(&self, frame: &Frame) -> bool {
+        self.recent.iter().any(|d| Arc::ptr_eq(d, &frame.data))
     }
 
     /// The target stream's frames kept under this epoch or a later one, oldest first.
@@ -333,11 +363,11 @@ impl Shared {
     }
 
     /// The picture of a pair of eyes in the format of `like`, how well they line up, and when the older of the two pictures was taken.
-    fn picture(store: &dyn FrameStore, eyes: &Eyes, target: &str, make: &Make, like: &Frame) -> Option<(stereo::Rendered, SyncStatus, u64)> {
+    fn picture(store: &dyn FrameStore, eyes: &Eyes, target: &str, make: &Make, like: &Frame) -> Option<(stereo::Rendered, SyncStatus, u64, stereo::Pair<Frame>)> {
         let chosen = choose(store, eyes, target, &Rings { target: &make.ring, other: &make.other }, make.timing_ns, make.frame_ns);
         let out = stereo::render_measured(&chosen.pair.left, &chosen.pair.right, make.look, make.size, &make.tune, like, make.measure)?;
         let taken = [&chosen.pair.left, &chosen.pair.right].iter().map(|f| f.capture_ns.unwrap_or(f.time_ns)).min().unwrap_or(0);
-        Some((out, chosen.sync, taken))
+        Some((out, chosen.sync, taken, chosen.pair))
     }
 
     /// The frame step of whichever stream source_id is: the 3D picture in place of the target stream's frame.
@@ -370,7 +400,7 @@ impl Shared {
         if !hub.on || hub.target.as_deref() != Some(source_id) || hub.generation != generation {
             return;
         }
-        let Some((mut out, sync, taken)) = made else {
+        let Some((mut out, sync, taken, pair)) = made else {
             hub.seen = None;
             return;
         };
@@ -382,6 +412,13 @@ impl Shared {
             hub.reading = Some(Reading { at: taken, stats });
         }
         hub.handed = Some(out.frame.clone());
+        if self.headset.wanted() {
+            hub.note_sent(&out.frame.data);
+            self.headset.submit(Job {
+                target: source_id.to_string(), left: pair.left, right: pair.right, tune: make.tune, number: frame.number, handed: out.frame.data.clone(),
+                epoch, at: std::time::Instant::now(),
+            });
+        }
         *frame = out.frame;
     }
 
@@ -429,14 +466,15 @@ impl Shared {
         }
         let made = if flat {
             let make = Self::make(&self.hub(), epoch);
-            stereo::render_measured(&eyes.frames[0], &eyes.frames[1], make.look, make.size, &make.tune, &like, false).map(|r| (r, None))
+            stereo::render_measured(&eyes.frames[0], &eyes.frames[1], make.look, make.size, &make.tune, &like, false)
+                .map(|r| (r, None, stereo::Pair { left: eyes.frames[0].clone(), right: eyes.frames[1].clone(), by_time: false }, make.tune.clone()))
         } else {
             // the other eye's new frames go in the ring here too, or without capture times both eyes would stay as they were until the three seconds are up
             let other = self.feed_other(&eyes, &target, epoch);
             let make = Make { other, ..Self::make(&self.hub(), epoch) };
-            Self::picture(&*store, &eyes, &target, &make, &like).map(|(r, sync, _)| (r, Some(sync)))
+            Self::picture(&*store, &eyes, &target, &make, &like).map(|(r, sync, _, pair)| (r, Some(sync), pair, make.tune.clone()))
         };
-        let Some((out, sync)) = made else { return false };
+        let Some((out, sync, pair, tune)) = made else { return false };
         // the render took a while: if it was switched off, reset or moved to another stream meanwhile, it must not go out, and the check and the
         // send are one step under the hub so nothing slips in between
         let mut hub = self.hub();
@@ -446,6 +484,13 @@ impl Shared {
         // not if the stream sent a frame in the meantime, that one has the newer picture, nor if another plugin put its own on the camera since
         if !store.replace_frame_if(Some(&target), &sent.frame.data, out.frame.clone(), sent.frame.number) {
             return false;
+        }
+        if self.headset.wanted() {
+            hub.note_sent(&out.frame.data);
+            self.headset.submit(Job {
+                target: target.clone(), left: pair.left, right: pair.right, tune, number: sent.frame.number, handed: out.frame.data.clone(), epoch,
+                at: std::time::Instant::now(),
+            });
         }
         hub.drawn = Some(out.frame);
         hub.stalled_key = Some(key);
@@ -529,7 +574,8 @@ pub struct StereoPlugin {
     height: f64,
     /// The right eye's size in percent, and its roll in degrees.
     size_percent: f64,
-    tilt: f64,
+    tilt_left: f64,
+    tilt_right: f64,
     /// Milliseconds the right eye's moment is later than the left's.
     timing: f64,
     swap: bool,
@@ -563,6 +609,21 @@ pub struct StereoPlugin {
     size_swapped: Option<(f64, f64)>,
     /// The clock that draws while the target stream stalls.
     clock: Option<JoinHandle<()>>,
+    /// The headset viewer: what serves it (None without one, which leaves the Headset switch doing nothing), where the certificate is kept (the
+    /// settings folder when None) and the thread that makes its pictures.
+    web: Option<Arc<dyn Web>>,
+    cert_folder: Option<PathBuf>,
+    headset: bool,
+    headset_token: String,
+    headset_address: String,
+    headset_server: Option<Box<dyn WebServer>>,
+    headset_worker: Option<JoinHandle<()>>,
+    /// Why the headset page isn't up.
+    headset_problem: String,
+    /// The link the QR code on the card was drawn for.
+    headset_qr_url: String,
+    /// Whether the link kept in its own file has been read.
+    link_read: bool,
 }
 
 /// The two phones' ISOs as Match left them, which Brightness scales.
@@ -626,20 +687,52 @@ fn clean_size(v: f64) -> f64 {
     if v.is_finite() { (v.clamp(SIZE_MIN, SIZE_MAX) * 10.0).round() / 10.0 } else { 100.0 }
 }
 
+/// The file in the settings folder that keeps the headset's link and address.
+const LINK_FILE: &str = "3d-headset-link.json";
+
+/// Written beside the file and moved over it, readable by this user only: the link lets anyone on the network watch.
+fn write_private(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut name = path.file_name().map(|n| n.to_os_string()).unwrap_or_default();
+    name.push(".tmp");
+    let tmp = path.with_file_name(name);
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options.open(&tmp)?.write_all(data)?;
+    std::fs::rename(&tmp, path)
+}
+
 impl StereoPlugin {
     pub fn new() -> StereoPlugin {
         let hub = Hub {
             on: false, target: None, look: Look::default(), tune: Tune::default(), timing_ns: 0, swap: false, size: DEFAULT_SIZE,
             history: stereo::HISTORY_FRAMES, ring: VecDeque::new(), other: None, frame_ns: DEFAULT_FRAME_NS, last_in: None, seen: None, pictures: 0,
-            measure: false, reading: None, generation: 0, handed: None, drawn: None, stalled_key: None, shut: false,
+            measure: false, reading: None, generation: 0, handed: None, drawn: None, stalled_key: None, recent: VecDeque::new(), shut: false,
         };
-        let shared = Arc::new(Shared { hub: Mutex::new(hub), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
+        let token = new_token();
+        let shared = Arc::new(Shared { hub: Mutex::new(hub), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)), headset: Arc::new(Feed::new(&token)) });
         StereoPlugin {
-            on: false, look: Look::default(), depth: 0.0, height: 0.0, size_percent: 100.0, tilt: 0.0, timing: 0.0, swap: false, target: None,
+            on: false, look: Look::default(), depth: 0.0, height: 0.0, size_percent: 100.0, tilt_left: 0.0, tilt_right: 0.0, timing: 0.0, swap: false, target: None,
             camera_size: None, canvas: (None, None), shared, pending: false, held: None, fine: false, matching: MatchState::Idle, lut: None,
             focal: BTreeMap::new(), sized_for: None, auto_size: None, exposure: None, brightness: 0.0, brightness_sent: None, brightness_waits: false, size_swapped: None,
-            clock: None,
+            clock: None, web: None, cert_folder: None, headset: false, headset_token: token, headset_address: String::new(), headset_server: None,
+            headset_worker: None, headset_problem: String::new(), headset_qr_url: String::new(), link_read: false,
         }
+    }
+
+    /// With a web to serve the headset viewer through.
+    pub fn with_web(web: Arc<dyn Web>) -> StereoPlugin {
+        StereoPlugin { web: Some(web), ..StereoPlugin::new() }
+    }
+
+    /// For tests: a scratch folder for the certificate.
+    pub fn for_test(web: Arc<dyn Web>, folder: PathBuf) -> StereoPlugin {
+        StereoPlugin { cert_folder: Some(folder), ..StereoPlugin::with_web(web) }
     }
 
     /// draw_stalled at now (monotonic nanoseconds): what the clock does while the target stream stalls.
@@ -676,7 +769,7 @@ impl StereoPlugin {
         let size = self.size();
         let mut hub = self.shared.hub();
         hub.on = self.on;
-        hub.tune = Tune { depth: self.depth, height: self.height, size: self.size_percent, tilt: self.tilt, lut: self.lut.clone() };
+        hub.tune = Tune { depth: self.depth, height: self.height, size: self.size_percent, tilt_left: self.tilt_left, tilt_right: self.tilt_right, lut: self.lut.clone() };
         (hub.look, hub.swap, hub.size, hub.timing_ns) = (self.look, self.swap, size, (self.timing * 1e6) as i64);
         // the left phone's own picture is read while Match asks for the phones' states, before it changes anything
         hub.measure = self.on && self.matching.busy();
@@ -712,14 +805,160 @@ impl StereoPlugin {
         self.show(host);
     }
 
+    // ── Headset ───────────────────────────────────────────────────────
+
+    fn headset_addresses(&self) -> Vec<String> {
+        self.web.as_ref().map(|w| w.addresses()).unwrap_or_default()
+    }
+
+    fn fill_headset_address(&mut self) {
+        let candidates = self.headset_addresses();
+        if !candidates.contains(&self.headset_address) {
+            self.headset_address = candidates.first().cloned().unwrap_or_default();
+            self.save_link();
+        }
+    }
+
+    /// Where the settings and the certificate are kept.
+    fn folder(&self) -> PathBuf {
+        self.cert_folder.clone().or_else(|| telescope_core::config::config_path().parent().map(PathBuf::from)).unwrap_or_default()
+    }
+
+    /// The link and address live in a file of their own and never in the settings, which Presets copy and share.
+    fn link_file(&self) -> Option<PathBuf> {
+        self.web.as_ref().map(|_| self.folder().join(LINK_FILE))
+    }
+
+    /// Takes the saved link on first use; one that's missing or isn't a link is kept as the one made at start and saved.
+    fn read_link(&mut self) {
+        if std::mem::replace(&mut self.link_read, true) {
+            return;
+        }
+        let Some(path) = self.link_file() else { return };
+        let saved: Value = std::fs::read(&path).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok()).unwrap_or(Value::Null);
+        match saved.get("token").and_then(Value::as_str).filter(|t| token_ok(t)) {
+            Some(token) => {
+                self.headset_token = token.into();
+                self.headset_address = saved.get("address").and_then(Value::as_str).unwrap_or("").into();
+                if self.shared.headset.token() != self.headset_token {
+                    self.shared.headset.set_token(&self.headset_token);
+                }
+            }
+            None => self.save_link(),
+        }
+    }
+
+    fn save_link(&self) {
+        let Some(path) = self.link_file() else { return };
+        let text = json!({"token": self.headset_token, "address": self.headset_address}).to_string();
+        if let Err(e) = write_private(&path, text.as_bytes()) {
+            log::warn!("The 3D headset's link couldn't be saved: {e}");
+        }
+    }
+
+    /// The link a headset opens; empty while the page isn't up.
+    pub fn headset_url(&self) -> String {
+        match &self.headset_server {
+            Some(server) if !self.headset_address.is_empty() => format!("https://{}:{}/#{}", self.headset_address, server.port(), self.headset_token),
+            _ => String::new(),
+        }
+    }
+
+    /// Serves the viewer while 3D is on, the Headset switch is on and the plugin runs, and stops serving otherwise.
+    fn sync_headset(&mut self) {
+        let want = self.on && self.headset && self.web.is_some() && !self.shared.hub().shut;
+        if want && self.headset_server.is_none() && self.headset_problem.is_empty() {
+            self.start_headset();
+        } else if !want {
+            self.stop_headset();
+            self.headset_problem.clear();
+        }
+    }
+
+    fn start_headset(&mut self) {
+        let Some(web) = self.web.clone() else { return };
+        self.read_link();
+        self.fill_headset_address();
+        let folder = self.folder();
+        let feed = self.shared.headset.clone();
+        feed.open();
+        let started = web.certificate(&folder, &web.addresses()).and_then(|certificate| {
+            let serve = Serve { port: stereo_headset::HEADSET_PORT, host: String::new(), label: "3D headset".into() };
+            web.serve(&certificate, &serve, Arc::new(Headset(feed.clone())))
+        });
+        match started {
+            Ok(server) => {
+                self.headset_server = Some(server);
+                let (shared, store) = (self.shared.clone(), self.shared.store());
+                let worker = std::thread::Builder::new().name("stereo-headset".into()).spawn(move || feed.run(&*store, &|f| shared.hub().was_ours(f)));
+                match worker {
+                    Ok(handle) => self.headset_worker = Some(handle),
+                    Err(e) => log::error!("The thread that makes the headset's pictures didn't start: {e}"),
+                }
+            }
+            Err(error) => {
+                feed.close();
+                log::error!("The 3D headset page didn't start: {error}");
+                self.headset_problem = tr("Couldn't start: {error}").field("error", &error);
+            }
+        }
+    }
+
+    fn stop_headset(&mut self) {
+        if let Some(server) = self.headset_server.take() {
+            server.stop();
+        }
+        self.shared.headset.close();
+        if let Some(worker) = self.headset_worker.take() {
+            let _ = worker.join();
+        }
+    }
+
+    /// What follows the headset: the switch, its link and the code for it.
+    fn headset_props(&mut self) -> Value {
+        let url = self.headset_url();
+        let addresses = if url.is_empty() { Vec::new() } else { self.headset_addresses() };
+        let mut props = json!({
+            "headset": self.headset, "headset-problem": if self.headset { self.headset_problem.clone() } else { String::new() },
+            "headset-url-shown": !url.is_empty(), "headset-url-text": url,
+            "headset-address-shown": addresses.len() > 1, "headset-address-current": addresses.iter().position(|a| *a == self.headset_address).unwrap_or(0),
+            "headset-addresses": addresses,
+        });
+        if url != self.headset_qr_url {
+            let (cells, size) = if url.is_empty() { (Vec::new(), 0) } else { telescope_core::qr::encode(&url) };
+            props["headset-qr-cells"] = json!(cells);
+            props["headset-qr-size"] = json!(size);
+            self.headset_qr_url = url;
+        }
+        props
+    }
+
+    fn set_headset(&mut self, host: &mut dyn Host, on: bool) {
+        self.headset = on;
+        self.headset_problem.clear();
+        self.show(host);
+    }
+
+    /// The old link stops working: headsets on it are disconnected.
+    fn new_headset_link(&mut self, host: &mut dyn Host) {
+        self.read_link();
+        self.headset_token = new_token();
+        self.shared.headset.set_token(&self.headset_token);
+        self.save_link();
+        self.show(host);
+    }
+
     // ── Card ──────────────────────────────────────────────────────────
 
     fn fixed_props() -> Value {
         json!({
             "switch-name": tr("3D"), "switch-help": tr(SWITCH_TIP),
             "look-items": [tr("Side by side"), tr("Red/cyan")], "look-tip": tr(LOOK_TIP),
-            "depth-tip": tr(DEPTH_TIP), "height-tip": tr(HEIGHT_TIP), "size-tip": tr(SIZE_TIP), "tilt-tip": tr(TILT_TIP), "timing-tip": tr(TIMING_TIP),
+            "depth-tip": tr(DEPTH_TIP), "height-tip": tr(HEIGHT_TIP), "size-tip": tr(SIZE_TIP), "tilt-left-tip": tr(TILT_LEFT_TIP), "tilt-right-tip": tr(TILT_RIGHT_TIP), "timing-tip": tr(TIMING_TIP),
             "fine-tip": tr(FINE_TIP), "swap-tip": tr(SWAP_TIP), "match-tip": tr(MATCH_TIP), "reset-tip": tr(RESET_TIP), "brightness-tip": tr(BRIGHTNESS_TIP),
+            "headset-name": tr("Headset"), "headset-tip": tr(HEADSET_TIP), "headset-qr-label": tr("Scan"), "headset-qr-tip": tr(HEADSET_QR_TIP),
+            "headset-address-tip": tr(HEADSET_ADDRESS_TIP), "headset-link-tip": tr(HEADSET_LINK_TIP), "headset-copy-text": tr("Copy"),
+            "headset-copy-tip": tr(HEADSET_COPY_TIP), "headset-new-link-text": tr("New link"), "headset-new-link-tip": tr(HEADSET_NEW_LINK_TIP),
         })
     }
 
@@ -787,8 +1026,10 @@ impl StereoPlugin {
                 ("height-text".to_string(), json!(percent_text(self.height))),
                 ("size-percent".to_string(), json!(self.size_percent)),
                 ("size-text".to_string(), json!(size_text(self.size_percent))),
-                ("tilt".to_string(), json!(self.tilt)),
-                ("tilt-text".to_string(), json!(tilt_text(self.tilt))),
+                ("tilt-left".to_string(), json!(self.tilt_left)),
+                ("tilt-left-text".to_string(), json!(tilt_text(self.tilt_left))),
+                ("tilt-right".to_string(), json!(self.tilt_right)),
+                ("tilt-right-text".to_string(), json!(tilt_text(self.tilt_right))),
                 ("timing".to_string(), json!(self.timing)),
                 ("timing-text".to_string(), json!(timing_text(self.timing))),
                 ("fine-open".to_string(), json!(self.fine)),
@@ -828,7 +1069,11 @@ impl StereoPlugin {
         }
         self.wake_clock();
         self.follow_preview(host);
-        let props = self.card_props(Some(host));
+        self.sync_headset();
+        let mut props = self.card_props(Some(host));
+        if let (Value::Object(all), Value::Object(headset)) = (&mut props, self.headset_props()) {
+            all.extend(headset);
+        }
         host.set_ui_props("card", &props);
     }
 
@@ -1152,7 +1397,10 @@ impl StereoPlugin {
         self.on = cfg.get("on") == Some(&Value::Bool(true));
         self.look = cfg.get("look").and_then(Value::as_str).and_then(Look::from_name).unwrap_or_default();
         let number = |key: &str| cfg.get(key).and_then(Value::as_f64).unwrap_or(0.0);
-        (self.depth, self.height, self.tilt) = (clean_shift(number("depth")), clean_shift(number("height")), clean_tilt(number("tilt")));
+        (self.depth, self.height) = (clean_shift(number("depth")), clean_shift(number("height")));
+        // a setup saved with the one Tilt, which only ever turned the right eye, keeps that turn on the right eye
+        let right = cfg.get("tilt-right").or_else(|| cfg.get("tilt")).and_then(Value::as_f64).unwrap_or(0.0);
+        (self.tilt_left, self.tilt_right) = (clean_tilt(number("tilt-left")), clean_tilt(right));
         self.size_percent = clean_size(cfg.get("size").and_then(Value::as_f64).unwrap_or(100.0));
         self.timing = clean_timing(number("timing"));
         self.swap = cfg.get("swap") == Some(&Value::Bool(true));
@@ -1205,6 +1453,7 @@ impl Plugin for StereoPlugin {
             hub.shut = true;
             hub.forget();
         }
+        self.stop_headset();
         self.shared.wake.notify_all();
         if let Some(clock) = self.clock.take() {
             let _ = clock.join();
@@ -1276,8 +1525,12 @@ impl Plugin for StereoPlugin {
                 self.size_percent = clean_size(number.unwrap_or(100.0));
                 self.changed(host);
             }
-            "tilt-moved" => {
-                self.tilt = clean_tilt(number.unwrap_or(0.0));
+            "tilt-left-moved" => {
+                self.tilt_left = clean_tilt(number.unwrap_or(0.0));
+                self.changed(host);
+            }
+            "tilt-right-moved" => {
+                self.tilt_right = clean_tilt(number.unwrap_or(0.0));
                 self.changed(host);
             }
             "brightness-moved" => self.move_brightness(host, number.unwrap_or(0.0)),
@@ -1293,6 +1546,8 @@ impl Plugin for StereoPlugin {
                 let before = self.swap;
                 self.swap = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 if self.swap != before {
+                    // each phone keeps the roll it had
+                    std::mem::swap(&mut self.tilt_left, &mut self.tilt_right);
                     self.turn_size_round(host);
                 }
                 // the colour curves were made for the other way round
@@ -1300,6 +1555,21 @@ impl Plugin for StereoPlugin {
                 self.changed(host);
                 self.size_from_lenses(host);
             }
+            "headset-toggled" => self.set_headset(host, event.args.first().and_then(Value::as_bool).unwrap_or(false)),
+            "headset-address-picked" => {
+                let at = number.filter(|i| *i >= 0.0).map_or(0, |i| i as usize);
+                if let Some(ip) = self.headset_addresses().get(at).cloned().filter(|ip| *ip != self.headset_address) {
+                    self.read_link();
+                    self.headset_address = ip;
+                    self.save_link();
+                    self.show(host);
+                }
+            }
+            "headset-copy-clicked" => {
+                let url = self.headset_url();
+                host.copy_text(&url);
+            }
+            "headset-new-link-clicked" => self.new_headset_link(host),
             "reset-clicked" => self.reset(host),
             "match-clicked" => self.start_match(host),
             "reset-match-clicked" => self.reset_match(host),
@@ -1348,7 +1618,8 @@ impl Plugin for StereoPlugin {
             SettingSpec::number("depth", "Slides the two pictures apart or together to change how far forward the 3D reaches", -SHIFT_LIMIT, SHIFT_LIMIT, 1, 0.0),
             SettingSpec::number("height", "Lifts or lowers the right picture", -SHIFT_LIMIT, SHIFT_LIMIT, 1, 0.0),
             SettingSpec::number("size", "Zooms the right picture over 100 or the left one under it", SIZE_MIN, SIZE_MAX, 1, 100.0).unit("%"),
-            SettingSpec::number("tilt", "Rolls the right picture", -TILT_LIMIT, TILT_LIMIT, 1, 0.0),
+            SettingSpec::number("tilt-left", "Rolls the left picture", -TILT_LIMIT, TILT_LIMIT, 1, 0.0),
+            SettingSpec::number("tilt-right", "Rolls the right picture", -TILT_LIMIT, TILT_LIMIT, 1, 0.0),
             SettingSpec::number("timing", "Moves the right picture earlier or later in time", -TIMING_LIMIT_MS, TIMING_LIMIT_MS, 0, 0.0).unit("ms"),
             SettingSpec::switch("swap", "Swaps which phone is the left eye", false),
         ]
@@ -1356,7 +1627,7 @@ impl Plugin for StereoPlugin {
 
     fn get_config(&self) -> Value {
         json!({
-            "on": self.on, "look": self.look.name(), "depth": self.depth, "height": self.height, "size": self.size_percent, "tilt": self.tilt,
+            "on": self.on, "look": self.look.name(), "depth": self.depth, "height": self.height, "size": self.size_percent, "tilt-left": self.tilt_left, "tilt-right": self.tilt_right,
             "timing": self.timing, "swap": self.swap,
         })
     }
@@ -1376,8 +1647,13 @@ impl Plugin for StereoPlugin {
     }
 
     fn diagnostics(&self) -> Vec<(String, String)> {
+        let headset = match &self.headset_server {
+            Some(server) => format!("on, port {}, {} watching", server.port(), self.shared.headset.viewers()),
+            None if !self.headset => "off".to_string(),
+            None => "not running".to_string(),
+        };
         if !self.on {
-            return vec![("3D".into(), "off".into())];
+            return vec![("3D".into(), "off".into()), ("3D headset".into(), headset)];
         }
         let hub = self.shared.hub();
         let sync = match hub.seen.filter(|(_, at)| monotonic_ns().saturating_sub(*at) < SEEN_NS) {
@@ -1386,7 +1662,7 @@ impl Plugin for StereoPlugin {
             Some((SyncStatus::NotSynced, _)) => "not synced",
             None => "waiting",
         };
-        vec![("3D".into(), format!("on, {}, {sync}", self.look.name()))]
+        vec![("3D".into(), format!("on, {}, {sync}", self.look.name())), ("3D headset".into(), headset)]
     }
 }
 

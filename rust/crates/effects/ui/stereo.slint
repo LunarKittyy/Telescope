@@ -16,9 +16,12 @@ export component StereoCard inherits Card {
     in property <float> size-percent;
     in property <string> size-text;
     in property <string> size-tip;
-    in property <float> tilt;
-    in property <string> tilt-text;
-    in property <string> tilt-tip;
+    in property <float> tilt-left;
+    in property <string> tilt-left-text;
+    in property <string> tilt-left-tip;
+    in property <float> tilt-right;
+    in property <string> tilt-right-text;
+    in property <string> tilt-right-tip;
     in property <float> timing;
     in property <string> timing-text;
     in property <string> timing-tip;
@@ -38,12 +41,37 @@ export component StereoCard inherits Card {
     in property <string> brightness-text;
     in property <string> brightness-tip;
     in property <bool> brightness-enabled;
+    // The headset viewer
+    in property <bool> headset;
+    in property <string> headset-name;
+    in property <string> headset-tip;
+    in property <string> headset-problem;
+    in property <bool> headset-url-shown;
+    in property <string> headset-url-text;
+    in property <[int]> headset-qr-cells;
+    in property <int> headset-qr-size;
+    in property <string> headset-qr-label;
+    in property <string> headset-qr-tip;
+    in property <bool> headset-address-shown;
+    in property <[string]> headset-addresses;
+    in property <int> headset-address-current;
+    in property <string> headset-address-tip;
+    in property <string> headset-link-tip;
+    in property <string> headset-copy-text;
+    in property <string> headset-copy-tip;
+    in property <string> headset-new-link-text;
+    in property <string> headset-new-link-tip;
+    callback headset-toggled(bool);
+    callback headset-address-picked(int);
+    callback headset-copy-clicked;
+    callback headset-new-link-clicked;
     callback switch-toggled-by-hand(bool);
     callback look-picked(int);
     callback depth-moved(float);
     callback height-moved(float);
     callback size-moved(float);
-    callback tilt-moved(float);
+    callback tilt-left-moved(float);
+    callback tilt-right-moved(float);
     callback timing-moved(float);
     callback brightness-moved(float);
     callback fine-toggled(bool);
@@ -51,6 +79,32 @@ export component StereoCard inherits Card {
     callback match-clicked;
     callback reset-match-clicked;
     callback reset-clicked;
+
+    // What the rows that come and go said last, kept while they fold away
+    property <string> held-problem;
+    property <string> held-url;
+    property <[int]> held-cells;
+    property <int> held-size;
+    property <[string]> held-addresses;
+    property <int> held-address;
+    function keep() {
+        if (headset-problem != "") { held-problem = headset-problem; }
+        if (headset-url-shown) {
+            held-url = headset-url-text;
+            held-cells = headset-qr-cells;
+            held-size = headset-qr-size;
+            held-addresses = headset-addresses;
+            held-address = headset-address-current;
+        }
+    }
+    init => { keep(); }
+    changed headset-problem => { keep(); }
+    changed headset-url-shown => { keep(); }
+    changed headset-url-text => { keep(); }
+    changed headset-qr-cells => { keep(); }
+    changed headset-qr-size => { keep(); }
+    changed headset-addresses => { keep(); }
+    changed headset-address-current => { keep(); }
 
     title: @tr("3D");
     tip: @tr("Make one 3D picture from two phones.");
@@ -147,7 +201,7 @@ export component StereoCard inherits Card {
             tip: @tr("Fine tune");
             tip-detail: fine-tip;
             hue: root.hue;
-            changed: depth != 0 || height-shift != 0 || size-percent != 100 || tilt != 0 || timing != 0;
+            changed: depth != 0 || height-shift != 0 || size-percent != 100 || tilt-left != 0 || tilt-right != 0 || timing != 0;
             checked: root.fine-open;
             toggled(v) => {
                 root.fine-open = v;
@@ -162,8 +216,8 @@ export component StereoCard inherits Card {
                 icon: Icons.stretch;
                 label: @tr("Depth");
                 tip-detail: depth-tip;
-                minimum: -5;
-                maximum: 5;
+                minimum: -15;
+                maximum: 15;
                 step: 0.1;
                 value: depth;
                 readout: depth-text;
@@ -176,8 +230,8 @@ export component StereoCard inherits Card {
                 icon: Icons.stretch-tall;
                 label: @tr("Height");
                 tip-detail: height-tip;
-                minimum: -5;
-                maximum: 5;
+                minimum: -15;
+                maximum: 15;
                 step: 0.1;
                 value: height-shift;
                 readout: height-text;
@@ -204,17 +258,31 @@ export component StereoCard inherits Card {
             }
             RailSlider {
                 icon: Icons.rotate;
-                label: @tr("Tilt");
-                tip-detail: tilt-tip;
+                label: @tr("Left tilt");
+                tip-detail: tilt-left-tip;
                 minimum: -5;
                 maximum: 5;
                 step: 0.1;
-                value: tilt;
-                readout: tilt-text;
+                value: tilt-left;
+                readout: tilt-left-text;
                 hue: root.hue;
                 has-default: true;
                 default-value: 0;
-                moved(v) => { root.tilt-moved(v); }
+                moved(v) => { root.tilt-left-moved(v); }
+            }
+            RailSlider {
+                icon: Icons.rotate;
+                label: @tr("Right tilt");
+                tip-detail: tilt-right-tip;
+                minimum: -5;
+                maximum: 5;
+                step: 0.1;
+                value: tilt-right;
+                readout: tilt-right-text;
+                hue: root.hue;
+                has-default: true;
+                default-value: 0;
+                moved(v) => { root.tilt-right-moved(v); }
             }
             RailSlider {
                 icon: Icons.timer;
@@ -229,6 +297,83 @@ export component StereoCard inherits Card {
                 has-default: true;
                 default-value: 0;
                 moved(v) => { root.timing-moved(v); }
+            }
+        }
+    }
+    UnfoldGroup {
+        SwitchRow {
+            icon: Icons.monitor;
+            label: headset-name;
+            tip: headset-name;
+            tip-detail: headset-tip;
+            hue: root.hue;
+            checked: headset;
+            toggled(v) => { root.headset-toggled(v); }
+        }
+        Unfolding {
+            open: headset-problem != "";
+            RailRow {
+                has-icon: false;
+                Status { text: @tr("Headset failed to start"); detail: held-problem; kind: "err"; horizontal: "end"; }
+            }
+        }
+        Unfolding {
+            open: headset-url-shown;
+            RailRow {
+                icon: Icons.qr;
+                label: headset-qr-label;
+                tip: headset-qr-label;
+                tip-detail: headset-qr-tip;
+                hue: root.hue;
+                HorizontalLayout {
+                    alignment: end;
+                    QrCode { cells: held-cells; size: held-size; cell: Theme.unit * 2; label: headset-qr-label; }
+                }
+            }
+        }
+        Unfolding {
+            open: headset-url-shown && headset-address-shown;
+            RailRow {
+                icon: Icons.wifi;
+                label: @tr("Address");
+                tip: @tr("Address");
+                tip-detail: headset-address-tip;
+                hue: root.hue;
+                ChoiceField {
+                    compact: true;
+                    caption: @tr("Address");
+                    items: held-addresses;
+                    current: held-address;
+                    tip: @tr("Address");
+                    tip-detail: headset-address-tip;
+                    picked(i) => { root.headset-address-picked(i); }
+                }
+            }
+        }
+        Unfolding {
+            open: headset-url-shown;
+            RailRow {
+                icon: Icons.link;
+                label: @tr("Link");
+                tip: @tr("Link");
+                tip-detail: headset-link-tip;
+                hue: root.hue;
+                VerticalLayout {
+                    spacing: Theme.gap;
+                    Text {
+                        text: held-url;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        color: Theme.ink;
+                        overflow: elide;
+                        min-width: 0px;
+                    }
+                    HorizontalLayout {
+                        spacing: Theme.gap;
+                        Button { horizontal-stretch: 1; text: headset-copy-text; tip: headset-copy-text; tip-detail: headset-copy-tip; clicked => { root.headset-copy-clicked(); } }
+                        Button { horizontal-stretch: 1; text: headset-new-link-text; tip: headset-new-link-text; tip-detail: headset-new-link-tip; clicked => { root.headset-new-link-clicked(); } }
+                    }
+                }
             }
         }
     }

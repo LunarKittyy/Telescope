@@ -3,6 +3,7 @@
 //! a smart home hub and WebhookSender sends it off the window's thread. Sign answers a device that keeps the sign page open over
 //! HTTPS, with a link of its own that keeps working across restarts; it answers nothing but the page, its script and the state.
 
+use crate::shared::same;
 use serde_json::{json, Map, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
@@ -532,11 +533,6 @@ pub struct Sign {
     changed: Condvar,
     stopping: AtomicBool,
     poll_wait: Duration,
-}
-
-/// hmac.compare_digest
-fn same(a: &str, b: &str) -> bool {
-    a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |diff, (x, y)| diff | (x ^ y)) == 0
 }
 
 /// int() of a query value: spaces around it, a sign and underscores between digits are fine.
