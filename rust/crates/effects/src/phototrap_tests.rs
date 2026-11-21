@@ -799,3 +799,17 @@ fn phototrap_use_zoom_defaults_off_and_survives_a_preset() {
     restored.apply_preset(&mut h, &json!({"use_zoom": false})).unwrap();
     assert_eq!(restored.get_config()["use_zoom"], false);
 }
+
+#[test]
+fn the_camera_choice_clears_a_shot_override_without_the_phones_capabilities() {
+    let (mut p, _) = plugin();
+    let mut h = host();
+    h.plugins.clear();
+    h.still_caps = None;
+    p.set_config(&json!({"shot": {"shutter_s": 0.004, "iso": 800}})).unwrap();
+    p.setup(&mut h);
+    assert!(p.caps.is_none());
+    click(&mut p, &mut h, "shot-iso-picked", json!(0));
+    click(&mut p, &mut h, "shot-shutter-picked", json!(0));
+    assert!(p.get_config().get("shot").is_none());
+}
