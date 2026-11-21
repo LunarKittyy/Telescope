@@ -49,7 +49,7 @@ Downloaded when asked for (not included)
 -----------------------------------------
 
 MediaPipe and its selfie segmenter and pose models (the vision pack)
-    Copyright (c) Google LLC. License: Apache 2.0, with absl-py and flatbuffers (Apache 2.0) and certifi (MPL 2.0).
+    Copyright (c) Google LLC. License: Apache 2.0.
     Source: https://github.com/google-ai-edge/mediapipe
 
 Robust Video Matting (the matting pack's model, Background's High quality option)
