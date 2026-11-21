@@ -548,7 +548,7 @@ fn main() {
         relaunch: update_guard::launch,
     });
     // Before the decoder and the stream start their threads, which would each get a pool of their own
-    telescope_system::memory::limit_malloc_arenas(4);
+    telescope_system::memory::limit_malloc_arenas(2);
     telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
     #[cfg(windows)]
