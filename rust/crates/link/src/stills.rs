@@ -670,7 +670,7 @@ impl Runner<'_> {
                 }
             }
             if let Some(transform) = transform {
-                telescope_core::photo::apply_file(&part, transform)?;
+                telescope_core::photo::apply_file_or_keep(&part, transform);
             }
             if self.stopped() || !alive() {
                 return Err("stopped".into());

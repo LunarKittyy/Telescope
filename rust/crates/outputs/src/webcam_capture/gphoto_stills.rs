@@ -814,8 +814,9 @@ fn save_transformed(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool, t
             }
         };
         let part = path.with_file_name(format!("{}.part", path.file_name().unwrap_or_default().to_string_lossy()));
-        let written = std::fs::write(&part, &shot.data).and_then(|()| {
-            transform.map_or(Ok(()), |t| telescope_core::photo::apply_file(&part, t).map_err(std::io::Error::other))
+        // A photo that can't be turned or cropped is kept as the camera took it
+        let written = std::fs::write(&part, &shot.data).map(|()| {
+            if let Some(t) = transform { telescope_core::photo::apply_file_or_keep(&part, t); }
         });
         // The last look before the file is kept
         let hidden = covered();
