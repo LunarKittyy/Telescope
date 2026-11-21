@@ -440,6 +440,8 @@ impl Gpu {
     pub fn release_idle(&self) {
         self.pool.lock().unwrap().clear();
         self.downloads.lock().unwrap().clear();
+        // wgpu only hands the freed memory back to the driver when it is polled
+        let _ = self.device.poll(wgpu::PollType::Poll);
     }
 
     /// How many bytes of textures are kept for the next frame, for tests.

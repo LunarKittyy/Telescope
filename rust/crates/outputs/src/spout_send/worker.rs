@@ -5,7 +5,7 @@ use super::pack;
 use super::{Backend, Resized, Sender};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use telescope_core::frame::Frame;
 
 /// Without a new picture for this long the sender is taken down, so a stream that stopped doesn't leave one behind.
@@ -38,7 +38,8 @@ pub enum State {
 }
 
 struct Slot {
-    latest: Mutex<Option<Frame>>,
+    /// The picture and when it was handed over (a retry keeps the time it first came).
+    latest: Mutex<Option<(Frame, Instant)>>,
     ready: Condvar,
     stop: AtomicBool,
     alive: AtomicBool,
@@ -83,7 +84,7 @@ impl Worker {
         if !self.alive() {
             return false;
         }
-        *latest = Some(frame);
+        *latest = Some((frame, Instant::now()));
         self.slot.ready.notify_all();
         true
     }
@@ -107,7 +108,7 @@ impl Drop for Worker {
 }
 
 enum Next {
-    Picture(Frame),
+    Picture(Frame, Instant),
     /// No picture for the idle time.
     Quiet,
     Stopped,
@@ -120,14 +121,14 @@ fn next(slot: &Slot, idle: Duration) -> Next {
     if slot.stop.load(Ordering::SeqCst) {
         return Next::Stopped;
     }
-    latest.take().map_or(Next::Quiet, Next::Picture)
+    latest.take().map_or(Next::Quiet, |(frame, offered)| Next::Picture(frame, offered))
 }
 
 /// Puts a picture back to be taken again, unless a newer one has come meanwhile (which is then the one that goes out).
-fn requeue(slot: &Slot, frame: Frame) {
+fn requeue(slot: &Slot, frame: Frame, offered: Instant) {
     let mut latest = slot.latest.lock().unwrap_or_else(|e| e.into_inner());
     if latest.is_none() {
-        *latest = Some(frame);
+        *latest = Some((frame, offered));
     }
 }
 
@@ -146,8 +147,16 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
     let mut open: Option<(u32, u32, Box<dyn Sender>)> = None;
     let mut bytes = Vec::new();
     loop {
-        let frame = match next(slot, idle) {
-            Next::Picture(frame) => frame,
+        let (frame, offered) = match next(slot, idle) {
+            // A picture retried past the idle time counts as no picture, so a stream that stopped doesn't send its last one late
+            Next::Picture(_, offered) if offered.elapsed() >= idle => {
+                if keep {
+                    tell(State::Idle);
+                    continue;
+                }
+                break;
+            }
+            Next::Picture(frame, offered) => (frame, offered),
             Next::Quiet if keep => {
                 tell(State::Idle);
                 continue;
@@ -165,7 +174,7 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
                 Ok(Resized::Remake) => open = None,
                 // A reader holds the picture just now: the sender stays where it is (a reader that is busy is not a sender that is gone) and this picture is tried again
                 Ok(Resized::Busy) => {
-                    requeue(slot, frame);
+                    requeue(slot, frame, offered);
                     pause(slot, RESIZE_RETRY);
                     continue;
                 }

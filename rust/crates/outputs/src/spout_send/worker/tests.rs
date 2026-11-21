@@ -254,3 +254,18 @@ fn a_picture_that_waits_for_a_busy_reader_gives_way_to_a_newer_one() {
     wait_for("the newest", || log.sent.lock().unwrap().len() >= 2);
     assert_eq!(log.sent.lock().unwrap()[1][0], 9, "the picture that was waiting went out over a newer one");
 }
+
+#[test]
+fn a_picture_that_waits_for_a_busy_reader_past_the_idle_time_is_dropped_and_the_sender_goes() {
+    let log = Arc::new(Log::default());
+    log.resizable.store(true, Ordering::SeqCst);
+    let (worker, _) = spawn(&log, Duration::from_millis(300));
+    worker.put(picture(2, 2, 1));
+    wait_for("the first", || log.sent.lock().unwrap().len() == 1);
+    log.resize_busy.store(true, Ordering::SeqCst);
+    worker.put(picture(4, 2, 2));
+    wait_for("the thread to end", || !worker.alive());
+    log.resize_busy.store(false, Ordering::SeqCst);
+    assert_eq!(log.sent.lock().unwrap().len(), 1, "a stale picture went out after the stream stopped");
+    wait_for("the sender to close", || log.closed.load(Ordering::SeqCst) == 1);
+}

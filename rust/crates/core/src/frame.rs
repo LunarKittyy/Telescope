@@ -555,6 +555,16 @@ pub trait CpuStep: Send {
     fn hides(&self) -> bool {
         false
     }
+    /// Whether process() lays a picture of its own over the whole frame, whatever the frame held (the wait screen). The pipeline then doesn't
+    /// run the earlier steps that say `pixels_only`, since their work is thrown away.
+    fn covers(&self) -> bool {
+        false
+    }
+    /// Whether this step does nothing but change pixels: it reads no mask, tells nobody anything and keeps no picture or count of its own
+    /// between frames, so a frame that gets covered anyway can go without it. Only a built-in colour or filter step says so.
+    fn pixels_only(&self) -> bool {
+        false
+    }
     /// Asked right before process. Only a step that's certain may answer less than Changes.
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         Touch::Changes

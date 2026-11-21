@@ -303,6 +303,10 @@ crate::avx2_too! {
 }
 
 impl CpuStep for Graded {
+    fn pixels_only(&self) -> bool {
+        true
+    }
+
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
         let (w, h) = (frame.width as usize, frame.height as usize);
         let source = frame.data.clone();
