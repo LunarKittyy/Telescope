@@ -126,7 +126,7 @@ object SessionEndpoint {
             }
         }
         presence?.hint()
-        bind(app)
+        bindSoon(app)
         if (watchdog == null) {
             watchdog = java.util.Timer("session-rebind", true).apply {
                 schedule(object : java.util.TimerTask() {
@@ -150,6 +150,16 @@ object SessionEndpoint {
     @Synchronized
     private fun rebind(app: Context) {
         if (owners.isNotEmpty() && server?.listening != true) bind(app)
+    }
+
+    // Callers are often the main thread: the first start makes the TLS identity (keys and a file) and opens the port, so a worker does both
+    private val binder = lazy { java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "session-bind").apply { isDaemon = true } } }
+
+    private fun bindSoon(app: Context) {
+        binder.value.execute {
+            try { PhoneTls.identity(app) } catch (_: Exception) {}  // outside the lock: only this worker waits on the file
+            synchronized(this) { if (owners.isNotEmpty()) bind(app) }
+        }
     }
 
     private fun bind(app: Context) {
@@ -216,8 +226,7 @@ object SessionEndpoint {
 
     fun screenStarted(context: Context) {
         appContext = context.applicationContext
-        // The first start reads (or makes) the TLS identity: do it off the main thread while the screen comes up
-        kotlin.concurrent.thread(name = "tls-warm", isDaemon = true) { try { PhoneTls.identity(context) } catch (_: Exception) {} }
+        CameraWarmup.warmUp(context)  // reads the lenses in the background, so a stream's start has them ready
         screens.started()
         presence?.hint()
     }
