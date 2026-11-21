@@ -1190,6 +1190,7 @@ impl Shared {
         if self.slot.latest_picture().is_some() && self.paused() {
             if !self.was_paused.swap(true, Ordering::SeqCst) {
                 log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
+                (crate::window::app_hooks().release_memory_soon)();
             }
             return true;
         }

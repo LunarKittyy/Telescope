@@ -1071,9 +1071,12 @@ impl Window {
     pub(crate) fn sync_preview_visibility(&self) {
         let popout_seen = self.popout_seen();
         let unwanted = !(window_seen(self.ui.window()) || popout_seen);
-        self.streams.frame_unwanted.store(unwanted, std::sync::atomic::Ordering::SeqCst);
+        let was_unwanted = self.streams.frame_unwanted.swap(unwanted, std::sync::atomic::Ordering::SeqCst);
         if unwanted {
             self.painted.set(0);
+            if !was_unwanted {
+                (app_hooks().release_memory_soon)();
+            }
         }
         self.set_popout_open(popout_seen);
         let popout_visible = self.popout.borrow().as_ref().is_some_and(|p| p.window().is_visible());
@@ -2084,6 +2087,8 @@ pub struct AppHooks {
     pub commit: fn() -> &'static str,
     /// Hands memory the allocator kept after frames were freed back to the system.
     pub release_memory: fn(),
+    /// The same for a pause or a window nobody sees: from a thread of its own, at most once in a few seconds, so it never holds up a frame.
+    pub release_memory_soon: fn(),
     /// Starts argv on its own, outliving this process.
     pub relaunch: fn(&[String]) -> std::io::Result<()>,
 }
@@ -2099,6 +2104,7 @@ pub(crate) fn app_hooks() -> &'static AppHooks {
         build: || telescope_core::version::version().to_string(),
         commit: || "",
         release_memory: || {},
+        release_memory_soon: || {},
         relaunch: |_| Err(std::io::ErrorKind::Unsupported.into()),
     })
 }
