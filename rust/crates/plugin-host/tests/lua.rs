@@ -629,7 +629,8 @@ fn a_plugin_that_inherits_its_hooks_and_handlers_from_a_base_module_still_has_th
 fn a_looping_inherited_lookup_is_stopped_for_hooks_and_events_alike() {
     let folder = plugin("loopy", r#"return setmetatable({}, { __index = function() while true do end end })"#, json!({}));
     let mut t = PluginTest::open(&folder).unwrap();
-    assert!(!t.defines("anything"));
+    // A lookup that never ends is a hook that fails, not one that isn't there, so the plugin's answer isn't taken for an empty one
+    assert!(t.call("anything", vec![]).unwrap_err().contains("took too long"));
     t.event(Event::StreamStopped);
 }
 
@@ -1108,7 +1109,7 @@ fn what_a_plugin_hands_the_host_is_held_to_a_size_in_text_too() {
 fn a_hook_cant_pile_up_calls_for_the_host() {
     let folder = plugin("piles", r#"
         return { flood = function(n) for i = 1, n do host.schedule(1, "t") end end,
-                 emits = function(n) for i = 1, n do host.emit("piles.x", {}) end end }
+                 emits = function(n) for i = 1, n do host.set_ui_props("card", {}) end end }
     "#, json!({}));
     let mut t = PluginTest::open(&folder).unwrap();
     let err = t.call("emits", vec![json!(telescope_plugin_host::guest::MAX_CALLS_PER_HOOK + 1)]).unwrap_err();
@@ -1188,4 +1189,126 @@ fn a_plugin_shares_values_through_the_host_registry() {
     "#, json!({}));
     let mut t = PluginTest::open(&folder).unwrap();
     assert_eq!(t.call("run", vec![]).unwrap(), json!({"got": 2, "keys": ["sharing.seen"], "bad": false, "none": true}));
+}
+
+// ── Plugin host fixes ───────────────────────────────────────────────────────
+
+#[test]
+fn a_message_handler_that_loops_cant_hold_the_window_after_the_time_is_up() {
+    // Lua runs the handler with its hooks off when the time limit raised the error, so only a check before it can stop one that never ends
+    let err = stopped_soon("handler_loops", "xpcall(function() while true do end end, function() while true do end end)").unwrap_err();
+    assert!(err.contains("took too long"), "{err}");
+    assert_eq!(stopped_soon("handler_fine", "return select(2, xpcall(error, function(m) return 'handled ' .. m end, 'x', 0))").unwrap(), json!("handled x"));
+    assert!(stopped_soon("handler_bad", "return xpcall(error)").is_err(), "xpcall still wants a handler");
+}
+
+#[test]
+fn load_gives_the_loaded_text_the_plugins_globals_unless_an_environment_is_given() {
+    let all = "return { load('return math.floor(2.5)')(), load('return x', 'c', 't', { x = 5 })(), (pcall(load('return math.floor(1)', 'c', 't', nil))), (pcall(load('return math.floor(1)', 'c', 't'))) }";
+    assert_eq!(stopped_soon("load_all", all).unwrap(), json!([2, 5, false, true]), "an explicit nil environment is still no environment");
+}
+
+#[test]
+fn settings_are_not_reported_empty_when_the_get_config_lookup_fails() {
+    let folder = plugin("lookup_fails", r#"
+        return setmetatable({}, { __index = function(_, key) if key == "get_config" then error("no base") end end })
+    "#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert_eq!(t.config(), Value::Null, "null makes the host keep what it saved, where {{}} would be saved over it");
+    assert!(t.call_without_host("get_config", vec![]).unwrap_err().contains("no base"));
+    let none = plugin("lookup_none", "return {}", json!({}));
+    assert_eq!(PluginTest::open(&none).unwrap().config(), json!({}), "a plugin with no get_config has nothing to save");
+}
+
+fn hider(name: &str, stage: &str, frame_step: &str) -> PluginTest {
+    let folder = plugin(name, &format!("return {{ frame_step = function() {frame_step} end }}"), json!({"frame_stage": stage}));
+    PluginTest::open(&folder).unwrap()
+}
+
+#[test]
+fn a_hiding_plugin_whose_frame_step_fails_hides_everything_instead_of_nothing() {
+    use telescope_core::frame::FrameStep;
+    for (name, body) in [("hide_throws", "error('boom')"), ("hide_bad_shader", "return { shader = 'missing.wgsl' }"), ("hide_loops", "while true do end")] {
+        let mut t = hider(name, "privacy", body);
+        t.set_hook_limit(std::time::Duration::from_millis(200));
+        let Some(FrameStep::Cpu(step)) = t.plugin.frame_step() else { panic!("{name}: no step that withholds the picture") };
+        assert!(step.hides(), "{name}");
+    }
+    let mut cover = hider("hide_cover", "cover", "error('boom')");
+    assert!(matches!(cover.plugin.frame_step(), Some(FrameStep::Cpu(_))));
+    assert!(hider("hide_nil", "privacy", "return nil").plugin.frame_step().is_none(), "an explicit nil is no step: nothing to hide now");
+    assert!(hider("hide_ok", "privacy", "return { wgsl = 'fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }' }").plugin.frame_step().is_some());
+    assert!(hider("plain_throws", "effects", "error('boom')").plugin.frame_step().is_none(), "a plugin that hides nothing just has no step");
+    let lookup = plugin("hide_lookup", "return setmetatable({}, { __index = function(_, k) if k == 'frame_step' then error('x') end end })", json!({"frame_stage": "privacy"}));
+    assert!(matches!(PluginTest::open(&lookup).unwrap().plugin.frame_step(), Some(FrameStep::Cpu(_))), "a hook that can't be looked up is not an absent one");
+}
+
+#[test]
+fn the_withholding_step_gives_a_dark_frame() {
+    use telescope_core::frame::{Frame, FrameStep, PixelFormat};
+    struct NoContext;
+    impl telescope_core::frame::FrameContext for NoContext {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+    let mut t = hider("withhold_dark", "privacy", "error('boom')");
+    let Some(FrameStep::Cpu(mut step)) = t.plugin.frame_step() else { panic!("no step") };
+    let mut frame = Frame::new(4, 2, PixelFormat::I420, vec![200; PixelFormat::I420.size(4, 2)]);
+    frame.number = 7;
+    step.process(&mut frame, &NoContext);
+    assert_eq!((frame.number, frame.width, frame.height), (7, 4, 2));
+    assert!(frame.data[..8].iter().all(|v| *v == 16) && frame.data[8..].iter().all(|v| *v == 128), "{:?}", frame.data);
+}
+
+#[test]
+fn a_cards_component_has_to_be_a_name() {
+    let t = PluginTest::open(plugin("component", "return {}", json!({}))).unwrap();
+    std::fs::write(t.installed.folder.join("card.slint"), "export component Card { }").unwrap();
+    let spec = |component: &str| t.plugin.ui_spec(&json!({"file": "card.slint", "component": component}));
+    assert_eq!(spec("Card").unwrap().component, "Card");
+    assert!(spec("My-Card_2").is_ok());
+    for bad in ["", "Card as X } from \"/etc/x.slint\"; import { Y", "Card }", "A B", "2Card", "-Card", "Card;", "Ca\nrd", "Card\u{e9}"] {
+        assert!(spec(bad).is_err(), "{bad:?}");
+    }
+}
+
+#[test]
+fn a_text_that_would_fill_in_huge_stays_as_written() {
+    let body = r#"
+        local big = string.rep("x", 1 << 20)
+        local template = string.rep("{a}", 40)
+        local filled = tr(template, { a = big })
+        return { template == filled, #tr("{a}", { a = big }), #trn("{a}", "{a}", 1, { a = big }), #trn(template, template, 2, { a = big }) == #template }
+    "#;
+    let folder = plugin("fills_huge", &format!("return {{ run = function() {body} end }}"), json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert_eq!(t.call("run", vec![]).unwrap(), json!([true, 1 << 20, 1 << 20, true]));
+}
+
+#[test]
+fn a_plugin_cant_have_endless_events_of_its_own_waiting() {
+    let folder = plugin("emitter", r#"
+        return { run = function()
+            local sent = 0
+            while pcall(host.emit, "emitter.ping", { n = sent }) do sent = sent + 1 end
+            return sent
+        end }
+    "#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    let first = t.call("run", vec![]).unwrap().as_u64().unwrap();
+    assert!((100..100_000).contains(&first), "{first}");
+    assert_eq!(t.call("run", vec![]).unwrap(), json!(0), "nothing is delivered, so nothing more can be sent");
+    for _ in 0..5 {
+        t.event(Event::Custom { name: "emitter.ping".into(), data: json!({"n": 0}) });
+    }
+    assert_eq!(t.call("run", vec![]).unwrap(), json!(5), "each one delivered makes room for another");
+    t.event(Event::Custom { name: "other.ping".into(), data: json!(null) });
+    assert_eq!(t.call("run", vec![]).unwrap(), json!(0), "another plugin's event frees nothing");
 }

@@ -824,8 +824,13 @@ impl State {
                 log::error!("Plugin {name} failed again while shutting down");
             }
             ctx.release_everything();
-            self.slots[i].plugin = Some(plugin);
+            // An added plugin's script state (up to 64 MB of it) goes now. A built-in plugin stays, as what reads it after may expect it there
+            if !self.slots[i].info.added {
+                self.slots[i].plugin = Some(plugin);
+            }
         }
+        // Its banners would have buttons nobody hears
+        self.banners.clear_owned_by(&name);
         self.drop_shared(&name);
         // Whatever it asked for in the hook that failed is dropped with it (a photo it started is still followed to its end, so Photos hears it finish)
         let mine: Vec<String> = self.source_owners.iter().filter(|(_, o)| *o == name).map(|(id, _)| id.clone()).collect();
@@ -3078,6 +3083,39 @@ mod tests {
         s.deliver_events();
         assert!(s.frame_wants.is_empty(), "what it asked for is given back");
         assert!(!s.pipeline_steps(None).iter().any(|st| st.owner == "holder"));
+    }
+
+    #[test]
+    fn an_added_plugin_that_stops_loses_its_banners_and_its_state() {
+        struct Banner(bool);
+        impl Plugin for Banner {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "loud".into(), added: self.0, ..Default::default() }
+            }
+            fn setup(&mut self, host: &mut dyn telescope_core::Host) {
+                let issue = Issue { title: "Hi".into(), text: String::new(), actions: Vec::new(), kind: "info".into(), details: String::new(), tell_dismiss: false };
+                host.show_issue(&telescope_core::ui::added_issue_key("loud", "k"), issue);
+            }
+            fn on_event(&mut self, _h: &mut dyn telescope_core::Host, _e: &Event) {
+                panic!("no");
+            }
+        }
+        let key = telescope_core::ui::added_issue_key("loud", "k");
+        let mut s = state();
+        s.register(Box::new(Banner(true))).unwrap();
+        assert!(s.banners.issue(&key).is_some());
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events();
+        assert!(s.stopped().contains_key("loud"));
+        assert!(s.banners.issue(&key).is_none(), "its buttons would answer nobody");
+        assert!(s.slots[0].plugin.is_none(), "an added plugin's script state is dropped");
+        // A built-in plugin keeps its object, and a banner of the app's own is nobody's to clear
+        let mut s = state();
+        s.register(Box::new(Banner(false))).unwrap();
+        s.banners.show("plain", Issue { title: "Other".into(), text: String::new(), actions: Vec::new(), kind: "info".into(), details: String::new(), tell_dismiss: false });
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events();
+        assert!(s.slots[0].plugin.is_some() && s.banners.issue("plain").is_some());
     }
 
     thread_local! {

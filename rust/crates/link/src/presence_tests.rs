@@ -381,3 +381,16 @@ fn reconfiguration_keeps_log_state_but_new_credentials_clear_it() {
     engine.receive(&request("new-secret"), source(), local(), 125.0, nonce(5));
     assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:7483 (phone started the exchange)"]);
 }
+
+#[test]
+fn a_failure_queued_before_the_wake_callback_still_wakes_and_survives_a_reset() {
+    let presence = Presence { controls: Arc::new(Controls::default()) };
+    *presence.controls.failure.lock().unwrap() = Some("no poller".into());
+    event(&presence.controls, PresenceEvent::Degraded("no poller".into()), 0);
+    let woke = Arc::new(AtomicU64::new(0));
+    let counter = woke.clone();
+    presence.set_wake(Some(Arc::new(move || { counter.fetch_add(1, Ordering::Relaxed); })));
+    assert_eq!(woke.load(Ordering::Relaxed), 1);
+    presence.configure("desktop".into(), "3.6.0".into(), vec![phone("secret")]);
+    assert!(matches!(presence.take_events().as_slice(), [PresenceEvent::Degraded(why)] if why == "no poller"));
+}
