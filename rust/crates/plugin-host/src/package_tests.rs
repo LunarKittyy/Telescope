@@ -267,6 +267,19 @@ fn a_plugins_own_modules_load_and_nothing_else_does() {
 }
 
 #[test]
+fn a_module_loaded_late_is_the_one_the_plugin_started_with() {
+    let p = plugins();
+    let folder = plugin(&p.folder, "late", "return { value = function() return require('lib.helper').VALUE end }\n", json!({}));
+    fs::create_dir(folder.join("lib")).unwrap();
+    fs::write(folder.join("lib/helper.lua"), "return { VALUE = 1 }\n").unwrap();
+    p.set_enabled(&one(&p), true).unwrap();
+    let running = crate::load::load(&one(&p), "en").unwrap();
+    // A newer version of the plugin is unpacked over the folder while this one runs
+    fs::write(folder.join("lib/helper.lua"), "return { VALUE = 2 }\n").unwrap();
+    assert_eq!(running.call(None, "value", vec![]).unwrap(), json!(1));
+}
+
+#[test]
 fn a_plugin_that_raises_on_load_is_reported_not_raised() {
     let p = plugins();
     plugin(&p.folder, "thing", "error('broken on purpose')\n", json!({}));
@@ -379,6 +392,29 @@ fn a_zip_that_could_write_elsewhere_is_refused() {
         }
         assert!(listing(&p.folder).is_empty() && !scratch(&p).join("evil.lua").exists());
     }
+}
+
+#[test]
+fn a_zip_with_names_windows_would_merge_is_refused() {
+    let cases: &[&[(&str, &[u8])]] = &[
+        &[("black_and_white/Icon.png", b"a"), ("black_and_white/icon.png", b"b")],
+        &[("black_and_white/img/a.png", b"a"), ("black_and_white/IMG/a.png", b"b")],
+        &[("black_and_white/a.wgsl", b"a"), ("black_and_white/a.wgsl.", b"b")],
+        &[("black_and_white/Data", b"a"), ("black_and_white/data/x.txt", b"b")],
+    ];
+    for files in cases {
+        let p = plugins();
+        let owned: Vec<(&str, Vec<u8>)> = files.iter().map(|(n, d)| (*n, d.to_vec())).collect();
+        let archive = write_zip(&scratch(&p).join("clash.zip"), &owned, &[]);
+        match p.install_zip(&archive, false) {
+            Err(InstallError::Invalid(why)) => assert!(why.contains("capital letters"), "{files:?}: {why}"),
+            other => panic!("{files:?}: {other:?}"),
+        }
+        assert!(listing(&p.folder).is_empty(), "{files:?}");
+    }
+    let p = plugins();
+    let archive = zip_of(&scratch(&p).join("fine.zip"), &example_files("black_and_white/"));
+    assert!(p.install_zip(&archive, false).is_ok(), "names that differ in more than capitals are fine");
 }
 
 #[test]

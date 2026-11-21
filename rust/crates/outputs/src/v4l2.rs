@@ -95,11 +95,20 @@ pub fn find_by_label(label: &str) -> Option<String> {
     find_by_label_in(SYSFS, label)
 }
 
+/// The usual node of the main camera unless another app's loopback holds it (an unreadable name doesn't count against).
+pub fn phone_dev_in(sysfs: &str) -> Option<String> {
+    let node = std::path::Path::new(PHONE_DEV).file_name()?.to_string_lossy().to_string();
+    match std::fs::read_to_string(format!("{sysfs}/{node}/name")) {
+        Ok(name) if !crate::linux_setup::slot_labels(0).iter().any(|l| *l == name.trim()) => None,
+        _ => Some(PHONE_DEV.into()),
+    }
+}
+
 /// slot's /dev/video node, or None if it isn't set up (vcam.slot_device). The extra ones took whatever number was
 /// free, so they're found by their label, the current one first and then the one older setups still have.
 pub fn slot_device_in(sysfs: &str, slot: u32) -> Option<String> {
     if slot == 0 {
-        return Some(PHONE_DEV.into());
+        return phone_dev_in(sysfs).or_else(|| crate::linux_setup::slot_labels(0).iter().find_map(|label| find_by_label_in(sysfs, label)));
     }
     crate::linux_setup::slot_labels(slot).iter().find_map(|label| find_by_label_in(sysfs, label))
 }
@@ -233,6 +242,16 @@ mod tests {
         assert!(why.contains("Telescope #2"), "{why}");
         assert_eq!(slot_label(0), "Telescope");
         assert_eq!(slot_label(3), "Telescope #4");
+    }
+
+    #[test]
+    fn the_main_camera_is_not_another_apps_loopback() {
+        let foreign = sysfs(&[("video11", "Elgato Virtual Camera", "")]);
+        assert_eq!(slot_device_in(&foreign.to_string_lossy(), 0), None);
+        let moved = sysfs(&[("video11", "Other", ""), ("video30", "Telescope", "")]);
+        assert_eq!(slot_device_in(&moved.to_string_lossy(), 0).as_deref(), Some("/dev/video30"));
+        let old = sysfs(&[("video11", "Phone Camera", "")]);
+        assert_eq!(slot_device_in(&old.to_string_lossy(), 0).as_deref(), Some(PHONE_DEV));
     }
 
     #[test]

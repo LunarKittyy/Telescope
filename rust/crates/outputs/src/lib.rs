@@ -113,11 +113,8 @@ impl VirtualCameras {
             if let Some(d) = &self.device {
                 return Some(d.clone());
             }
-            if std::path::Path::new(v4l2::PHONE_DEV).exists() {
-                return Some(v4l2::PHONE_DEV.into());
-            }
-            // Set up by hand, or by the prototype, under its label (the old one on a setup from before the rename)
-            return linux_setup::slot_labels(0).iter().find_map(|label| v4l2::find_by_label(label));
+            // The usual node unless another app's loopback holds it, else found under its label
+            return v4l2::slot_device_in(v4l2::SYSFS, 0).filter(|d| std::path::Path::new(d).exists());
         }
         v4l2::slot_device_in(v4l2::SYSFS, slot)
     }
@@ -143,14 +140,14 @@ fn open_node(device: Option<String>, slot: u32, width: u32, height: u32, fps: u3
 #[cfg(windows)]
 fn open_slot(_cams: &VirtualCameras, slot: u32, width: u32, height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
     let shared = || Box::new(move || mf::open_shared(slot)) as mf::Opener;
-    open_windows(Arc::new(wincam::System), slot, width, height, shared, |num| Box::new(unitycapture::Shared::new(num)))
+    open_windows(Arc::new(wincam::System), &wininstall::unitycapture_dir(), slot, width, height, shared, |num| Box::new(unitycapture::Shared::new(num)))
 }
 
 /// Windows: slot's camera, the Windows 11 one where it's set up, else UnityCapture. Either kind counts as outdated once
 /// the slot goes to the other (vcam.camera_changed). shared reaches the former's memory, filter the latter's number.
 #[cfg(any(windows, test))]
 fn open_windows(
-    reg: Arc<dyn wincam::Registry>, slot: u32, width: u32, height: u32, shared: impl FnOnce() -> mf::Opener,
+    reg: Arc<dyn wincam::Registry>, uc_dir: &std::path::Path, slot: u32, width: u32, height: u32, shared: impl FnOnce() -> mf::Opener,
     filter: impl FnOnce(u32) -> Box<dyn unitycapture::Target>,
 ) -> Result<Box<dyn VideoOutput>, String> {
     let label = wincam::slot_label(slot);
@@ -162,10 +159,11 @@ fn open_windows(
         return Ok(Box::new(mf::MfCamera::new(width, height, label, shared(), Box::new(to_mf))));
     }
     let names = wincam::uc_names(reg.as_ref());
+    let ours = || names.iter().find(|(num, _)| wincam::uc_is_ours(reg.as_ref(), *num, uc_dir)).map(|(num, _)| *num);
     let num = match names.iter().find(|(_, n)| *n == label) {
         Some((num, _)) => *num,
-        // Registered before it was named Telescope ("Unity Video Capture"): any one will do for the main camera
-        None if slot == 0 && !names.is_empty() => names[0].0,
+        // Registered before it was named Telescope: the main camera takes Telescope's own filter, never another app's
+        None if slot == 0 => ours().ok_or_else(|| format!("{label} isn't set up"))?,
         None => return Err(format!("{label} isn't set up")),
     };
     Ok(Box::new(unitycapture::UcCamera::new(width, height, label, filter(num), Box::new(to_mf))))
@@ -240,8 +238,17 @@ impl Outputs for VirtualCameras {
     }
 
     fn watch(&self, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn telescope_core::output::Held>> {
+        self.watch_slot(0, on_change)
+    }
+
+    fn watch_slot(&self, slot: u32, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn telescope_core::output::Held>> {
         #[cfg(target_os = "linux")]
-        let device = self.node(0).unwrap_or_else(|| v4l2::PHONE_DEV.into());
+        let device = match self.node(slot) {
+            Some(device) => device,
+            None if slot == 0 => v4l2::PHONE_DEV.into(),
+            // An extra camera that isn't set up has nothing to watch
+            None => return None,
+        };
         #[cfg(not(target_os = "linux"))]
         let device = String::new();
         let holder_device = device.clone();
@@ -254,24 +261,29 @@ impl Outputs for VirtualCameras {
             #[cfg(not(target_os = "linux"))]
             holders: Arc::new(move || { let _ = &holder_device; Vec::new() }),
             #[cfg(windows)]
-            use_mf: Arc::new(|| wincam::use_mf(&wincam::System, 0)),
+            use_mf: Arc::new(move || wincam::use_mf(&wincam::System, slot)),
             #[cfg(not(windows))]
             use_mf: Arc::new(|| false),
             #[cfg(windows)]
-            mf_open: Arc::new(|| mf::open_shared(0)),
+            mf_open: Arc::new(move || mf::open_shared(slot)),
             #[cfg(not(windows))]
             mf_open: Arc::new(|| None),
             mf_period: MF_WATCH_PERIOD,
             linger: mf::WATCH_LINGER,
             #[cfg(windows)]
-            uc_want: Arc::new(|| {
+            uc_want: Arc::new(move || {
+                // Only the main camera has a UnityCapture filter to listen to
+                if slot != 0 {
+                    return None;
+                }
                 let num = wincam::uc_number(&wincam::System, wincam::UC_NAME);
                 let event = win::open_event(&wincam::uc_object_name("Want", num), win::SYNCHRONIZE)?;
                 Some(Box::new(watch::WinWant(event)) as Box<dyn watch::WantEvent>)
             }),
             #[cfg(not(windows))]
             uc_want: Arc::new(|| None),
-            reliable: self.watch_reliable.clone(),
+            // What the main camera's watch can vouch for is what the stream's idle stop goes by: an extra camera's is its own
+            reliable: if slot == 0 { self.watch_reliable.clone() } else { Arc::default() },
         };
         let watcher = watch::Watcher::new(on_change, deps);
         Some(Box::new(watch::CameraWatch(held::Held::new(watcher, gate()))))
@@ -490,7 +502,7 @@ mod tests {
     fn windows_camera(reg: &Arc<FakeRegistry>, slot: u32, shared: &MfMemory, closed: &Arc<AtomicBool>) -> Box<dyn VideoOutput> {
         let closed = closed.clone();
         let reg: Arc<dyn wincam::Registry> = reg.clone();
-        open_windows(reg, slot, 8, 4, || shared.opener(), |_num| Box::new(NoFilter(closed))).ok().unwrap()
+        open_windows(reg, std::path::Path::new(""), slot, 8, 4, || shared.opener(), |_num| Box::new(NoFilter(closed))).ok().unwrap()
     }
 
     // test_vcam.py::test_windows_opens_the_windows_11_camera_where_it_is_set_up
@@ -508,11 +520,13 @@ mod tests {
         assert_eq!(wincam::filter_probe_for(&FakeRegistry::uc(&[(0, "Telescope")]), 0), Some(wincam::FilterProbe::Image));
     }
 
+    const UC_DIR: &str = r"C:\app\unitycapture";
+
     /// open_windows on UnityCapture, with the camera number it picked.
     fn opened_number(reg: FakeRegistry, slot: u32) -> Result<(u32, String), String> {
         let (number, picked) = (Arc::new(Mutex::new(None)), Arc::default());
         let (shared, seen) = (MfMemory::new(None), number.clone());
-        let cam = open_windows(Arc::new(reg), slot, 8, 4, || shared.opener(), move |num| {
+        let cam = open_windows(Arc::new(reg), std::path::Path::new(UC_DIR), slot, 8, 4, || shared.opener(), move |num| {
             *seen.lock().unwrap() = Some(num);
             Box::new(NoFilter(picked))
         })?;
@@ -523,7 +537,11 @@ mod tests {
     #[test]
     fn windows_opens_the_camera_named_telescope_or_any_older_registration() {
         assert_eq!(opened_number(FakeRegistry::uc(&[(0, "OBS"), (3, "Telescope")]), 0), Ok((3, "Telescope".to_string())));
-        assert_eq!(opened_number(FakeRegistry::uc(&[(2, "Unity Video Capture"), (5, "Other")]), 0), Ok((2, "Telescope".to_string())), "registered before it had the name");
+        let legacy = FakeRegistry::uc(&[(2, "Unity Video Capture"), (5, "Other")]).with_uc_dll(2, &std::path::Path::new(UC_DIR).join(wincam::UC_DLL_64));
+        assert_eq!(opened_number(legacy, 0), Ok((2, "Telescope".to_string())), "registered before it had the name");
+        let theirs = FakeRegistry::uc(&[(0, "Unity Video Capture")]).with_uc_dll(0, std::path::Path::new(r"C:\Other\UnityCaptureFilter64.dll"));
+        assert_eq!(opened_number(theirs, 0), Err("Telescope isn't set up".to_string()), "another app's filter is not ours");
+        assert!(opened_number(FakeRegistry::uc(&[(0, "Unity Video Capture")]), 0).is_err(), "an unverified one is not ours either");
         assert!(opened_number(FakeRegistry::uc(&[]), 0).is_err());
     }
 

@@ -13,6 +13,11 @@ pub struct Log {
     pub resized: Mutex<Vec<(u32, u32)>>,
     pub panic_open: AtomicBool,
     pub no_reader: AtomicBool,
+    pub resize_busy: AtomicBool,
+    /// While set, opening a sender waits.
+    pub hold_open: AtomicBool,
+    /// How many times a sender was asked for.
+    pub open_asked: AtomicUsize,
 }
 
 pub struct Mock(pub Arc<Log>);
@@ -27,6 +32,10 @@ impl Backend for Mock {
         if self.0.fail_open.load(Ordering::SeqCst) {
             return Err("no room".into());
         }
+        self.0.open_asked.fetch_add(1, Ordering::SeqCst);
+        while self.0.hold_open.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
         self.0.opened.lock().unwrap().push((name.to_string(), width, height));
         Ok(Box::new(MockSender(self.0.clone())))
     }
@@ -37,11 +46,14 @@ impl Sender for MockSender {
         !self.0.no_reader.load(Ordering::SeqCst)
     }
 
-    fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
+    fn resize(&mut self, width: u32, height: u32) -> Result<Resized, String> {
+        if self.0.resize_busy.load(Ordering::SeqCst) {
+            return Ok(Resized::Busy);
+        }
         if self.0.resizable.load(Ordering::SeqCst) {
             self.0.resized.lock().unwrap().push((width, height));
         }
-        Ok(self.0.resizable.load(Ordering::SeqCst))
+        Ok(if self.0.resizable.load(Ordering::SeqCst) { Resized::Yes } else { Resized::Remake })
     }
 
     fn send(&mut self, bgra: &[u8]) -> Result<(), String> {
@@ -191,4 +203,54 @@ fn a_thread_that_panics_is_no_longer_alive() {
     let (worker, _) = spawn(&log, Duration::from_secs(5));
     worker.put(picture(2, 2, 1));
     wait_for("the thread to end", || !worker.alive());
+}
+
+#[test]
+fn a_picture_taken_before_sharing_was_switched_off_is_not_sent_when_the_open_finishes_late() {
+    let log = Arc::new(Log::default());
+    log.hold_open.store(true, Ordering::SeqCst);
+    let (worker, _) = spawn(&log, Duration::from_secs(5));
+    worker.put(picture(2, 2, 1));
+    wait_for("the sender to be asked for", || log.open_asked.load(Ordering::SeqCst) == 1);
+    // Stop doesn't wait for a sender that is still opening for longer than this
+    drop(worker);
+    log.hold_open.store(false, Ordering::SeqCst);
+    wait_for("the late sender to be let go", || log.opened.lock().unwrap().len() == 1 && log.closed.load(Ordering::SeqCst) == 1);
+    assert!(log.sent.lock().unwrap().is_empty(), "a picture went out after Stop");
+}
+
+#[test]
+fn a_reader_that_holds_the_sender_while_it_changes_size_does_not_cost_the_sender() {
+    let log = Arc::new(Log::default());
+    log.resizable.store(true, Ordering::SeqCst);
+    let (worker, _) = spawn(&log, Duration::from_secs(5));
+    worker.put(picture(2, 2, 1));
+    wait_for("the first", || log.sent.lock().unwrap().len() == 1);
+    log.resize_busy.store(true, Ordering::SeqCst);
+    worker.put(picture(4, 2, 2));
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(log.closed.load(Ordering::SeqCst), 0, "the sender was taken down for a busy reader");
+    assert_eq!(log.opened.lock().unwrap().len(), 1);
+    assert_eq!(log.sent.lock().unwrap().len(), 1, "nothing of the wrong size goes out");
+    log.resize_busy.store(false, Ordering::SeqCst);
+    wait_for("the picture after the reader let go", || log.sent.lock().unwrap().len() == 2);
+    assert_eq!(*log.resized.lock().unwrap(), [(4, 2)]);
+    assert_eq!(log.opened.lock().unwrap().len(), 1, "no new sender");
+    assert_eq!(log.sent.lock().unwrap()[1].len(), 4 * 2 * 4);
+}
+
+#[test]
+fn a_picture_that_waits_for_a_busy_reader_gives_way_to_a_newer_one() {
+    let log = Arc::new(Log::default());
+    log.resizable.store(true, Ordering::SeqCst);
+    let (worker, _) = spawn(&log, Duration::from_secs(5));
+    worker.put(picture(2, 2, 1));
+    wait_for("the first", || log.sent.lock().unwrap().len() == 1);
+    log.resize_busy.store(true, Ordering::SeqCst);
+    worker.put(picture(4, 2, 2));
+    std::thread::sleep(Duration::from_millis(50));
+    worker.put(picture(4, 2, 9));
+    log.resize_busy.store(false, Ordering::SeqCst);
+    wait_for("the newest", || log.sent.lock().unwrap().len() >= 2);
+    assert_eq!(log.sent.lock().unwrap()[1][0], 9, "the picture that was waiting went out over a newer one");
 }

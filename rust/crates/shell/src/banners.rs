@@ -105,6 +105,11 @@ impl Banners {
         }
     }
 
+    /// Removes every banner an added plugin showed (its keys carry its name).
+    pub fn clear_owned_by(&mut self, plugin: &str) {
+        self.shown.retain(|(k, _)| telescope_core::ui::issue_owner(k).is_none_or(|(owner, _)| owner != plugin));
+    }
+
     pub fn issue(&self, key: &str) -> Option<&Issue> {
         self.shown.iter().find(|(k, _)| k == key).map(|(_, i)| i)
     }

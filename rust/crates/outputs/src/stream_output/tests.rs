@@ -463,6 +463,17 @@ fn another_phone_does_not_keep_this_one_s_sizes() {
 }
 
 #[test]
+fn another_idle_phone_on_the_same_lens_id_gets_its_sizes() {
+    let (mut p, mut host) = phone_a();
+    p.on_phone_state(&mut host, &on_lens(&TWO_SIZES, 4096, 3072));
+    p.on_event(&mut host, &Event::DeviceChanged { source_id: "other phone".into() });
+    assert_eq!(p.sizes.current_text(), "-");
+    p.on_phone_state(&mut host, &on_lens(&TWO_SIZES, 4096, 3072));
+    assert_ne!(p.sizes.current_text(), "-");
+    assert_eq!(p.props()["res-enabled"], true);
+}
+
+#[test]
 fn a_preset_applied_while_stopped_is_what_the_next_start_opens_at() {
     let (mut p, mut host) = phone_a();
     p.set_config(&json!({"resolution": "4096 × 3072"})).unwrap();

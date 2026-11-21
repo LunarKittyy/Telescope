@@ -29,8 +29,50 @@ fn orientation_entry(value: u16, le: bool) -> Vec<u8> {
     [short(0x0112).as_slice(), &short(3), &count, &short(value), &[0, 0]].concat()
 }
 
+/// Whether an IFD, its entries and everything they point to lie before `limit`, following the pointers to the EXIF, GPS and interoperability IFDs
+fn ends_before(tiff: &[u8], le: bool, ifd: usize, limit: usize, depth: u8) -> Option<bool> {
+    let count = usize::from(read16(tiff, ifd, le)?);
+    let entries_end = ifd.checked_add(2)?.checked_add(count * 12)?;
+    if entries_end.checked_add(4)? > limit { return Some(false); }
+    for index in 0..count {
+        let at = ifd + 2 + index * 12;
+        let (tag, kind, n) = (read16(tiff, at, le)?, read16(tiff, at + 2, le)?, usize::try_from(read32(tiff, at + 4, le)?).ok()?);
+        let size = n.checked_mul(match kind { 1 | 2 | 6 | 7 => 1, 3 | 8 => 2, 4 | 9 | 11 | 13 => 4, 5 | 10 | 12 => 8, _ => return None })?;
+        if size > 4 {
+            let offset = usize::try_from(read32(tiff, at + 8, le)?).ok()?;
+            if offset.checked_add(size)? > limit { return Some(false); }
+        }
+        if matches!(tag, 0x8769 | 0x8825 | 0xa005) {
+            if depth == 0 { return None; }
+            let sub = usize::try_from(read32(tiff, at + 8, le)?).ok()?;
+            if !ends_before(tiff, le, sub, limit, depth - 1)? { return Some(false); }
+        }
+    }
+    Some(true)
+}
+
+/// Where the thumbnail's IFD starts, if that and the thumbnail are the very end of the TIFF data and nothing else in it points there, so cutting the data off at that point loses nothing the file still uses
+fn thumbnail_start(tiff: &[u8], le: bool, ifd: usize, entries_end: usize) -> Option<usize> {
+    let next = usize::try_from(read32(tiff, entries_end, le)?).ok()?;
+    if next == 0 { return None; }
+    let count = usize::from(read16(tiff, next, le)?);
+    let (mut offset, mut length) = (None, None);
+    for index in 0..count {
+        let at = next.checked_add(2 + index * 12)?;
+        match read16(tiff, at, le)? {
+            0x0201 => offset = usize::try_from(read32(tiff, at + 8, le)?).ok(),
+            0x0202 => length = usize::try_from(read32(tiff, at + 8, le)?).ok(),
+            _ => {}
+        }
+    }
+    let ifd_end = next.checked_add(2 + count * 12 + 4)?;
+    let (offset, length) = (offset?, length?);
+    if offset < ifd_end || offset.checked_add(length)? < tiff.len().saturating_sub(1) || offset + length > tiff.len() { return None; }
+    ends_before(tiff, le, ifd, next, 2)?.then_some(next)
+}
+
 /// The TIFF data with a new first IFD behind it that has everything the old one had plus the orientation. Nothing before it moves, so every offset in the old data stays right. The old IFD stays as unused bytes, and the new one links to no thumbnail.
-fn extended_tiff(tiff: &[u8], value: u16) -> Option<Vec<u8>> {
+fn extended_tiff(tiff: &[u8], value: u16, trim: bool) -> Option<Vec<u8>> {
     let le = little_endian(tiff)?;
     let ifd = usize::try_from(read32(tiff, 4, le)?).ok()?;
     let count = usize::from(read16(tiff, ifd, le)?);
@@ -42,6 +84,7 @@ fn extended_tiff(tiff: &[u8], value: u16) -> Option<Vec<u8>> {
     if tags.contains(&0x0112) { return None; }
     let place = tags.iter().position(|tag| *tag > 0x0112).unwrap_or(count);
     let mut out = tiff.to_vec();
+    if trim { out.truncate(thumbnail_start(tiff, le, ifd, entries_end)?); }
     if out.len() % 2 == 1 { out.push(0); }
     let new_ifd = u32::try_from(out.len()).ok()?;
     let new_count = u16::try_from(count + 1).ok()?;
@@ -107,20 +150,20 @@ fn check_pictures(data: &[u8], mpf: &Mpf) -> Option<()> {
     Some(())
 }
 
-/// Fixes the list after `delta` bytes were added to the first picture's headers where `grew_at` was. The first picture is that much bigger. The other pictures all moved by `delta`, and so did the list if it comes after `grew_at`: then their offsets from it are the same, and if it comes before, they are `delta` further away.
-fn fix_mpf(out: &mut [u8], mpf: &Mpf, delta: usize, grew_at: usize) -> Option<()> {
-    let delta = u32::try_from(delta).ok()?;
+/// Fixes the list after `delta` bytes were added (or taken away, if negative) in the first picture's headers where `grew_at` was. The first picture is that much bigger. The other pictures all moved by `delta`, and so did the list if it comes after `grew_at`: then their offsets from it are the same, and if it comes before, they are `delta` further away.
+fn fix_mpf(out: &mut [u8], mpf: &Mpf, delta: i64, grew_at: usize) -> Option<()> {
+    let moved = |value: usize| usize::try_from(i64::try_from(value).ok()?.checked_add(delta)?).ok();
+    let grown = |value: u32| u32::try_from(i64::from(value).checked_add(delta)?).ok();
     let list_moved = grew_at <= mpf.tiff;
-    let shift = if list_moved { delta as usize } else { 0 };
-    let (tiff, entries) = (mpf.tiff + shift, mpf.entries + shift);
+    let (tiff, entries) = if list_moved { (moved(mpf.tiff)?, moved(mpf.entries)?) } else { (mpf.tiff, mpf.entries) };
     for index in 0..mpf.count {
         let at = entries + index * 16;
         let size = read32(out, at + 4, mpf.le)?;
         let offset = read32(out, at + 8, mpf.le)?;
         if index == 0 {
-            if size != 0 { write32(out, at + 4, size.checked_add(delta)?, mpf.le); }
+            if size != 0 { write32(out, at + 4, grown(size)?, mpf.le); }
         } else if offset != 0 {
-            let offset = if list_moved { offset } else { offset.checked_add(delta)? };
+            let offset = if list_moved { offset } else { grown(offset)? };
             write32(out, at + 8, offset, mpf.le);
             if !out.get(tiff.checked_add(usize::try_from(offset).ok()?)?..)?.starts_with(&[0xff, 0xd8, 0xff]) { return None; }
         }
@@ -136,7 +179,13 @@ pub fn add_orientation(data: &[u8], value: u16) -> Result<Vec<u8>, String> {
     let no_room = || "The photo's EXIF data has no room for an orientation tag".to_string();
     // The bytes from `from` up to `to` are replaced by `segment`
     let (from, to, segment) = match segments.iter().find(|(marker, start, end)| *marker == 0xe1 && data[*start..*end].starts_with(b"Exif\0\0")) {
-        Some(&(_, start, end)) => (start - 4, end, extended_tiff(&data[start + 6..end], value).and_then(|tiff| exif_segment(&tiff)).ok_or_else(no_room)?),
+        Some(&(_, start, end)) => (start - 4, end, {
+            let old = &data[start + 6..end];
+            // Cutting the thumbnail off is the fallback when keeping its bytes would not fit
+            extended_tiff(old, value, false).and_then(|tiff| exif_segment(&tiff))
+                .or_else(|| extended_tiff(old, value, true).and_then(|tiff| exif_segment(&tiff)))
+                .ok_or_else(no_room)?
+        }),
         None => {
             let mut at = 2;
             for &(marker, start, end) in &segments {
@@ -147,7 +196,7 @@ pub fn add_orientation(data: &[u8], value: u16) -> Result<Vec<u8>, String> {
         }
     };
     let mut out = [&data[..from], &segment, &data[to..]].concat();
-    let delta = out.len() - data.len();
+    let delta = out.len() as i64 - data.len() as i64;
     if let Some(mpf) = &mpf { fix_mpf(&mut out, mpf, delta, to).ok_or(UNFOLLOWABLE)?; }
     let read_back = super::exif_places(&out).into_iter().find_map(|(start, end)| super::patch_orientation(&mut out[start..end].to_vec(), |v| v, false));
     if read_back != Some(value) { return Err(no_room()); }
