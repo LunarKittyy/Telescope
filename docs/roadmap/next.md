@@ -7,9 +7,10 @@ The next release follows 5.1.4. Ticked here means merged and not released yet. E
 - [ ] [Stills as raw YUV](#stills-as-raw-yuv)
 - [ ] [Hardware decoding on Windows without a trip through memory](#hardware-decoding-on-windows-without-a-trip-through-memory)
 - [ ] [Bug hunts, speed and a smaller app](#bug-hunts-speed-and-a-smaller-app)
+- [ ] [ARM64](#arm64)
 - [x] [Rearranging the docs](#rearranging-the-docs)
 - [x] [A page of setups to try](#a-page-of-setups-to-try)
-- [x] [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu)
+- [ ] [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu)
 - [x] [A graphics card choice in Settings](#a-graphics-card-choice-in-settings)
 - [x] [Fixes for people tracking and Composite](#fixes-for-people-tracking-and-composite)
 - [x] [One picture as a scene editor](#one-picture-as-a-scene-editor)
@@ -47,6 +48,16 @@ On Linux a VA-API picture goes to the effects on the card without a trip through
 
 Ongoing. Bug passes over the code and measured work on speed, system use and the size of the app, one change per pull request. Nothing here is a feature.
 
+One piece is the window's weight and start time, from measuring the finished app against Python. The interpreter no longer keeps the compiler's trees after a build and Settings is built the first time it opens (122 MB at start against 173 MB). Compiling the cards of hidden tabs only when they open would save more. For the start, compile ahead of time instead of at launch, overlap opening the cards with compiling them (40 to 80 ms) and reuse the Vulkan instance (24 ms).
+
+## ARM64
+
+A maybe. Every build is x86_64 only for now and ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope at all. Windows on ARM laptops would probably run the x64 build through Windows' own emulation. The virtual camera likely wouldn't work there because the Windows 11 camera runs in a native ARM64 system service that can't load the x64 DLL.
+
+Most of the desktop is plain Rust and Slint and should build for ARM as it is. v4l2loopback on Linux comes from the distro. The parts that need real work are an ARM64 build of the Windows camera DLL and ARM builds of the vision pack's libraries. Background, Auto framing and the other people features are off without the vision pack, the way `platform_key()` in `crates/vision/src/pack.rs` already handles it.
+
+The first step is to build the workspace and run the tests on GitHub's free ARM64 runners for Linux and Windows 11. That shows how much works as it is before deciding on the rest.
+
 ## Rearranging the docs
 
 The prose pass over `docs/` and the app's texts went out in 5.1.4. The files are now rearranged so each topic is where people would look for it. The feature docs were brought up to date after.
@@ -57,7 +68,13 @@ The prose pass over `docs/` and the app's texts went out in 5.1.4. The files are
 
 ## Doing the picture work on the GPU
 
-Background blur now runs on the graphics card (4K with everything on went from 5.5 to 2.4 ms for the blur) and a wasted pass in it is skipped. Spout capture is converted on the card too, the 1998 webcam costs much less and Green screen goes dark instead of showing the room when the card fails. Cinema's tints in the preview are painted on the card, which had been costing about 14 points of app CPU at 4K. On Linux VA-API pictures reach the steps on the card without a trip through memory. What's left is in [future.md](future.md#doing-the-picture-work-on-the-gpu).
+Background blur now runs on the graphics card (4K with everything on went from 5.5 to 2.4 ms for the blur) and a wasted pass in it is skipped. Spout capture is converted on the card too, the 1998 webcam costs much less and Green screen goes dark instead of showing the room when the card fails. Cinema's tints in the preview are painted on the card, which had been costing about 14 points of app CPU at 4K. On Linux VA-API pictures reach the steps on the card without a trip through memory. What's left is the steps still written for the CPU that change the picture partway through, like Background (apart from its blur), Chroma key, Privacy blur, the combined picture, Desk mode, the Fun pack, Name tag and the wait screen. Each one brings the frame down and makes the next shader send it up again. Turning the heaviest of them into shaders, or into steps that can run either way, would leave one trip up and one down, which is all the virtual camera needs. On Windows a decoded picture still comes down to memory first (see the Windows decoding item above).
+
+The card isn't always the faster place though. 5.0.2 and 5.0.3 moved mirroring, flipping, zoom and stretch back to the CPU, since they're cheap there and a card busy with a game or OBS held up every frame. A step is only worth moving to the card when it's heavy enough to make up for that.
+
+A view between two plugin shaders costs a trip down and back up. Making the view a step that can run either way would only help with one more rule: such a step goes to the card only when the frame is already up there. Right now the balancer picks the card or the CPU for every such step in a frame at once (colour grading is the other one). With the card picked, a lone view or grade sends the frame up only for itself.
+
+Measure first with the transfer counter (`crates/media/src/transfers.rs`). Run a heavy stack on a weak laptop and see where the time goes before moving anything. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first. Medium. Sharing one working frame and doing effects on the YUV planes were measured and dropped, see [dropped.md](dropped.md).
 
 ## A graphics card choice in Settings
 
