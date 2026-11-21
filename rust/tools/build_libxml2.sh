@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Builds libxml2 without ICU for the Linux package's bundled libgphoto2 (bundle_gphoto2.sh --libxml2). Ubuntu's own libxml2 links ICU, and
 # that drags libicuuc and libicudata (about 30 MB unpacked, 10 MB packed) into the download, for a library that reads a camera's small XML.
-# Same soname (libxml2.so.2) and symbols as the 2.9 that libgphoto2 was built against, so it's a drop-in. Not libxml2 2.14: that is libxml2.so.16.
+# Same soname (libxml2.so.2) as the 2.9 that libgphoto2 was built against, and a minimal build (tree, parser and output only, which is all ptp2 uses), so it's 400 KB instead of 1.4 MB.
+# bundle_gphoto2.sh checks that ptp2 finds every symbol it needs. Not libxml2 2.14: that is libxml2.so.16.
 # Usage: build_libxml2.sh PREFIX     (writes PREFIX/lib/libxml2.so.2; needs a C compiler, make, curl, xz-utils and zlib1g-dev)
 set -euo pipefail
 
@@ -15,9 +16,9 @@ curl -sSfL --retry 3 -o "$work/libxml2.tar.xz" "https://download.gnome.org/sourc
 echo "$sha256  $work/libxml2.tar.xz" | sha256sum -c --quiet -
 tar -xJf "$work/libxml2.tar.xz" -C "$work"
 cd "$work/libxml2-$version"
-./configure --prefix="$prefix" --disable-static --without-icu --without-python --without-lzma > "$work/configure.log" 2>&1 || { tail -n 30 "$work/configure.log" >&2; exit 1; }
+./configure --prefix="$prefix" --disable-static --with-minimum --with-tree --with-output --without-icu --without-python --without-lzma --without-zlib > "$work/configure.log" 2>&1 || { tail -n 30 "$work/configure.log" >&2; exit 1; }
 make -j"$(nproc)" > "$work/make.log" 2>&1 || { tail -n 30 "$work/make.log" >&2; exit 1; }
 make install > /dev/null
 strip --strip-unneeded "$prefix/lib/libxml2.so.$version"
 [ -f "$prefix/lib/libxml2.so.2" ] || { echo "libxml2.so.2 wasn't built" >&2; exit 1; }
-echo "libxml2 $version without ICU is in $prefix/lib"
+echo "libxml2 $version without ICU and extras is in $prefix/lib"

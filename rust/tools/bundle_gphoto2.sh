@@ -49,4 +49,9 @@ if ls "$dest" | grep -q '^libicu'; then
     echo "ICU is in the bundle: $(ls "$dest" | grep '^libicu' | tr '\n' ' ')(pass the folder build_libxml2.sh wrote)" >&2
     exit 1
 fi
+# The minimal libxml2 has fewer symbols than the system's: ptp2 must find every one it calls
+if [ -n "$xml2" ] && missing=$(ldd -r "$dest/camlibs/ptp2.so" 2>&1 | grep 'undefined symbol: xml'); then
+    echo "The bundled libxml2 lacks what ptp2 needs: $missing" >&2
+    exit 1
+fi
 echo "libgphoto2 is in $dest: $(ls "$dest" | tr '\n' ' ')"
