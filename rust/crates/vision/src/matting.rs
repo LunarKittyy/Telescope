@@ -7,7 +7,7 @@ use crate::ops::{model_input, Rgb};
 use crate::service::{Backend, Gray, LoadError, PoseModel, Segmenter, VisionError};
 use ort::environment::Environment;
 use ort::session::{builder::GraphOptimizationLevel, Session, SessionInputValue};
-use ort::value::{DynValue, Tensor};
+use ort::value::{DynValue, Tensor, TensorRef};
 use std::borrow::Cow;
 use std::path::Path;
 use std::sync::Arc;
@@ -107,7 +107,7 @@ impl Backend for Matting {
         if !has(&["src", "downsample_ratio"], inputs.clone()) || !has(&STATES, inputs) || !has(&["pha"], outputs.clone()) || !has(&STATES_OUT, outputs) {
             return Err(VisionError::new("ValueError", "the model isn't Robust Video Matting"));
         }
-        Ok(Box::new(Rvm { session, states: None, size: (0, 0) }))
+        Ok(Box::new(Rvm { session, states: None, size: (0, 0), planes: Vec::new() }))
     }
 
     fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
@@ -121,6 +121,30 @@ pub struct Rvm {
     /// None at the start and after a reset: the model gets zeros then.
     states: Option<[DynValue; 4]>,
     size: (usize, usize),
+    /// Reused NCHW float buffer so every run doesn't allocate ~2.7 MB.
+    planes: Vec<f32>,
+}
+
+telescope_core::avx2_too! {
+    pub(crate) fn pack_nchw(rgb: &[u8], planes: &mut [f32]) {
+        let n = rgb.len() / 3;
+        let (r, rest) = planes[..n * 3].split_at_mut(n);
+        let (g, b) = rest.split_at_mut(n);
+        const SCALE: f32 = 1.0 / 255.0;
+        for (i, p) in rgb.as_chunks::<3>().0.iter().enumerate() {
+            r[i] = p[0] as f32 * SCALE;
+            g[i] = p[1] as f32 * SCALE;
+            b[i] = p[2] as f32 * SCALE;
+        }
+    }
+}
+
+telescope_core::avx2_too! {
+    pub(crate) fn unpack_pha(pha: &[f32], out: &mut [u8]) {
+        for (o, &v) in out.iter_mut().zip(pha) {
+            *o = (v * 255.0 + 0.5).clamp(0.0, 255.0) as u8;
+        }
+    }
 }
 
 impl Rvm {
@@ -139,20 +163,15 @@ impl Segmenter for Rvm {
             self.size = (w, h);
         }
         let n = w * h;
-        let mut planes = vec![0f32; n * 3];
-        let (r, rest) = planes.split_at_mut(n);
-        let (g, b) = rest.split_at_mut(n);
-        for (i, p) in frame.data.as_chunks::<3>().0.iter().enumerate() {
-            r[i] = p[0] as f32 * (1.0 / 255.0);
-            g[i] = p[1] as f32 * (1.0 / 255.0);
-            b[i] = p[2] as f32 * (1.0 / 255.0);
-        }
+        self.planes.resize(n * 3, 0.0);
+        pack_nchw(&frame.data, &mut self.planes[..n * 3]);
         let states = match self.states.take() {
             Some(states) => states,
             None => Rvm::zeros()?,
         };
-        let src = Tensor::from_array(([1usize, 3, h, w], planes)).map_err(|e| failed("RuntimeError", e))?;
-        let ratio = Tensor::from_array(([1usize], vec![downsample_ratio(w, h)])).map_err(|e| failed("RuntimeError", e))?;
+        let ratio_buf = [downsample_ratio(w, h)];
+        let src = TensorRef::from_array_view(([1usize, 3, h, w], &self.planes[..n * 3])).map_err(|e| failed("RuntimeError", e))?;
+        let ratio = TensorRef::from_array_view(([1usize], &ratio_buf[..])).map_err(|e| failed("RuntimeError", e))?;
         let mut inputs: Vec<(Cow<str>, SessionInputValue)> = vec![("src".into(), src.into()), ("downsample_ratio".into(), ratio.into())];
         for (name, state) in STATES.iter().zip(states) {
             inputs.push(((*name).into(), state.into()));
@@ -164,7 +183,9 @@ impl Segmenter for Rvm {
             if shape.len() != 4 || shape[2] as usize != h || shape[3] as usize != w || pha.len() != n {
                 return Err(VisionError::new("ValueError", "the model's mask isn't the size of its picture"));
             }
-            Gray { w, h, data: pha.iter().map(|v| (v * 255.0).round().clamp(0.0, 255.0) as u8).collect() }
+            let mut data = vec![0u8; n];
+            unpack_pha(pha, &mut data);
+            Gray { w, h, data }
         };
         let mut next = Vec::with_capacity(4);
         for name in STATES_OUT {

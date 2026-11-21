@@ -661,3 +661,135 @@ fn masks_of_the_same_frame_keep_the_cutout_while_the_crop_is_a_guess() {
     let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, seq: 8 };
     assert_eq!(*preferred_mask(Some(hq), Some(normal), true).unwrap().mask, [2]);
 }
+
+#[test]
+fn still_and_power_saving_masks_skip_colour_decode() {
+    use std::sync::atomic::AtomicUsize;
+    let (handed, ran): (Arc<Mutex<Vec<(usize, usize)>>>, Arc<Mutex<Vec<(usize, usize)>>>) = Default::default();
+    let cutout = Arc::new(SeenCutout(handed.clone(), ran.clone()));
+    let (h, _bus, _normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let h = h.with_cutout(Box::new(move || Ok(cutout.clone() as Arc<dyn Backend>)), None, scratch_dir("still-skip-rgb"), PackInfo::default());
+    h.vision().wait_for_masks();
+    h.load();
+    wait(|| h.state() == READY);
+    let base = yuv_frame(640, 360);
+    // Load the cutout backend and run one initial frame
+    let first = {
+        let mut f = base.clone();
+        f.number = 1;
+        wait(|| h.person_mask_hq("a", &f, 160, 90, 0).is_some() && !ran.lock().unwrap().is_empty());
+        handed.lock().unwrap().len()
+    };
+    let pic_calls = Arc::new(AtomicUsize::new(0));
+    let look_calls = Arc::new(AtomicUsize::new(0));
+    let view = MaskView { geometry: Some(Default::default()), ..MaskView::default() };
+    for seq in 2..=6u64 {
+        let (f1, f2, pc, lc) = (base.clone(), base.clone(), pic_calls.clone(), look_calls.clone());
+        let mask = h.vision().newest_cutout_snapshot_with_look(
+            "a", seq, 160, 90,
+            Some(Box::new(move || { lc.fetch_add(1, Ordering::Relaxed); people_look(&f1) })),
+            Box::new(move || { pc.fetch_add(1, Ordering::Relaxed); cutout_rgb(&f2) }),
+            0, view,
+        );
+        assert!(mask.is_some());
+    }
+    assert_eq!(handed.lock().unwrap().len(), first, "still frames did not call segmenter input");
+    assert_eq!(pic_calls.load(Ordering::Relaxed), 0, "still frames skipped colour picture decode");
+    assert_eq!(look_calls.load(Ordering::Relaxed), 5, "each still frame probed only the small grey thumb");
+    h.set_power_saving(true);
+    let moving = scene(640, 360, 0, 200);
+    let (f1, f2, pc, lc) = (moving.clone(), moving, pic_calls.clone(), look_calls.clone());
+    let mask = h.vision().newest_cutout_snapshot_with_look(
+        "a", 7, 160, 90,
+        Some(Box::new(move || { lc.fetch_add(1, Ordering::Relaxed); people_look(&f1) })),
+        Box::new(move || { pc.fetch_add(1, Ordering::Relaxed); cutout_rgb(&f2) }),
+        0, view,
+    );
+    assert!(mask.is_some());
+    assert_eq!(pic_calls.load(Ordering::Relaxed), 0, "power saving skipped colour decode even on movement");
+    assert_eq!(look_calls.load(Ordering::Relaxed), 6, "power saving still probed the grey thumb");
+    h.shutdown();
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_still_mask() {
+    let (handed, ran): (Arc<Mutex<Vec<(usize, usize)>>>, Arc<Mutex<Vec<(usize, usize)>>>) = Default::default();
+    let cutout = Arc::new(SeenCutout(handed.clone(), ran.clone()));
+    let (h, _bus, _normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let h = h.with_cutout(Box::new(move || Ok(cutout.clone() as Arc<dyn Backend>)), None, scratch_dir("bench-still-mask"), PackInfo::default());
+    h.vision().wait_for_masks();
+    h.load();
+    wait(|| h.state() == READY);
+    let mut base = yuv_frame(1920, 1080);
+    base.number = 1;
+    // Load the cutout backend synchronously first
+    wait(|| h.person_mask_hq("a", &base, 480, 270, 0).is_some() && !ran.lock().unwrap().is_empty());
+    let mut seq = 10u64;
+    for run in 0..3 {
+        let mut frame = base.clone();
+        // Prime one fresh frame so the next 60 are within CUTOUT_STILL_EVERY_S
+        seq += 1;
+        frame.number = seq;
+        let _ = h.person_mask_hq("a", &frame, 480, 270, 0);
+        let ran_before = ran.lock().unwrap().len();
+        let start = std::time::Instant::now();
+        for _ in 0..60 {
+            seq += 1;
+            frame.number = seq;
+            std::hint::black_box(h.person_mask_hq("a", &frame, 480, 270, 0));
+        }
+        let ms = start.elapsed().as_secs_f64() * 1000.0 / 60.0;
+        let ran_after = ran.lock().unwrap().len();
+        eprintln!("still_mask 1080p run {run}: {ms:.3} ms/frame (segment calls={})", ran_after - ran_before);
+    }
+    h.shutdown();
+}
+
+/// A cutout model whose masks are all one value, to tell its masks from another model's.
+struct ConstSeg(u8);
+
+impl Segmenter for ConstSeg {
+    fn segment(&mut self, frame: &Rgb, _ts: i64) -> Result<crate::service::Gray, VisionError> {
+        Ok(crate::service::Gray { w: frame.w, h: frame.h, data: vec![self.0; frame.w * frame.h] })
+    }
+    fn blends_last(&self) -> bool {
+        false
+    }
+}
+
+struct ConstCutout(u8);
+
+impl Backend for ConstCutout {
+    fn version(&self) -> String {
+        "const".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        Ok(Box::new(ConstSeg(self.0)))
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        Err(VisionError::new("Nope", "no pose"))
+    }
+}
+
+#[test]
+fn a_still_picture_under_power_saving_keeps_the_cutouts_mask() {
+    let (h, _bus, _normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let h = h.with_cutout(Box::new(|| Ok(Arc::new(ConstCutout(50)) as Arc<dyn Backend>)), None, scratch_dir("still-power-saving"), PackInfo::default());
+    h.vision().wait_for_masks();
+    h.load();
+    wait(|| h.state() == READY);
+    h.set_power_saving(true);
+    // The normal model's masks are 200: a still picture's held cutout mask must not give way to one of them while it waits for its next run
+    let seen: Vec<Option<u8>> = (1..=45u64)
+        .map(|i| {
+            let mut frame = scene(640, 360, 0, 0);
+            frame.number = i;
+            let mask = h.person_mask_hq("a", &frame, 160, 90, 0).map(|m| m[0]);
+            std::thread::sleep(Duration::from_millis(33));
+            mask
+        })
+        .collect();
+    assert!(seen[5..].iter().all(|m| *m == Some(50)), "{seen:?}");
+    h.shutdown();
+}
