@@ -275,7 +275,7 @@ impl RouteResolver {
             old_app.get_or_insert_with(|| serial.to_string());
             return None;
         }
-        if hello.status == HelloStatus::OtherCert {
+        if matches!(hello.status, HelloStatus::OtherCert | HelloStatus::NotTelescope) {
             *saw_other = true;
         }
         if !hello.ok() {
@@ -324,8 +324,11 @@ impl RouteResolver {
             }
             _ => {}
         }
-        if hello.status == HelloStatus::OtherCert || (hello.ok() && hello.phone_id != phone.id) {
+        if hello.status == HelloStatus::NotTelescope {
             return Some(Resolution { other_app: true, ..Resolution::new(PhoneStatus::Unreachable) });
+        }
+        if hello.status == HelloStatus::OtherCert || (hello.ok() && hello.phone_id != phone.id) {
+            return Some(Resolution { other_telescope: true, ..Resolution::new(PhoneStatus::Unreachable) });
         }
         if !hello.ok() {
             return None;
@@ -403,7 +406,7 @@ fn pick_wifi_answer(results: Vec<Option<Option<Resolution>>>) -> Resolution {
             return answer.clone();
         }
     }
-    Resolution { other_app: answers.iter().any(|a| a.other_app), ..Resolution::new(PhoneStatus::Unreachable) }
+    Resolution { other_app: answers.iter().any(|a| a.other_app), other_telescope: answers.iter().any(|a| a.other_telescope), ..Resolution::new(PhoneStatus::Unreachable) }
 }
 
 /// Why the connection isn't using USB, in the words the window shows.
@@ -437,6 +440,8 @@ pub(crate) mod tests {
         OldApp,
         /// Answers over TLS with another certificate.
         OtherCert,
+        /// Answers without TLS, so not a Telescope app.
+        Plain,
     }
 
     pub fn answers(id: &'static str, status: PingStatus, local_only: bool) -> Answer {
@@ -470,6 +475,9 @@ pub(crate) mod tests {
             }
             if matches!(a, Some(Answer::OtherCert)) {
                 return Hello::status(HelloStatus::OtherCert);
+            }
+            if matches!(a, Some(Answer::Plain)) {
+                return Hello::status(HelloStatus::NotTelescope);
             }
             if self.net.usb_only_hello.contains(&self.base) {
                 return Hello::status(HelloStatus::UsbOnly);
@@ -623,13 +631,19 @@ pub(crate) mod tests {
 
     #[test]
     fn another_app_on_the_session_port_is_told_from_nothing_answering() {
-        let net = FakeNet::new(&[(WIFI, Answer::OtherCert)]);
+        let net = FakeNet::new(&[(WIFI, Answer::Plain)]);
         let res = resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
-        assert_eq!((res.status, res.other_app), (PhoneStatus::Unreachable, true));
-        let net = FakeNet::new(&[(WIFI, answers("someone-else", PingStatus::Paired, false))]);
-        let res = resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
-        assert_eq!((res.status, res.other_app), (PhoneStatus::Unreachable, true));
+        assert_eq!((res.status, res.other_app, res.other_telescope), (PhoneStatus::Unreachable, true, false));
         assert!(!resolver(&FakeNet::default(), &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto).other_app);
+    }
+
+    #[test]
+    fn another_telescope_identity_is_told_from_a_foreign_program() {
+        for answer in [Answer::OtherCert, answers("someone-else", PingStatus::Paired, false)] {
+            let net = FakeNet::new(&[(WIFI, answer)]);
+            let res = resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
+            assert_eq!((res.status, res.other_app, res.other_telescope), (PhoneStatus::Unreachable, false, true));
+        }
     }
 
     #[test]
