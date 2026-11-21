@@ -97,6 +97,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back (the banner's Switch to Automatic works).
 - [ ] Local only on, no cable: the desktop shows that the phone accepts USB only and Start doesn't open the camera. Plug in and it streams over USB. A second machine on the network can't reach the phone.
 - [ ] Phone gets a new IP from the router: the desktop finds it again (mDNS) without re-pairing.
+- [ ] With both apps on this build, presence on UDP 7483 finds a phone that gets a new IP again without re-pairing. With UDP 7483 blocked, the stream still starts over HTTPS.
 - [ ] USB-only viewers hold no Wi-Fi performance lock.
 - [ ] Close the window to the tray with a phone waiting and Automatic streaming off: the phone stops getting checked (no new `/v1/ping` in its logs) and opening the window checks it straight away.
 

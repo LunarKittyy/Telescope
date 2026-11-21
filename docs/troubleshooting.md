@@ -114,28 +114,28 @@ Another computer paired with the phone started its camera first. Stop it there o
 
 **Paired devices need another pairing before Wi-Fi works**
 
-Open Telescope on both devices or connect over USB once so existing pairings can learn the computer's addresses. Presence uses UDP 8769 in both directions; HTTPS fallback still works when UDP is blocked. A network that isolates devices can block both paths.
+Open Telescope on both devices or connect over USB once so existing pairings can learn the computer's addresses. Presence uses UDP 7483 in both directions; HTTPS fallback still works when UDP is blocked. A network that isolates devices can block both paths.
 
 On Windows allow Telescope itself through the firewall. For a port-specific rule, run PowerShell as administrator and use the actual path of your copy:
 
 ```powershell
-New-NetFirewallRule -DisplayName "Telescope presence" -Direction Inbound -Program "C:\path\to\TelescopeDesktop.exe" -Protocol UDP -LocalPort 8769 -Action Allow
+New-NetFirewallRule -DisplayName "Telescope presence" -Direction Inbound -Program "C:\path\to\TelescopeDesktop.exe" -Protocol UDP -LocalPort 7483 -Action Allow
 ```
 
-On Linux allow incoming UDP 8769 from the phone's network. For example, with UFW (replace the subnet with yours):
+On Linux allow incoming UDP 7483 from the phone's network. For example, with UFW (replace the subnet with yours):
 
 ```bash
-sudo ufw allow from 192.168.1.0/24 to any port 8769 proto udp
+sudo ufw allow from 192.168.1.0/24 to any port 7483 proto udp
 ```
 
 With firewalld, add the port to the zone containing the phone's interface:
 
 ```bash
-sudo firewall-cmd --zone=home --add-port=8769/udp --permanent
+sudo firewall-cmd --zone=home --add-port=7483/udp --permanent
 sudo firewall-cmd --reload
 ```
 
-Include the Tailscale interface or subnet too if you use it. The phone must permit UDP 8769 as well. Presence can recover an address only while either remembered addresses or network discovery still reach the other device; USB or pairing again is needed when both fail.
+Include the Tailscale interface or subnet too if you use it. The phone must permit UDP 7483 as well. Presence can recover an address only while either remembered addresses or network discovery still reach the other device; USB or pairing again is needed when both fail.
 
 **Windows asks about the firewall again after an update**
 The update moved an unzipped copy to the installed one and Windows treats it as a new program. Click Allow on private networks like the first time. The old copy's rule is left behind and does nothing.

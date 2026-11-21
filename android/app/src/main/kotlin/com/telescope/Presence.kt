@@ -4,7 +4,7 @@ import java.security.MessageDigest
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-internal const val PRESENCE_PORT = 8769
+internal const val PRESENCE_PORT = 7483
 internal const val PRESENCE_PACKET_LIMIT = 512
 
 internal fun presenceAddress(ip: String): Boolean = isValidIpv4(ip) && !ip.startsWith("127.") && !ip.startsWith("169.254.") && ip != "0.0.0.0" && ip.split('.')[0].toInt() !in 224..239

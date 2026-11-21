@@ -250,7 +250,7 @@ def pairing_proof(token: str, nonce: str, phone_id: str, cert_sha256: str) -> st
     return hmac.new(token.encode(), message, hashlib.sha256).hexdigest()
 
 
-PRESENCE_PORT = 8769
+PRESENCE_PORT = 7483
 
 
 def presence_packet(token: str, kind: str, sender: str, recipient: str, challenge: str, version: str, addresses: list) -> bytes:

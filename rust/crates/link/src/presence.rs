@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use telescope_core::source::PairedPhone;
 
-pub const PORT: u16 = 8769;
+pub const PORT: u16 = 7483;
 const MAX_PACKET: usize = 512;
 const MAX_PEERS: usize = 64;
 const MAX_PENDING: usize = 256;
