@@ -345,8 +345,12 @@ class CameraStreamService : Service() {
 
         // Every camera and physical lens the phone exposes, with what each can do. Used for streaming and for
         // Copy diagnostics, so it takes the CameraManager rather than reaching into a service.
-        fun enumerateCameras(manager: CameraManager): List<CameraEntry> {
+        fun enumerateCameras(manager: CameraManager): List<CameraEntry> = enumerateCatalogue(manager).cameras
+
+        // The same list, plus whether every lens could be read (one that fails to read is left out of it)
+        fun enumerateCatalogue(manager: CameraManager): CameraCatalogue {
             val result  = mutableListOf<CameraEntry>()
+            var complete = true
 
             fun buildEntry(id: String, logicalParent: String?): CameraEntry? = runCatching {
                 val chars  = manager.getCameraCharacteristics(id)
@@ -455,7 +459,7 @@ class CameraStreamService : Service() {
                             zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms,
                             highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind,
                             sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0)
-            }.getOrNull()
+            }.onFailure { complete = false }.getOrNull()
 
             manager.cameraIdList.forEach { id ->
                 buildEntry(id, null)?.let { result += it }
@@ -471,10 +475,10 @@ class CameraStreamService : Service() {
                                     buildEntry(physId, logId)?.let { result += it }
                             }
                         }
-                    }
+                    }.onFailure { complete = false }
                 }
             }
-            return result
+            return CameraCatalogue(result, complete)
         }
     }
 
@@ -525,6 +529,7 @@ class CameraStreamService : Service() {
 
     // Camera catalogue
     private var allCameras: List<CameraEntry> = emptyList()
+    private var allCamerasComplete = true  // false when a lens was left out because reading it failed
     private val startedAt = System.currentTimeMillis()
     // Checked once: whether this phone has a hardware H.264 encoder at all.
     private val h264Available: Boolean by lazy { H264Encoder.isAvailable() }
@@ -798,7 +803,8 @@ class CameraStreamService : Service() {
             stateMachine.record("selectionReset", IllegalStateException(
                 "camera $cameraId at ${streamWidth}x$streamHeight unavailable, using ${initialEntry.id} at ${fitW}x$fitH"))
             streamWidth = fitW; streamHeight = fitH
-            StreamPrefs.updateSelection(this) {
+            // A lens missing from a list that couldn't read every lens may just have failed to read, so the saved choice stays
+            if (found != null || allCamerasComplete) StreamPrefs.updateSelection(this) {
                 it.copy(cameraId = initialEntry.id, logicalId = initialEntry.logicalId ?: "", width = fitW, height = fitH)
             }
         }
@@ -869,7 +875,9 @@ class CameraStreamService : Service() {
 
     private fun enumerateAllCameras() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-        allCameras = CameraWarmup.cameras(manager)
+        val catalogue = CameraWarmup.catalogue(manager)
+        allCameras = catalogue.cameras
+        allCamerasComplete = catalogue.complete
         val cameras = allCameras
         // Reading the maker's modes can take a moment per lens; the state lists photos for each lens once it's read
         kotlin.concurrent.thread(name = "still-caps", isDaemon = true) {
@@ -1494,9 +1502,12 @@ class CameraStreamService : Service() {
     }
 }
 
+// The lenses a phone lists; complete is false when one was left out because reading it failed
+class CameraCatalogue(val cameras: List<CameraEntry>, val complete: Boolean)
+
 object CameraWarmup {
     // The list the screens read in the background while the app comes up, so a stream's start doesn't read every lens on the main thread
-    private class Warm(val ids: List<String>, val readAtMs: Long, val cameras: List<CameraEntry>)
+    private class Warm(val ids: List<String>, val readAtMs: Long, val catalogue: CameraCatalogue)
     @Volatile private var warm: Warm? = null
     @Volatile private var warming = false
     private const val WARM_FOR_MS = 120_000L  // older than this it's read again, whatever the ids say
@@ -1512,17 +1523,23 @@ object CameraWarmup {
     }
 
     // The warm list while it's recent and the phone still lists the same camera ids (a plugged-in camera changes them); read afresh otherwise
-    fun cameras(manager: CameraManager): List<CameraEntry> {
+    fun cameras(manager: CameraManager): List<CameraEntry> = catalogue(manager).cameras
+
+    fun catalogue(manager: CameraManager): CameraCatalogue =
+        catalogue(manager.cameraIdList.toList(), SystemClock.elapsedRealtime()) { CameraStreamService.enumerateCatalogue(manager) }
+
+    // Only a complete read is kept: a list missing a lens would send a stream's start to the wrong lens for two minutes
+    internal fun catalogue(ids: List<String>, nowMs: Long, read: () -> CameraCatalogue): CameraCatalogue {
         val w = warm
-        val ids = manager.cameraIdList.toList()
-        if (w != null && w.ids == ids && SystemClock.elapsedRealtime() - w.readAtMs < WARM_FOR_MS) return w.cameras
-        return enumerateNow(manager)
+        if (w != null && w.ids == ids && nowMs - w.readAtMs < WARM_FOR_MS) return w.catalogue
+        val fresh = read()
+        warm = if (fresh.complete) Warm(ids, nowMs, fresh) else null
+        return fresh
     }
 
-    private fun enumerateNow(manager: CameraManager): List<CameraEntry> {
-        val ids = manager.cameraIdList.toList()
-        val read = CameraStreamService.enumerateCameras(manager)
-        warm = Warm(ids, SystemClock.elapsedRealtime(), read)
-        return read
+    internal fun forget() { warm = null }
+
+    private fun enumerateNow(manager: CameraManager) {
+        catalogue(manager.cameraIdList.toList(), SystemClock.elapsedRealtime()) { CameraStreamService.enumerateCatalogue(manager) }
     }
 }
