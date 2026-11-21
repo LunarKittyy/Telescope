@@ -2315,7 +2315,12 @@ mod tests {
     #[test]
     fn a_step_shaded_without_history_has_no_previous_frame_and_the_next_one_goes_on_from_it() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
-        let frame = || Frame::new(8, 4, PixelFormat::Rgba, vec![0; 8 * 4 * 4]);
+        // Frame::new stamps the clock, and history older than HISTORY_MAX_AGE_NS is dropped, so a slow first frame under load must not age it
+        let frame = || {
+            let mut f = Frame::new(8, 4, PixelFormat::Rgba, vec![0; 8 * 4 * 4]);
+            f.time_ns = 0;
+            f
+        };
         let mut slot = ShaderSlot::new(step(COUNTS, json!({})));
         slot.prepare(&gpu).unwrap();
         assert_eq!(run(&gpu, &frame(), std::slice::from_mut(&mut slot)).data[0], 51);
