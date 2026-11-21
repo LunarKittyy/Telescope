@@ -214,6 +214,10 @@ impl CpuStep for CoverStep {
         true
     }
 
+    fn covers(&self) -> bool {
+        true
+    }
+
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
         let size = (frame.width, frame.height);
         let key = CoverKey { size, format: frame.format, image: self.image.clone(), mirror: self.mirror, note: self.note.clone() };

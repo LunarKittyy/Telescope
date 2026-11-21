@@ -110,6 +110,23 @@ impl Entry {
         }
     }
 
+    /// Whether this step puts a picture of its own over the whole frame, so what runs before it on this frame is thrown away.
+    fn covers(&self) -> bool {
+        !self.skipped() && match &self.kind {
+            Kind::Cpu(step) | Kind::Either(_, step) => step.covers(),
+            Kind::Shader(_) => false,
+        }
+    }
+
+    /// Whether the frame can go without this step when a later one covers it: an Effects or Colour step that only changes pixels and keeps nothing between frames (no history, no mask, no count).
+    fn pixels_only(&self) -> bool {
+        matches!(self.stage, FrameStage::Effects | FrameStage::Colour) && match &self.kind {
+            Kind::Cpu(step) => step.pixels_only(),
+            Kind::Shader(slot) => !slot.keeps_history(),
+            Kind::Either(slot, step) => !slot.keeps_history() && step.pixels_only(),
+        }
+    }
+
     fn failed(&mut self, why: &str) {
         self.fails += 1;
         let (hides, owner) = (self.hides(), &self.owner);
@@ -284,6 +301,8 @@ impl Pipeline {
         // Asked once a frame: a step is only timed while the stats panel wants every plugin's time
         let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
         chain.timing = timing;
+        // A step that covers the whole picture makes what pixel-only steps before it did on this frame pointless; the cover itself always runs
+        let covered_by = self.steps.iter().position(Entry::covers);
         for i in 0..self.steps.len() {
             if ctx.stopped() {
                 // Stop is waiting for this worker: nothing more is done, and what's left goes out dark in case it is published after all
@@ -303,6 +322,9 @@ impl Pipeline {
                 continue;
             }
             if chain.withheld && self.restores_pixels(i) {
+                continue;
+            }
+            if covered_by.is_some_and(|c| i < c) && self.steps[i].pixels_only() {
                 continue;
             }
             let geometry = frame.geometry.clone();
@@ -3013,6 +3035,52 @@ pub(crate) mod tests {
         fn keeps_geometry(&self) -> bool {
             true
         }
+    }
+
+    /// Counts its runs and brightens; says whether the frame can go without it.
+    struct Tints(Arc<std::sync::Mutex<u32>>, bool);
+
+    impl CpuStep for Tints {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            *self.0.lock().unwrap() += 1;
+            frame.data_mut()[1] = 77;
+        }
+        fn pixels_only(&self) -> bool {
+            self.1
+        }
+    }
+
+    /// Puts its own picture over the whole frame, like the wait screen.
+    struct Covers;
+
+    impl CpuStep for Covers {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            frame.data_mut().fill(5);
+        }
+        fn hides(&self) -> bool {
+            true
+        }
+        fn covers(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn a_covered_frame_goes_without_the_pixel_only_steps_before_the_cover_and_keeps_the_rest() {
+        let (pure, other, after_cover) = (Arc::new(std::sync::Mutex::new(0)), Arc::new(std::sync::Mutex::new(0)), Arc::new(std::sync::Mutex::new(0)));
+        let steps = |cover: bool| {
+            let mut v = vec![step("filters", FrameStage::Effects, Tints(pure.clone(), true)), step("reader", FrameStage::Effects, Tints(other.clone(), false)), step("grade", FrameStage::Colour, Tints(pure.clone(), true))];
+            if cover {
+                v.push(step("wait", FrameStage::Cover, Covers));
+            }
+            v.push(step("tap", FrameStage::Final, Tints(after_cover.clone(), true)));
+            v
+        };
+        let out = after(steps(true));
+        assert!(out.data.iter().all(|&b| b == 5 || b == 77) && out.data[0] == 5, "the cover is what goes out");
+        assert_eq!((*pure.lock().unwrap(), *other.lock().unwrap(), *after_cover.lock().unwrap()), (0, 1, 1), "a pixel-only step before the cover is skipped, one that isn't and one after it run");
+        after(steps(false));
+        assert_eq!(*pure.lock().unwrap(), 2, "without a cover they run as ever");
     }
 
     fn after(steps: Vec<StagedStep>) -> Frame {

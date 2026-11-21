@@ -271,6 +271,11 @@ impl CpuStep for Pixels {
         true
     }
 
+    /// Not one that keeps pictures of its own (denoise over time), or that asks for the person mask
+    fn pixels_only(&self) -> bool {
+        self.forget.is_none() && !self.wants_mask
+    }
+
     fn forget_history(&mut self, source: &str) {
         if let Some(forget) = &self.forget {
             forget(source);

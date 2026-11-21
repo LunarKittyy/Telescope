@@ -292,3 +292,53 @@ fn mask_shader_picture() {
     let done = p.process(frame, &Blob);
     std::fs::write(out, &done.data[..]).unwrap();
 }
+
+/// Puts a picture of its own over every frame, like the wait screen; `says` is whether it tells the pipeline so (what a build without the skip did).
+struct Cover(Frame, bool);
+
+impl telescope_core::frame::CpuStep for Cover {
+    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        let (number, time_ns, capture_ns) = (frame.number, frame.time_ns, frame.capture_ns);
+        *frame = self.0.clone();
+        frame.number = number;
+        frame.time_ns = time_ns;
+        frame.capture_ns = capture_ns;
+    }
+    fn hides(&self) -> bool {
+        true
+    }
+    fn covers(&self) -> bool {
+        self.1
+    }
+}
+
+#[test]
+#[ignore = "timing by hand"]
+fn covered_frames_cost() {
+    if Gpu::shared().is_none() {
+        return eprintln!("no graphics card; skipped");
+    }
+    for (w, h) in [(1920u32, 1080u32), (3840, 2160)] {
+        let source = noise(w, h, PixelFormat::I420);
+        let black = Frame::new(w, h, PixelFormat::I420, vec![16; PixelFormat::I420.size(w, h)]);
+        for (name, shader, grade) in [("clarity", true, false), ("grade", false, true), ("both", true, true), ("nothing", false, false)] {
+            let mut line = format!("covered {w}x{h} {name}:");
+            for says in [false, true] {
+                let steps = || {
+                    let mut v = Vec::new();
+                    if shader {
+                        v.push(StagedStep { owner: "clarity".into(), stage: FrameStage::Effects, step: FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: include_str!("../../effects/src/filter_clarity.wgsl").into(), uniforms: serde_json::json!({"amount": 0.6}), textures: Vec::new() }) });
+                    }
+                    if grade {
+                        v.extend(grade_steps());
+                    }
+                    v.push(StagedStep { owner: "wait".into(), stage: FrameStage::Cover, step: FrameStep::Cpu(Box::new(Cover(black.clone(), says))) });
+                    v
+                };
+                let (best, median) = cost(steps, &source, false);
+                line += &format!("  skip={says}: best {best:.2} median {median:.2} ms");
+            }
+            println!("{line}");
+        }
+    }
+}
