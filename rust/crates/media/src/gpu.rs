@@ -1259,6 +1259,14 @@ struct Built {
     _keep: Vec<wgpu::Texture>,
 }
 
+#[cfg(test)]
+impl Built {
+    /// How many textures it holds for the plugin's pictures, for tests.
+    fn kept_textures(&self) -> usize {
+        self._keep.len()
+    }
+}
+
 /// What a shader that calls blurred() needs: the passes that shrink the picture and blur it, and for an I420 picture the ones that work on its planes.
 struct BlurKit {
     layout: wgpu::BindGroupLayout,
@@ -1666,6 +1674,7 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
 
     // The plugin's pictures go up once, as RGBA (or R8Unorm for single-channel red blur masks) whatever they came as
     let mut keep = Vec::new();
+    let mut staging = Vec::new();
     let mut views = Vec::new();
     let mut enc = gpu.device.create_command_encoder(&Default::default());
     for (name, f) in &step.textures {
@@ -1676,9 +1685,11 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
         gpu.convert_pass(&mut enc, &planes.views, planes.mode, &t, 1, (f.width, f.height));
         views.push(t.create_view(&Default::default()));
         keep.push(t);
-        keep.extend(used);
+        staging.extend(used);
     }
     gpu.queue.submit([enc.finish()]);
+    // Only the converted pictures are used from here; wgpu frees the upload textures once the submit is done with them
+    drop(staging);
     let ubuf = has_uniforms.then(|| gpu.uniform(&params));
     // With a blur the group is made for each frame, as its copies are new each time
     let extras = extras_layout.as_ref().filter(|_| blur_bindings.is_none()).map(|l| extras_group(gpu, l, ubuf.as_ref(), &views, None));
@@ -2029,6 +2040,14 @@ mod tests {
             }
         }
         Frame::new(w, h, PixelFormat::Rgba, data)
+    }
+
+    #[test]
+    fn a_shader_keeps_its_pictures_on_the_card_and_not_the_textures_they_went_up_in() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let step = ShaderStep { keeps_geometry: false, wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }".into(), uniforms: json!({}), textures: vec![("overlay".into(), disc(64, 48)), ("dirt".into(), disc(32, 32))] };
+        let built = build(&gpu, &step).expect("the shader builds");
+        assert_eq!(built.kept_textures(), 2, "one texture per picture, no copy of the upload");
     }
 
     #[test]

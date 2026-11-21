@@ -355,6 +355,7 @@ fn settings_with(label: &str, list: Vec<PluginInfo>, setup: impl FnOnce(&Path, &
         build: String::new,
         commit: || "",
         release_memory: || {},
+        release_memory_soon: || {},
         relaunch: |argv| {
             RELAUNCHED.lock().unwrap().push(argv.to_vec());
             Ok(())
