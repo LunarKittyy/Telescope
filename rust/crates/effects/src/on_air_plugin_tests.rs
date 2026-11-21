@@ -457,6 +457,30 @@ fn quitting_off_air_sends_nothing() {
 }
 
 #[test]
+fn quitting_while_the_off_request_is_still_going_out_waits_for_it() {
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    rig.watched(true);
+    rig.later(2.0);
+    rig.bodies();
+    rig.sent.lock().unwrap().clear();
+    // Off air, with its webhook held up by a slow hub
+    rig.hold.store(true, Ordering::SeqCst);
+    rig.plugin.on_event(&mut rig.host, &Event::CameraWatched { watched: false });
+    *rig.now.lock().unwrap() += 30.0;
+    rig.plugin.on_event(&mut rig.host, &Event::TimerFired { owner: NAME.into(), token: "settle".into() });
+    assert!(!rig.plugin.on());
+    let release = rig.hold.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        release.store(false, Ordering::SeqCst);
+    });
+    let started = Instant::now();
+    rig.plugin.shutdown(&mut rig.host);
+    assert!(started.elapsed() >= Duration::from_millis(250), "{:?}", started.elapsed());
+    assert_eq!(rig.sent.lock().unwrap().len(), 2, "the off request and the last one behind it");
+}
+
+#[test]
 fn quitting_with_a_failure_waiting_to_be_retried_still_turns_the_light_off() {
     let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
     rig.answered("Connection refused");

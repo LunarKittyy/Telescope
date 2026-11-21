@@ -39,6 +39,7 @@ const T_HOLD: &str = "hold";
 const T_JOG: &str = "jog";
 const P_REPORTED: &str = "reported";
 const P_UNPLUGGED: &str = "unplugged";
+const P_DSLRS: &str = "dslrs";
 
 /// The card's picture settings, by section, in the order they're shown: (section, icon, [(name, label)]).
 type Section = (&'static str, &'static str, &'static [(&'static str, &'static str)]);
@@ -210,6 +211,17 @@ impl Shared {
     }
 }
 
+/// What a DSLR look calls when it finds something different: wakes the plugin for a scan, if it is set up.
+#[cfg(any(target_os = "linux", windows))]
+fn dslr_wake(poster: &Arc<Mutex<Option<Arc<dyn Poster>>>>) -> Arc<dyn Fn() + Send + Sync> {
+    let poster = poster.clone();
+    Arc::new(move || {
+        if let Some(p) = poster.lock().unwrap().clone() {
+            p.post(P_DSLRS, Value::Null);
+        }
+    })
+}
+
 /// The parts a source needs from the system, so tests can stand in for cameras.
 #[derive(Clone)]
 pub struct System {
@@ -223,7 +235,13 @@ impl Default for System {
         #[cfg(target_os = "linux")]
         return System {
             opener: Arc::new(|d: &Device, c: &Choice| {
-                if webcams::is_gphoto(&d.location) { webcam_capture::gphoto::open("gphoto2", d) } else { webcam_capture::v4l2::open(&d.location, c) }
+                if webcams::is_gphoto(&d.location) {
+                    webcam_capture::gphoto::open("gphoto2", d)
+                } else if !webcams::node_is_still(std::path::Path::new(webcams::SYSFS), std::path::Path::new("/sys/devices"), d) {
+                    Err((false, webcam_capture::REPLACED.into()))
+                } else {
+                    webcam_capture::v4l2::open(&d.location, c)
+                }
             }),
             users: Arc::new(|p: &str| if webcams::is_gphoto(p) { String::new() } else { webcams::who_uses(p, "/proc") }),
             exists: Arc::new(|p: &str| if webcams::is_gphoto(p) { webcams::gphoto_present(p, "/dev/bus/usb") } else { std::path::Path::new(p).exists() }),
@@ -387,6 +405,8 @@ pub struct WebcamPlugin {
     held: Option<Hold>,
     /// The focus jog's handle while it's held out, if it is
     jogged: Option<JogHold>,
+    /// Where the DSLR look's thread reaches this plugin from, once there is a poster.
+    dslr_poster: Arc<Mutex<Option<Arc<dyn Poster>>>>,
 }
 
 /// What came of a step a button asked for.
@@ -403,16 +423,17 @@ impl WebcamPlugin {
     pub fn new(scan: Scanner, controls_for: ControlsFor, system: System) -> WebcamPlugin {
         WebcamPlugin {
             scan, controls_for, system, shared: Arc::default(), poster: None, controls: HashMap::new(), backends: HashMap::new(),
-            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, pace: Default::default(), shown_rows: None, shown_tiles: None, held: None, jogged: None,
+            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, pace: Default::default(), shown_rows: None, shown_tiles: None, held: None, jogged: None, dslr_poster: Arc::default(),
         }
     }
 
     /// The plugin as the app runs it: Linux's scanner and V4L2 controls.
     pub fn system() -> WebcamPlugin {
+        let dslr_poster: Arc<Mutex<Option<Arc<dyn Poster>>>> = Arc::default();
         #[cfg(target_os = "linux")]
         let scan: Scanner = {
             let mut scanner = webcams::linux_scanner();
-            let mut dslrs = webcams::GphotoScanner::system();
+            let mut dslrs = webcams::GphotoScanner::system().on_change(dslr_wake(&dslr_poster));
             Box::new(move || {
                 let mut found = scanner.scan();
                 found.extend(dslrs.scan());
@@ -422,7 +443,7 @@ impl WebcamPlugin {
         #[cfg(windows)]
         let scan: Scanner = {
             let mut scanner = crate::webcams_win::WindowsScanner::default();
-            let mut dslrs = webcams::GphotoScanner::system();
+            let mut dslrs = webcams::GphotoScanner::system().on_change(dslr_wake(&dslr_poster));
             Box::new(move || {
                 let mut found = scanner.scan();
                 found.extend(dslrs.scan());
@@ -431,7 +452,7 @@ impl WebcamPlugin {
         };
         #[cfg(not(any(target_os = "linux", windows)))]
         let scan: Scanner = Box::new(|| Ok(Vec::new()));
-        WebcamPlugin::new(scan, Box::new(crate::webcam_controls::controls_for), System::default())
+        WebcamPlugin { dslr_poster, ..WebcamPlugin::new(scan, Box::new(crate::webcam_controls::controls_for), System::default()) }
     }
 
     pub fn shared(&self) -> &Arc<Shared> {
@@ -1049,6 +1070,7 @@ impl Plugin for WebcamPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         self.poster = host.poster();
+        *self.dslr_poster.lock().unwrap() = self.poster.clone();
         host.schedule(0, T_SCAN); // after the window is up
     }
 
@@ -1085,6 +1107,11 @@ impl Plugin for WebcamPlugin {
                 if token == P_REPORTED {
                     let s = |i: usize| data.get(i).and_then(Value::as_str).unwrap_or("").to_string();
                     self.on_reported(host, &s(0), &s(1), &s(2));
+                } else if token == P_DSLRS {
+                    // A DSLR look finished after its scan returned: show what it found without waiting for the next scan
+                    if !self.stopped {
+                        host.schedule(0, T_SCAN);
+                    }
                 } else if token == P_UNPLUGGED {
                     let name = data.as_str().unwrap_or("");
                     host.show_issue("start", Issue { title: tr("{name} isn't plugged in").field("name", name),

@@ -347,6 +347,8 @@ impl StreamOutputPlugin {
         self.camera_max_fps = 0;
         self.show_fps();
         self.sizes.clear();
+        // So the next phone's report of the same lens id rebuilds the list
+        self.current_camera_id = None;
     }
 
     fn light_sizes(cam: &Value) -> Option<HashSet<(u32, u32)>> {

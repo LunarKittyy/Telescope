@@ -598,7 +598,9 @@ impl Plugin for OnAirPlugin {
         host.cancel_schedule(T_SETTLE);
         let retrying = std::mem::take(&mut self.retrying);
         host.cancel_schedule(T_RETRY);
-        if (self.on() || retrying) && self.webhook_ready() {
+        // An "off" still going out counts too: leaving it unfinished can leave the light on
+        let unfinished = self.sender.as_ref().is_some_and(|sender| sender.slot_busy("state"));
+        if (self.on() || retrying || unfinished) && self.webhook_ready() {
             if let Some(sender) = &self.sender {
                 // Behind anything still going out, so a late "on" can't land after it; quitting waits only so long
                 sender.send(self.request(false), "quit", Some("state"));
