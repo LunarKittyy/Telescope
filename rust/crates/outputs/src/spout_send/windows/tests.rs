@@ -4,7 +4,7 @@ use super::*;
 use crate::spout_shared::poll::Deadline;
 use crate::spout_shared::win::testing::noise;
 use crate::spout_shared::protocol::{parse_names, ACTIVE_MAP, NAME_LEN};
-use crate::spout_shared::win::sender::StaleList;
+use crate::spout_shared::win::sender::{HeldAccess, StaleList};
 use crate::spout_shared::win::{open_shared_texture, sender_info, sender_names, FrameCounter, Info, SharedMemory};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -146,8 +146,8 @@ fn a_sender_resized_keeps_its_name_and_counter_and_shows_the_new_picture() {
     sender.send(&[10u8; 16 * 8 * 4]).expect("sending");
     // A receiver holding the info mapping, as OBS does, must not stop the resize
     let held = SharedMemory::open(name).expect("the info mapping");
-    assert_eq!(sender.resize(32, 24), Ok(true));
-    assert_eq!(sender.resize(32, 24), Ok(true));
+    assert_eq!(sender.resize(32, 24), Ok(Resized::Yes));
+    assert_eq!(sender.resize(32, 24), Ok(Resized::Yes));
     let mut picture = noise(32 * 24 * 4, 3);
     for pixel in picture.chunks_mut(4) {
         pixel[3] = 255;
@@ -174,4 +174,21 @@ fn the_first_sender_is_the_active_one_and_leaves_no_name_behind() {
     assert_eq!(active_name(), first);
     drop(one);
     assert_eq!(active_name(), "");
+}
+
+#[test]
+fn a_receiver_holding_the_picture_while_the_size_changes_leaves_the_sender_listed_and_the_resize_for_later() {
+    let _turn = turn();
+    let name = "Telescope test resize busy";
+    let mut sender = backend().open(name, 16, 8).expect("a sender");
+    sender.send(&[10u8; 16 * 8 * 4]).expect("sending");
+    let reading = HeldAccess::of(name);
+    assert_eq!(sender.resize(32, 24), Ok(Resized::Busy));
+    assert!(sender_names().expect("the list").contains(&name.to_string()), "the sender went from the list");
+    let Info::Found(info) = sender_info(name) else { panic!("no info") };
+    assert_eq!((info.width, info.height), (16, 8), "the info is as it was");
+    drop(reading);
+    assert_eq!(sender.resize(32, 24), Ok(Resized::Yes));
+    let Info::Found(info) = sender_info(name) else { panic!("no info") };
+    assert_eq!((info.width, info.height), (32, 24));
 }

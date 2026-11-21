@@ -238,8 +238,17 @@ impl Outputs for VirtualCameras {
     }
 
     fn watch(&self, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn telescope_core::output::Held>> {
+        self.watch_slot(0, on_change)
+    }
+
+    fn watch_slot(&self, slot: u32, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn telescope_core::output::Held>> {
         #[cfg(target_os = "linux")]
-        let device = self.node(0).unwrap_or_else(|| v4l2::PHONE_DEV.into());
+        let device = match self.node(slot) {
+            Some(device) => device,
+            None if slot == 0 => v4l2::PHONE_DEV.into(),
+            // An extra camera that isn't set up has nothing to watch
+            None => return None,
+        };
         #[cfg(not(target_os = "linux"))]
         let device = String::new();
         let holder_device = device.clone();
@@ -252,24 +261,29 @@ impl Outputs for VirtualCameras {
             #[cfg(not(target_os = "linux"))]
             holders: Arc::new(move || { let _ = &holder_device; Vec::new() }),
             #[cfg(windows)]
-            use_mf: Arc::new(|| wincam::use_mf(&wincam::System, 0)),
+            use_mf: Arc::new(move || wincam::use_mf(&wincam::System, slot)),
             #[cfg(not(windows))]
             use_mf: Arc::new(|| false),
             #[cfg(windows)]
-            mf_open: Arc::new(|| mf::open_shared(0)),
+            mf_open: Arc::new(move || mf::open_shared(slot)),
             #[cfg(not(windows))]
             mf_open: Arc::new(|| None),
             mf_period: MF_WATCH_PERIOD,
             linger: mf::WATCH_LINGER,
             #[cfg(windows)]
-            uc_want: Arc::new(|| {
+            uc_want: Arc::new(move || {
+                // Only the main camera has a UnityCapture filter to listen to
+                if slot != 0 {
+                    return None;
+                }
                 let num = wincam::uc_number(&wincam::System, wincam::UC_NAME);
                 let event = win::open_event(&wincam::uc_object_name("Want", num), win::SYNCHRONIZE)?;
                 Some(Box::new(watch::WinWant(event)) as Box<dyn watch::WantEvent>)
             }),
             #[cfg(not(windows))]
             uc_want: Arc::new(|| None),
-            reliable: self.watch_reliable.clone(),
+            // What the main camera's watch can vouch for is what the stream's idle stop goes by: an extra camera's is its own
+            reliable: if slot == 0 { self.watch_reliable.clone() } else { Arc::default() },
         };
         let watcher = watch::Watcher::new(on_change, deps);
         Some(Box::new(watch::CameraWatch(held::Held::new(watcher, gate()))))
