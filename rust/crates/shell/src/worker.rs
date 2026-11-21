@@ -978,6 +978,11 @@ impl Shared {
 
     /// `hide_cached` for steps just handed over (`install`), or for the ones the pipeline has.
     fn hide_latest(self: &Arc<Self>, install: bool) {
+        // A picture still on the card is read back first, holding no lock, so the steps run on the real picture and not on a dark stand-in that would flash on the camera
+        let on_the_card = [self.slot.latest_picture().map(|(picture, _)| picture), self.replay.lock().unwrap().clone()];
+        for picture in on_the_card.into_iter().flatten().filter(|p| p.landed().is_none()) {
+            picture.land_until(&|| self.stopped());
+        }
         // A replay of the last hand-over that still holds the pipeline is told at once (its wait on the card ends and what it makes is dropped), so this isn't kept waiting for it; the dark frame it stands in for is out meanwhile
         if install && self.next_steps.lock().unwrap().is_some() {
             self.handed.fetch_add(1, Ordering::SeqCst);
@@ -3405,6 +3410,103 @@ mod tests {
         fn as_any(&self) -> &dyn std::any::Any {
             self
         }
+    }
+
+    /// A picture on the card that lands as these pixels, and not at all on the camera loop's thread until the gate opens (a reader that was slow to ask).
+    struct AwayAs(Frame, std::sync::OnceLock<Frame>, Arc<AtomicBool>);
+
+    impl telescope_core::media::CardPicture for AwayAs {
+        fn land(&self) -> Frame {
+            if std::thread::current().name() == Some("stream") {
+                while !self.2.load(Ordering::SeqCst) {
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+            }
+            self.1.get_or_init(|| self.0.clone()).clone()
+        }
+        fn landed(&self) -> Option<Frame> {
+            self.1.get().cloned()
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    /// Makes pictures on the card, and hides by halving the luma of the pixels it is given, so a dark stand-in can be told from the real picture.
+    struct HalvesOnTheCard(Arc<AtomicBool>);
+
+    impl FramePipeline for HalvesOnTheCard {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
+            let pixels = frame.clone();
+            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(AwayAs(pixels, std::sync::OnceLock::new(), self.0.clone()))))
+        }
+        fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
+            Some(grey(frame.width, frame.height, frame.data[0] / 2))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    /// Keeps the pictures as they are, wants none in memory, and notes the luma of everything published.
+    struct Keeps(Arc<Mutex<Option<(telescope_core::media::PipelineFrame, u64)>>>, Arc<Mutex<Vec<u8>>>);
+
+    impl FrameSlot for Keeps {
+        fn publish_picture_at(&self, frame: telescope_core::media::PipelineFrame, _epoch: u64) -> u64 {
+            let mut st = self.0.lock().unwrap();
+            let count = st.as_ref().map_or(0, |s| s.1) + 1;
+            self.1.lock().unwrap().push(frame.landed().map_or(255, |f| f.data[0]));
+            *st = Some((frame, count));
+            count
+        }
+        fn latest_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
+            self.0.lock().unwrap().clone()
+        }
+        fn ram_wanted(&self) -> bool {
+            false
+        }
+        fn publish(&self, frame: Frame) -> u64 {
+            self.publish_picture_at(frame.into(), 0)
+        }
+        fn published(&self) -> Option<Frame> {
+            self.latest().map(|l| l.0)
+        }
+        fn replace(&self, _frame: Frame, _number: u64) -> bool {
+            false
+        }
+        fn latest(&self) -> Option<(Frame, u64)> {
+            self.latest_picture().map(|(p, c)| (p.land(), c))
+        }
+        fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
+            std::thread::sleep(timeout.min(Duration::from_millis(5)));
+            self.0.lock().unwrap().as_ref().is_some_and(|s| s.1 > seen)
+        }
+    }
+
+    #[test]
+    fn blur_now_on_a_picture_still_on_the_card_never_puts_a_dark_frame_out() {
+        let (cams, _log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::<WorkerEvent>::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let gate = Arc::new(AtomicBool::new(false));
+        let _opens_gate = OpensOnDrop(gate.clone());
+        let media = WithPipeline(Box::new({
+            let gate = gate.clone();
+            move || Box::new(HalvesOnTheCard(gate.clone()))
+        }));
+        let (state, seen) = (Arc::new(Mutex::new(None)), Arc::new(Mutex::new(Vec::new())));
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(state.clone(), seen.clone()));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(setup(opener), Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| !seen.lock().unwrap().is_empty());
+        w.set_steps(privacy_step());
+        wait_for(|| seen.lock().unwrap().contains(&100));
+        w.stop();
+        let seen = seen.lock().unwrap().clone();
+        assert!(seen.iter().all(|luma| *luma == 255 || *luma >= 100), "a dark frame went out in place of the blurred picture: {seen:?}");
     }
 
     /// Makes every picture on the card.
