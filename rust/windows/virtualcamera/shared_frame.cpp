@@ -93,9 +93,13 @@ bool FrameChannel::HasNew(UINT32 width, UINT32 height) const {
 }
 
 bool FrameChannel::ReadNewest(UINT32 width, UINT32 height) {
-    if (!HasNew(width, height)) return false;
+    if (!m_header) return false;
     volatile SharedHeader* header = m_header;
+    // One even snapshot covers the metadata check and the check after the copy, so a write that starts in between can't pass
     UINT64 before = header->frame_counter;
+    if ((before & 1) || before == m_counter) return false;
+    MemoryBarrier();
+    if (header->frame_format != kFormatNV12 || header->frame_width != width || header->frame_height != height) return false;
     size_t bytes = static_cast<size_t>(width) * height * 3 / 2;
     if (bytes > kDataCapacity) return false;
     m_copy.resize(bytes);  // copied aside, so a torn copy never replaces the last good frame
