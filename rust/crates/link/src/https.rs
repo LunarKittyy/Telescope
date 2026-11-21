@@ -104,7 +104,23 @@ impl ServerCertVerifier for Pin {
     }
 }
 
+/// The config for a pin, kept so the connections to a phone can resume each other's TLS sessions (rustls keeps them in the config).
 fn tls_config(pin: &str) -> Arc<rustls::ClientConfig> {
+    static CONFIGS: std::sync::Mutex<Vec<(String, Arc<rustls::ClientConfig>)>> = std::sync::Mutex::new(Vec::new());
+    let mut configs = CONFIGS.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((_, config)) = configs.iter().find(|(p, _)| p == pin) {
+        return config.clone();
+    }
+    let config = new_tls_config(pin);
+    // A few phones at most; a re-paired one leaves its old pin behind
+    if configs.len() >= 16 {
+        configs.remove(0);
+    }
+    configs.push((pin.to_string(), config.clone()));
+    config
+}
+
+fn new_tls_config(pin: &str) -> Arc<rustls::ClientConfig> {
     let provider = Arc::new(rustls::crypto::ring::default_provider());
     let verifier = Arc::new(Pin { sha256: pin.to_string(), provider: provider.clone() });
     let config = rustls::ClientConfig::builder_with_provider(provider)
@@ -402,11 +418,24 @@ pub(crate) fn set_desktop_version(version: &str) {
     *DESKTOP_VERSION.lock().unwrap_or_else(|e| e.into_inner()) = version;
 }
 
+/// The addresses sent along with a request, looked up at most every few seconds instead of for each request.
+fn recent_addresses() -> String {
+    static LAST: std::sync::Mutex<Option<(std::time::Instant, String)>> = std::sync::Mutex::new(None);
+    if let Some((at, text)) = LAST.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+        if at.elapsed() < std::time::Duration::from_secs(5) {
+            return text.clone();
+        }
+    }
+    let text = crate::net::presence_addresses(crate::net::pairing_addresses().into_iter().map(|a| a.ip)).join(",");
+    *LAST.lock().unwrap_or_else(|e| e.into_inner()) = Some((std::time::Instant::now(), text.clone()));
+    text
+}
+
 fn desktop_metadata() -> String {
     let version = DESKTOP_VERSION.lock().unwrap_or_else(|e| e.into_inner()).clone();
     if version.is_empty() { return String::new() }
     // Requests already run off the UI thread; never scan adapters while holding a shared lock.
-    let addresses = crate::net::presence_addresses(crate::net::pairing_addresses().into_iter().map(|a| a.ip)).join(",");
+    let addresses = recent_addresses();
     format!("X-Telescope-Version: {version}\r\nX-Telescope-Addresses: {addresses}\r\nX-Telescope-Presence: 1\r\n")
 }
 
