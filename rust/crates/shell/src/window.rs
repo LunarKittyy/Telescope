@@ -2190,6 +2190,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let start_confirmed = || {
         telescope_core::gpu_marker::clear();
         telescope_core::diagnostics::set_starting(false);
+        // Hands back what the first frame's shader, font and picture work left free
+        slint::Timer::single_shot(Duration::from_secs(2), || (app_hooks().release_memory)());
     };
     // Slint says a frame is drawn before it is presented, and a card that can't present to the window's surface fails at the present. So a few
     // frames over about a second confirm the start. One notifier does this and the first-paint timing, since a window has only one.
