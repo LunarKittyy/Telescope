@@ -141,7 +141,7 @@ impl Entry {
 }
 
 /// How many pictures' worth of RGB the shared spare pool keeps between steps.
-const SPARE_POOL_FRAMES: usize = 5;
+const SPARE_POOL_FRAMES: usize = 2;
 
 /// Frames between two looks at what a frame costs.
 const TALLY_FRAMES: u32 = 300;

@@ -397,7 +397,7 @@ type LockedSlot = Arc<dyn Fn(u32) -> Option<(u32, u32)> + Send + Sync>;
 fn screen_deps_on(slot: u32, open: OpenSlot, locked: LockedSlot) -> wait_screen::Deps {
     wait_screen::Deps {
         open_camera: Arc::new(move |w, h, fps, _fmt| open(slot, w, h, fps)),
-        loader: Arc::new(|path, w, h, convert| Ok(wait_screen::load_frames_as(path, w, h, convert))),
+        loader: wait_screen::default_loader(),
         locked: Arc::new(move || locked(slot)),
         filter_probe: filter_probe(slot),
         i420: true,
