@@ -123,9 +123,12 @@ pub fn i420_to_rgba_flipped(frame: &Frame) -> Vec<u8> {
 /// i420_to_rgba_flipped into out, which keeps its allocation from one call to the next (black if the frame isn't I420).
 pub fn i420_to_rgba_flipped_into(frame: &Frame, out: &mut Vec<u8>) {
     let (w, h) = (frame.width as usize, frame.height as usize);
-    out.clear();
+    let Some((py, pu, pv)) = frame.i420_planes() else {
+        out.clear();
+        out.resize(w * h * 4, 0);
+        return;
+    };
     out.resize(w * h * 4, 0);
-    let Some((py, pu, pv)) = frame.i420_planes() else { return };
     if w == 0 {
         return;
     }
@@ -164,10 +167,13 @@ pub fn i420_to_bgr(frame: &Frame) -> Vec<u8> {
         return out;
     }
     let (t, cw) = (terms(), w.div_ceil(2));
-    telescope_core::image::over_rows(&mut out, w * 3, |row, line| {
+    telescope_core::image::over_bands(&mut out, w * 3, |first, part| {
         let mut bgra = vec![0u8; w * 4];
-        convert_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], &mut bgra);
-        line.as_chunks_mut::<3>().0.iter_mut().zip(bgra.as_chunks::<4>().0).for_each(|(o, p)| o.copy_from_slice(&p[..3]));
+        for (i, line) in part.chunks_exact_mut(w * 3).enumerate() {
+            let row = first + i;
+            convert_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], &mut bgra);
+            line.as_chunks_mut::<3>().0.iter_mut().zip(bgra.as_chunks::<4>().0).for_each(|(o, p)| o.copy_from_slice(&p[..3]));
+        }
     });
     out
 }
@@ -195,7 +201,7 @@ pub fn rgb_to_i420_into(pixels: &[u8], width: u32, height: u32, channels: usize,
 fn to_i420_into(pixels: &[u8], width: u32, height: u32, channels: usize, mirror: bool, order: [usize; 3], out: &mut Vec<u8>) {
     let (w, h) = (width as usize, height as usize);
     let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-    out.clear();
+    // Every byte is written below when w and h are non-zero, so skip zeroing a reused buffer.
     out.resize(w * h + 2 * cw * ch, 0);
     if w == 0 || h == 0 {
         return;
@@ -211,10 +217,83 @@ fn to_i420_into(pixels: &[u8], width: u32, height: u32, channels: usize, mirror:
     });
 }
 
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn rgb4_pair_avx2<const BGRA: bool>(top_px: &[u8], bot_px: &[u8], top_y: &mut [u8], bot_y: &mut [u8], urow: &mut [u8], vrow: &mut [u8], blocks: usize) {
+    use std::arch::x86_64::*;
+    let mask_ff = _mm256_set1_epi32(0xFF);
+    let zero = _mm256_setzero_ps();
+    let half = _mm256_set1_ps(0.5);
+    let one = _mm256_set1_ps(1.0);
+    let quarter = _mm256_set1_ps(0.25);
+    let c16 = _mm256_set1_ps(16.0);
+    let c128 = _mm256_set1_ps(128.0);
+    let c255 = _mm256_set1_ps(255.0);
+    let magic = _mm256_set1_ps(8_388_608.0);
+    let (ky_r, ky_g, ky_b) = (_mm256_set1_ps(0.257), _mm256_set1_ps(0.504), _mm256_set1_ps(0.098));
+    let (ku_r, ku_g, ku_b) = (_mm256_set1_ps(0.148), _mm256_set1_ps(0.291), _mm256_set1_ps(0.439));
+    let (kv_r, kv_g, kv_b) = (_mm256_set1_ps(0.439), _mm256_set1_ps(0.368), _mm256_set1_ps(0.071));
+
+    let round_i32 = |x: __m256| -> __m256i {
+        let x = _mm256_min_ps(_mm256_max_ps(x, zero), c255);
+        let t = _mm256_sub_ps(_mm256_add_ps(x, magic), magic);
+        let tie = _mm256_cmp_ps::<_CMP_EQ_OQ>(_mm256_sub_ps(x, t), half);
+        _mm256_cvttps_epi32(_mm256_add_ps(t, _mm256_and_ps(tie, one)))
+    };
+    let pack16 = |lo: __m256i, hi: __m256i| -> __m128i {
+        let p16 = _mm256_permute4x64_epi64::<0xD8>(_mm256_packus_epi32(lo, hi));
+        let p8 = _mm256_permute4x64_epi64::<0xD8>(_mm256_packus_epi16(p16, p16));
+        _mm256_castsi256_si128(p8)
+    };
+    let pack8 = |v: __m256i| -> __m128i {
+        let ordered = _mm256_permute4x64_epi64::<0xD8>(v);
+        let p16 = _mm256_permute4x64_epi64::<0xD8>(_mm256_packus_epi32(ordered, ordered));
+        let lo = _mm256_castsi256_si128(p16);
+        _mm_packus_epi16(lo, lo)
+    };
+    let load_yuv = |ptr: *const u8| -> (__m256i, __m256, __m256) {
+        let px = _mm256_loadu_si256(ptr.cast());
+        let c0 = _mm256_cvtepi32_ps(_mm256_and_si256(px, mask_ff));
+        let g = _mm256_cvtepi32_ps(_mm256_and_si256(_mm256_srli_epi32::<8>(px), mask_ff));
+        let c2 = _mm256_cvtepi32_ps(_mm256_and_si256(_mm256_srli_epi32::<16>(px), mask_ff));
+        let (r, b) = if BGRA { (c2, c0) } else { (c0, c2) };
+        let y = _mm256_add_ps(_mm256_add_ps(_mm256_add_ps(c16, _mm256_mul_ps(r, ky_r)), _mm256_mul_ps(g, ky_g)), _mm256_mul_ps(b, ky_b));
+        let u = _mm256_add_ps(_mm256_sub_ps(_mm256_sub_ps(c128, _mm256_mul_ps(r, ku_r)), _mm256_mul_ps(g, ku_g)), _mm256_mul_ps(b, ku_b));
+        let v = _mm256_sub_ps(_mm256_sub_ps(_mm256_add_ps(c128, _mm256_mul_ps(r, kv_r)), _mm256_mul_ps(g, kv_g)), _mm256_mul_ps(b, kv_b));
+        (round_i32(y), u, v)
+    };
+
+    for b in 0..blocks {
+        let x = b * 16;
+        let (yt0, ut0, vt0) = load_yuv(top_px.as_ptr().add(x * 4));
+        let (yt1, ut1, vt1) = load_yuv(top_px.as_ptr().add((x + 8) * 4));
+        let (yb0, ub0, vb0) = load_yuv(bot_px.as_ptr().add(x * 4));
+        let (yb1, ub1, vb1) = load_yuv(bot_px.as_ptr().add((x + 8) * 4));
+        _mm_storeu_si128(top_y.as_mut_ptr().add(x).cast(), pack16(yt0, yt1));
+        _mm_storeu_si128(bot_y.as_mut_ptr().add(x).cast(), pack16(yb0, yb1));
+        let u0 = _mm256_shuffle_ps::<0x88>(ut0, ut1);
+        let u1 = _mm256_shuffle_ps::<0xDD>(ut0, ut1);
+        let u2 = _mm256_shuffle_ps::<0x88>(ub0, ub1);
+        let u3 = _mm256_shuffle_ps::<0xDD>(ub0, ub1);
+        let u_avg = _mm256_mul_ps(_mm256_add_ps(_mm256_add_ps(_mm256_add_ps(u0, u1), u2), u3), quarter);
+        _mm_storel_epi64(urow.as_mut_ptr().add(b * 8).cast(), pack8(round_i32(u_avg)));
+        let v0 = _mm256_shuffle_ps::<0x88>(vt0, vt1);
+        let v1 = _mm256_shuffle_ps::<0xDD>(vt0, vt1);
+        let v2 = _mm256_shuffle_ps::<0x88>(vb0, vb1);
+        let v3 = _mm256_shuffle_ps::<0xDD>(vb0, vb1);
+        let v_avg = _mm256_mul_ps(_mm256_add_ps(_mm256_add_ps(_mm256_add_ps(v0, v1), v2), v3), quarter);
+        _mm_storel_epi64(vrow.as_mut_ptr().add(b * 8).cast(), pack8(round_i32(v_avg)));
+    }
+}
+
 /// The row pairs of rgb_to_i420 from `first` on that fit in the planes' parts (each starting at that row pair).
 #[allow(clippy::too_many_arguments)]
 fn rgb_band_to_i420(pixels: &[u8], (w, h): (usize, usize), channels: usize, [ro, go, bo]: [usize; 3], mirror: bool, first: usize, luma: &mut [u8], us: &mut [u8], vs: &mut [u8]) {
     let (t, cw) = (terms(), w.div_ceil(2));
+    #[cfg(target_arch = "x86_64")]
+    let simd_blocks = if channels == 4 && !mirror && ([ro, go, bo] == [0, 1, 2] || [ro, go, bo] == [2, 1, 0]) && telescope_core::image::avx2_wanted() { w / 16 } else { 0 };
+    #[cfg(not(target_arch = "x86_64"))]
+    let simd_blocks = 0usize;
     // Each pixel's U and V, and its luma written, from the pixel at output column x of row y (luma starting at row `first` * 2)
     let yuv = |x: usize, y: usize, luma: &mut [u8]| {
         let i = (y * w + if mirror { w - 1 - x } else { x }) * channels;
@@ -231,7 +310,22 @@ fn rgb_band_to_i420(pixels: &[u8], (w, h): (usize, usize), channels: usize, [ro,
         let (urow, vrow) = (&mut us[k * cw..][..cw], &mut vs[k * cw..][..cw]);
         match bottom {
             Some(bottom) => {
-                for cx in 0..w / 2 {
+                let mut cx0 = 0;
+                #[cfg(target_arch = "x86_64")]
+                if simd_blocks > 0 {
+                    let top_px = &pixels[(2 * cy) * w * 4..][..w * 4];
+                    let bot_px = &pixels[(2 * cy + 1) * w * 4..][..w * 4];
+                    // SAFETY: avx2_wanted() checked AVX2 support, and simd_blocks * 16 <= w keeps every load and store in bounds.
+                    unsafe {
+                        if ro == 2 {
+                            rgb4_pair_avx2::<true>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
+                        } else {
+                            rgb4_pair_avx2::<false>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
+                        }
+                    }
+                    cx0 = simd_blocks * 8;
+                }
+                for cx in cx0..w / 2 {
                     let (x, y) = (2 * cx, 2 * cy);
                     let (u0, v0) = yuv(x, y, top);
                     let (u1, v1) = yuv(x + 1, y, top);
@@ -630,6 +724,35 @@ mod tests {
                     assert_eq!(a.data, b.data, "{w}x{h} x{channels} mirror {mirror}");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn bgra_converts_to_i420_like_rgba_at_vector_and_awkward_widths() {
+        for (w, h) in [(16, 2), (32, 4), (48, 5), (64, 36), (70, 3), (1200, 700), (1216, 701)] {
+            let rgba = noise(w * h * 4, (w * 11 + h) as u32);
+            let mut bgra = rgba.clone();
+            bgra.as_chunks_mut::<4>().0.iter_mut().for_each(|p| p.swap(0, 2));
+            let want = reference::rgb_to_i420(&rgba, w as u32, h as u32, 4, false);
+            assert_eq!(bgra_to_i420(&bgra, w as u32, h as u32).data, want.data, "{w}x{h} bgra");
+            assert_eq!(rgb_to_i420(&rgba, w as u32, h as u32, 4, false).data, want.data, "{w}x{h} rgba");
+        }
+    }
+
+    #[test]
+    fn converting_into_a_dirty_buffer_leaves_nothing_of_it_behind() {
+        for (w, h) in [(1, 1), (16, 2), (33, 17), (64, 36), (70, 3)] {
+            let rgba = noise(w * h * 4, (w + h * 5) as u32);
+            let (mut dirty, mut small) = (vec![0xABu8; w * h * 4 + 99], vec![0xCDu8; 3]);
+            let want = rgb_to_i420(&rgba, w as u32, h as u32, 4, false).data.to_vec();
+            rgb_to_i420_into(&rgba, w as u32, h as u32, 4, false, &mut dirty);
+            rgb_to_i420_into(&rgba, w as u32, h as u32, 4, false, &mut small);
+            assert_eq!(dirty, want, "{w}x{h} larger buffer");
+            assert_eq!(small, want, "{w}x{h} smaller buffer");
+            let i420 = Frame::new(w as u32, h as u32, PixelFormat::I420, want);
+            let (mut flipped, fresh) = (vec![0xABu8; w * h * 4 + 7], i420_to_rgba_flipped(&i420));
+            i420_to_rgba_flipped_into(&i420, &mut flipped);
+            assert_eq!(flipped, fresh, "{w}x{h} flipped");
         }
     }
 
