@@ -29,6 +29,8 @@ pub const MASK_CARRY: f64 = 0.3;
 pub const MASK_CARRY_STILL: f64 = 0.5;
 /// While nothing moves the mask is worked out this often, instead of for every frame.
 pub const MASK_STILL_EVERY_S: f64 = 1.0 / 15.0;
+/// The high quality cutout costs about ten times the normal model a run, so while nothing moves it is worked out this often.
+pub const CUTOUT_STILL_EVERY_S: f64 = 0.25;
 /// Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often.
 pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
 pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
@@ -144,6 +146,8 @@ pub(crate) struct MaskState {
     /// As the model gave it, with the last ones carried in.
     pub(crate) small: Option<Gray>,
     pub(crate) at: f64,
+    /// When a frame last looked the same as the one `small` is of, so the mask held over a still scene is no older than that.
+    pub(crate) seen: f64,
     /// The frame the model last ran on, which `small` is of: a frame that got `small` again without a run is not it.
     pub(crate) ran: Option<u64>,
     pub(crate) motion: Motion,
@@ -347,7 +351,7 @@ pub(crate) struct StreamVision {
 impl StreamVision {
     fn new() -> StreamVision {
         StreamVision {
-            mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0, ran: None,
+            mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0, seen: 0.0, ran: None,
                                          motion: Motion::default(), asked: 0.0, turns: 0, fails: 0, geometry: None, space: MaskSpace::default(), unsure: false }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
@@ -626,7 +630,7 @@ impl Vision {
             let mut m = sv.mask.lock().unwrap();
             m.geometry(view.geometry, view.space, view.unsure);
             m.asked = monotonic();
-            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at, seq: m.ran.unwrap_or(seq) });
+            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), seq: m.ran.unwrap_or(seq) });
         }
         let Some(backend) = self.ready() else {
             self.load();
@@ -664,7 +668,7 @@ impl Vision {
             let mut m = sv.mask.lock().unwrap();
             m.asked = monotonic();
             m.geometry(view.geometry, view.space, view.unsure);
-            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at, seq: m.ran.unwrap_or(seq) });
+            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), seq: m.ran.unwrap_or(seq) });
         }
         self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, picture, epoch, view)
     }
@@ -760,7 +764,7 @@ impl Vision {
         }
         if m.turns != epoch {
             // The view turned since what was kept was made: it, and what the next mask would blend in, is of the old picture
-            (m.turns, m.seq, m.mask, m.small, m.motion, m.ran) = (epoch, None, None, None, Motion::default(), None);
+            (m.turns, m.seq, m.mask, m.small, m.motion, m.ran, m.seen) = (epoch, None, None, None, Motion::default(), None, 0.0);
             // A model that keeps its own memory of the last frames (the cutout's) forgets them too
             if let Some(segment) = m.segment.as_mut() {
                 segment.reset();
@@ -787,7 +791,8 @@ impl Vision {
         // Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
         let moved = m.motion.moved(&small);
         let saving = self.power_saving();
-        if (moved && !saving) || m.small.is_none() || now - m.at >= MASK_STILL_EVERY_S {
+        let still_every = if which == Which::Cutout { CUTOUT_STILL_EVERY_S } else { MASK_STILL_EVERY_S };
+        if (moved && !saving) || m.small.is_none() || now - m.at >= still_every {
             let t0 = std::time::Instant::now();
             let ts = m.clock.next();
             let gap = m.small.is_some() && now - m.at > MASK_MAX_AGE_S;
@@ -826,6 +831,10 @@ impl Vision {
             m.at = now;
             m.ran = Some(seq);
             m.mask = None;
+        }
+        // Held over a picture that looks the same, the mask is as good as one just made: the cutout's rarer runs don't make it look behind
+        else if !moved {
+            m.seen = now;
         }
         let small = m.small.as_ref().unwrap();
         if !matches!(&m.mask, Some((mw, mh, _)) if (*mw, *mh) == (w, h)) {
@@ -1226,7 +1235,7 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
             m.segment = None;
         }
         // What the model last ran on, and when: a mask got again without a run is no newer than that
-        let (at, seq) = (m.at, m.ran.unwrap_or(seq));
+        let (at, seq) = (m.at.max(m.seen), m.ran.unwrap_or(seq));
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;

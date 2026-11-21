@@ -228,8 +228,8 @@ fn the_models_memory_starts_again_after_a_gap_a_new_size_and_a_new_stream() {
     assert_eq!(resets(), 1);
     assert!(go(9, &frame).is_some());
     assert_eq!(resets(), 1, "and only once");
-    // The picture changes size (a quiet picture is only looked at every MASK_STILL_EVERY_S, so it's that long since the last run)
-    cutout_stream(v).mask.lock().unwrap().at -= MASK_STILL_EVERY_S + 0.02;
+    // The picture changes size (a quiet picture is only looked at every CUTOUT_STILL_EVERY_S, so it's that long since the last run)
+    cutout_stream(v).mask.lock().unwrap().at -= CUTOUT_STILL_EVERY_S + 0.02;
     assert!(go(10, &bigger).is_some());
     assert_eq!(resets(), 2);
     assert!(go(11, &bigger).is_some());
@@ -343,4 +343,35 @@ fn ending_a_stream_does_not_wait_for_a_mask_still_being_made() {
         assert!(Instant::now() < end, "the model was never closed");
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+fn ask_snapshot(v: &Vision, seq: u64, f: &Rgb) -> MaskSnapshot {
+    let f2 = f.clone();
+    v.newest_cutout_snapshot("a", seq, f.w, f.h, Box::new(move || Some(f2)), v.view_epoch(), MaskView::default()).unwrap()
+}
+
+#[test]
+fn a_cutout_over_a_still_picture_runs_a_few_times_a_second_and_never_looks_behind() {
+    let r = rig_taking(Duration::ZERO);
+    let v = &r.normal.v;
+    v.wait_for_masks();
+    let (still, runs) = (frame(), || r.counts.runs.load(Ordering::SeqCst));
+    ask(v, 1);
+    wait(|| v.cutout_state() == READY);
+    ask_snapshot(v, 2, &still);
+    let before = runs();
+    // 0.2 s since the last run: past the normal model's still rate, inside the cutout's
+    cutout_stream(v).mask.lock().unwrap().at -= 0.2;
+    let held = ask_snapshot(v, 3, &still);
+    assert_eq!(runs(), before, "no run for a picture that hasn't changed");
+    assert!(held.age() < HQ_BEHIND_S / 2.0, "the held mask is as new as the picture: {}", held.age());
+    // Anything moving brings it back at once
+    let moved = Rgb::filled(64, 36, 250);
+    ask_snapshot(v, 4, &moved);
+    assert_eq!(runs(), before + 1);
+    // And a picture that stays still is still looked at now and then
+    ask_snapshot(v, 5, &moved);
+    cutout_stream(v).mask.lock().unwrap().at -= CUTOUT_STILL_EVERY_S + 0.02;
+    ask_snapshot(v, 6, &moved);
+    assert_eq!(runs(), before + 2);
 }
