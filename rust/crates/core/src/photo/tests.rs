@@ -305,12 +305,253 @@ fn the_tag_route_and_the_pixel_route_show_the_same_picture() {
 }
 
 #[test]
-fn a_photo_with_a_gain_map_and_no_orientation_tag_is_refused() {
+fn a_photo_with_a_list_of_pictures_that_cannot_be_followed_and_no_orientation_tag_is_refused() {
     let mut file = jpeg(32, 32, Subsampling::S444);
     file.splice(2..2, b"\xff\xe2\x00\x0aMPF\0\0\0\0\0".to_vec());
     let before = file.clone();
     assert!(apply_bytes(&file, &PhotoTransform { flip_h: true, ..Default::default() }).is_err());
     assert_eq!(apply_bytes(&file, &PhotoTransform::default()).unwrap(), before, "nothing to turn, nothing to refuse");
+}
+
+/// Camera EXIF without an orientation: a make and a date that sit outside the IFD, a pointer to a sub-IFD, and a thumbnail IFD behind it. 136 bytes.
+fn camera_tiff(le: bool) -> Vec<u8> {
+    let s = |n: u16| if le { n.to_le_bytes() } else { n.to_be_bytes() };
+    let l = |n: u32| if le { n.to_le_bytes() } else { n.to_be_bytes() };
+    let entry = |tag: u16, kind: u16, count: u32, value: u32| [s(tag).as_slice(), &s(kind), &l(count), &l(value)].concat();
+    let mut t = if le { b"II\x2a\0".to_vec() } else { b"MM\0\x2a".to_vec() };
+    t.extend(l(8));
+    t.extend(s(3));
+    for e in [entry(0x010f, 2, 10, 50), entry(0x0132, 2, 20, 60), entry(0x8769, 4, 1, 80)] { t.extend(e); }
+    t.extend(l(118));
+    t.extend(b"Telescope\0");
+    t.extend(b"2026:11:21 10:00:00\0");
+    t.extend(s(1));
+    t.extend(entry(0x9003, 2, 20, 98));
+    t.extend(l(0));
+    t.extend(b"2026:11:21 09:59:59\0");
+    t.extend(s(1));
+    t.extend([s(0x103).as_slice(), &s(3), &l(1), &s(6), &[0, 0]].concat());
+    t.extend(l(0));
+    assert_eq!(t.len(), 136);
+    t
+}
+
+fn app1(tiff: &[u8]) -> Vec<u8> {
+    [&[0xff, 0xe1][..], &((tiff.len() + 8) as u16).to_be_bytes(), b"Exif\0\0", tiff].concat()
+}
+
+/// The MPF segment of an Ultra HDR photo: an MP Index IFD with two pictures, the second at `gain_offset` from the start of the segment's TIFF data
+fn mpf_segment(le: bool, first_size: u32, gain_offset: u32, gain_size: u32) -> Vec<u8> {
+    let s = |n: u16| if le { n.to_le_bytes() } else { n.to_be_bytes() };
+    let l = |n: u32| if le { n.to_le_bytes() } else { n.to_be_bytes() };
+    let entry = |tag: u16, kind: u16, count: u32, value: [u8; 4]| [s(tag).as_slice(), &s(kind), &l(count), &value].concat();
+    let mut tiff = if le { b"II\x2a\0".to_vec() } else { b"MM\0\x2a".to_vec() };
+    tiff.extend(l(8));
+    tiff.extend(s(3));
+    for e in [entry(0xb000, 7, 4, *b"0100"), entry(0xb001, 4, 1, l(2)), entry(0xb002, 7, 32, l(50))] { tiff.extend(e); }
+    tiff.extend(l(0));
+    for (attribute, size, offset) in [(0x2003_0000, first_size, 0), (0, gain_size, gain_offset)] {
+        for n in [attribute, size, offset] { tiff.extend(l(n)); }
+        tiff.extend([0; 4]);
+    }
+    [&[0xff, 0xe2][..], &((tiff.len() + 6) as u16).to_be_bytes(), b"MPF\0", &tiff].concat()
+}
+
+/// An Ultra HDR photo like the phone writes it: the primary picture with its headers and a list of both pictures, then the gain map. `exif` is a whole APP1 segment that goes right before the list, or right after it with `exif_after_list`. Returns the file and the gain map.
+fn ultra_hdr(le: bool, exif: Option<Vec<u8>>, exif_after_list: bool) -> (Vec<u8>, Vec<u8>) {
+    let base = jpeg(64, 48, Subsampling::S420);
+    let mut at = 2;
+    for (marker, start, end) in app_segments(&base) {
+        if marker != 0xe0 || start - 4 != at { break; }
+        at = end;
+    }
+    let gain_map = jpeg(16, 12, Subsampling::S420);
+    let exif = exif.unwrap_or_default();
+    let primary_len = base.len() + exif.len() + mpf_segment(le, 0, 0, 0).len();
+    let list_at = at + if exif_after_list { 0 } else { exif.len() };
+    let tiff_at = list_at + 8;
+    let mpf = mpf_segment(le, primary_len as u32, (primary_len - tiff_at) as u32, gain_map.len() as u32);
+    let headers = if exif_after_list { [mpf, exif].concat() } else { [exif, mpf].concat() };
+    let mut file = base;
+    file.splice(at..at, headers);
+    assert_eq!(file.len(), primary_len);
+    file.extend(&gain_map);
+    (file, gain_map)
+}
+
+/// Reads the list of pictures the way a viewer would, without any of the code under test: where its TIFF data starts and each picture's size and offset from there
+fn picture_list(file: &[u8]) -> (usize, Vec<(u32, u32)>) {
+    let mut at = 2;
+    while file[at] == 0xff && file[at + 1] != 0xda {
+        let length = usize::from(u16::from_be_bytes([file[at + 2], file[at + 3]]));
+        if file[at + 1] == 0xe2 && &file[at + 4..at + 8] == b"MPF\0" {
+            let tiff = at + 8;
+            let le = &file[tiff..tiff + 2] == b"II";
+            let u16_at = |p: usize| if le { u16::from_le_bytes([file[p], file[p + 1]]) } else { u16::from_be_bytes([file[p], file[p + 1]]) };
+            let u32_at = |p: usize| if le { u32::from_le_bytes(file[p..p + 4].try_into().unwrap()) } else { u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) };
+            let ifd = tiff + u32_at(tiff + 4) as usize;
+            let entry = (0..usize::from(u16_at(ifd))).map(|i| ifd + 2 + i * 12).find(|p| u16_at(*p) == 0xb002).unwrap();
+            let (count, list) = (u32_at(entry + 4) as usize / 16, tiff + u32_at(entry + 8) as usize);
+            return (tiff, (0..count).map(|i| (u32_at(list + i * 16 + 4), u32_at(list + i * 16 + 8))).collect());
+        }
+        at += 2 + length;
+    }
+    panic!("no list of pictures");
+}
+
+/// The entries of an IFD as (tag, type, count, value bytes), with values that sit outside the entry followed to where they are
+fn ifd_entries(tiff: &[u8], at: usize) -> Vec<(u16, u16, u32, Vec<u8>)> {
+    let le = &tiff[..2] == b"II";
+    let u16_at = |p: usize| if le { u16::from_le_bytes([tiff[p], tiff[p + 1]]) } else { u16::from_be_bytes([tiff[p], tiff[p + 1]]) };
+    let u32_at = |p: usize| if le { u32::from_le_bytes(tiff[p..p + 4].try_into().unwrap()) } else { u32::from_be_bytes(tiff[p..p + 4].try_into().unwrap()) };
+    (0..usize::from(u16_at(at))).map(|i| {
+        let p = at + 2 + i * 12;
+        let (kind, count) = (u16_at(p + 2), u32_at(p + 4));
+        let size = count as usize * match kind { 3 => 2, 4 => 4, _ => 1 };
+        let value = if size <= 4 { tiff[p + 8..p + 8 + size].to_vec() } else { let o = u32_at(p + 8) as usize; tiff[o..o + size].to_vec() };
+        (u16_at(p), kind, count, value)
+    }).collect()
+}
+
+fn first_exif_tiff(file: &[u8]) -> Vec<u8> {
+    let (start, end) = exif_places(file)[0];
+    file[start..end].to_vec()
+}
+
+fn the_first_ifd(tiff: &[u8]) -> usize {
+    let le = &tiff[..2] == b"II";
+    (if le { u32::from_le_bytes(tiff[4..8].try_into().unwrap()) } else { u32::from_be_bytes(tiff[4..8].try_into().unwrap()) }) as usize
+}
+
+/// Every turn and flip there is, with the orientation value that shows each
+fn every_turn() -> Vec<(PhotoTransform, u16)> {
+    let mut turns = Vec::new();
+    for rotation in [0, 90, 180, 270] {
+        for (flip_h, flip_v) in [(false, false), (true, false), (false, true), (true, true)] {
+            let t = PhotoTransform { rotation, flip_h, flip_v, ..Default::default() };
+            let value = orient::exif_value(operation(&t));
+            turns.push((t, value));
+        }
+    }
+    assert_eq!(turns.iter().map(|(_, v)| *v).collect::<std::collections::BTreeSet<_>>().len(), 8);
+    turns
+}
+
+#[test]
+fn an_ultra_hdr_photo_without_an_orientation_tag_gets_one_and_its_gain_map_stays_where_the_list_says() {
+    for le in [true, false] {
+        // No EXIF at all, EXIF before the list, and EXIF after it (the gain map then moves while the list doesn't)
+        for (exif, after_list) in [(None, false), (Some(app1(&camera_tiff(!le))), false), (Some(app1(&camera_tiff(le))), true)] {
+            let (file, gain_map) = ultra_hdr(le, exif.clone(), after_list);
+            let (tiff_before, list_before) = picture_list(&file);
+            assert_eq!(list_before[1], (gain_map.len() as u32, (file.len() - gain_map.len() - tiff_before) as u32), "the fixture's list is right to begin with");
+            for (t, value) in every_turn() {
+                let output = apply_bytes(&file, &t).unwrap_or_else(|e| panic!("le {le} exif {} after {after_list} {t:?}: {e}", exif.is_some()));
+                if value == 1 {
+                    assert_eq!(output, file, "nothing to turn, nothing to change");
+                    continue;
+                }
+                let delta = (output.len() - file.len()) as u32;
+                assert!(delta > 0);
+                assert_eq!(probe(&output).unwrap().exif_orientation, Some(value as u8));
+                // The gain map is the same bytes at the end of the file, and the list says so
+                let primary_len = output.len() - gain_map.len();
+                assert!(output.ends_with(&gain_map));
+                let (tiff, list) = picture_list(&output);
+                assert_eq!(list.len(), 2);
+                assert_eq!(list[0], (primary_len as u32, 0), "the first picture is as big as its headers now make it");
+                assert_eq!(list[1].0, gain_map.len() as u32);
+                let start = tiff + list[1].1 as usize;
+                assert_eq!(start, primary_len, "the offset from the list leads to the gain map");
+                assert_eq!(&output[start..start + 3], &[0xff, 0xd8, 0xff]);
+                assert_eq!(&output[primary_len - 2..primary_len], &[0xff, 0xd9], "the first picture ends where the gain map starts");
+                // Added before the list, the gain map and the list move by the same amount and the offset between them stays. Added after it, the offset grows by what was added.
+                assert_eq!(list[1].1, list_before[1].1 + if after_list { delta } else { 0 });
+                assert_eq!(list[0].0, list_before[0].0 + delta);
+                // The first picture still decodes and is the same picture
+                let primary = decompress(&output[..primary_len]).unwrap();
+                assert_eq!((primary.width, primary.height), (64, 48));
+                assert_eq!(primary.data, decompress(&file[..file.len() - gain_map.len()]).unwrap().data);
+                verify_jpeg(&output[..primary_len]).unwrap();
+                assert_eq!(decompress(&output[start..]).unwrap().data, decompress(&gain_map).unwrap().data);
+                // Whatever EXIF it had is still all there
+                if exif.is_some() {
+                    let (before, after) = (first_exif_tiff(&file), first_exif_tiff(&output));
+                    let exif_le = &after[..2] == b"II";
+                    let short = if exif_le { value.to_le_bytes() } else { value.to_be_bytes() };
+                    let mut wanted = ifd_entries(&before, the_first_ifd(&before));
+                    wanted.push((0x0112, 3, 1, short.to_vec()));
+                    wanted.sort_by_key(|e| e.0);
+                    let found = ifd_entries(&after, the_first_ifd(&after));
+                    assert_eq!(found, wanted, "everything it had, plus the orientation, in order");
+                    assert_eq!(found.iter().map(|e| e.0).collect::<Vec<_>>(), [0x010f, 0x0112, 0x0132, 0x8769]);
+                    assert_eq!(found.iter().find(|e| e.0 == 0x010f).unwrap().3, b"Telescope\0");
+                    let pointer: [u8; 4] = found.iter().find(|e| e.0 == 0x8769).unwrap().3[..4].try_into().unwrap();
+                    let sub = (if exif_le { u32::from_le_bytes(pointer) } else { u32::from_be_bytes(pointer) }) as usize;
+                    assert_eq!(ifd_entries(&after, sub), ifd_entries(&before, 80), "the sub-IFD it points at is intact");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn an_ultra_hdr_photo_with_an_orientation_tag_changes_the_tag_and_nothing_else() {
+    for le in [true, false] {
+        for start in 1..=8u16 {
+            let (file, gain_map) = ultra_hdr(le, Some(exif(start, !le)), false);
+            let now = Op::from_exif_orientation(start as u8).unwrap();
+            for (t, _) in every_turn() {
+                let output = apply_bytes(&file, &t).unwrap();
+                assert_eq!(output.len(), file.len());
+                assert_eq!(probe(&output).unwrap().exif_orientation, Some(orient::exif_value(orient::then(now, operation(&t))) as u8));
+                assert_eq!(picture_list(&output), picture_list(&file), "the list of pictures is left alone");
+                assert!(output.ends_with(&gain_map));
+                assert!((0..file.len()).filter(|i| file[*i] != output[*i]).count() <= 6);
+            }
+        }
+    }
+}
+
+#[test]
+fn an_ultra_hdr_photo_whose_list_or_exif_cannot_be_followed_is_refused_and_left_alone() {
+    let turn = PhotoTransform { rotation: 90, ..Default::default() };
+    // The list sends the gain map somewhere that isn't a picture
+    let (mut file, _) = ultra_hdr(true, None, false);
+    let (tiff, _) = picture_list(&file);
+    let offset_at = tiff + 50 + 16 + 8;
+    let wrong = u32::from_le_bytes(file[offset_at..offset_at + 4].try_into().unwrap()) + 5;
+    file[offset_at..offset_at + 4].copy_from_slice(&wrong.to_le_bytes());
+    assert!(apply_bytes(&file, &turn).is_err());
+    // The EXIF has an orientation that isn't one short, so there is no sound way to add another
+    let mut odd = camera_tiff(true);
+    odd[10..22].copy_from_slice(&[0x12, 0x01, 4, 0, 1, 0, 0, 0, 6, 0, 0, 0]);
+    let (file, _) = ultra_hdr(true, Some(app1(&odd)), false);
+    assert!(apply_bytes(&file, &turn).is_err());
+    // The EXIF segment is too full to grow
+    let mut full = camera_tiff(true);
+    full.resize(65_500, 0);
+    let (file, _) = ultra_hdr(true, Some(app1(&full)), false);
+    assert!(apply_bytes(&file, &turn).is_err());
+    // On disk the photo stays as it is
+    let dir = crate::testing::scratch_dir("ultra-refused");
+    let path = dir.join("full.jpg.part");
+    std::fs::write(&path, &file).unwrap();
+    assert!(apply_file_or_keep(&path, &turn).is_some());
+    assert_eq!(std::fs::read(&path).unwrap(), file);
+}
+
+#[test]
+fn an_ultra_hdr_photo_on_disk_is_turned_in_place() {
+    let dir = crate::testing::scratch_dir("ultra-turned");
+    let path = dir.join("turned.jpg.part");
+    let (file, gain_map) = ultra_hdr(false, None, false);
+    std::fs::write(&path, &file).unwrap();
+    assert!(apply_file_or_keep(&path, &PhotoTransform { flip_h: true, rotation: 270, ..Default::default() }).is_none());
+    let output = std::fs::read(&path).unwrap();
+    assert!(output.ends_with(&gain_map));
+    assert_eq!(probe(&output).unwrap().exif_orientation, Some(5), "turned 270 and mirrored is a transpose");
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
 }
 
 fn bx(kind: &[u8; 4], body: &[u8]) -> Vec<u8> {

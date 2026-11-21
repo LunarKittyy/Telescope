@@ -7,6 +7,8 @@ use std::path::Path;
 
 #[path = "photo/heif.rs"]
 mod heif;
+#[path = "photo/insert.rs"]
+mod insert;
 #[path = "photo/orient.rs"]
 mod orient;
 
@@ -224,11 +226,13 @@ fn is_multi_picture(data: &[u8]) -> bool {
     })
 }
 
-/// A photo with more pictures inside is turned by its orientation tag alone, so the gain map keeps matching the picture
-fn turn_by_tag(data: &[u8], op: TransformOp) -> Result<Vec<u8>, String> {
+/// A photo with more pictures inside is turned by its orientation tag alone, so the gain map keeps matching the picture. With `add_missing`, a photo that has no tag gets one.
+fn turn_by_tag(data: &[u8], op: TransformOp, add_missing: bool) -> Result<Vec<u8>, String> {
     let mut output = data.to_vec();
     let current = exif_places(&output).into_iter().find_map(|(start, end)| patch_orientation(&mut output[start..end].to_vec(), |v| v, false));
-    let Some(current) = current else { return Err("The photo has no orientation tag to turn".into()) };
+    let Some(current) = current else {
+        return if add_missing { insert::add_orientation(data, orient::exif_value(op)) } else { Err("The photo has no orientation tag to turn".into()) };
+    };
     let now = u8::try_from(current).ok().and_then(TransformOp::from_exif_orientation).unwrap_or(TransformOp::None);
     let value = orient::exif_value(orient::then(now, op));
     for (start, end) in exif_places(&output) {
@@ -242,12 +246,12 @@ fn apply_unchecked(data: &[u8], t: &PhotoTransform) -> Result<Vec<u8>, String> {
     if !data.starts_with(&[0xff, 0xd8, 0xff]) { return Ok(data.to_vec()); }
     if is_multi_picture(data) {
         let op = operation(t);
-        return if op == TransformOp::None { Ok(data.to_vec()) } else { turn_by_tag(data, op) };
+        return if op == TransformOp::None { Ok(data.to_vec()) } else { turn_by_tag(data, op, true) };
     }
     let op = operation(t);
     match lossless_jpeg(data, t).and_then(|output| if output == data { Ok(output) } else { verify_jpeg(&output).map(|()| output) }) {
         Ok(output) => Ok(output),
-        Err(why) => match turn_by_tag(data, op) {
+        Err(why) => match turn_by_tag(data, op, false) {
             // The picture can't be turned in place, but it can still show the right way up
             Ok(output) if op != TransformOp::None => {
                 log::warn!("Couldn't turn the photo itself ({why}), turned it by its orientation tag and left out any zoom");
