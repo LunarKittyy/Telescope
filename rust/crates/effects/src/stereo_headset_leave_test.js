@@ -4,11 +4,13 @@ const assert = require("assert");
 const fs = require("fs");
 const vm = require("vm");
 
-const element = () => ({ getContext: () => ({}), addEventListener(name, handler) { this[name] = handler; }, textContent: "", width: 0, height: 0, disabled: false });
+const element = () => ({ getContext: () => ({ drawImage() {}, fillRect() {} }), addEventListener(name, handler) { this[name] = handler; }, textContent: "", width: 0, height: 0, disabled: false });
 const enter = element();
 const gl = new Proxy({}, { get: (_, name) => (name === "getAttribLocation" ? () => 0 : () => ({})) });
 const pad = (...down) => ({ gamepad: { buttons: Array.from({ length: 6 }, (_, i) => ({ pressed: down.includes(i) })) } });
 let ends = 0;
+// the flat picture's frame callbacks that are waiting
+let flat = [];
 let frames = [];
 const listeners = {};
 const spaceListeners = {};
@@ -27,7 +29,7 @@ const context = vm.createContext({
   location: { hash: "#token", host: "host" },
   document: { getElementById: (id) => (id === "enter" ? enter : element()), createElement: () => ({ getContext: () => gl }) },
   WebSocket: class {},
-  requestAnimationFrame() {},
+  requestAnimationFrame: (f) => flat.push(f),
   setTimeout() {},
   navigator: { xr: { requestSession: async () => fake } },
   XRWebGLLayer: class {},
@@ -86,7 +88,22 @@ const runFrame = () => {
   fake.inputSources = [pad(1)];
   runFrame();
   assert.strictEqual(ends, 3, "a grip button");
+
+  // a session made but not finished (no reference space) is ended, and the flat picture starts again after its loop stopped on the way
+  const space = fake.requestReferenceSpace;
+  fake.requestReferenceSpace = async () => {
+    const waiting = flat;
+    flat = [];
+    waiting.forEach((f) => f());
+    throw new Error("no space");
+  };
+  await enter.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(ends, 4, "the half-made session was ended");
+  assert.strictEqual(vm.runInContext("session", context), null);
+  assert.strictEqual(enter.disabled, false, "the button is back");
+  assert.strictEqual(flat.length, 1, "the flat picture is drawn again, once");
+  fake.requestReferenceSpace = space;
 })().then(() => process.exit(0), (e) => {
-  console.error(e);
   process.exit(1);
 });

@@ -8,9 +8,14 @@ const pending = [];
 const sockets = [];
 let closed = 0;
 const element = () => ({ getContext: () => ({ drawImage() {}, fillRect() {} }), addEventListener() {}, textContent: "", width: 0, height: 0, disabled: false });
+const acks = [];
 class FakeSocket {
   constructor() {
     sockets.push(this);
+    this.readyState = 1;
+  }
+  send(text) {
+    acks.push(text);
   }
 }
 const context = vm.createContext({
@@ -36,6 +41,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   pending.shift()(first);
   await tick();
   assert.strictEqual(bitmap(), first);
+  assert.deepStrictEqual(acks, ["ack"], "a decoded picture is acknowledged, so the next one can be sent");
 
   // black arrives while a picture is decoding: the picture is dropped and closed, not shown
   socket.onmessage({ data: {} });
@@ -63,6 +69,13 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   pending.shift()(next);
   await tick();
   assert.strictEqual(bitmap(), next);
+
+  // a picture that can't be decoded is acknowledged too, or the headset would wait for ever
+  const before = acks.length;
+  socket.onmessage({ data: {} });
+  pending.shift()(Promise.reject(new Error("damaged")));
+  await tick();
+  assert.strictEqual(acks.length, before + 1, "a damaged picture is acknowledged");
 })().then(() => process.exit(0), (e) => {
   console.error(e);
   process.exit(1);

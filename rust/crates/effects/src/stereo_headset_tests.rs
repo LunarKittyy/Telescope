@@ -286,7 +286,7 @@ fn a_headset_that_is_behind_skips_to_the_newest_picture() {
     let feed = open_feed();
     let handler = Headset(feed.clone());
     // every write waits for this side to read it, which is a headset that has stopped taking pictures
-    let (socket, sent, _typed) = pipe(0);
+    let (socket, sent, typed) = pipe(0);
     let upgrade = handler.upgrade(&ws_request(TOKEN), &stats()).expect("an upgrade");
     let viewer = std::thread::spawn(move || (upgrade.run)(socket));
     let picture = |n: u8| Message::Jpeg(Arc::new(vec![n; 300]));
@@ -297,11 +297,38 @@ fn a_headset_that_is_behind_skips_to_the_newest_picture() {
     feed.publish(picture(2), 0);
     feed.publish(picture(3), 0);
     assert_eq!(sent.recv_timeout(Duration::from_secs(10)).unwrap()[0], 1);
+    typed.send(masked(TEXT, ACK)).unwrap();
     let (opcode, payload) = message(&sent);
     assert_eq!((opcode, payload[0]), (BINARY, 3), "the picture in between was never sent");
     feed.close();
     // the viewer is stopped in a write until it is read, and its end of the pipe goes when it returns
     while sent.recv_timeout(Duration::from_secs(10)).is_ok() {}
+    viewer.join().unwrap();
+}
+
+#[test]
+fn the_next_picture_waits_for_the_headset_to_say_it_decoded_the_last_but_black_does_not() {
+    let feed = open_feed();
+    let handler = Headset(feed.clone());
+    let (socket, sent, typed) = pipe(64);
+    let upgrade = handler.upgrade(&ws_request(TOKEN), &stats()).expect("an upgrade");
+    let viewer = std::thread::spawn(move || (upgrade.run)(socket));
+    let picture = |n: u8| Message::Jpeg(Arc::new(vec![n; 300]));
+    feed.publish(picture(1), 0);
+    assert_eq!(message(&sent).1[0], 1);
+    // no acknowledgement yet: newer pictures are held back, however long they wait
+    feed.publish(picture(2), 0);
+    assert!(sent.recv_timeout(Duration::from_millis(300)).is_err(), "nothing is sent before the acknowledgement");
+    // black goes out at once, it is what hides a picture
+    feed.publish(Message::Blank, 0);
+    assert_eq!(message(&sent), (TEXT, b"blank".to_vec()));
+    feed.publish(picture(3), 0);
+    assert!(sent.recv_timeout(Duration::from_millis(100)).is_err());
+    // the acknowledgement releases the newest picture, not the one that was skipped
+    typed.send(masked(TEXT, ACK)).unwrap();
+    assert_eq!(message(&sent), (BINARY, vec![3; 300]));
+    assert!(sent.recv_timeout(Duration::from_millis(100)).is_err(), "and the one after waits again");
+    feed.close();
     viewer.join().unwrap();
 }
 

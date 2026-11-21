@@ -298,18 +298,18 @@ impl Feed {
 
     /// The newest message if it's newer than `seen`, waiting up to `timeout` for one.
     pub fn next(&self, seen: u64, timeout: Duration) -> Option<(u64, Message)> {
-        self.next_where(seen, timeout, &|_| true)
+        self.next_where(seen, timeout, &|_| true, &|_| true)
     }
 
-    /// next(), for a headset that stops getting anything the moment `valid` says its run or link is over.
-    fn next_where(&self, seen: u64, timeout: Duration, valid: &dyn Fn(&State) -> bool) -> Option<(u64, Message)> {
+    /// next(), for a headset that stops getting anything the moment `valid` says its run or link is over, and that only takes a message `wanted` says yes to.
+    fn next_where(&self, seen: u64, timeout: Duration, valid: &dyn Fn(&State) -> bool, wanted: &dyn Fn(&Message) -> bool) -> Option<(u64, Message)> {
         let deadline = Instant::now() + timeout;
         let mut state = self.lock();
         loop {
             if !state.open || !valid(&state) {
                 return None;
             }
-            if let Some(shown) = state.shown.as_ref().filter(|s| s.seq > seen) {
+            if let Some(shown) = state.shown.as_ref().filter(|s| s.seq > seen && wanted(&s.message)) {
                 return Some((shown.seq, shown.message.clone()));
             }
             let left = deadline.checked_duration_since(Instant::now()).filter(|d| !d.is_zero())?;
@@ -418,6 +418,8 @@ const TEXT: u8 = 0x1;
 const CLOSE: u8 = 0x8;
 const PING: u8 = 0x9;
 const PONG: u8 = 0xA;
+/// What the page sends after it has decoded a picture: the next one isn't sent before it.
+const ACK: &[u8] = b"ack";
 
 pub fn accept_key(key: &str) -> String {
     let mut ctx = ring::digest::Context::new(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY);
@@ -447,8 +449,9 @@ fn send(sock: &mut dyn Socket, opcode: u8, payload: &[u8]) -> std::io::Result<()
     sock.flush()
 }
 
-/// What the browser sent: false once it closed or sent something that isn't a browser's. Pings are answered.
-fn client_frames(buf: &mut Vec<u8>, sock: &mut dyn Socket) -> bool {
+/// What the browser sent: false once it closed or sent something that isn't a browser's. Pings are answered, and `acked` is set when the page says it
+/// has decoded a picture.
+fn client_frames(buf: &mut Vec<u8>, sock: &mut dyn Socket, acked: &mut bool) -> bool {
     loop {
         if buf.len() < 2 {
             return true;
@@ -462,7 +465,7 @@ fn client_frames(buf: &mut Vec<u8>, sock: &mut dyn Socket) -> bool {
         } else if len == 127 {
             return false;
         }
-        // a browser sends this page nothing but control frames
+        // a browser sends this page nothing but control frames and a short acknowledgement
         if !masked || len > 1024 {
             return false;
         }
@@ -478,25 +481,31 @@ fn client_frames(buf: &mut Vec<u8>, sock: &mut dyn Socket) -> bool {
                 return false;
             }
             PING if send(sock, PONG, &payload[..payload.len().min(125)]).is_err() => return false,
+            TEXT if payload == ACK => *acked = true,
             _ => {}
         }
     }
 }
 
-/// One headset: sends the newest picture it hasn't had, never more than one waiting, until it leaves, the link changes or the feed closes.
+/// One headset: sends the newest picture it hasn't had, and the next only once the page has said it decoded the last, until it leaves, the link changes or the feed closes.
 fn serve_viewer(feed: Arc<Feed>, mut sock: Box<dyn Socket>, slot: Slot) {
     let _ = sock.set_read_timeout(Some(Duration::from_millis(2)));
-    let (mut seen, mut pinged, mut incoming) = (0u64, Instant::now(), Vec::new());
+    let (mut seen, mut pinged, mut incoming, mut waiting_for_ack) = (0u64, Instant::now(), Vec::new(), false);
     let mut chunk = [0u8; 1024];
     loop {
         if !feed.current(&slot) {
             let _ = send(&mut *sock, CLOSE, &1001u16.to_be_bytes());
             return;
         }
-        if let Some((seq, message)) = feed.next_where(seen, SEND_WAIT, &|state| state.run == slot.run && state.token_gen == slot.generation) {
+        // black is always sent, a picture only once the last one is decoded: a slow link never fills up with old pictures
+        let valid = |state: &State| state.run == slot.run && state.token_gen == slot.generation;
+        if let Some((seq, message)) = feed.next_where(seen, SEND_WAIT, &valid, &|m| !waiting_for_ack || *m == Message::Blank) {
             seen = seq;
             let sent = match &message {
-                Message::Jpeg(jpeg) => send(&mut *sock, BINARY, jpeg),
+                Message::Jpeg(jpeg) => {
+                    waiting_for_ack = true;
+                    send(&mut *sock, BINARY, jpeg)
+                }
                 Message::Blank => send(&mut *sock, TEXT, b"blank"),
             };
             if sent.is_err() {
@@ -513,9 +522,11 @@ fn serve_viewer(feed: Arc<Feed>, mut sock: Box<dyn Socket>, slot: Slot) {
             Ok(0) => return,
             Ok(n) => {
                 incoming.extend_from_slice(&chunk[..n]);
-                if !client_frames(&mut incoming, &mut *sock) {
+                let mut acked = false;
+                if !client_frames(&mut incoming, &mut *sock, &mut acked) {
                     return;
                 }
+                waiting_for_ack &= !acked;
             }
             Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted) => {}
             Err(_) => return,

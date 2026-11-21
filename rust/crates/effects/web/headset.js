@@ -23,6 +23,7 @@ function say(text) {
 function show(next) {
   if (bitmap && bitmap !== next) bitmap.close();
   bitmap = next;
+  shownAt = Date.now();
   fresh = true;
   pictures = next !== null;
   if (!session) say(pictures ? "Connected" : "Connected, waiting for the 3D picture");
@@ -34,14 +35,30 @@ let waiting = null;
 // Bumped when the picture is blanked or the socket closes: a decode that started before it must not bring the old picture back.
 let generation = 0;
 
+// Tells Telescope a picture is done with (shown, damaged or dropped): it sends the next, newest one only after this
+function ack() {
+  if (socket && socket.readyState === 1) socket.send("ack");
+}
+
 function blank() {
   generation++;
+  if (waiting) ack();
   waiting = null;
   show(null);
 }
 
+// A picture that has been on screen this long without a new one is old news (a slow link): black, the same as when Telescope sends black
+const FRESH_MS = 3000;
+let shownAt = 0;
+
+function watchFresh() {
+  if (pictures && Date.now() - shownAt > FRESH_MS) blank();
+  setTimeout(watchFresh, 500);
+}
+
 async function decode(blob) {
   if (decoding) {
+    if (waiting) ack();
     waiting = blob;
     return;
   }
@@ -55,6 +72,7 @@ async function decode(blob) {
     // a damaged picture is skipped
   }
   decoding = false;
+  ack();
   if (waiting) {
     const next = waiting;
     waiting = null;
@@ -86,7 +104,11 @@ function connect() {
 
 // ── Flat ──
 
+// Only one flat loop runs, however often it is asked to start
+let flatRunning = false;
+
 function drawFlat() {
+  flatRunning = true;
   if (fresh && !session) {
     fresh = false;
     if (bitmap) {
@@ -101,6 +123,7 @@ function drawFlat() {
     }
   }
   if (!session) requestAnimationFrame(drawFlat);
+  else flatRunning = false;
 }
 
 // ── VR ──
@@ -241,11 +264,13 @@ function onFrame(time, frame) {
 
 async function enterVr() {
   enter.disabled = true;
+  let started = null;
   try {
     const canvas = document.createElement("canvas");
     gl = canvas.getContext("webgl", { xrCompatible: true, antialias: false });
     setUpGl();
-    session = await navigator.xr.requestSession("immersive-vr");
+    started = await navigator.xr.requestSession("immersive-vr");
+    session = started;
     glState.space = await session.requestReferenceSpace("local");
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, { antialias: false }) });
     leaveHeld = true;
@@ -258,14 +283,19 @@ async function enterVr() {
       enter.disabled = false;
       fresh = true;
       say(pictures ? "Connected" : "Waiting for the 3D picture");
-      drawFlat();
+      if (!flatRunning) drawFlat();
     });
     fresh = true;
     session.requestAnimationFrame(onFrame);
   } catch (e) {
+    // a session that was made but not finished is ended, and the flat picture goes on
     session = null;
+    if (started) started.end().catch(() => {});
+    gl = null;
+    glState = null;
     enter.disabled = false;
     say("Couldn't start VR");
+    if (!flatRunning) drawFlat();
   }
 }
 
@@ -280,3 +310,4 @@ if (navigator.xr && navigator.xr.isSessionSupported) {
 
 drawFlat();
 connect();
+watchFresh();
