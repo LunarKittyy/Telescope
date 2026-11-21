@@ -116,6 +116,8 @@ pub trait Link: Send + Sync {
     fn configure_presence(&self, _computer_id: &str, _version: &str, _phones: &[PairedPhone]) {}
     /// Coalesces an interaction hint for the background worker.
     fn presence_hint(&self) {}
+    /// Called from the presence worker when it has something for presence_updates(), so nothing has to poll for it. None unsets it.
+    fn presence_wake(&self, _wake: Option<std::sync::Arc<dyn Fn() + Send + Sync>>) {}
     /// Drains bounded hints without doing network I/O.
     fn presence_updates(&self) -> Vec<PresenceUpdate> { Vec::new() }
     /// A capable phone's search generation; None retains legacy recovery polling.

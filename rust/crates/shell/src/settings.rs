@@ -133,6 +133,7 @@ pub struct Settings {
 thread_local! {
     /// The timers that run the update check (load_plugins starts them), and how many checks have finished.
     static UPDATE_TIMERS: RefCell<Vec<slint::Timer>> = const { RefCell::new(Vec::new()) };
+    static UPDATE_POLL: slint::Timer = slint::Timer::default();
     static CHECKED: Cell<u64> = const { Cell::new(0) };
 }
 
@@ -147,12 +148,32 @@ pub fn start_plugin_updates(admin: Arc<dyn PluginAdmin>) {
     let timers = [(slint::TimerMode::SingleShot, FIRST_CHECK), (slint::TimerMode::Repeated, TICK)].into_iter().map(|(mode, every)| {
         let timer = slint::Timer::default();
         let admin = admin.clone();
-        timer.start(mode, every, move || admin.maybe_check_updates());
+        timer.start(mode, every, move || {
+            admin.maybe_check_updates();
+            poll_while_running(&admin);
+        });
         timer
     }).collect::<Vec<_>>();
-    let poll = slint::Timer::default();
-    poll.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(5), move || { poll_updates(admin.as_ref()); });
-    UPDATE_TIMERS.with(|t| *t.borrow_mut() = timers.into_iter().chain([poll]).collect());
+    UPDATE_TIMERS.with(|t| *t.borrow_mut() = timers);
+}
+
+/// Polls for the finished check every few seconds, but only while one is running; the timer stops itself after that.
+fn poll_while_running(admin: &Arc<dyn PluginAdmin>) {
+    if !admin.update_running() {
+        return;
+    }
+    UPDATE_POLL.with(|poll| {
+        if poll.running() {
+            return;
+        }
+        let admin = admin.clone();
+        poll.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(5), move || {
+            poll_updates(admin.as_ref());
+            if !admin.update_running() {
+                UPDATE_POLL.with(|p| p.stop());
+            }
+        });
+    });
 }
 
 /// Takes in a finished check; true when one had (the Plugins tab then shows what's newer).
@@ -1176,6 +1197,8 @@ impl Settings {
             // Hidden: rests until open() starts it again, which also catches up on what changed meanwhile
             if !s.ui.window().is_visible() {
                 s.watch.stop();
+                let admin = s.panel.borrow().admin.clone();
+                poll_while_running(&admin);
                 return;
             }
             poll_updates(s.panel.borrow().admin.as_ref());

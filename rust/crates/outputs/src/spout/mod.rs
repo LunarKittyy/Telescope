@@ -436,6 +436,7 @@ pub struct SpoutPlugin {
     states: HashMap<String, (String, String)>,
     selected_key: String,
     stopped: bool,
+    pace: crate::scan_pace::ScanPace,
     /// Asks the scanning thread for a look; the thread ends when this is dropped.
     scanner: Option<mpsc::Sender<()>>,
     /// Whether a look is under way, so there is never a second one beside it.
@@ -467,7 +468,7 @@ fn spawn_scanner(backend: Arc<dyn Backend>, poster: Arc<dyn Poster>) -> Option<m
 impl SpoutPlugin {
     /// The plugin reading senders through `backend`; None for a system that has no way to.
     pub fn new(backend: Option<Arc<dyn Backend>>) -> SpoutPlugin {
-        SpoutPlugin { backend, shared: Arc::default(), poster: None, sources: HashMap::new(), states: HashMap::new(), selected_key: String::new(), stopped: false,
+        SpoutPlugin { backend, shared: Arc::default(), poster: None, sources: HashMap::new(), states: HashMap::new(), selected_key: String::new(), stopped: false, pace: Default::default(),
             scanner: None, scanning: false, problem: None,
         }
     }
@@ -646,11 +647,15 @@ impl Plugin for SpoutPlugin {
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        if !self.stopped && self.pace.on_event(event, host.is_streaming()) {
+            host.schedule(0, T_SCAN);
+        }
         match event {
             Event::TimerFired { owner, token } if owner == NAME && token == T_SCAN => {
                 if !self.stopped {
                     self.request_scan();
-                    host.schedule(SCAN_MS, T_SCAN);
+                    let next = self.pace.next_ms(SCAN_MS, host.is_streaming());
+                    host.schedule(next, T_SCAN);
                 }
             }
             Event::Posted { owner, token, data } if owner == NAME => {

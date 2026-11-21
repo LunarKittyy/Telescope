@@ -91,6 +91,10 @@ pub trait PluginAdmin: Send + Sync {
     }
     /// Starts checking the repos that are due, in the background.
     fn maybe_check_updates(&self) {}
+    /// Whether a check is running in the background, so something is worth polling for.
+    fn update_running(&self) -> bool {
+        false
+    }
     /// Takes in a check that finished (and installs what auto-update downloaded); true when one had.
     fn poll_updates(&self) -> bool {
         false

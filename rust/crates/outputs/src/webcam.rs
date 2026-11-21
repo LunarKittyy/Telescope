@@ -378,6 +378,7 @@ pub struct WebcamPlugin {
     modes: HashMap<String, String>,
     selected_key: String,
     stopped: bool,
+    pace: crate::scan_pace::ScanPace,
     /// The rows the card holds now, so an unchanged list is never sent again (a new list rebuilds every slider and breaks off a drag)
     shown_rows: Option<Vec<Value>>,
     /// The same for the strip of a DSLR's values
@@ -402,7 +403,7 @@ impl WebcamPlugin {
     pub fn new(scan: Scanner, controls_for: ControlsFor, system: System) -> WebcamPlugin {
         WebcamPlugin {
             scan, controls_for, system, shared: Arc::default(), poster: None, controls: HashMap::new(), backends: HashMap::new(),
-            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, shown_rows: None, shown_tiles: None, held: None, jogged: None,
+            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, pace: Default::default(), shown_rows: None, shown_tiles: None, held: None, jogged: None,
         }
     }
 
@@ -1067,13 +1068,17 @@ impl Plugin for WebcamPlugin {
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        if !self.stopped && self.pace.on_event(event, host.is_streaming()) {
+            host.schedule(0, T_SCAN);
+        }
         match event {
             Event::TimerFired { owner, token } if owner == NAME && token == T_HOLD => self.hold_tick(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_JOG => self.jog_tick(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_SCAN => {
                 if !self.stopped {
                     self.rescan(host);
-                    host.schedule(SCAN_MS, T_SCAN);
+                    let next = self.pace.next_ms(SCAN_MS, host.is_streaming());
+                    host.schedule(next, T_SCAN);
                 }
             }
             Event::Posted { owner, token, data } if owner == NAME => {

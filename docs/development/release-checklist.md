@@ -184,7 +184,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Webcams
 
-<!-- due: rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcam_capture/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
+<!-- due: rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/scan_pace.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcam_capture/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
 
 - [ ] A USB webcam shows in the device picker under its own name, and Telescope's own cameras (Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
 - [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
