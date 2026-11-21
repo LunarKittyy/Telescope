@@ -17,7 +17,7 @@ pub enum Keep {
     Only(&'static [&'static str]),
 }
 
-/// The one table of what survives a reset, by plugin: paired phones, presets, notes, layouts, the journal, the links and names people typed, files people picked (LUT, photo folder), the marked desk, the Phototrap zones, the Stargazer mode and camera switch and the guide's progress. Everything else goes back to its default.
+/// The one table of what survives a reset, by plugin: paired phones, presets, notes, layouts, the journal, the links and names people typed, files people picked (LUT, photo folder), the marked desk, the Phototrap zones, the Stargazer mode, its frame source and camera switch and the guide's progress. Everything else goes back to its default.
 pub const KEPT: &[(&str, Keep)] = &[
     ("connection", Keep::Whole),
     ("presets", Keep::Whole),
@@ -31,7 +31,7 @@ pub const KEPT: &[(&str, Keep)] = &[
     ("desk", Keep::Only(&["corners"])),
     ("photos", Keep::Only(&["folder"])),
     ("phototrap", Keep::Only(&["zones", "turn"])),
-    ("stargazer", Keep::Only(&["mode", "camera"])),
+    ("stargazer", Keep::Only(&["mode", "input", "camera"])),
     ("onboarding", Keep::Only(&["streamed"])),
     ("updates", Keep::Only(&["last_check"])),
 ];

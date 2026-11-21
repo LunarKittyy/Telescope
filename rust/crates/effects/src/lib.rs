@@ -46,6 +46,7 @@ pub mod notes;
 pub mod phototrap;
 pub mod photos;
 pub mod stargazer;
+pub mod stargazer_photos;
 pub mod stills;
 pub mod pixels;
 pub mod privacy_blur;

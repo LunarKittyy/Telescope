@@ -264,6 +264,8 @@ pub enum StackMode {
 pub struct Stacker {
     mode: StackMode,
     align: bool,
+    /// The first frame is taken as the base even when it has no feature to line up on (a stack of one photo has nothing to line up with).
+    any_base: bool,
     /// Frames whose correlation peak is weaker than this are refused
     pub min_confidence: f32,
     size: (usize, usize),
@@ -279,7 +281,7 @@ pub struct Stacker {
 
 impl Stacker {
     pub fn new(mode: StackMode) -> Stacker {
-        Stacker { mode, align: true, min_confidence: 8.0, size: (0, 0), reference: None, mean: Vec::new(), spread: Vec::new(), weight: Vec::new(), count: 0 }
+        Stacker { mode, align: true, any_base: false, min_confidence: 8.0, size: (0, 0), reference: None, mean: Vec::new(), spread: Vec::new(), weight: Vec::new(), count: 0 }
     }
 
     /// How the frames are combined.
@@ -308,6 +310,11 @@ impl Stacker {
         }
     }
 
+    /// Whether a first frame with no feature to line up on is still taken as the base of the stack; later frames then can't line up with it.
+    pub fn set_any_base(&mut self, any_base: bool) {
+        self.any_base = any_base;
+    }
+
     /// Empties the stack, keeping the settings.
     pub fn reset(&mut self) {
         self.size = (0, 0);
@@ -324,7 +331,7 @@ impl Stacker {
     }
 
     /// Lines the frame up with the first one and adds it, returning the shift used. None (and not counted) when it is another size than
-    /// the first, empty, short of data, can't be lined up with enough confidence, lands without overlapping the stack, or (with align on) has no feature to line up on as the first.
+    /// the first, empty, short of data, can't be lined up with enough confidence, lands without overlapping the stack, or (with align on, unless any_base is set) has no feature to line up on as the first.
     /// In clip mode a frame that most pixels reject is a scene change (an exposure jump, say): the statistics restart from it and count() starts again at one.
     pub fn add(&mut self, frame: &Frame) -> Option<Shift> {
         if !frame_ok(frame) {
@@ -346,7 +353,7 @@ impl Stacker {
             }
             _ => Shift { dx: 0.0, dy: 0.0, confidence: f32::INFINITY },
         };
-        if self.count == 0 && plane.as_ref().is_some_and(|p| !p.alignable()) {
+        if self.count == 0 && !self.any_base && plane.as_ref().is_some_and(|p| !p.alignable()) {
             return None;
         }
         let rgb = frame_rgb(frame).filter(|r| r.len() == w * h * 3)?;

@@ -330,18 +330,19 @@ fn a_picture_is_written_whole_or_not_at_all() {
 #[test]
 fn the_settings_round_trip() {
     let mut p = StargazerPlugin::new();
-    let saved = json!({"mode": "trails", "frames": 800, "keep": 25, "interval": 12, "camera": true, "use_zoom": false, "shot": {"shutter_s": 20.0, "iso": 1600}});
+    let saved = json!({"mode": "trails", "input": "video", "frames": 800, "keep": 25, "interval": 12, "photo_count": 10, "photo_every": 0, "camera": true, "use_zoom": false,
+        "shot": {"shutter_s": 20.0, "iso": 1600}});
     p.set_config(&saved).unwrap();
     assert_eq!(p.get_config(), saved);
     assert!(p.shared.camera.load(Ordering::SeqCst));
     assert_eq!(p.shared.interval_ms.load(Ordering::SeqCst), 12_000);
     // Out of range or nonsense falls back or is clamped, and a run is never part of it
     p.set_config(&json!({"mode": "nonsense", "frames": 5, "keep": 500, "interval": "soon"})).unwrap();
-    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 50, "keep": 100, "interval": 5, "camera": false, "use_zoom": false}));
+    assert_eq!(p.get_config(), json!({"mode": "lucky", "input": "video", "frames": 50, "keep": 100, "interval": 5, "photo_count": 10, "photo_every": 0, "camera": false, "use_zoom": false}));
     p.set_config(&json!({"frames": 99999})).unwrap();
     assert_eq!(p.get_config()["frames"], 2000);
     p.set_config(&json!({})).unwrap();
-    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 300, "keep": 10, "interval": 5, "camera": false, "use_zoom": false}));
+    assert_eq!(p.get_config(), json!({"mode": "lucky", "input": "video", "frames": 300, "keep": 10, "interval": 5, "photo_count": 10, "photo_every": 0, "camera": false, "use_zoom": false}));
     assert_eq!(p.phase, Phase::Idle);
 }
 
@@ -781,7 +782,7 @@ fn stacking_keeps_reading_frames_with_the_card_and_window_hidden() {
     assert!(rig.plugin.count > 0);
 }
 
-fn night_host() -> FakeHost {
+fn photo_host() -> FakeHost {
     let mut host = FakeHost::new();
     host.streaming = true;
     host.focused = Some("phone".into());
@@ -793,40 +794,132 @@ fn night_host() -> FakeHost {
     host
 }
 
-fn night_ui(plugin: &mut StargazerPlugin, host: &mut FakeHost, callback: &str, arg: Value) {
+fn photo_ui(plugin: &mut StargazerPlugin, host: &mut FakeHost, callback: &str, arg: Value) {
     plugin.on_ui(host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![arg] });
 }
 
-fn night_plugin(host: &mut FakeHost) -> StargazerPlugin {
+fn photo_plugin(host: &mut FakeHost, config: Value) -> StargazerPlugin {
     let mut plugin = StargazerPlugin::new();
-    plugin.set_config(&json!({"mode": "night"})).unwrap();
+    plugin.set_config(&config).unwrap();
     plugin.setup(host);
     plugin
 }
 
-#[test]
-fn night_is_the_fourth_mode() {
-    assert_eq!(Mode::ALL, [Mode::Lucky, Mode::Live, Mode::Trails, Mode::Night]);
-    assert_eq!(Mode::Night.index(), 3);
-    assert_eq!(Mode::from_key("night"), Some(Mode::Night));
-    assert_eq!(StargazerPlugin::fixed_props()["mode-items"], json!(["Lucky", "Live", "Trails", "Night"]));
+fn live_photos() -> Value {
+    json!({"mode": "live", "input": "photos"})
+}
+
+fn jpeg_of(frame: &Frame) -> Vec<u8> {
+    let rgb: Vec<u8> = frame.data.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
+    let mut out = Vec::new();
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 95);
+    image::ImageEncoder::write_image(encoder, &rgb, frame.width, frame.height, image::ExtendedColorType::Rgb8).unwrap();
+    out
+}
+
+impl Rig {
+    /// A rig whose host can take photos, with its clock in the test's hands.
+    fn photos(name: &str, config: Value) -> (Rig, Arc<Mutex<f64>>) {
+        let mut rig = Rig::new(name, config);
+        let host = photo_host();
+        (rig.host.still_caps, rig.host.still_only_for) = (host.still_caps, host.still_only_for);
+        let now = Arc::new(Mutex::new(100.0f64));
+        let clock = now.clone();
+        rig.plugin.clock = Box::new(move || *clock.lock().unwrap());
+        (rig, now)
+    }
+
+    /// The photo on its way comes back as this picture, in a file of the run's folder.
+    fn photo_done(&mut self, frame: &Frame) {
+        let request = self.plugin.taking.expect("a photo is on its way");
+        std::fs::create_dir_all(&self.folder).unwrap();
+        let path = self.folder.join(format!("photo_{}.jpg", request.0));
+        std::fs::write(&path, jpeg_of(frame)).unwrap();
+        self.event(Event::RequestDone { request, ok: true, message: String::new(), data: json!({"ok": true, "files": [path.display().to_string()]}) });
+    }
+
+    fn saved_pngs(&self) -> Vec<PathBuf> {
+        self.pngs().into_iter().filter(|p| p.extension().is_some_and(|e| e == "png")).collect()
+    }
+
+    fn taken(&self) -> usize {
+        self.host.stills_taken.len()
+    }
 }
 
 #[test]
-fn the_first_night_pick_saves_defaults_and_never_replaces_saved_choices() {
-    let mut host = night_host();
+fn frames_come_from_the_video_or_photos_and_lucky_only_from_the_video() {
+    assert_eq!(Mode::ALL, [Mode::Lucky, Mode::Live, Mode::Trails]);
+    assert_eq!(Input::ALL, [Input::Video, Input::Photos]);
+    assert_eq!(StargazerPlugin::fixed_props()["mode-items"], json!(["Lucky", "Live", "Trails"]));
+    assert_eq!(StargazerPlugin::fixed_props()["input-items"], json!(["Video", "Photos"]));
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, json!({"mode": "lucky"}));
+    // Photos can't be picked for lucky imaging
+    photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
+    assert_eq!(plugin.input, Input::Video);
+    photo_ui(&mut plugin, &mut host, "mode-picked", json!(1));
+    photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
+    assert_eq!((plugin.mode, plugin.input), (Mode::Live, Input::Photos));
+    assert_eq!(plugin.state_props(&host)["input-index"], 1);
+    // And picking lucky brings the frames back to the video
+    photo_ui(&mut plugin, &mut host, "mode-picked", json!(0));
+    assert_eq!((plugin.mode, plugin.input), (Mode::Lucky, Input::Video));
+    // A settings file that says otherwise is put right
+    plugin.set_config(&json!({"mode": "lucky", "input": "photos"})).unwrap();
+    assert_eq!(plugin.input, Input::Video);
+    assert_eq!(plugin.get_config()["input"], "video");
+    plugin.apply_preset(&mut host, &json!({"mode": "lucky", "input": "photos"})).unwrap();
+    assert_eq!((plugin.mode, plugin.input), (Mode::Lucky, Input::Video));
+}
+
+#[test]
+fn a_saved_night_becomes_the_live_stack_taking_one_photo_with_its_shot_kept() {
     let mut plugin = StargazerPlugin::new();
-    plugin.set_config(&json!({})).unwrap();
-    plugin.setup(&mut host);
+    plugin.set_config(&json!({"mode": "night", "frames": 700, "shot": {"shutter_s": 20.0, "iso": 1600}})).unwrap();
+    assert_eq!((plugin.mode, plugin.input, plugin.photo_count), (Mode::Live, Input::Photos, 1));
+    assert_eq!(plugin.shot, ShotChoice { shutter_s: Some(20.0), iso: Some(1600), focus_diopters: None });
+    assert_eq!(plugin.frames, 700);
+    let saved = plugin.get_config();
+    assert_eq!((saved["mode"].as_str(), saved["input"].as_str(), saved["photo_count"].as_u64()), (Some("live"), Some("photos"), Some(1)));
+    // A Night that never had a shot saved starts at the long exposure it always did
+    let mut bare = StargazerPlugin::new();
+    bare.set_config(&json!({"mode": "night"})).unwrap();
+    assert_eq!(bare.shot, StargazerPlugin::default_shot());
+    assert_eq!(bare.photo_count, 1);
+}
+
+#[test]
+fn a_saved_night_preset_is_recalled_as_live_photos_and_never_changes_a_run() {
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, json!({"mode": "trails"}));
+    plugin.apply_preset(&mut host, &json!({"mode": "night", "shot": {"iso": 800}})).unwrap();
+    assert_eq!((plugin.mode, plugin.input, plugin.photo_count), (Mode::Live, Input::Photos, 1));
+    assert_eq!(plugin.shot, ShotChoice { iso: Some(800), ..ShotChoice::default() });
+    assert_eq!(plugin.preset_config()["mode"], "live");
+    // During a run the mode and the source stay, whatever the preset says
+    photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    assert_eq!(plugin.phase, Phase::Collecting);
+    plugin.apply_preset(&mut host, &json!({"mode": "trails", "input": "video", "photo_count": 9, "shot": {"iso": 100}})).unwrap();
+    assert_eq!((plugin.mode, plugin.input), (Mode::Live, Input::Photos));
+    assert_eq!(plugin.photo.as_ref().unwrap().options["shot"], json!({"iso": 800}), "the run keeps what it started with");
+    assert_eq!(host.stills_taken.len(), 1);
+    plugin.shutdown(&mut host);
+}
+
+#[test]
+fn the_first_photos_pick_saves_defaults_and_never_replaces_saved_choices() {
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, json!({"mode": "live"}));
     assert!(plugin.get_config().get("shot").is_none());
     host.calls.clear();
-    night_ui(&mut plugin, &mut host, "mode-picked", json!(3));
+    photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
     assert_eq!(plugin.get_config()["shot"], json!({"shutter_s": 10.0, "iso": 800, "focus_diopters": 0.0}));
     assert!(host.calls.iter().any(|c| c == "schedule_save"));
     assert!(plugin.worker.is_none());
     let saved = json!({"iso": 1600});
-    plugin.set_config(&json!({"shot": saved})).unwrap();
-    night_ui(&mut plugin, &mut host, "mode-picked", json!(3));
+    plugin.set_config(&json!({"mode": "live", "shot": saved})).unwrap();
+    photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
     assert_eq!(plugin.get_config()["shot"], saved);
     let mut restored = StargazerPlugin::new();
     restored.set_config(&plugin.get_config()).unwrap();
@@ -836,90 +929,401 @@ fn the_first_night_pick_saves_defaults_and_never_replaces_saved_choices() {
 }
 
 #[test]
-fn night_takes_one_jpeg_from_the_focused_stream_without_the_worker() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
-    assert_eq!(plugin.state_props(&host)["status"], "Ready");
-    assert!(plugin.frame_step().is_none());
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-    assert_eq!(host.stills_taken.len(), 1);
-    assert_eq!(host.stills_taken[0], (json!({"format": "jpeg", "quality": 95, "rotation": 0, "use_zoom": false,
-        "shot": {"shutter_s": 10.0, "iso": 800}, "skip_if_hidden": true}), plugin.folder.clone()));
-    assert_eq!(host.still_sources, vec![Some("phone".to_string())]);
-    assert_eq!(plugin.phase, Phase::Collecting);
-    assert!(plugin.taking.is_some());
-    assert!(plugin.worker.is_none() && plugin.feed.is_none());
-    assert!(!host.frames_wanted.contains(NAME));
-    assert_eq!(plugin.state_props(&host)["run-text"], "Stop");
-    assert_eq!(plugin.state_props(&host)["run-enabled"], true);
-    assert_eq!(plugin.state_props(&host)["status"], "Taking the photo");
-    night_ui(&mut plugin, &mut host, "mode-picked", json!(0));
-    assert_eq!(plugin.mode, Mode::Night);
+fn photo_settings_are_saved_and_come_back() {
+    let mut plugin = StargazerPlugin::new();
+    plugin.set_config(&json!({"mode": "trails", "input": "photos", "photo_count": 25, "photo_every": 30, "shot": {"shutter_s": 15.0}})).unwrap();
+    let cfg = plugin.get_config();
+    assert_eq!((cfg["photo_count"].as_u64(), cfg["photo_every"].as_u64(), cfg["input"].as_str()), (Some(25), Some(30), Some("photos")));
+    let mut again = StargazerPlugin::new();
+    again.set_config(&cfg).unwrap();
+    assert_eq!(again.get_config(), cfg);
+    // Out of range numbers are held to the range
+    again.set_config(&json!({"photo_count": 0, "photo_every": 100_000})).unwrap();
+    assert_eq!((again.photo_count, again.photo_every), (1, MAX_PHOTO_EVERY));
+    again.set_config(&json!({})).unwrap();
+    assert_eq!((again.photo_count, again.photo_every, again.input), (DEFAULT_PHOTOS, 0, Input::Video));
 }
 
 #[test]
-fn night_follows_its_own_progress_and_saved_file() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-    let request = plugin.taking.unwrap();
-    plugin.on_event(&mut host, &Event::RequestProgress { request: RequestId(request.0 + 1), data: json!({"state": "capturing"}) });
-    assert_eq!(plugin.state_props(&host)["status"], "Taking the photo");
-    plugin.on_event(&mut host, &Event::RequestProgress { request, data: json!({"state": "capturing"}) });
-    assert_eq!(plugin.state_props(&host)["status"], "Video paused while exposing");
-    plugin.on_event(&mut host, &Event::RequestDone { request: RequestId(request.0 + 1), ok: false, message: String::new(), data: json!({}) });
-    assert_eq!(plugin.taking, Some(request));
-    plugin.on_event(&mut host, &Event::RequestDone { request, ok: true, message: String::new(), data: json!({"ok": true, "files": ["sky.jpg"], "applied": {"shutter_s": 10.0, "iso": 800}}) });
-    assert_eq!(plugin.last, "sky.jpg");
-    assert_eq!(plugin.note, "Saved the photo");
-    assert_eq!(plugin.phase, Phase::Idle);
-    assert!(plugin.taking.is_none());
-    assert_eq!(plugin.state_props(&host)["run-enabled"], true);
-    assert_eq!(plugin.state_props(&host)["open-enabled"], true);
-    assert_eq!(plugin.tally(), "");
-    assert!(!host.frames_wanted.contains(NAME));
+fn photos_take_one_jpeg_at_a_time_with_the_options_the_run_started_with() {
+    let (mut rig, _) = Rig::photos("photos-options", json!({"mode": "live", "input": "photos", "photo_count": 3, "shot": {"shutter_s": 10.0, "iso": 800}}));
+    assert_eq!(rig.plugin.state_props(&rig.host)["status"], "Ready");
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.taken(), 1);
+    assert_eq!(rig.host.stills_taken[0], (json!({"format": "jpeg", "quality": 95, "rotation": 0, "use_zoom": false,
+        "shot": {"shutter_s": 10.0, "iso": 800}, "skip_if_hidden": true}), rig.plugin.folder.clone()));
+    assert_eq!(rig.host.still_sources, vec![Some("phone".to_string())]);
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    assert!(rig.plugin.taking.is_some());
+    assert!(!rig.host.frames_wanted.contains(NAME), "the video isn't needed for photos");
+    assert_eq!(rig.plugin.shared.run.load(Ordering::SeqCst), 0, "the frame step hands nothing over for a photo run");
+    assert_eq!(rig.plugin.state_props(&rig.host)["run-text"], "Stop");
+    assert_eq!(rig.plugin.state_props(&rig.host)["status"], "Taking photo 1 of 3");
+    // The card and a preset change nothing in the run
+    rig.click("use-zoom-toggled", json!(true));
+    assert!(!rig.plugin.use_zoom, "locked during the run");
+    rig.plugin.use_zoom = true;
+    rig.plugin.shot.iso = Some(100);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 2);
+    assert_eq!(rig.host.stills_taken[1].0, rig.host.stills_taken[0].0);
 }
 
 #[test]
-fn night_shows_the_failure_and_can_try_again() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
-    for (data, expected) in [(json!({"error": "The phone disconnected"}), "The phone disconnected"), (json!({}), "Couldn't take the photo")] {
-        night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-        let request = plugin.taking.unwrap();
-        plugin.on_event(&mut host, &Event::RequestDone { request, ok: false, message: String::new(), data });
-        assert_eq!(plugin.problem.as_deref(), Some(expected));
-        assert_eq!(plugin.phase, Phase::Idle);
-        assert!(plugin.taking.is_none());
-        assert_eq!(plugin.state_props(&host)["run-enabled"], true);
+fn a_photo_run_stacks_every_photo_and_ends_with_the_last() {
+    let (mut rig, _) = Rig::photos("photos-run", json!({"mode": "live", "input": "photos", "photo_count": 3}));
+    rig.click("run-clicked", Value::Null);
+    let request = rig.plugin.taking.unwrap();
+    rig.event(Event::RequestProgress { request, data: json!({"state": "capturing"}) });
+    assert_eq!(rig.status(), "Video paused while exposing");
+    rig.photo_done(&field(2.0));
+    assert_eq!((rig.plugin.count, rig.plugin.refused, rig.taken()), (1, 0, 2));
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 3);
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 3, "no photo after the last");
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert_eq!((rig.plugin.count, rig.plugin.refused), (3, 0));
+    assert!(rig.plugin.taking.is_none() && rig.plugin.photo.is_none());
+    assert_eq!(rig.status(), "Stacked 3 photos. Save keeps it, Reset starts a new stack");
+    let props = rig.props();
+    assert_eq!((props["save-enabled"].as_bool(), props["run-enabled"].as_bool(), props["open-enabled"].as_bool()), (Some(true), Some(true), Some(true)));
+    assert!(rig.saved_pngs().is_empty());
+    rig.click("save-clicked", Value::Null);
+    assert_eq!(rig.saved_pngs().len(), 1);
+    // The photos themselves stay where they were taken
+    assert_eq!(rig.pngs().len() - 1, 3);
+}
+
+#[test]
+fn photo_cadence_is_a_minimum_from_start_to_start_with_no_overlap_and_no_catching_up() {
+    let (mut rig, now) = Rig::photos("photos-cadence", json!({"mode": "live", "input": "photos", "photo_count": 3, "photo_every": 10}));
+    let timer = || Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() };
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.taken(), 1);
+    // The first photo took 4 s, so the next starts 6 s later and not before
+    *now.lock().unwrap() = 104.0;
+    rig.host.scheduled.clear();
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 1);
+    assert!(rig.host.scheduled.contains(&(6000, NEXT_PHOTO.to_string())), "{:?}", rig.host.scheduled);
+    assert_eq!(rig.status(), "Waiting for the next photo");
+    *now.lock().unwrap() = 110.0;
+    rig.event(timer());
+    assert_eq!(rig.taken(), 2);
+    // A timer that fires while a photo is on its way starts nothing
+    rig.event(timer());
+    rig.event(timer());
+    assert_eq!(rig.taken(), 2, "never two at once");
+    // The second took 25 s, longer than the interval: one photo follows at once and none for the ones that were due
+    *now.lock().unwrap() = 135.0;
+    rig.host.scheduled.clear();
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 3);
+    assert!(!rig.host.scheduled.iter().any(|(_, t)| t == NEXT_PHOTO));
+    *now.lock().unwrap() = 136.0;
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 3);
+    assert_eq!(rig.plugin.count, 3);
+}
+
+#[test]
+fn with_no_wait_the_next_photo_follows_the_last_at_once() {
+    let (mut rig, _) = Rig::photos("photos-nowait", json!({"mode": "live", "input": "photos", "photo_count": 3}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 2);
+    assert!(!rig.host.scheduled.iter().any(|(_, t)| t == NEXT_PHOTO));
+}
+
+#[test]
+fn stop_cancels_the_photo_and_ignores_every_late_reply_but_keeps_the_stack() {
+    let (mut rig, _) = Rig::photos("photos-stop", json!({"mode": "live", "input": "photos", "photo_count": 5}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.plugin.count, 2);
+    let request = rig.plugin.taking.unwrap();
+    rig.event(Event::RequestProgress { request, data: json!({"state": "capturing"}) });
+    let run = rig.plugin.run;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert!(rig.plugin.taking.is_none() && rig.plugin.photo.is_none() && !rig.plugin.exposing);
+    assert!(rig.host.calls.contains(&format!("cancel_still {}", request.0)));
+    assert_eq!(rig.plugin.state_props(&rig.host)["run-text"], "Start");
+    // The late reply of the photo that was cancelled finds nothing to do
+    let path = rig.folder.join("late.jpg");
+    std::fs::write(&path, jpeg_of(&field(2.0))).unwrap();
+    rig.event(Event::RequestDone { request, ok: true, message: String::new(), data: json!({"ok": true, "files": [path.display().to_string()]}) });
+    assert_eq!((rig.taken(), rig.plugin.count), (3, 2));
+    assert!(rig.plugin.last.is_empty() || !rig.plugin.last.ends_with("late.jpg"));
+    // And so does a file that was already with the worker for the run that ended
+    rig.plugin.feed.as_ref().unwrap().send(Msg::Photo { run, source: "phone".into(), path });
+    rig.settle();
+    assert_eq!(rig.plugin.count, 2);
+    // What was stacked is still there to save
+    assert_eq!(rig.plugin.state_props(&rig.host)["save-enabled"], true);
+    rig.click("save-clicked", Value::Null);
+    assert_eq!(rig.saved_pngs().len(), 1);
+    assert!(rig.plugin.note.starts_with("Saved a stack of 2 frames"), "{}", rig.plugin.note);
+}
+
+#[test]
+fn a_late_answer_for_an_older_run_is_not_this_runs() {
+    let (mut rig, _) = Rig::photos("photos-older", json!({"mode": "live", "input": "photos", "photo_count": 4}));
+    rig.click("run-clicked", Value::Null);
+    let old = rig.plugin.run;
+    rig.click("run-clicked", Value::Null);
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.run, old + 1);
+    let taken = rig.taken();
+    rig.plugin.on_event(&mut rig.host, &Event::Posted { owner: NAME.into(), token: "photo".into(), data: json!({"run": old, "accepted": true}) });
+    assert_eq!(rig.taken(), taken);
+    assert_eq!(rig.plugin.photo.as_ref().unwrap().finished, 0);
+}
+
+#[test]
+fn stopping_star_trails_of_photos_saves_what_is_there() {
+    let (mut rig, _) = Rig::photos("photos-trails", json!({"mode": "trails", "input": "photos", "photo_count": 5}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&sky(SIZE, SIZE, &[(20.0, 48.0)], 1.5));
+    rig.photo_done(&sky(SIZE, SIZE, &[(40.0, 48.0)], 1.5));
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert_eq!((rig.plugin.count, rig.saved_pngs().len()), (2, 1));
+    assert_eq!(rig.plugin.note, "Saved the trails");
+    // The brightest of the photos: both stars are in it
+    let trail = read_png(&rig.saved_pngs()[0], &[(20, 48), (40, 48)]);
+    assert!(trail.iter().all(|v| *v > 0.5), "{trail:?}");
+}
+
+#[test]
+fn a_photo_that_can_t_be_read_stops_the_run_with_the_stack_to_save() {
+    let (mut rig, _) = Rig::photos("photos-broken", json!({"mode": "live", "input": "photos", "photo_count": 5}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    rig.photo_done(&field(2.0));
+    let request = rig.plugin.taking.unwrap();
+    let path = rig.folder.join("broken.jpg");
+    std::fs::write(&path, b"no picture in here").unwrap();
+    rig.event(Event::RequestDone { request, ok: true, message: String::new(), data: json!({"ok": true, "files": [path.display().to_string()]}) });
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Couldn't read the photo"));
+    assert_eq!(rig.taken(), 3, "no photo after that");
+    assert_eq!(rig.plugin.count, 2);
+    assert_eq!(rig.props()["save-enabled"], true);
+    rig.click("save-clicked", Value::Null);
+    assert_eq!(rig.saved_pngs().len(), 1);
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Couldn't read the photo"), "saving doesn't hide why the run stopped");
+    // The next run starts clean
+    rig.click("run-clicked", Value::Null);
+    assert!(rig.plugin.problem.is_none());
+}
+
+#[test]
+fn a_photo_the_camera_fails_to_take_stops_the_run_and_a_busy_camera_is_waited_for() {
+    let (mut rig, _) = Rig::photos("photos-failed", json!({"mode": "live", "input": "photos", "photo_count": 5}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    let request = rig.plugin.taking.unwrap();
+    rig.event(Event::RequestDone { request, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "error": "The phone disconnected"}) });
+    assert_eq!(rig.plugin.problem.as_deref(), Some("The phone disconnected"));
+    assert_eq!((rig.plugin.phase, rig.plugin.count), (Phase::Idle, 1));
+    // A camera that is busy at the start leaves the card as it was
+    rig.host.still_busy = true;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Couldn't take the photo"));
+    // One that gets busy between photos is tried again a second later
+    rig.host.still_busy = false;
+    rig.click("run-clicked", Value::Null);
+    rig.host.still_busy = true;
+    rig.host.scheduled.clear();
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    assert!(rig.host.scheduled.contains(&(RETRY_MS, NEXT_PHOTO.to_string())));
+    rig.host.still_busy = false;
+    let before = rig.taken();
+    rig.event(Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() });
+    assert_eq!(rig.taken(), before + 1);
+}
+
+#[test]
+fn a_hidden_picture_is_not_photographed_and_the_run_waits_for_it() {
+    let (mut rig, _) = Rig::photos("photos-hidden", json!({"mode": "live", "input": "photos", "photo_count": 2}));
+    rig.host.picture_hidden = true;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.taken(), 0, "nothing asked for while it is hidden");
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    assert!(rig.status().contains("hidden"), "{}", rig.status());
+    assert!(rig.host.scheduled.contains(&(RETRY_MS, NEXT_PHOTO.to_string())));
+    let timer = || Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() };
+    rig.event(timer());
+    assert_eq!(rig.taken(), 0);
+    rig.host.picture_hidden = false;
+    rig.event(timer());
+    assert_eq!(rig.taken(), 1);
+    // The host refusing a photo because the picture got hidden is no failure and no photo
+    let request = rig.plugin.taking.unwrap();
+    rig.event(Event::RequestDone { request, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "code": "hidden", "error": "hidden"}) });
+    assert!(rig.plugin.problem.is_none());
+    assert_eq!((rig.plugin.phase, rig.plugin.photo.as_ref().unwrap().finished), (Phase::Collecting, 0));
+    rig.host.scheduled.clear();
+    rig.event(timer());
+    assert_eq!(rig.taken(), 2);
+    // A picture covered while the photo exposed is dropped without being read
+    rig.host.picture_hidden = true;
+    let covered = rig.plugin.taking.map(|r| rig.folder.join(format!("photo_{}.jpg", r.0))).unwrap();
+    rig.photo_done(&field(2.0));
+    assert!(!covered.exists(), "a photo of a hidden picture doesn't stay on disk");
+    assert_eq!(rig.plugin.count, 0);
+    assert!(!rig.plugin.photo.as_ref().unwrap().handed);
+    assert!(rig.host.scheduled.contains(&(RETRY_MS, NEXT_PHOTO.to_string())));
+    assert!(rig.plugin.last.is_empty());
+}
+
+#[test]
+fn the_worker_leaves_out_a_photo_that_arrives_while_the_picture_is_hidden() {
+    let (mut rig, _) = Rig::photos("photos-worker-hidden", json!({"mode": "live", "input": "photos", "photo_count": 2}));
+    rig.click("run-clicked", Value::Null);
+    let path = rig.folder.join("covered.jpg");
+    std::fs::create_dir_all(&rig.folder).unwrap();
+    std::fs::write(&path, jpeg_of(&field(2.0))).unwrap();
+    // Hidden after the plugin looked, which the host's own flag says first
+    rig.plugin.shared.hidden.store(true, Ordering::SeqCst);
+    let run = rig.plugin.run;
+    rig.plugin.feed.as_ref().unwrap().send(Msg::Photo { run, source: "phone".into(), path: path.clone() });
+    rig.settle();
+    assert_eq!(rig.plugin.count, 0);
+    assert!(!path.exists(), "the worker deletes what it leaves out for being hidden");
+    assert_eq!(rig.plugin.photo.as_ref().unwrap().finished, 0);
+    std::fs::write(&path, jpeg_of(&field(2.0))).unwrap();
+    rig.plugin.shared.hidden.store(false, Ordering::SeqCst);
+    let flag = Arc::new(AtomicBool::new(true));
+    *rig.plugin.shared.host_hidden.lock().unwrap() = Some(flag.clone());
+    rig.plugin.feed.as_ref().unwrap().send(Msg::Photo { run, source: "phone".into(), path: path.clone() });
+    rig.settle();
+    assert_eq!(rig.plugin.count, 0);
+    assert!(!path.exists());
+}
+
+#[test]
+fn a_stack_refuses_a_photo_it_cannot_line_up_and_the_run_goes_on() {
+    let (mut rig, _) = Rig::photos("photos-refused", json!({"mode": "live", "input": "photos", "photo_count": 3}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    // Cloud: no stars to line up on
+    rig.photo_done(&sky(SIZE, SIZE, &[], 2.0));
+    assert_eq!((rig.plugin.count, rig.plugin.refused), (1, 1));
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    rig.photo_done(&field(2.0));
+    assert_eq!((rig.plugin.count, rig.plugin.refused, rig.plugin.phase), (2, 1, Phase::Idle));
+}
+
+#[test]
+fn a_big_photo_is_stacked_smaller_to_keep_to_the_byte_budget_and_the_card_says_the_size() {
+    let (mut rig, _) = Rig::photos("photos-budget", json!({"mode": "live", "input": "photos", "photo_count": 2}));
+    rig.plugin.shared.video_size.lock().unwrap().insert("phone".into(), (100, 100));
+    rig.plugin.budget = 1_000_000;
+    let stars: Vec<(f32, f32)> = SKY.iter().map(|(x, y)| (x * 2.0, y * 2.0)).collect();
+    let big = sky(192, 192, &stars, 4.0);
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&big);
+    assert_eq!(rig.plugin.limit, "Stacking at 96 x 96 to save memory");
+    assert_eq!(rig.props()["limit"], rig.plugin.limit.as_str());
+    rig.photo_done(&big);
+    assert_eq!(rig.plugin.count, 2);
+    rig.click("save-clicked", Value::Null);
+    let png = tiny_skia::Pixmap::decode_png(&std::fs::read(&rig.saved_pngs()[0]).unwrap()).unwrap();
+    assert_eq!((png.width(), png.height()), (96, 96));
+}
+
+#[test]
+fn a_photo_that_fits_is_stacked_whole_and_says_so() {
+    let (mut rig, _) = Rig::photos("photos-whole", json!({"mode": "trails", "input": "photos", "photo_count": 2}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.plugin.limit, "Stacking at 96 x 96");
+    rig.click("run-clicked", Value::Null);
+}
+
+#[test]
+fn a_photo_no_shrinking_makes_fit_stops_the_run_before_it_is_decoded() {
+    let (mut rig, _) = Rig::photos("photos-too-big", json!({"mode": "live", "input": "photos", "photo_count": 2}));
+    rig.plugin.shared.video_size.lock().unwrap().insert("phone".into(), (100, 100));
+    rig.plugin.budget = 50_000;
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert_eq!(rig.plugin.problem.as_deref(), Some("The photo is too big to stack in the memory there is"));
+    assert_eq!(rig.plugin.count, 0);
+    assert_eq!(rig.taken(), 1);
+}
+
+#[test]
+fn a_photo_of_another_size_ends_the_run_with_the_stack_it_has() {
+    let (mut rig, _) = Rig::photos("photos-resized", json!({"mode": "live", "input": "photos", "photo_count": 4}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    rig.photo_done(&sky(80, 80, &SKY, 2.0));
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert_eq!(rig.plugin.count, 1);
+    assert!(rig.status().starts_with("Stopped because the picture size changed"), "{}", rig.status());
+}
+
+#[test]
+fn the_cameras_copy_of_a_photo_stack_is_the_size_of_the_video_and_goes_on_it() {
+    let (mut rig, _) = Rig::photos("photos-preview", json!({"mode": "live", "input": "photos", "photo_count": 2, "camera": true}));
+    rig.click("run-clicked", Value::Null);
+    // The video's frames tell the worker the size, once
+    let mut video = sky(160, 90, &SKY, 2.0);
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Reads);
+    rig.step.process(&mut video, &Ctx("phone"));
+    rig.settle();
+    rig.photo_done(&field(2.0));
+    {
+        let result = rig.plugin.shared.result.lock().unwrap();
+        let stack = &result.as_ref().expect("a stack for the camera").frame;
+        assert_eq!((stack.width, stack.height, stack.format), (160, 90, PixelFormat::Rgba));
     }
-    host.still_busy = true;
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-    assert_eq!(plugin.phase, Phase::Idle);
-    assert!(plugin.taking.is_none());
-    assert_eq!(plugin.problem.as_deref(), Some("Couldn't take the photo"));
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Changes);
+    let mut frame = sky(160, 90, &[], 2.0);
+    rig.step.process(&mut frame, &Ctx("phone"));
+    // The square stack sits in the middle with black either side
+    let at = |x: usize, y: usize| frame.data[(y * 160 + x) * 4..(y * 160 + x) * 4 + 3].to_vec();
+    assert_eq!(at(2, 45), vec![0, 0, 0]);
+    assert!(at(80, 45).iter().any(|v| *v > 0), "{:?}", at(80, 45));
+    // A video of another size tells the worker, which makes the copy again
+    let mut other = sky(128, 72, &SKY, 2.0);
+    rig.step.process(&mut other, &Ctx("phone"));
+    rig.settle();
+    let result = rig.plugin.shared.result.lock().unwrap();
+    assert_eq!((result.as_ref().unwrap().frame.width, result.as_ref().unwrap().frame.height), (128, 72));
 }
 
 #[test]
-fn night_keeps_requested_overrides_for_validation_and_never_focus() {
-    for caps in [
-        json!({}),
-        json!({"shot": {"iso": {"min": 50, "max": 3200}}}),
-        json!({"shot": {"shutter": {"min_ns": 250_000, "max_ns": 10_000_000_000i64}}}),
-    ] {
-        let mut host = night_host();
-        host.still_caps = Some(caps);
-        let mut plugin = night_plugin(&mut host);
-        night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-        assert_eq!(host.stills_taken[0].0["shot"], json!({"shutter_s": 10.0, "iso": 800}));
-        assert!(host.stills_taken[0].0["shot"].get("focus_diopters").is_none());
-    }
+fn a_photo_stack_isnt_put_on_the_camera_while_the_picture_is_hidden() {
+    let (mut rig, _) = Rig::photos("photos-preview-hidden", json!({"mode": "live", "input": "photos", "photo_count": 2, "camera": true}));
+    rig.plugin.shared.video_size.lock().unwrap().insert("phone".into(), (160, 90));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    assert!(rig.plugin.shared.result.lock().unwrap().is_some());
+    *rig.plugin.shared.result.lock().unwrap() = None;
+    rig.plugin.shared.hidden.store(true, Ordering::SeqCst);
+    rig.plugin.feed.as_ref().unwrap().send(Msg::Publish);
+    rig.settle();
+    assert!(rig.plugin.shared.result.lock().unwrap().is_none());
+    rig.plugin.shared.hidden.store(false, Ordering::SeqCst);
+    rig.plugin.feed.as_ref().unwrap().send(Msg::Publish);
+    rig.settle();
+    assert!(rig.plugin.shared.result.lock().unwrap().is_some());
 }
 
 #[test]
 fn missing_caps_disable_controls_and_a_missing_shutter_has_its_reason() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, live_photos());
     let props = plugin.state_props(&host);
     assert_eq!(props["shot-summary"], "10 s · ISO 800 · focus ∞");
     assert_eq!(props["focus-readout"], "∞");
@@ -938,143 +1342,320 @@ fn missing_caps_disable_controls_and_a_missing_shutter_has_its_reason() {
     assert_eq!(props["shutter-tip"], "Waiting for the picture");
     assert_eq!(props["iso-tip"], "Waiting for the picture");
     assert_eq!(props["run-enabled"], false);
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
     assert!(host.stills_taken.is_empty());
 }
 
 #[test]
+fn photos_keep_requested_overrides_for_validation_and_never_focus() {
+    for caps in [
+        json!({}),
+        json!({"shot": {"iso": {"min": 50, "max": 3200}}}),
+        json!({"shot": {"shutter": {"min_ns": 250_000, "max_ns": 10_000_000_000i64}}}),
+    ] {
+        let mut host = photo_host();
+        host.still_caps = Some(caps);
+        let mut plugin = photo_plugin(&mut host, live_photos());
+        photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+        assert_eq!(host.stills_taken[0].0["shot"], json!({"shutter_s": 10.0, "iso": 800}));
+        assert!(host.stills_taken[0].0["shot"].get("focus_diopters").is_none());
+        plugin.shutdown(&mut host);
+    }
+}
+
+#[test]
 fn camera_choices_save_but_the_disclosure_is_temporary_and_focus_is_locked() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, live_photos());
     host.calls.clear();
-    night_ui(&mut plugin, &mut host, "shutter-picked", json!(0));
-    night_ui(&mut plugin, &mut host, "iso-picked", json!(0));
+    photo_ui(&mut plugin, &mut host, "shutter-picked", json!(0));
+    photo_ui(&mut plugin, &mut host, "iso-picked", json!(0));
     assert_eq!(plugin.shot.shutter_s, None);
     assert_eq!(plugin.shot.iso, None);
     assert_eq!(host.calls.iter().filter(|c| c.as_str() == "schedule_save").count(), 2);
-    night_ui(&mut plugin, &mut host, "customize-toggled", json!(true));
+    photo_ui(&mut plugin, &mut host, "customize-toggled", json!(true));
     assert_eq!(plugin.state_props(&host)["customize-open"], true);
     assert!(plugin.get_config().get("customize-open").is_none());
     let mut restored = StargazerPlugin::new();
     restored.set_config(&plugin.get_config()).unwrap();
     assert!(!restored.customize_open);
-    night_ui(&mut plugin, &mut host, "settings-reset-clicked", Value::Null);
+    photo_ui(&mut plugin, &mut host, "settings-reset-clicked", Value::Null);
     assert_eq!(plugin.shot, StargazerPlugin::default_shot());
-    assert_eq!(plugin.mode, Mode::Night);
+    assert_eq!((plugin.mode, plugin.input), (Mode::Live, Input::Photos), "the mode and where the frames come from stay");
 }
 
 #[test]
-fn presets_carry_shot_choices_and_older_presets_keep_them() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
-    plugin.apply_preset(&mut host, &json!({"shot": {"iso": 1600}})).unwrap();
-    assert_eq!(plugin.preset_config()["shot"], json!({"iso": 1600}));
-    plugin.apply_preset(&mut host, &json!({"frames": 700})).unwrap();
-    assert_eq!(plugin.shot, ShotChoice { iso: Some(1600), ..ShotChoice::default() });
-    assert_eq!(plugin.frames, 700);
-    assert_eq!(plugin.phase, Phase::Idle);
+fn the_video_has_no_camera_choices() {
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, json!({"mode": "live"}));
+    photo_ui(&mut plugin, &mut host, "iso-picked", json!(3));
+    assert_eq!(plugin.shot, ShotChoice::default());
 }
 
 #[test]
-fn leaving_night_refreshes_the_frame_step_for_video_modes() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
-    assert!(plugin.frame_step().is_none());
-    host.calls.clear();
-    night_ui(&mut plugin, &mut host, "mode-picked", json!(0));
-    assert!(host.calls.iter().any(|c| c == "refresh_frame_step"));
-    assert!(plugin.frame_step().is_some());
-    plugin.shutdown(&mut host);
+fn photo_counts_and_waits_move_while_idle_only() {
+    let (mut rig, _) = Rig::photos("photos-sliders", json!({"mode": "live", "input": "photos", "photo_count": 5}));
+    rig.click("photo-count-moved", json!(40.0));
+    rig.click("photo-every-moved", json!(12.0));
+    assert_eq!((rig.plugin.photo_count, rig.plugin.photo_every), (40, 12));
+    let props = rig.props();
+    assert_eq!((props["photo-count-text"].as_str(), props["photo-every-text"].as_str()), (Some("40 photos"), Some("12 s")));
+    rig.click("photo-count-moved", json!(1.0));
+    rig.click("photo-every-moved", json!(0.0));
+    assert_eq!(rig.props()["photo-count-text"], "1 photo");
+    assert_eq!(rig.props()["photo-every-text"], "No wait");
+    rig.click("photo-count-moved", json!(9999.0));
+    assert_eq!(rig.plugin.photo_count, MAX_PHOTOS);
+    rig.click("run-clicked", Value::Null);
+    rig.click("photo-count-moved", json!(3.0));
+    rig.click("photo-every-moved", json!(99.0));
+    assert_eq!((rig.plugin.photo_count, rig.plugin.photo_every), (MAX_PHOTOS, 0));
 }
 
 #[test]
-fn the_dials_pick_their_own_values_and_lock_during_the_photo() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
-    let props = plugin.state_props(&host);
-    let shutter_index = props["shutter-stops"].as_array().unwrap().iter().position(|v| v == "20 s").unwrap();
-    let iso_index = props["iso-stops"].as_array().unwrap().iter().position(|v| v == "1600").unwrap();
-    night_ui(&mut plugin, &mut host, "shutter-picked", json!(shutter_index));
-    night_ui(&mut plugin, &mut host, "iso-picked", json!(iso_index));
-    assert_eq!(plugin.shot.shutter_s, Some(20.0));
-    assert_eq!(plugin.shot.iso, Some(1600));
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-    night_ui(&mut plugin, &mut host, "shutter-picked", json!(0));
-    night_ui(&mut plugin, &mut host, "iso-picked", json!(0));
-    assert_eq!(plugin.shot.shutter_s, Some(20.0));
-    assert_eq!(plugin.shot.iso, Some(1600));
-    let props = plugin.state_props(&host);
-    assert_eq!(props["shutter-enabled"], false);
-    assert_eq!(props["iso-enabled"], false);
+fn switching_the_source_starts_from_an_empty_stack() {
+    let mut rig = Rig::new("switch-source", config("live"));
+    rig.click("run-clicked", Value::Null);
+    rig.feed(field(2.0));
+    rig.feed(field(2.0));
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.count, 2);
+    rig.click("input-picked", json!(0));
+    assert_eq!(rig.plugin.count, 2, "picking what is picked changes nothing");
+    rig.host.still_caps = photo_host().still_caps;
+    rig.host.still_only_for = Some("phone".into());
+    rig.click("input-picked", json!(1));
+    assert_eq!((rig.plugin.input, rig.plugin.count), (Input::Photos, 0));
+    assert!(rig.plugin.get_config().get("shot").is_some());
 }
 
 #[test]
-fn dslr_night_takes_one_photo_with_discrete_shot_caps() {
-    let mut host = night_host();
+fn a_live_stack_of_video_frames_isnt_carried_into_photos() {
+    let mut rig = Rig::new("stack-input", config("live"));
+    rig.click("run-clicked", Value::Null);
+    rig.feed(field(2.0));
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.count, 1);
+    rig.host.still_caps = photo_host().still_caps;
+    rig.host.still_only_for = Some("phone".into());
+    // Not through the card, which would empty it: a preset that was recalled while the stack stood
+    rig.plugin.input = Input::Photos;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.count, 0, "a stack of video frames doesn't go on with photos");
+    rig.click("run-clicked", Value::Null);
+}
+
+#[test]
+fn dslr_photos_are_asked_for_with_discrete_shot_caps_and_no_quality() {
+    let mut host = photo_host();
     host.still_caps = Some(json!({"camera": true, "formats": ["jpeg"], "shot": {
         "shutter_values_s": [0.004, 10.0, 30.0], "iso_values": [100, 800, 1600]
     }}));
     let mut plugin = StargazerPlugin::new();
     plugin.setup(&mut host);
-    night_ui(&mut plugin, &mut host, "mode-picked", json!(3));
-    assert_eq!(plugin.mode, Mode::Night);
+    photo_ui(&mut plugin, &mut host, "mode-picked", json!(1));
+    photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
+    assert_eq!(plugin.input, Input::Photos);
     assert_eq!(plugin.state_props(&host)["run-enabled"], true);
     let props = plugin.shot_props(&host);
     assert_eq!(props["shutter-enabled"], true);
     assert_eq!(props["iso-enabled"], true);
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
     assert_eq!(host.stills_taken.len(), 1);
     assert_eq!(host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0, "use_zoom": false, "shot": {"shutter_s": 10.0, "iso": 800}, "skip_if_hidden": true}));
     assert_eq!(plugin.phase, Phase::Collecting);
-    assert!(plugin.worker.is_none());
-}
-
-#[test]
-fn stopping_a_night_shot_cancels_it_and_ignores_its_late_reply() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-    let request = plugin.taking.unwrap();
-    plugin.on_event(&mut host, &Event::RequestProgress { request, data: json!({"state": "capturing"}) });
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-    assert_eq!(plugin.phase, Phase::Idle);
-    assert!(plugin.taking.is_none());
-    assert!(!plugin.exposing);
-    assert!(host.calls.contains(&format!("cancel_still {}", request.0)));
-    assert_eq!(plugin.state_props(&host)["run-text"], "Start");
-    assert!(plugin.worker.is_none());
-    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
-    let next = plugin.taking;
-    plugin.on_event(&mut host, &Event::RequestDone { request, ok: true, message: String::new(), data: json!({"ok": true, "files": ["cancelled.jpg"]}) });
-    assert_eq!(plugin.taking, next);
-    assert_eq!(plugin.phase, Phase::Collecting);
-    assert!(plugin.last.is_empty());
     plugin.shutdown(&mut host);
-    assert!(host.calls.contains(&format!("cancel_still {}", next.unwrap().0)));
 }
 
 #[test]
-fn a_late_night_restore_failure_is_visible_after_stop() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
+fn the_dials_pick_their_own_values_and_lock_during_the_run() {
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, live_photos());
+    let props = plugin.state_props(&host);
+    let shutter_index = props["shutter-stops"].as_array().unwrap().iter().position(|v| v == "20 s").unwrap();
+    let iso_index = props["iso-stops"].as_array().unwrap().iter().position(|v| v == "1600").unwrap();
+    photo_ui(&mut plugin, &mut host, "shutter-picked", json!(shutter_index));
+    photo_ui(&mut plugin, &mut host, "iso-picked", json!(iso_index));
+    assert_eq!(plugin.shot.shutter_s, Some(20.0));
+    assert_eq!(plugin.shot.iso, Some(1600));
+    photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    photo_ui(&mut plugin, &mut host, "shutter-picked", json!(0));
+    photo_ui(&mut plugin, &mut host, "iso-picked", json!(0));
+    assert_eq!(plugin.shot.shutter_s, Some(20.0));
+    assert_eq!(plugin.shot.iso, Some(1600));
+    let props = plugin.state_props(&host);
+    assert_eq!(props["shutter-enabled"], false);
+    assert_eq!(props["iso-enabled"], false);
+    plugin.shutdown(&mut host);
+}
+
+#[test]
+fn a_late_restore_failure_is_visible_after_stop() {
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, live_photos());
     plugin.on_event(&mut host, &Event::RequestProgress { request: RequestId(99), data: json!({"state": "late", "code": "restore", "error": "Restore failed"}) });
     assert_eq!(plugin.problem.as_deref(), Some("Restore failed"));
     assert_eq!(plugin.state_props(&host)["status-kind"], "status_err");
 }
 
 #[test]
-fn night_use_zoom_defaults_off_and_survives_a_preset() {
-    let mut host = night_host();
-    let mut plugin = night_plugin(&mut host);
+fn use_zoom_defaults_off_survives_a_preset_and_is_pinned_by_the_run() {
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, live_photos());
     assert_eq!(plugin.get_config()["use_zoom"], false);
     assert_eq!(plugin.state_props(&host)["use-zoom"], false);
-    night_ui(&mut plugin, &mut host, "use-zoom-toggled", json!(true));
+    photo_ui(&mut plugin, &mut host, "use-zoom-toggled", json!(true));
     let preset = plugin.preset_config();
     assert_eq!(preset["use_zoom"], true);
     let mut restored = StargazerPlugin::new();
+    restored.setup(&mut host);
     restored.apply_preset(&mut host, &preset).unwrap();
-    night_ui(&mut restored, &mut host, "run-clicked", Value::Null);
+    photo_ui(&mut restored, &mut host, "run-clicked", Value::Null);
     assert_eq!(host.stills_taken.last().unwrap().0["use_zoom"], true);
-    night_ui(&mut restored, &mut host, "use-zoom-toggled", json!(false));
+    photo_ui(&mut restored, &mut host, "use-zoom-toggled", json!(false));
     assert_eq!(restored.get_config()["use_zoom"], true, "a running photo keeps its settings");
+    restored.shutdown(&mut host);
+}
+
+#[test]
+fn shutting_the_plugin_down_during_a_photo_run_cancels_the_photo() {
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, live_photos());
+    photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    let request = plugin.taking.unwrap();
+    plugin.shutdown(&mut host);
+    assert!(host.calls.contains(&format!("cancel_still {}", request.0)));
+    assert!(plugin.photo.is_none() && plugin.taking.is_none());
+    assert!(!host.scheduled.iter().any(|(_, t)| t == NEXT_PHOTO));
+}
+
+#[test]
+fn the_video_stream_stopping_ends_a_photo_run_the_way_stop_does() {
+    let (mut rig, _) = Rig::photos("photos-stream-stop", json!({"mode": "live", "input": "photos", "photo_count": 5}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    let request = rig.plugin.taking.unwrap();
+    rig.event(Event::StreamStopped);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert!(rig.host.calls.contains(&format!("cancel_still {}", request.0)));
+    assert_eq!(rig.plugin.count, 1);
+}
+
+#[test]
+fn a_dslr_photo_whose_settings_didnt_come_back_is_stacked_and_the_run_goes_on() {
+    let (mut rig, _) = Rig::photos("photos-restore", json!({"mode": "live", "input": "photos", "photo_count": 2}));
+    rig.click("run-clicked", Value::Null);
+    let request = rig.plugin.taking.unwrap();
+    std::fs::create_dir_all(&rig.folder).unwrap();
+    let path = rig.folder.join("restore.jpg");
+    std::fs::write(&path, jpeg_of(&field(2.0))).unwrap();
+    let data = json!({"ok": false, "code": "restore", "files": [path.display().to_string()], "error": "The camera's photo settings could not be restored. Check its ISO and shutter speed."});
+    rig.event(Event::RequestDone { request, ok: false, message: String::new(), data });
+    assert_eq!((rig.plugin.count, rig.plugin.phase), (1, Phase::Collecting));
+    assert!(rig.plugin.problem.is_none());
+    assert_eq!(rig.taken(), 2, "the run goes on");
+    assert!(path.exists());
+    assert_eq!(rig.status(), "The camera's photo settings could not be restored. Check its ISO and shutter speed.");
+    // The next photo's clean answer ends the run, and a new run starts without the warning
+    rig.photo_done(&field(2.0));
+    assert_eq!((rig.plugin.count, rig.plugin.phase), (2, Phase::Idle));
+    rig.click("run-clicked", Value::Null);
+    assert!(rig.plugin.warning.is_none());
+    assert_eq!(rig.status(), "Taking photo 1 of 2");
+}
+
+#[test]
+fn a_run_stops_when_the_disk_is_low_and_a_start_is_refused() {
+    let (mut rig, _) = Rig::photos("photos-disk", json!({"mode": "live", "input": "photos", "photo_count": 4}));
+    let free = Arc::new(AtomicU64::new(50 << 30));
+    let reading = free.clone();
+    rig.plugin.free = Box::new(move |_| Some(reading.load(Ordering::SeqCst)));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 2);
+    free.store(100 << 20, Ordering::SeqCst);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 2, "no photo with no room");
+    assert_eq!((rig.plugin.phase, rig.plugin.count), (Phase::Idle, 2));
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Stopped because there's less than 1 GB free on the drive"));
+    assert_eq!(rig.props()["save-enabled"], true);
+    // And nothing starts while it is still low
+    rig.click("run-clicked", Value::Null);
+    assert_eq!((rig.plugin.phase, rig.taken()), (Phase::Idle, 2));
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Stopped because there's less than 1 GB free on the drive"));
+    free.store(50 << 30, Ordering::SeqCst);
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+}
+
+#[test]
+fn a_photo_nothing_can_line_up_on_is_the_base_of_a_single_photo_stack() {
+    // A migrated Night shot: one dark photo with nothing in it to line up on
+    let (mut rig, _) = Rig::photos("photos-night", json!({"mode": "night"}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&sky(SIZE, SIZE, &[], 2.0));
+    assert_eq!((rig.plugin.count, rig.plugin.refused, rig.plugin.phase), (1, 0, Phase::Idle));
+    assert_eq!(rig.status(), "Stacked 1 photo. Save keeps it, Reset starts a new stack");
+    assert_eq!(rig.props()["save-enabled"], true);
+    rig.click("save-clicked", Value::Null);
+    assert_eq!(rig.saved_pngs().len(), 1);
+    // The video's stack still wants a first frame it can line up on
+    let mut video = Rig::new("photos-night-video", json!({"mode": "live"}));
+    video.click("run-clicked", Value::Null);
+    video.feed(sky(SIZE, SIZE, &[], 2.0));
+    assert_eq!(video.plugin.count, 0);
+}
+
+#[test]
+fn a_hidden_photo_is_tried_again_no_sooner_than_every_allows() {
+    let (mut rig, now) = Rig::photos("photos-hidden-every", json!({"mode": "live", "input": "photos", "photo_count": 2, "photo_every": 20}));
+    rig.click("run-clicked", Value::Null);
+    *now.lock().unwrap() = 105.0;
+    rig.host.scheduled.clear();
+    let request = rig.plugin.taking.unwrap();
+    rig.event(Event::RequestDone { request, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "code": "hidden", "error": "hidden"}) });
+    assert!(rig.host.scheduled.contains(&(15_000, NEXT_PHOTO.to_string())), "{:?}", rig.host.scheduled);
+    // The picture still hidden then: another look a second later, never before the gap is up
+    *now.lock().unwrap() = 125.0;
+    rig.host.picture_hidden = true;
+    rig.host.scheduled.clear();
+    rig.event(Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() });
+    assert_eq!(rig.taken(), 1);
+    assert!(rig.host.scheduled.contains(&(RETRY_MS, NEXT_PHOTO.to_string())), "{:?}", rig.host.scheduled);
+    // And a photo covered while it exposed waits out the rest of the gap too
+    rig.host.picture_hidden = false;
+    rig.event(Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() });
+    assert_eq!(rig.taken(), 2);
+    *now.lock().unwrap() = 130.0;
+    rig.host.picture_hidden = true;
+    rig.host.scheduled.clear();
+    rig.photo_done(&field(2.0));
+    assert!(rig.host.scheduled.contains(&(15_000, NEXT_PHOTO.to_string())), "{:?}", rig.host.scheduled);
+}
+
+#[test]
+fn a_start_right_after_stop_waits_for_the_camera_the_cancelled_photo_still_holds() {
+    let (mut rig, now) = Rig::photos("photos-restart", json!({"mode": "live", "input": "photos", "photo_count": 2}));
+    rig.click("run-clicked", Value::Null);
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    // The camera is still on the cancelled photo
+    rig.host.still_busy = true;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    assert!(rig.plugin.problem.is_none());
+    assert!(rig.host.scheduled.contains(&(RETRY_MS, NEXT_PHOTO.to_string())));
+    let before = rig.taken();
+    rig.host.still_busy = false;
+    *now.lock().unwrap() = 102.0;
+    rig.event(Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() });
+    assert_eq!(rig.taken(), before + 1);
+    assert!(rig.plugin.taking.is_some());
+    // A camera that stays busy long after is a failure again
+    rig.click("run-clicked", Value::Null);
+    *now.lock().unwrap() = 500.0;
+    rig.host.still_busy = true;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Couldn't take the photo"));
 }
