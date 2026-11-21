@@ -127,3 +127,14 @@ jobs:
           name: apk
           path: Telescope.apk
           retention-days: 7
+
+      # Release runs only: R8 renames classes and methods, so a crash trace from a shipped build can only be read with
+      # the mapping of that exact build. Kept longer than the APK, named by build number.
+      - name: Keep the R8 mapping
+        if: inputs.channel
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-mapping-${{ inputs.build }}
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 90
