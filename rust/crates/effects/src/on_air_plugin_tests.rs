@@ -519,6 +519,15 @@ fn clearing_the_address_ends_the_retries_and_the_banner() {
 }
 
 #[test]
+fn a_late_failure_after_the_address_was_cleared_brings_back_no_banner_or_retry() {
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    let old = rig.plugin.state_tag();
+    rig.ui("url-edited", vec![json!("")]);
+    rig.answer(&old, "Connection refused");
+    assert!(rig.issue().is_none() && rig.retry_timer().is_none());
+}
+
+#[test]
 fn an_address_half_typed_is_a_problem_not_a_crash() {
     let mut rig = Rig::new(json!({}));
     rig.ui("url-edited", vec![json!("http://[")]);

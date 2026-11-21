@@ -417,12 +417,16 @@ impl OnAirPlugin {
         if let Some(off) = off {
             self.webhook_off = off.into();
         }
-        if !self.webhook_ready() && (self.webhook_failing || self.retrying) {
-            // Nothing left to send to: a failure from before can't keep its banner up
-            self.retrying = false;
-            host.cancel_schedule(T_RETRY);
-            (self.retries, self.webhook_failing) = (0, false);
-            host.clear_issue(Some(ISSUE), None);
+        if !self.webhook_ready() {
+            // An answer still on its way is about an address that is gone, and can't bring the banner back
+            self.state_gen += 1;
+            if self.webhook_failing || self.retrying {
+                // Nothing left to send to: a failure from before can't keep its banner up
+                self.retrying = false;
+                host.cancel_schedule(T_RETRY);
+                (self.retries, self.webhook_failing) = (0, false);
+                host.clear_issue(Some(ISSUE), None);
+            }
         }
         host.schedule_save();
     }

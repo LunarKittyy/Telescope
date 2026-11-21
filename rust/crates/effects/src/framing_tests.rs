@@ -466,6 +466,17 @@ fn the_picked_person_is_still_followed_after_crossing_over_a_bystander_of_anothe
     assert!(r.last().0 > 2.5 && r.last().1.abs() < 0.1, "framing {:?}", r.last());
 }
 
+#[test]
+fn a_new_pick_does_not_inherit_the_unclear_spell_of_the_old_one() {
+    let (a, b) = (at(0.3), at(0.7));
+    let mut r = picked_pair(&a, &b);
+    let now = *r.clock.lock().unwrap();
+    // the old pick has been unclear for nearly as long as it is allowed to be
+    r.plugin.coasting_since = Some((now - 1.9, now - 1.9));
+    click_on(&mut r, &b);
+    assert_eq!(r.plugin.coasting_since, None, "the clock for the new pick starts at zero");
+}
+
 /// Two people of the same build walk toward each other across the picture and past, reported every 0.2 s while they are close; the picked one comes from the left.
 fn walk_past(r: &mut Rig, speed: f64) -> (f64, f64) {
     let (mut a, mut b) = (0.3, 0.7);
