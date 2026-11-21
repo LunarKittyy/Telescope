@@ -327,7 +327,7 @@ impl PluginContext {
     pub fn snapshot_modules(&mut self) {
         let Ok(found) = crate::package::files(&self.folder, true) else { return };
         let mut modules = std::collections::BTreeMap::new();
-        for rel in found.iter().filter(|r| r.extension().is_some_and(|e| e == "lua")) {
+        for rel in found.iter().filter(|r| r.extension().is_some_and(|e| if cfg!(windows) { e.eq_ignore_ascii_case("lua") } else { e == "lua" })) {
             let Ok(text) = std::fs::read_to_string(self.folder.join(rel)) else { return };
             modules.insert(rel.to_string_lossy().replace('\\', "/"), text);
         }
@@ -337,7 +337,7 @@ impl PluginContext {
     /// A module's source by its path inside the plugin: from the files kept when it started, or the folder when none were kept.
     pub fn module_source(&self, relative: &str) -> Result<String, String> {
         match &self.modules {
-            Some(modules) => modules.get(relative).cloned().ok_or_else(|| format!("the plugin has no {relative}")),
+            Some(modules) => find_module(modules, relative, cfg!(windows)).cloned().ok_or_else(|| format!("the plugin has no {relative}")),
             None => self.read_text(relative),
         }
     }
@@ -1135,5 +1135,24 @@ mod tests {
                 assert!(!e.contains("no method"), "{}: {e}", method.name);
             }
         }
+    }
+}
+
+/// A kept module by its path. Where the filesystem ignores case (Windows) so does this, as `require("helper")` for `Helper.lua` did before the files were kept.
+fn find_module<'a>(modules: &'a std::collections::BTreeMap<String, String>, relative: &str, ignore_case: bool) -> Option<&'a String> {
+    modules.get(relative).or_else(|| if ignore_case { modules.iter().find(|(path, _)| path.eq_ignore_ascii_case(relative)).map(|(_, text)| text) } else { None })
+}
+
+#[cfg(test)]
+mod module_lookup_tests {
+    use super::find_module;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn a_module_is_found_by_any_spelling_only_where_case_is_ignored() {
+        let modules = BTreeMap::from([("lib/Helper.LUA".to_string(), "x".to_string())]);
+        assert_eq!(find_module(&modules, "lib/helper.lua", true).map(String::as_str), Some("x"));
+        assert!(find_module(&modules, "lib/helper.lua", false).is_none());
+        assert!(find_module(&modules, "lib/Helper.LUA", false).is_some());
     }
 }
