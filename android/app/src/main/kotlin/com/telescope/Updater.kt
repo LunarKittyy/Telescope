@@ -70,6 +70,9 @@ object Updater {
 
     // Once each time the app starts, then daily while it stays open.
     fun maybeCheck(context: Context) {
+        if (state !is State.Downloading && state !is State.Installing) {
+            File(context.applicationContext.cacheDir, "updates").listFiles()?.forEach { it.delete() }
+        }
         if (!canUpdate()) return
         recoverStuckInstall()
         if (state !is State.Idle && state !is State.UpToDate && state !is State.CheckFailed) return
@@ -128,25 +131,29 @@ object Updater {
         synchronized(lock) { set(State.Downloading(manifest, 0)) }  // under the lock, so a check's answer in flight can't land on top of it
         Thread {
             val apk = File(File(app.cacheDir, "updates").apply { mkdirs() }, "Telescope.apk")
-            val (selected, downloadProblem) = http.downloadUpdate(manifest, apk, app.strings(),
-                fetchLatest = { http.fetchManifest(UpdateLogic.manifestUrl(manifest.channel)) },
-                progress = { current, pct -> set(State.Downloading(current, pct)) })
-            val problem = downloadProblem ?: verifyApk(app, apk, selected)
-            if (problem != null) {
-                apk.delete()
-                set(State.Failed(problem, selected))
-                return@Thread
-            }
-            // Last look before the installer opens, since a stream can start during the download
-            if (streamBusyNow()) {
-                set(State.Available(selected))
-                return@Thread
-            }
-            set(State.Installing(selected))
             try {
-                if (!install(app, apk)) set(State.Available(selected))
-            } catch (e: Exception) {
-                set(State.Failed(app.getString(R.string.update_error_install_start), selected))
+                val (selected, downloadProblem) = http.downloadUpdate(manifest, apk, app.strings(),
+                    fetchLatest = { http.fetchManifest(UpdateLogic.manifestUrl(manifest.channel)) },
+                    progress = { current, pct -> set(State.Downloading(current, pct)) })
+                val problem = downloadProblem ?: verifyApk(app, apk, selected)
+                if (problem != null) {
+                    set(State.Failed(problem, selected))
+                    return@Thread
+                }
+                // Last look before the installer opens, since a stream can start during the download
+                if (streamBusyNow()) {
+                    set(State.Available(selected))
+                    return@Thread
+                }
+                set(State.Installing(selected))
+                try {
+                    if (!install(app, apk)) set(State.Available(selected))
+                } catch (e: Exception) {
+                    set(State.Failed(app.getString(R.string.update_error_install_start), selected))
+                }
+            } finally {
+                // PackageInstaller copies the APK into its own session before install() returns
+                apk.delete()
             }
         }.start()
     }
