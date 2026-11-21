@@ -723,11 +723,11 @@ impl Plugin for PhototrapPlugin {
             }
             "shot-shutter-picked" | "shot-iso-picked" => {
                 let suppressed = self.night && self.night_offered();
-                if let Some(caps) = &self.caps {
-                    if pick_shot(&mut self.shot, caps, event.callback == "shot-shutter-picked", number.max(0.0) as usize, suppressed) {
-                        self.show(host);
-                        host.schedule_save();
-                    }
+                // Without the phone's capabilities (its stream stopped) Camera still clears an override
+                let caps = self.caps.clone().unwrap_or_default();
+                if pick_shot(&mut self.shot, &caps, event.callback == "shot-shutter-picked", number.max(0.0) as usize, suppressed) {
+                    self.show(host);
+                    host.schedule_save();
                 }
             }
             "switch-toggled-by-hand" => self.arm(host, flag),

@@ -542,7 +542,7 @@ fn a_plugin_waiting_during_a_failed_zip_install_is_told_why() {
 #[test]
 fn background_prefers_fresh_quality_then_fresh_normal_then_newest_held_mask() {
     let now = service::monotonic();
-    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, seq: value as u64 };
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, frame_at: now - age, seq: value as u64 };
     let max = service::MASK_MAX_AGE_S;
     for (hq_age, normal_age, expected) in [(0.0, 0.0, 1), (max * 2.0, 0.0, 2),
         (max * 2.0, max * 3.0, 1), (max * 3.0, max * 2.0, 2)] {
@@ -557,7 +557,7 @@ fn background_prefers_fresh_quality_then_fresh_normal_then_newest_held_mask() {
 #[test]
 fn a_cutout_mask_well_behind_a_fresher_normal_one_gives_way_to_it() {
     let now = service::monotonic();
-    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, seq: value as u64 };
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, frame_at: now - age, seq: value as u64 };
     let max = service::MASK_MAX_AGE_S;
     let behind = service::HQ_BEHIND_S;
     // Both are within the age limit, but by age the normal one is the picture's
@@ -573,7 +573,7 @@ fn a_cutout_mask_well_behind_a_fresher_normal_one_gives_way_to_it() {
 #[test]
 fn while_the_crop_label_is_a_guess_the_newer_mask_is_used_whichever_model_made_it() {
     let now = service::monotonic();
-    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, seq: value as u64 };
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, frame_at: now - age, seq: value as u64 };
     let behind = service::HQ_BEHIND_S;
     // A cutout a frame behind keeps its place when the label is sure, and gives it up when it is a guess
     assert_eq!(*preferred_mask(Some(snapshot(1, behind * 0.5)), Some(snapshot(2, 0.0)), false).unwrap().mask, [1]);
@@ -653,12 +653,12 @@ fn the_cutouts_picture_is_already_the_size_its_model_wants() {
 fn masks_of_the_same_frame_keep_the_cutout_while_the_crop_is_a_guess() {
     let now = service::monotonic();
     // The normal one was asked for a moment after the cutout, so it carries a later time for the same frame
-    let hq = MaskSnapshot { mask: Arc::new(vec![1]), at: now - 0.02, seq: 7 };
-    let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, seq: 7 };
+    let hq = MaskSnapshot { mask: Arc::new(vec![1]), at: now - 0.02, frame_at: now - 0.02, seq: 7 };
+    let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, frame_at: now - 0.01, seq: 7 };
     assert_eq!(*preferred_mask(Some(hq), Some(normal), true).unwrap().mask, [1]);
     // A normal mask of a newer frame still wins
-    let hq = MaskSnapshot { mask: Arc::new(vec![1]), at: now - 0.12, seq: 7 };
-    let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, seq: 8 };
+    let hq = MaskSnapshot { mask: Arc::new(vec![1]), at: now - 0.12, frame_at: now - 0.12, seq: 7 };
+    let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, frame_at: now - 0.01, seq: 8 };
     assert_eq!(*preferred_mask(Some(hq), Some(normal), true).unwrap().mask, [2]);
 }
 
@@ -792,4 +792,13 @@ fn a_still_picture_under_power_saving_keeps_the_cutouts_mask() {
         .collect();
     assert!(seen[5..].iter().all(|m| *m == Some(50)), "{seen:?}");
     h.shutdown();
+}
+
+#[test]
+fn a_normal_mask_late_from_a_slow_open_does_not_lead_a_cutout_of_a_newer_frame() {
+    let now = service::monotonic();
+    // The normal frame was taken first, the model then opened for most of a second, so its mask is made later than the cutout's of a newer frame
+    let hq = MaskSnapshot { mask: Arc::new(vec![1]), at: now - 0.3, frame_at: now - 0.3, seq: 9 };
+    let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, frame_at: now - 0.9, seq: 8 };
+    assert_eq!(*preferred_mask(Some(hq), Some(normal), false).unwrap().mask, [1]);
 }

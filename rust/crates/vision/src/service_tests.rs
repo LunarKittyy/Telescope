@@ -1403,3 +1403,32 @@ fn a_mask_got_again_without_a_run_keeps_the_frame_it_was_made_for() {
         }
     }
 }
+
+struct SlowOpen(Arc<Fake>, Duration);
+
+impl Backend for SlowOpen {
+    fn version(&self) -> String {
+        "slow".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        std::thread::sleep(self.1);
+        self.0.segmenter()
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        self.0.pose()
+    }
+}
+
+#[test]
+fn the_first_mask_after_a_cold_open_over_the_age_limit_is_still_fresh() {
+    let backend: Arc<dyn Backend> = Arc::new(SlowOpen(Fake::new(), Duration::from_millis(600)));
+    let (v, _, _) = make(Box::new(move || Ok(backend.clone())));
+    v.load();
+    wait(|| v.state() == READY);
+    v.wait_for_masks();
+    let asked = monotonic();
+    let snap = v.newest_normal_snapshot("a", true, 1, 256, 144, Box::new(|| Some(Rgb::filled(256, 144, 200))), v.view_epoch(), MaskView::default()).unwrap();
+    assert!(snap.fresh(), "the first mask was {:.2}s old as soon as it was made", snap.age());
+    assert!(snap.at - asked >= 0.5, "the mask's own time went by the start, not the run");
+    assert!(snap.frame_at - asked < 0.2, "its frame's time was taken after the open: {:.2}s", snap.frame_at - asked);
+}
