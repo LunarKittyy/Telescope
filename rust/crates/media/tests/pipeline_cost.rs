@@ -175,3 +175,120 @@ fn stream_steps_cost() {
         println!("{w}x{h} I420 stream steps (view, stretch, grade, tag): best {best:.2} ms, median {median:.2} ms a frame");
     }
 }
+
+/// Stands in for the vision service's masks: the model's 256x144 mask changes every other frame (about 15 a second at 30), and a size asked for is made from it once per change.
+struct ServiceMasks {
+    frame: std::sync::atomic::AtomicU64,
+    made: std::sync::Mutex<Vec<((usize, usize), u64, Arc<Vec<u8>>)>>,
+}
+
+impl ServiceMasks {
+    fn at(&self, w: usize, h: usize) -> Arc<Vec<u8>> {
+        let change = self.frame.load(std::sync::atomic::Ordering::SeqCst) / 2;
+        let mut made = self.made.lock().unwrap();
+        if let Some((_, _, mask)) = made.iter().find(|(size, at, _)| *size == (w, h) && *at == change) {
+            return mask.clone();
+        }
+        let base: Vec<u8> = (0..256 * 144).map(|i| if (i % 256) as u64 + change % 7 < 128 { 255 } else { 0 }).collect();
+        let mask = Arc::new(telescope_core::image::resize_linear_fixed(&base, 256, 144, 1, w, h));
+        made.retain(|(_, at, _)| *at == change);
+        made.push(((w, h), change, mask.clone()));
+        mask
+    }
+}
+
+impl FrameContext for ServiceMasks {
+    fn source_id(&self) -> &str {
+        ""
+    }
+    fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(self.at(frame.width as usize, frame.height as usize))
+    }
+    fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        Some(self.at(w, h))
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+/// A shader that reads the person mask (skin smoothing's way) on a 4K frame, the mask changing every other frame: ms a frame and the share of the process's CPU, the best round of 8.
+#[test]
+#[ignore]
+fn mask_shader_cost_4k() {
+    let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+    let source = noise(3840, 2160, PixelFormat::I420);
+    let wgsl = "fn effect(uv: vec2<f32>) -> vec4<f32> { let c = sample(uv); return vec4<f32>(mix(c.rgb, vec3<f32>(person_mask(uv)), 0.2), 1.0); }";
+    let step = StagedStep { owner: "fx".into(), stage: FrameStage::Effects, step: FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: serde_json::json!({}), textures: vec![] }) };
+    let ctx = ServiceMasks { frame: Default::default(), made: Default::default() };
+    let mut p = Pipeline::new();
+    p.set_steps(vec![step]);
+    let cpu = || {
+        let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+        let fields: Vec<&str> = stat.rsplit_once(')').map_or("", |(_, rest)| rest).split_whitespace().collect();
+        let ticks = |i: usize| fields.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        (ticks(11) + ticks(12)) / 100.0 * 1000.0
+    };
+    let mut rounds = Vec::new();
+    let mut uploads = 0;
+    for round in 0..16 {
+        let frames: Vec<Frame> = (0..8).map(|_| Frame::new(source.width, source.height, source.format, source.data.to_vec())).collect();
+        let (t, c, up) = (std::time::Instant::now(), cpu(), telescope_media::transfers::totals().mask_up);
+        for frame in frames {
+            ctx.frame.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            std::hint::black_box(p.process(frame, &ctx));
+        }
+        if round >= 6 {
+            rounds.push((t.elapsed().as_secs_f64() * 1000.0 / 8.0, (cpu() - c) / 8.0));
+            uploads += telescope_media::transfers::totals().mask_up - up;
+        }
+    }
+    rounds.sort_by(|a, b| a.0.total_cmp(&b.0));
+    println!("4K I420 mask shader on {}: best {:.2} ms, median {:.2} ms a frame, process cpu {:.2} ms a frame (median round), mask uploads {uploads} in {} frames", gpu.adapter_name, rounds[0].0, rounds[rounds.len() / 2].0, rounds[rounds.len() / 2].1, rounds.len() * 8);
+}
+
+/// A soft-edged person-shaped mask at the model's size (144x256 for a portrait frame), made to any size the way the service does.
+struct Blob;
+
+impl Blob {
+    fn at(w: usize, h: usize) -> Arc<Vec<u8>> {
+        let base: Vec<u8> = (0..144 * 256).map(|i| {
+            let (x, y) = ((i % 144) as f64 / 144.0 - 0.5, (i / 144) as f64 / 256.0 - 0.55);
+            let d = (x * x / 0.06 + y * y / 0.2).sqrt();
+            ((1.3 - d * 1.6).clamp(0.0, 1.0) * 255.0) as u8
+        }).collect();
+        Arc::new(telescope_core::image::resize_linear_fixed(&base, 144, 256, 1, w, h))
+    }
+}
+
+impl FrameContext for Blob {
+    fn source_id(&self) -> &str {
+        ""
+    }
+    fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(Blob::at(frame.width as usize, frame.height as usize))
+    }
+    fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        Some(Blob::at(w, h))
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+/// The picture a mask shader makes of a real frame, written out for comparing builds: IN is a raw I420 file of 2160x3840, OUT where the result goes.
+#[test]
+#[ignore]
+fn mask_shader_picture() {
+    let (Ok(input), Ok(out)) = (std::env::var("IN"), std::env::var("OUT")) else { return eprintln!("IN and OUT not set") };
+    if Gpu::shared().is_none() {
+        return eprintln!("no graphics card; skipped");
+    }
+    let frame = Frame::new(2160, 3840, PixelFormat::I420, std::fs::read(input).unwrap());
+    let wgsl = "fn effect(uv: vec2<f32>) -> vec4<f32> { let c = sample(uv); return vec4<f32>(mix(c.rgb, vec3<f32>(person_mask(uv)), 0.5), 1.0); }";
+    let step = StagedStep { owner: "fx".into(), stage: FrameStage::Effects, step: FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: serde_json::json!({}), textures: vec![] }) };
+    let mut p = Pipeline::new();
+    p.set_steps(vec![step]);
+    let done = p.process(frame, &Blob);
+    std::fs::write(out, &done.data[..]).unwrap();
+}

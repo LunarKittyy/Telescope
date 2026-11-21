@@ -138,7 +138,7 @@ struct Chain {
     ups: u32,
     downs: u32,
     /// The person mask this frame asked for and the size it was asked at: a second shader using it needn't bring the picture down.
-    mask: Option<(u32, u32, Option<Arc<Vec<u8>>>)>,
+    mask: Option<(u32, u32, Option<(u32, u32, Arc<Vec<u8>>)>)>,
     /// What it has waited for the card so far.
     waited_ns: u64,
     /// Whether the steps are being timed, so the readbacks are too.
@@ -674,11 +674,13 @@ impl Pipeline {
                 if chain.withheld && self.restores_pixels(i) {
                     return;
                 }
-                let asked = catch_unwind(AssertUnwindSafe(|| ctx.person_mask(frame))).unwrap_or(None);
-                chain.mask = Some((frame.width, frame.height, asked));
+                // A shader reads the mask by uv through a linear sampler, so it goes up at a size near the model's own, not the frame's
+                let (mw, mh) = mask_up_size(frame.width, frame.height);
+                let asked = catch_unwind(AssertUnwindSafe(|| if (mw, mh) == (frame.width, frame.height) { ctx.person_mask(frame) } else { ctx.person_mask_at(frame, mw as usize, mh as usize) })).unwrap_or(None);
+                chain.mask = Some((frame.width, frame.height, asked.map(|mask| (mw, mh, mask))));
             }
             let kept = match &chain.mask {
-                Some((w, h, Some(mask))) => Some(gpu.keep_mask(&mut self.mask, mask, *w, *h)),
+                Some((_, _, Some((w, h, mask)))) => Some(gpu.keep_mask(&mut self.mask, mask, *w, *h)),
                 _ => None,
             };
             match kept {
@@ -876,6 +878,17 @@ impl Drop for Trial {
 }
 
 /// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
+/// The width a person mask goes up to the card at.
+const MASK_UP_WIDTH: u32 = 640;
+
+/// The size a shader's person mask is asked at for a frame of w x h: the frame's own when it is no wider than MASK_UP_WIDTH, else that wide in the frame's shape.
+fn mask_up_size(w: u32, h: u32) -> (u32, u32) {
+    if w <= MASK_UP_WIDTH {
+        return (w, h);
+    }
+    (MASK_UP_WIDTH, ((h as u64 * MASK_UP_WIDTH as u64 + w as u64 / 2) / w as u64).max(1) as u32)
+}
+
 fn neutral((w, h): (u32, u32), format: PixelFormat, stands_for: &Frame) -> Frame {
     let mut out = Frame::dark(w, h, format);
     (out.number, out.time_ns, out.capture_ns) = (stands_for.number, stands_for.time_ns, stands_for.capture_ns);
@@ -1907,6 +1920,43 @@ pub(crate) mod tests {
         *ctx.0.lock().unwrap() = Some(Arc::new(vec![255; 4]));
         let out = p.process(grey(16, 8, 16), &ctx);
         assert!((luma(&out, 0) - 126).abs() <= 3, "{}", luma(&out, 0));
+    }
+
+    /// Answers person_mask_at with a left half that is a person, and notes the sizes it was asked at; the full size it has none of.
+    struct MaskedSmall(std::sync::Mutex<Vec<(usize, usize)>>);
+
+    impl FrameContext for MaskedSmall {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push((0, 0));
+            None
+        }
+        fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push((w, h));
+            Some(Arc::new((0..w * h).map(|i| if i % w < w / 2 { 255 } else { 0 }).collect()))
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    fn a_big_frames_mask_goes_up_small_and_a_small_frames_at_its_own_size() {
+        assert_eq!([mask_up_size(3840, 2160), mask_up_size(1920, 1080), mask_up_size(1280, 720), mask_up_size(640, 480), mask_up_size(16, 8), mask_up_size(1080, 1920)], [(640, 360), (640, 360), (640, 360), (640, 480), (16, 8), (640, 1138)]);
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let ctx = MaskedSmall(Default::default());
+        let mut p = Pipeline::new();
+        p.set_steps(vec![shader(SHOW_MASK)]);
+        let before = transfers::totals().mask_up;
+        let out = p.process(grey(1280, 720, 16), &ctx);
+        assert_eq!(*ctx.0.lock().unwrap(), [(640, 360)]);
+        assert_eq!(transfers::totals().mask_up - before, 1);
+        let (left, right) = (out.data[100 * 1280 + 100] as i32, out.data[100 * 1280 + 1180] as i32);
+        assert!(left >= 232 && right <= 19, "{left} {right}");
     }
 
     #[test]
