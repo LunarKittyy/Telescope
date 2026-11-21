@@ -4465,7 +4465,7 @@ mod tests {
     }
 
     #[test]
-    fn a_plugin_that_starts_hiding_has_the_streams_behind_the_panels_hide_before_its_frame_steps_are_asked_for() {
+    fn a_plugin_that_starts_hiding_has_its_frame_steps_handed_to_the_shown_stream_before_the_streams_behind_the_panels_hide() {
         use telescope_core::host::{HostStills, HostUi};
         let mut s = quiet_state();
         s.effects.clear();
@@ -4475,7 +4475,7 @@ mod tests {
         host.set_hiding("privacy", None, true);
         host.refresh_frame_step();
         let at = |e: &Effect| s.effects.iter().position(|x| x == e).unwrap();
-        assert!(at(&Effect::HideBehind) < at(&Effect::FrameStep("privacy".into())));
+        assert!(at(&Effect::FrameStep("privacy".into())) < at(&Effect::HideBehind));
     }
 
     #[test]
