@@ -24,8 +24,8 @@ use telescope_core::frame::Frame;
 use telescope_core::host::FrameStore;
 use telescope_core::web::{PageHandler, Reply, Request, ServerStats, Socket, Step, Upgrade};
 
-/// Next to On Air's 8768.
-pub const HEADSET_PORT: u16 = 8769;
+/// A port of its own, clear of the other Telescope ports.
+pub const HEADSET_PORT: u16 = 7484;
 /// How many headsets can watch at once.
 pub const MAX_VIEWERS: usize = 2;
 /// The fewest milliseconds between two pictures: 30 a second.
@@ -477,11 +477,7 @@ fn client_frames(buf: &mut Vec<u8>, sock: &mut dyn Socket) -> bool {
                 let _ = send(sock, CLOSE, &payload[..payload.len().min(2)]);
                 return false;
             }
-            PING => {
-                if send(sock, PONG, &payload[..payload.len().min(125)]).is_err() {
-                    return false;
-                }
-            }
+            PING if send(sock, PONG, &payload[..payload.len().min(125)]).is_err() => return false,
             _ => {}
         }
     }

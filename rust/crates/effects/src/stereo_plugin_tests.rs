@@ -1838,7 +1838,7 @@ fn the_headset_page_is_served_only_while_3d_and_the_headset_switch_are_both_on()
     }
     let url = r.plugin.headset_url();
     let token = r.plugin.headset_token.clone();
-    assert_eq!(url, format!("https://192.168.1.7:8769/#{token}"));
+    assert_eq!(url, format!("https://192.168.1.7:7484/#{token}"));
     let props = r.plugin.headset_props();
     assert_eq!((props["headset"].clone(), props["headset-url-text"].clone(), props["headset-url-shown"].clone()), (json!(true), json!(url), json!(true)));
     assert_eq!(r.plugin.headset_qr_url, url, "the code is drawn for the link");

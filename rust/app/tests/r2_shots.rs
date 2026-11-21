@@ -498,8 +498,8 @@ fn stereo_shots() {
     shoot(&dir, "stereo-on-rough-red-cyan-swapped", &card, 406.0, &[json!({"on": true, "match-enabled": true, "look-current": 1, "swap": true, "badge": "Rough sync", "badge-kind": "status_warn", "badge-detail": "x"})], &nothing);
     shoot(&dir, "stereo-on-one-stream", &card, 406.0, &[json!({"on": true, "badge": "Needs two streams", "badge-kind": "status_dim", "badge-detail": "x"})], &nothing);
     // the headset: off, on with its link, with two addresses to pick from, and one that couldn't start
-    shoot(&dir, "stereo-headset-off", &card, 406.0, &[on.clone()], &nothing);
-    let url = "https://192.168.1.23:8769/#q7Xk2mP9aRt4VbN8cLw3YdZe";
+    shoot(&dir, "stereo-headset-off", &card, 406.0, std::slice::from_ref(&on), &nothing);
+    let url = "https://192.168.1.23:7484/#q7Xk2mP9aRt4VbN8cLw3YdZe";
     let (cells, size) = telescope_core::qr::encode(url);
     let link = json!({"headset": true, "headset-url-shown": true, "headset-url-text": url, "headset-qr-cells": cells, "headset-qr-size": size});
     shoot(&dir, "stereo-headset-on", &card, 406.0, &[on.clone(), sync.clone(), link.clone()], &nothing);

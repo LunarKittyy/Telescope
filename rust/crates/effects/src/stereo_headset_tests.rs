@@ -151,7 +151,7 @@ fn get(target: &str) -> Request {
 }
 
 fn stats() -> ServerStats {
-    ServerStats::new(8769, 8769, false, "3D headset")
+    ServerStats::new(7484, 7484, false, "3D headset")
 }
 
 fn open_feed() -> Arc<Feed> {
@@ -579,7 +579,8 @@ fn headset_speed() {
                 let jpeg = encode(&packed, QUALITY).unwrap();
                 let encoding = t.elapsed().as_secs_f64() * 1000.0;
                 if round >= 5 {
-                    (pack.push(packing), encoded.push(encoding));
+                    pack.push(packing);
+                    encoded.push(encoding);
                     bytes = jpeg.len();
                 }
             }

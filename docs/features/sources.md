@@ -131,4 +131,4 @@ To leave VR, press B or Y on a controller, or squeeze a grip. The trigger on its
 - The link stays the same across restarts until you press **New link**. It is kept in its own file next to your settings, so presets and settings you share never carry it
 - It is the same picture the Telescope camera gets, with Fine tune and Match, so Privacy blur and the Wait screen apply. A headset that can't keep up skips pictures instead of falling behind. Two headsets can watch at once
 - The link has a secret in it, so others on the network can't watch. **New link** makes another and disconnects the old one. The link stays the same after Telescope restarts, but the switch is off again
-- It listens on port 8769 while the switch is on, 3D is on and the plugin is running. A firewall has to let it through
+- It listens on port 7484 while the switch is on, 3D is on and the plugin is running. A firewall has to let it through
