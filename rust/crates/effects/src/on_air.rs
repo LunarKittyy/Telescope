@@ -425,6 +425,8 @@ struct Queue {
     /// slot: (request, tag), oldest first.
     pending: Vec<(String, WebhookRequest, String)>,
     busy: bool,
+    /// The slot of the request going out right now.
+    sending: Option<String>,
 }
 
 /// Sends requests one at a time on a thread of its own. Each slot holds one waiting request and a newer one replaces it, so a quick
@@ -469,6 +471,12 @@ impl WebhookSender {
         }
     }
 
+    /// Whether a request for `slot` is waiting or going out.
+    pub fn slot_busy(&self, slot: &str) -> bool {
+        let queue = self.queue.0.lock().unwrap_or_else(|e| e.into_inner());
+        queue.sending.as_deref() == Some(slot) || queue.pending.iter().any(|(s, ..)| s == slot)
+    }
+
     /// Waits up to `timeout` for everything sent to be through; false if it isn't.
     pub fn wait_idle(&self, timeout: Duration) -> bool {
         let deadline = Instant::now() + timeout;
@@ -491,7 +499,9 @@ impl WebhookSender {
                     cond.notify_all();
                     return;
                 }
-                queue.pending.remove(0)
+                let next = queue.pending.remove(0);
+                queue.sending = Some(next.0.clone());
+                next
             };
             let sent = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (self.send)(&request)));
             let error = sent.unwrap_or_else(|_| {
@@ -502,6 +512,7 @@ impl WebhookSender {
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (self.on_result)(&tag, &error))).is_err() {
                 log::error!("On Air webhook result callback failed");
             }
+            self.queue.0.lock().unwrap_or_else(|e| e.into_inner()).sending = None;
         }
     }
 }
