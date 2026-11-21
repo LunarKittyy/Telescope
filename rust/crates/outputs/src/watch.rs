@@ -405,6 +405,7 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(2));
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn the_device_is_looked_up_again_each_time_the_watch_opens_it() {
         let asked = Arc::new(AtomicUsize::new(0));
