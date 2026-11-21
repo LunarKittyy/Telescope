@@ -22,7 +22,7 @@ fn a_photo_that_fits_the_budget_is_stacked_whole() {
 
 #[test]
 fn a_bigger_photo_is_divided_until_it_fits_and_the_plan_says_the_size() {
-    // 50 MP: 150 MB of RGB and 39 bytes a pixel is nearly 2 GB whole
+    // 50 MP: 150 MB of RGB, 39 bytes a pixel for the stack and the decoder's own memory is well over 2 GB whole
     let source = (8160, 6120);
     let budget = 1_500_000_000;
     assert!(bytes_needed(20_000_000, source, 1, 28, 2_000_000) > budget);
@@ -44,7 +44,7 @@ fn a_photo_nothing_can_shrink_enough_is_refused_before_anything_is_allocated() {
     assert_eq!(plan(1_000_000, (20_000, 20_000), 28, 0, 100_000_000), None);
     assert_eq!(plan(0, (0, 100), 28, 0, 1_000_000_000), None);
     let path = std::env::temp_dir().join(format!("stargazer-photos-missing-{}.jpg", std::process::id()));
-    assert!(read(&path).is_err());
+    assert!(probe(&path).is_err());
 }
 
 #[test]
@@ -52,21 +52,23 @@ fn a_file_over_the_limit_is_never_read() {
     let path = file("huge", &[0u8; 16]);
     let big = std::fs::File::options().write(true).open(&path).unwrap();
     big.set_len(MAX_FILE_BYTES + 1).unwrap();
-    assert!(read(&path).is_err());
+    assert!(probe(&path).is_err());
     let _ = std::fs::remove_file(path);
 }
 
 #[test]
 fn reading_gives_the_size_from_the_header_and_decoding_divides_it() {
     let path = file("size", &jpeg(64, 48, 200));
-    let photo = read(&path).unwrap();
+    let header = probe(&path).unwrap();
+    assert_eq!(header.size, (64, 48));
+    let photo = read(&path, header).unwrap();
     assert_eq!(photo.size, (64, 48));
     assert!(!photo.is_empty() && photo.len() > 100);
     let frame = photo.decode(2).unwrap();
     assert_eq!((frame.width, frame.height, frame.format), (32, 24, PixelFormat::Rgba));
     assert!((i32::from(frame.data[0]) - 200).abs() <= 4);
     assert_eq!(frame.data[3], 255);
-    let whole = read(&path).unwrap().decode(1).unwrap();
+    let whole = read(&path, probe(&path).unwrap()).unwrap().decode(1).unwrap();
     assert_eq!((whole.width, whole.height), (64, 48));
     let _ = std::fs::remove_file(path);
 }
@@ -74,8 +76,40 @@ fn reading_gives_the_size_from_the_header_and_decoding_divides_it() {
 #[test]
 fn a_broken_file_is_an_error_and_not_a_panic() {
     let path = file("broken", b"not a photo at all");
-    assert!(read(&path).is_err());
+    assert!(probe(&path).is_err());
     let _ = std::fs::remove_file(path);
+    // A JPEG that ends before its frame header has no size
+    let path = file("short", &[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0, 0]);
+    assert!(probe(&path).is_err());
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn the_size_is_found_after_the_segments_in_front_of_it_without_reading_the_whole_file() {
+    let whole = jpeg(64, 48, 90);
+    // A big metadata segment (a thumbnail, say) between the start and the frame header
+    let mut bytes = whole[..2].to_vec();
+    bytes.extend([0xFF, 0xE1, 0xFF, 0xFF]);
+    bytes.extend(vec![7u8; 0xFFFF - 2]);
+    bytes.extend(&whole[2..]);
+    let path = file("segments", &bytes);
+    let header = probe(&path).unwrap();
+    assert_eq!((header.len, header.size), (bytes.len(), (64, 48)));
+    assert_eq!(read(&path, header).unwrap().decode(1).unwrap().width, 64);
+    // A file that changed after its header was taken is refused
+    std::fs::write(&path, &whole).unwrap();
+    assert!(read(&path, header).is_err());
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn the_decoders_own_memory_is_counted_and_doesnt_shrink_with_the_factor() {
+    let source = (6000, 4000);
+    let whole = bytes_needed(0, source, 1, 28, 0);
+    let shrunk = bytes_needed(0, source, MAX_FACTOR, 28, 0);
+    // The RGB picture and a 16 bit coefficient for each of four components, for every pixel
+    assert!(shrunk >= source.0 * source.1 * (3 + 8), "{shrunk}");
+    assert!(whole > shrunk);
 }
 
 fn plain(w: u32, h: u32, rgb: [u8; 3]) -> Frame {

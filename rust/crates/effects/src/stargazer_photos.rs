@@ -1,6 +1,7 @@
 //! Stargazer's photo input: reading the JPEG a photo request saved, working out how far to shrink it so a stack fits in memory, and the
 //! preview-sized copy of a stack that goes on the camera. Plain functions with no plugin in them, so the worker can run them on its thread.
 
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 use telescope_core::frame::{Frame, PixelFormat};
 use zune_core::bytestream::ZCursor;
@@ -18,6 +19,11 @@ pub const PREVIEW_MAX_PIXELS: usize = 3840 * 2160;
 const ADD_BYTES_PER_PIXEL: usize = 3;
 /// A decoded picture as RGBA, and the stack's result as RGBA.
 const RGBA: usize = 4;
+/// What the JPEG decoder keeps per pixel of the photo while it decodes, on top of the RGB picture it makes: a progressive JPEG holds every
+/// component's coefficients as 16 bit numbers for the whole picture, and a picture can have four components.
+const DECODER_BYTES_PER_PIXEL: usize = 8;
+/// The decoder pads a picture to whole blocks of this many pixels per side (the biggest MCU).
+const DECODER_BLOCK: usize = 16;
 
 /// How a run takes its photos: the whole number each side is divided by and the size that leaves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,13 +41,16 @@ pub fn scaled(source: (usize, usize), factor: usize) -> (usize, usize) {
 }
 
 /// What a run holding photos of this size at this factor has in memory at once, counted before any of it is allocated: the file's bytes, the
-/// decoder's RGB picture, the picture as it is stacked (RGBA and the stacker's copy of it), the stacker's accumulator, the stack's result and
-/// the copy that goes to the camera.
+/// decoder's RGB picture and its working memory (which doesn't shrink with the factor), the picture as it is stacked (RGBA and the stacker's copy
+/// of it), the stacker's accumulator, the stack's result and the copy that goes to the camera. All of it is added up, though some is freed
+/// before the rest is made, so the count errs high.
 pub fn bytes_needed(file: usize, source: (usize, usize), factor: usize, accumulator_per_pixel: usize, preview_pixels: usize) -> usize {
     let (w, h) = scaled(source, factor);
     let pixels = w.saturating_mul(h);
     let per_pixel = RGBA + ADD_BYTES_PER_PIXEL + accumulator_per_pixel + RGBA;
-    file.saturating_add(source.0.saturating_mul(source.1).saturating_mul(3)).saturating_add(pixels.saturating_mul(per_pixel)).saturating_add(preview_pixels.saturating_mul(RGBA))
+    let padded = source.0.div_ceil(DECODER_BLOCK).saturating_mul(DECODER_BLOCK).saturating_mul(source.1.div_ceil(DECODER_BLOCK).saturating_mul(DECODER_BLOCK));
+    let decoder = source.0.saturating_mul(source.1).saturating_mul(3).saturating_add(padded.saturating_mul(DECODER_BYTES_PER_PIXEL));
+    file.saturating_add(decoder).saturating_add(pixels.saturating_mul(per_pixel)).saturating_add(preview_pixels.saturating_mul(RGBA))
 }
 
 /// The smallest shrinking that keeps the run under the budget. None when even the most doesn't.
@@ -52,6 +61,13 @@ pub fn plan(file: usize, source: (usize, usize), accumulator_per_pixel: usize, p
     (1..=MAX_FACTOR)
         .find(|&factor| bytes_needed(file, source, factor, accumulator_per_pixel, preview_pixels) <= budget)
         .map(|factor| Plan { factor, source, size: scaled(source, factor) })
+}
+
+/// What a photo's file says before any of it is read in: its size in bytes and its picture's size.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Header {
+    pub len: usize,
+    pub size: (usize, usize),
 }
 
 /// A photo's file, read, with its size from the header.
@@ -107,17 +123,69 @@ impl Photo {
     }
 }
 
-/// Reads a photo's file and its size, refusing a file that is too big before any of it is read.
-pub fn read(path: &Path) -> Result<Photo, String> {
-    let len = std::fs::metadata(path).map_err(|e| e.to_string())?.len();
+fn byte(reader: &mut impl Read) -> Result<u8, String> {
+    let mut one = [0u8; 1];
+    reader.read_exact(&mut one).map_err(|_| "the photo has no size".to_string())?;
+    Ok(one[0])
+}
+
+fn word(reader: &mut impl Read) -> Result<usize, String> {
+    let high = byte(reader)?;
+    Ok(usize::from(u16::from_be_bytes([high, byte(reader)?])))
+}
+
+/// The file's size and the picture's size from its JPEG header, found by walking the file's segments up to the frame header without reading the
+/// rest. Refuses a file that is too big or isn't a JPEG the decoder can read.
+pub fn probe(path: &Path) -> Result<Header, String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let len = file.metadata().map_err(|e| e.to_string())?.len();
     if len > MAX_FILE_BYTES {
         return Err("the photo's file is too big".into());
     }
+    let mut reader = BufReader::new(file);
+    if (byte(&mut reader)?, byte(&mut reader)?) != (0xFF, 0xD8) {
+        return Err("the file isn't a JPEG".into());
+    }
+    loop {
+        if byte(&mut reader)? != 0xFF {
+            return Err("the photo's header is broken".into());
+        }
+        let mut marker = byte(&mut reader)?;
+        while marker == 0xFF {
+            marker = byte(&mut reader)?;
+        }
+        match marker {
+            0x00 | 0x01 | 0xD0..=0xD8 => continue,
+            0xD9 | 0xDA => return Err("the photo has no size".into()),
+            _ => {}
+        }
+        let length = word(&mut reader)?;
+        if length < 2 {
+            return Err("the photo's header is broken".into());
+        }
+        if matches!(marker, 0xC0..=0xC2) {
+            let _precision = byte(&mut reader)?;
+            let height = word(&mut reader)?;
+            let width = word(&mut reader)?;
+            if width == 0 || height == 0 {
+                return Err("the photo has no size".into());
+            }
+            return Ok(Header { len: len as usize, size: (width, height) });
+        }
+        if matches!(marker, 0xC3 | 0xC5..=0xC7 | 0xC9..=0xCB | 0xCD..=0xCF) {
+            return Err("the photo's kind of JPEG can't be read".into());
+        }
+        reader.seek(SeekFrom::Current(length as i64 - 2)).map_err(|e| e.to_string())?;
+    }
+}
+
+/// Reads a photo's file, which has to be the one the header was taken from.
+pub fn read(path: &Path, header: Header) -> Result<Photo, String> {
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-    let mut decoder = JpegDecoder::new(ZCursor::new(&bytes));
-    decoder.decode_headers().map_err(|e| format!("{e:?}"))?;
-    let size = decoder.dimensions().ok_or("the photo has no size")?;
-    Ok(Photo { bytes, size })
+    if bytes.len() != header.len {
+        return Err("the photo's file changed while it was read".into());
+    }
+    Ok(Photo { bytes, size: header.size })
 }
 
 /// The picture fitted inside width by height, as large as it goes with its shape kept, on black. The camera's copy of a stack, which has to be

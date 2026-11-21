@@ -214,6 +214,21 @@ fn a_dark_or_flat_first_frame_is_refused() {
 }
 
 #[test]
+fn a_dark_first_frame_is_the_base_when_any_base_is_set() {
+    let mut rng = Lcg(9);
+    let mut stacker = Stacker::new(StackMode::Clip { kappa: 2.0 });
+    stacker.set_any_base(true);
+    assert!(stacker.add(&rgba(|_, _| [0.02; 3])).is_some());
+    assert_eq!(stacker.count(), 1);
+    assert!(stacker.result().is_some());
+    // Nothing to line up on, so a later frame can't join it
+    assert!(stacker.add(&shifted(3.0, 2.0, 0.0, 0.02, &mut rng)).is_none());
+    assert_eq!(stacker.count(), 1);
+    stacker.reset();
+    assert!(stacker.add(&rgba(|_, _| [0.5; 3])).is_some(), "a reset keeps the setting");
+}
+
+#[test]
 fn a_big_shift_does_not_wrap_the_wrong_way() {
     let blob = |cx: f32| rgba(|x, y| {
         let (ex, ey) = (x as f32 - cx, y as f32 - 80.0);

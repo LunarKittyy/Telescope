@@ -1174,7 +1174,9 @@ fn a_hidden_picture_is_not_photographed_and_the_run_waits_for_it() {
     assert_eq!(rig.taken(), 2);
     // A picture covered while the photo exposed is dropped without being read
     rig.host.picture_hidden = true;
+    let covered = rig.plugin.taking.map(|r| rig.folder.join(format!("photo_{}.jpg", r.0))).unwrap();
     rig.photo_done(&field(2.0));
+    assert!(!covered.exists(), "a photo of a hidden picture doesn't stay on disk");
     assert_eq!(rig.plugin.count, 0);
     assert!(!rig.plugin.photo.as_ref().unwrap().handed);
     assert!(rig.host.scheduled.contains(&(RETRY_MS, NEXT_PHOTO.to_string())));
@@ -1194,13 +1196,16 @@ fn the_worker_leaves_out_a_photo_that_arrives_while_the_picture_is_hidden() {
     rig.plugin.feed.as_ref().unwrap().send(Msg::Photo { run, source: "phone".into(), path: path.clone() });
     rig.settle();
     assert_eq!(rig.plugin.count, 0);
+    assert!(!path.exists(), "the worker deletes what it leaves out for being hidden");
     assert_eq!(rig.plugin.photo.as_ref().unwrap().finished, 0);
+    std::fs::write(&path, jpeg_of(&field(2.0))).unwrap();
     rig.plugin.shared.hidden.store(false, Ordering::SeqCst);
     let flag = Arc::new(AtomicBool::new(true));
     *rig.plugin.shared.host_hidden.lock().unwrap() = Some(flag.clone());
-    rig.plugin.feed.as_ref().unwrap().send(Msg::Photo { run, source: "phone".into(), path });
+    rig.plugin.feed.as_ref().unwrap().send(Msg::Photo { run, source: "phone".into(), path: path.clone() });
     rig.settle();
     assert_eq!(rig.plugin.count, 0);
+    assert!(!path.exists());
 }
 
 #[test]
@@ -1534,4 +1539,123 @@ fn the_video_stream_stopping_ends_a_photo_run_the_way_stop_does() {
     assert_eq!(rig.plugin.phase, Phase::Idle);
     assert!(rig.host.calls.contains(&format!("cancel_still {}", request.0)));
     assert_eq!(rig.plugin.count, 1);
+}
+
+#[test]
+fn a_dslr_photo_whose_settings_didnt_come_back_is_stacked_and_the_run_goes_on() {
+    let (mut rig, _) = Rig::photos("photos-restore", json!({"mode": "live", "input": "photos", "photo_count": 2}));
+    rig.click("run-clicked", Value::Null);
+    let request = rig.plugin.taking.unwrap();
+    std::fs::create_dir_all(&rig.folder).unwrap();
+    let path = rig.folder.join("restore.jpg");
+    std::fs::write(&path, jpeg_of(&field(2.0))).unwrap();
+    let data = json!({"ok": false, "code": "restore", "files": [path.display().to_string()], "error": "The camera's photo settings could not be restored. Check its ISO and shutter speed."});
+    rig.event(Event::RequestDone { request, ok: false, message: String::new(), data });
+    assert_eq!((rig.plugin.count, rig.plugin.phase), (1, Phase::Collecting));
+    assert!(rig.plugin.problem.is_none());
+    assert_eq!(rig.taken(), 2, "the run goes on");
+    assert!(path.exists());
+    assert_eq!(rig.status(), "The camera's photo settings could not be restored. Check its ISO and shutter speed.");
+    // The next photo's clean answer ends the run, and a new run starts without the warning
+    rig.photo_done(&field(2.0));
+    assert_eq!((rig.plugin.count, rig.plugin.phase), (2, Phase::Idle));
+    rig.click("run-clicked", Value::Null);
+    assert!(rig.plugin.warning.is_none());
+    assert_eq!(rig.status(), "Taking photo 1 of 2");
+}
+
+#[test]
+fn a_run_stops_when_the_disk_is_low_and_a_start_is_refused() {
+    let (mut rig, _) = Rig::photos("photos-disk", json!({"mode": "live", "input": "photos", "photo_count": 4}));
+    let free = Arc::new(AtomicU64::new(50 << 30));
+    let reading = free.clone();
+    rig.plugin.free = Box::new(move |_| Some(reading.load(Ordering::SeqCst)));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 2);
+    free.store(100 << 20, Ordering::SeqCst);
+    rig.photo_done(&field(2.0));
+    assert_eq!(rig.taken(), 2, "no photo with no room");
+    assert_eq!((rig.plugin.phase, rig.plugin.count), (Phase::Idle, 2));
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Stopped because there's less than 1 GB free on the drive"));
+    assert_eq!(rig.props()["save-enabled"], true);
+    // And nothing starts while it is still low
+    rig.click("run-clicked", Value::Null);
+    assert_eq!((rig.plugin.phase, rig.taken()), (Phase::Idle, 2));
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Stopped because there's less than 1 GB free on the drive"));
+    free.store(50 << 30, Ordering::SeqCst);
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+}
+
+#[test]
+fn a_photo_nothing_can_line_up_on_is_the_base_of_a_single_photo_stack() {
+    // A migrated Night shot: one dark photo with nothing in it to line up on
+    let (mut rig, _) = Rig::photos("photos-night", json!({"mode": "night"}));
+    rig.click("run-clicked", Value::Null);
+    rig.photo_done(&sky(SIZE, SIZE, &[], 2.0));
+    assert_eq!((rig.plugin.count, rig.plugin.refused, rig.plugin.phase), (1, 0, Phase::Idle));
+    assert_eq!(rig.status(), "Stacked 1 photo. Save keeps it, Reset starts a new stack");
+    assert_eq!(rig.props()["save-enabled"], true);
+    rig.click("save-clicked", Value::Null);
+    assert_eq!(rig.saved_pngs().len(), 1);
+    // The video's stack still wants a first frame it can line up on
+    let mut video = Rig::new("photos-night-video", json!({"mode": "live"}));
+    video.click("run-clicked", Value::Null);
+    video.feed(sky(SIZE, SIZE, &[], 2.0));
+    assert_eq!(video.plugin.count, 0);
+}
+
+#[test]
+fn a_hidden_photo_is_tried_again_no_sooner_than_every_allows() {
+    let (mut rig, now) = Rig::photos("photos-hidden-every", json!({"mode": "live", "input": "photos", "photo_count": 2, "photo_every": 20}));
+    rig.click("run-clicked", Value::Null);
+    *now.lock().unwrap() = 105.0;
+    rig.host.scheduled.clear();
+    let request = rig.plugin.taking.unwrap();
+    rig.event(Event::RequestDone { request, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "code": "hidden", "error": "hidden"}) });
+    assert!(rig.host.scheduled.contains(&(15_000, NEXT_PHOTO.to_string())), "{:?}", rig.host.scheduled);
+    // The picture still hidden then: another look a second later, never before the gap is up
+    *now.lock().unwrap() = 125.0;
+    rig.host.picture_hidden = true;
+    rig.host.scheduled.clear();
+    rig.event(Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() });
+    assert_eq!(rig.taken(), 1);
+    assert!(rig.host.scheduled.contains(&(RETRY_MS, NEXT_PHOTO.to_string())), "{:?}", rig.host.scheduled);
+    // And a photo covered while it exposed waits out the rest of the gap too
+    rig.host.picture_hidden = false;
+    rig.event(Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() });
+    assert_eq!(rig.taken(), 2);
+    *now.lock().unwrap() = 130.0;
+    rig.host.picture_hidden = true;
+    rig.host.scheduled.clear();
+    rig.photo_done(&field(2.0));
+    assert!(rig.host.scheduled.contains(&(15_000, NEXT_PHOTO.to_string())), "{:?}", rig.host.scheduled);
+}
+
+#[test]
+fn a_start_right_after_stop_waits_for_the_camera_the_cancelled_photo_still_holds() {
+    let (mut rig, now) = Rig::photos("photos-restart", json!({"mode": "live", "input": "photos", "photo_count": 2}));
+    rig.click("run-clicked", Value::Null);
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    // The camera is still on the cancelled photo
+    rig.host.still_busy = true;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    assert!(rig.plugin.problem.is_none());
+    assert!(rig.host.scheduled.contains(&(RETRY_MS, NEXT_PHOTO.to_string())));
+    let before = rig.taken();
+    rig.host.still_busy = false;
+    *now.lock().unwrap() = 102.0;
+    rig.event(Event::TimerFired { owner: NAME.into(), token: NEXT_PHOTO.into() });
+    assert_eq!(rig.taken(), before + 1);
+    assert!(rig.plugin.taking.is_some());
+    // A camera that stays busy long after is a failure again
+    rig.click("run-clicked", Value::Null);
+    *now.lock().unwrap() = 500.0;
+    rig.host.still_busy = true;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert_eq!(rig.plugin.problem.as_deref(), Some("Couldn't take the photo"));
 }

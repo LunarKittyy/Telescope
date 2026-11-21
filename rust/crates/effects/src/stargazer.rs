@@ -21,6 +21,7 @@ use telescope_core::i18n::{n_, tr, trn, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::settings::{off_default, reset_config};
 use telescope_core::stack::{sharpness, Lucky, Plane, StackMode, Stacker};
+use telescope_core::system::free_space;
 use telescope_core::time::{local_stamp, monotonic_ns};
 use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -60,6 +61,10 @@ const PLAIN_STACK_BYTES_PER_PIXEL: usize = 16;
 const RETRY_MS: u64 = 1000;
 /// How many times in a row a photo that can't start is tried before the run stops.
 const BUSY_TRIES: u32 = 30;
+/// A photo run stops when the volume the photos go to has less than this free.
+const MIN_FREE: u64 = 1 << 30;
+/// How long after a photo was cancelled a new run waits for the camera to be free, in seconds.
+const SLOT_WAIT_S: f64 = 60.0;
 /// Switching the plugin off waits this long for a save in progress.
 const SHUTDOWN_WAIT: Duration = Duration::from_secs(10);
 /// Between looks at whether the picture is hidden.
@@ -126,6 +131,13 @@ impl Input {
     fn suits(self, mode: Mode) -> bool {
         self == Input::Video || mode != Mode::Lucky
     }
+}
+
+/// The live stack. Photos are few, so one with nothing to line up on (a dark Night shot) is still taken as the base.
+fn live_stacker(input: Input) -> Stacker {
+    let mut stacker = Stacker::new(StackMode::Clip { kappa: KAPPA });
+    stacker.set_any_base(input == Input::Photos);
+    stacker
 }
 
 /// What the stacker holds for each pixel in this mode.
@@ -324,7 +336,7 @@ impl Job {
         let capacity = (setup.frames * setup.keep).div_ceil(100).max(1);
         let stacker = match setup.mode {
             Mode::Lucky => None,
-            Mode::Live => Some(Stacker::new(StackMode::Clip { kappa: KAPPA })),
+            Mode::Live => Some(live_stacker(setup.input)),
             Mode::Trails => {
                 let mut stacker = Stacker::new(StackMode::Max);
                 stacker.set_align(false);
@@ -367,7 +379,7 @@ impl Job {
         if self.shape != Some(shape) {
             self.shape = Some(shape);
             if self.mode == Mode::Live {
-                self.stacker = Some(Stacker::new(StackMode::Clip { kappa: KAPPA }));
+                self.stacker = Some(live_stacker(self.input));
                 (self.refused, self.seen) = (0, 0);
             }
         }
@@ -527,24 +539,23 @@ impl Worker {
         }
         // The picture can have been covered while the photo was taken, which the request's own check at its start couldn't know
         if self.shared.hidden_now() {
-            self.post("photo", json!({"run": run, "hidden": true}));
-            return;
+            return self.discard(run, &path);
         }
-        let photo = match photos::read(&path) {
-            Ok(photo) => photo,
+        let header = match photos::probe(&path) {
+            Ok(header) => header,
             Err(error) => return self.photo_failed(run, "unreadable", &error),
         };
         let Some(job) = self.job.as_mut() else { return };
         if job.first {
             let preview = self.shared.video_size.lock().unwrap().get(&job.source).map_or(1920 * 1080, |&(w, h)| (w as usize * h as usize).min(photos::PREVIEW_MAX_PIXELS));
-            match photos::plan(photo.len(), photo.size, accumulator_bytes(job.mode), preview, job.budget) {
+            match photos::plan(header.len, header.size, accumulator_bytes(job.mode), preview, job.budget) {
                 Some(plan) => job.plan = Some(plan),
                 None => return self.photo_failed(run, "too_large", "no way of shrinking the photo makes it fit in memory"),
             }
         }
         let Some(plan) = job.plan else { return };
         let shape = {
-            let (w, h) = photos::scaled(photo.size, plan.factor);
+            let (w, h) = photos::scaled(header.size, plan.factor);
             (w as u32, h as u32, PixelFormat::Rgba)
         };
         match job.check_shape(&source, shape) {
@@ -561,14 +572,17 @@ impl Worker {
             let (from_width, from_height) = plan.source;
             self.post("working", json!({"run": run, "width": width, "height": height, "from_width": from_width, "from_height": from_height}));
         }
+        let photo = match photos::read(&path, header) {
+            Ok(photo) => photo,
+            Err(error) => return self.photo_failed(run, "unreadable", &error),
+        };
         let frame = match photo.decode(plan.factor) {
             Ok(frame) => frame,
             Err(error) => return self.photo_failed(run, "unreadable", &error),
         };
         // Decoding takes a while, and a cover can land in it
         if self.shared.hidden_now() {
-            self.post("photo", json!({"run": run, "hidden": true}));
-            return;
+            return self.discard(run, &path);
         }
         let Some(job) = self.job.as_mut() else { return };
         let accepted = job.stacker.as_mut().is_some_and(|s| s.add(&frame).is_some());
@@ -580,6 +594,13 @@ impl Worker {
         self.publish(true);
         self.progress(true);
         self.post("photo", json!({"run": run, "accepted": accepted}));
+    }
+
+    /// A photo taken while the picture was hidden is not stacked and its file is deleted, since what was hidden must not stay on disk. The run
+    /// takes it again.
+    fn discard(&self, run: u64, path: &Path) {
+        let _ = std::fs::remove_file(path);
+        self.post("photo", json!({"run": run, "hidden": true}));
     }
 
     /// The run's photo couldn't be taken in: the plugin stops the run, which keeps the stack it has.
@@ -666,7 +687,7 @@ impl Worker {
     fn reset(&mut self) {
         if let Some(job) = self.job.as_mut() {
             if job.active && job.mode == Mode::Live {
-                job.stacker = Some(Stacker::new(StackMode::Clip { kappa: KAPPA }));
+                job.stacker = Some(live_stacker(job.input));
                 job.refused = 0;
             } else {
                 self.job = None;
@@ -903,6 +924,14 @@ pub struct StargazerPlugin {
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     clock: Box<dyn Fn() -> f64 + Send>,
+    /// A DSLR's photo came back but its settings couldn't be put back, which the card says without stopping the run.
+    warning: Option<String>,
+    /// When a photo on its way was last cancelled: its request can hold the camera for a while, so a start right after is waited out.
+    cancelled_at: Option<f64>,
+    /// How many bytes are free on the volume a folder is on.
+    free: Box<dyn Fn(&Path) -> Option<u64> + Send>,
+    /// A photo run stops when less than this is free where its photos go.
+    min_free: u64,
 }
 
 impl Default for StargazerPlugin {
@@ -962,6 +991,10 @@ impl StargazerPlugin {
             down: false,
             pending: false,
             clock: Box::new(|| monotonic_ns() as f64 / 1e9),
+            warning: None,
+            cancelled_at: None,
+            free: Box::new(free_space),
+            min_free: MIN_FREE,
         }
     }
 
@@ -1094,6 +1127,7 @@ impl StargazerPlugin {
 
     fn status(&self, host: &dyn Host) -> (String, &'static str) {
         if let Some(problem) = &self.problem { return (problem.clone(), "status_err"); }
+        if let Some(warning) = &self.warning { return (warning.clone(), "status_warn"); }
         match self.phase {
             Phase::Collecting if self.taking.is_some() => (self.taking_text(), "status_ok"),
             Phase::Collecting if self.hidden => (tr("Paused while part of the picture is hidden"), "status_warn"),
@@ -1229,9 +1263,16 @@ impl StargazerPlugin {
             options: self.photo_options(&caps), folder: self.folder.clone(), source: source.clone(), total: self.photo_count as usize,
             every_ms: u64::from(self.photo_every) * 1000, finished: 0, handed: false, started_at: None, tries: 0,
         };
+        if let Some(why) = self.low_disk(&photo.folder) {
+            (self.note, self.problem, self.photo_problem) = (String::new(), Some(why), false);
+            self.show(host);
+            return;
+        }
         let hidden = host.picture_hidden(Some(&source));
         let request = if hidden { None } else { host.take_still(&photo.options, &photo.folder, Some(&source)) };
-        if request.is_none() && !hidden {
+        // A photo cancelled a moment ago can still hold the camera, so a start right after Stop waits for it like a photo between two does
+        let slot_wait = request.is_none() && !hidden && self.cancelled_at.is_some_and(|at| self.now() - at < SLOT_WAIT_S);
+        if request.is_none() && !hidden && !slot_wait {
             (self.note, self.problem, self.photo_problem) = (String::new(), Some(tr("Couldn't take the photo")), false);
             self.show(host);
             return;
@@ -1244,6 +1285,7 @@ impl StargazerPlugin {
             (self.collected, self.target, self.count, self.refused, self.banked) = (0, 0, 0, 0, 0.0);
         }
         (self.note, self.problem, self.photo_problem, self.limit, self.unsaved) = (String::new(), None, false, String::new(), false);
+        self.warning = None;
         self.phase = Phase::Collecting;
         (self.began, self.ticking) = (self.now(), true);
         self.shared.mode.store(self.mode.index() as u8, Ordering::SeqCst);
@@ -1284,9 +1326,13 @@ impl StargazerPlugin {
         }
         let Some(photo) = self.photo.as_ref().filter(|p| !p.handed && p.finished < p.total) else { return };
         let (options, folder, source) = (photo.options.clone(), photo.folder.clone(), photo.source.clone());
+        if let Some(why) = self.low_disk(&folder) {
+            self.photo_stopped(host, why);
+            return;
+        }
         self.refresh_hidden(host, true);
         if self.hidden {
-            host.schedule(RETRY_MS, NEXT_PHOTO);
+            host.schedule(self.retry_wait(), NEXT_PHOTO);
             self.show(host);
             return;
         }
@@ -1302,10 +1348,24 @@ impl StargazerPlugin {
                     self.photo_stopped(host, tr("Couldn't take the photo"));
                     return;
                 }
-                host.schedule(RETRY_MS, NEXT_PHOTO);
+                host.schedule(self.retry_wait(), NEXT_PHOTO);
             }
         }
         self.show(host);
+    }
+
+    /// Why a photo can't be taken for lack of room: the volume the photos go to has less than the least a run keeps free.
+    fn low_disk(&self, folder: &str) -> Option<String> {
+        let free = (self.free)(Path::new(folder))?;
+        (free < self.min_free).then(|| tr("Stopped because there's less than {size} GB free on the drive").field("size", self.min_free >> 30))
+    }
+
+    /// How long to wait before trying again after a photo was hidden or couldn't start: a second, or longer when Every says the next one
+    /// can't start yet.
+    fn retry_wait(&self) -> u64 {
+        let Some(photo) = self.photo.as_ref() else { return RETRY_MS };
+        let elapsed = photo.started_at.map_or(f64::MAX, |at| (self.now() - at).max(0.0) * 1000.0);
+        RETRY_MS.max(photo.every_ms.saturating_sub(elapsed.min(1e12) as u64))
     }
 
     /// The request for a photo ended: its file goes to the worker, a picture that is hidden is tried again and anything else stops the run.
@@ -1317,11 +1377,17 @@ impl StargazerPlugin {
         }
         let file = data.get("files").and_then(Value::as_array).and_then(|files| files.first()).and_then(Value::as_str).filter(|s| !s.is_empty());
         let code = data.get("code").and_then(Value::as_str).unwrap_or("");
-        if let Some(file) = file.filter(|_| ok && data.get("ok").and_then(Value::as_bool) != Some(false)) {
-            // A cover can land while the photo exposes: what was in it isn't stacked
+        // A DSLR that couldn't put its settings back still took the photo: it is stacked and the card says what to check
+        let restore_failed = code == "restore";
+        if let Some(file) = file.filter(|_| (ok && data.get("ok").and_then(Value::as_bool) != Some(false)) || restore_failed) {
+            if restore_failed {
+                self.warning = Some(tr("The camera's photo settings could not be restored. Check its ISO and shutter speed."));
+            }
+            // A cover can land while the photo exposes: what was in it isn't stacked and doesn't stay on disk
             self.refresh_hidden(host, true);
             if self.hidden {
-                host.schedule(RETRY_MS, NEXT_PHOTO);
+                let _ = std::fs::remove_file(file);
+                host.schedule(self.retry_wait(), NEXT_PHOTO);
             } else {
                 self.last = file.to_string();
                 let Some(photo) = self.photo.as_mut() else { return };
@@ -1330,7 +1396,7 @@ impl StargazerPlugin {
                 self.send(msg);
             }
         } else if code == "hidden" {
-            host.schedule(RETRY_MS, NEXT_PHOTO);
+            host.schedule(self.retry_wait(), NEXT_PHOTO);
         } else {
             let error = data.get("error").and_then(Value::as_str).filter(|e| !e.is_empty()).map_or_else(|| tr("Couldn't take the photo"), String::from);
             self.photo_stopped(host, error);
@@ -1357,12 +1423,9 @@ impl StargazerPlugin {
             self.photos_done(host);
             return;
         }
-        let wait = if data.get("hidden") == Some(&Value::Bool(true)) {
-            RETRY_MS
-        } else {
-            let elapsed = photo.started_at.map_or(f64::MAX, |at| (now - at).max(0.0) * 1000.0);
-            photo.every_ms.saturating_sub(elapsed.min(1e12) as u64)
-        };
+        let elapsed = photo.started_at.map_or(f64::MAX, |at| (now - at).max(0.0) * 1000.0);
+        let remaining = photo.every_ms.saturating_sub(elapsed.min(1e12) as u64);
+        let wait = if data.get("hidden") == Some(&Value::Bool(true)) { RETRY_MS.max(remaining) } else { remaining };
         if wait == 0 {
             self.next_photo(host);
         } else {
@@ -1407,6 +1470,7 @@ impl StargazerPlugin {
             (self.collected, self.target, self.count, self.refused, self.banked) = (0, 0, 0, 0, 0.0);
         }
         (self.note, self.problem, self.photo_problem, self.limit, self.unsaved) = (String::new(), None, false, String::new(), false);
+        self.warning = None;
         self.phase = Phase::Collecting;
         (self.began, self.ticking) = (self.now(), true);
         self.shared.mode.store(self.mode.index() as u8, Ordering::SeqCst);
@@ -1432,6 +1496,7 @@ impl StargazerPlugin {
         if let Some(request) = self.taking.take() {
             host.cancel_still(request);
             self.exposing = false;
+            self.cancelled_at = Some(self.now());
         }
         if self.photo.take().is_some() {
             host.cancel_schedule(NEXT_PHOTO);
@@ -1586,6 +1651,7 @@ impl StargazerPlugin {
         }
         (self.collected, self.target, self.count, self.refused, self.banked) = (0, 0, 0, 0, 0.0);
         (self.note, self.problem, self.photo_problem, self.limit, self.unsaved) = (String::new(), None, false, String::new(), false);
+        self.warning = None;
     }
 
     fn reset(&mut self, host: &mut dyn Host) {
