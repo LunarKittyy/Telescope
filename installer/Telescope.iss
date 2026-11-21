@@ -117,8 +117,9 @@ Type: files; Name: "{app}\telescope.log"
 ; adb as the app downloads it (rust/crates/link/src/adb_download.rs), and a download cut short
 Type: filesandordirs; Name: "{localappdata}\Telescope\platform-tools"
 Type: filesandordirs; Name: "{localappdata}\Telescope\.adb-*"
-; The vision download (rust/crates/vision/src/pack.rs), which can be fetched again
+; The vision and matting downloads (rust/crates/vision/src/pack.rs), which can be fetched again
 Type: filesandordirs; Name: "{localappdata}\Telescope\vision"
+Type: filesandordirs; Name: "{localappdata}\Telescope\matting"
 Type: dirifempty; Name: "{localappdata}\Telescope"
 Type: filesandordirs; Name: "{app}\unitycapture"
 Type: dirifempty; Name: "{app}"
