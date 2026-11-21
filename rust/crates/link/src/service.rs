@@ -9,6 +9,7 @@ use crate::pairing::{PairingResult, PairingServer};
 use crate::phone_client::ControlClient;
 use crate::phones::{auth_of, RouteResolver, UsbTunnels, STREAM_PORT};
 use crate::sensors::SensorHub;
+use crate::session_client::PING_PORT;
 use crate::shared::Shared;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -172,7 +173,12 @@ fn adb_tunnels(adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> UsbTunnels {
         let (adb, serial) = (unforward.clone(), serial.to_string());
         std::thread::spawn(move || adb().unforward(local, Some(&serial)));
     })
+    // A check, the start after it and the next check all use the session port: one forward serves them
+    .with_linger(PING_PORT, PING_FORWARD_LINGER)
 }
+
+/// How long the session port's forward outlives its last user (two of the idle check's 3 s polls).
+const PING_FORWARD_LINGER: Duration = Duration::from_secs(6);
 
 impl Default for LinkService {
     fn default() -> Self {
@@ -264,12 +270,18 @@ impl Link for LinkService {
             if r.camera_off {
                 body.insert("camera".into(), "off".into());
             }
+            body.insert("codec".into(), if r.h264 { "h264" } else { "mjpeg" }.into());
             body
         });
         let auth = auth_of(phone);
-        with_session(Some(&auth), Some(route), &*self.tunnels, |client| {
+        let result = with_session(Some(&auth), Some(route), &*self.tunnels, |client| {
             connection::ensure_streaming(client.map(|c| c as &dyn SessionCtl), opening.as_ref(), after_stop, progress, &RealPace)
-        })
+        });
+        if let (Err(_), RouteSpec::Usb { serial }) = (&result, route) {
+            // The next try opens a fresh forward instead of one that may be what failed
+            self.tunnels.drop_idle(serial, PING_PORT);
+        }
+        result
     }
 
     fn stop_streaming(&self, phone: &PairedPhone, route: &RouteSpec) {

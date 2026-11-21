@@ -85,7 +85,49 @@ pub fn adb_exe() -> Option<PathBuf> {
 
 /// Runs a command, never failing: a program that's missing, can't run or hangs comes back as a failed outcome.
 pub fn run(cmd: &[String], timeout: Duration, input: Option<&[u8]>) -> Outcome {
+    if input.is_none() && is_plain_devices(cmd) && server_socket_allowed() {
+        ensure_adb_server();
+        if let Some(list) = devices_from_server(server_port(), timeout.min(Duration::from_secs(5))) {
+            return (0, list, String::new());
+        }
+    }
     server_first(cmd, &ensure_adb_server, &|cmd| execute(cmd, timeout, input))
+}
+
+fn is_plain_devices(cmd: &[String]) -> bool {
+    matches!(cmd, [program, sub] if sub == "devices" && Path::new(program).file_stem().is_some_and(|s| s.eq_ignore_ascii_case("adb")))
+}
+
+/// The port adb's server listens on (ANDROID_ADB_SERVER_PORT, which adb itself reads, else 5037).
+fn server_port() -> u16 {
+    std::env::var("ANDROID_ADB_SERVER_PORT").ok().and_then(|v| v.trim().parse().ok()).unwrap_or(ADB_PORT)
+}
+
+/// A test rig that points TELESCOPE_ADB at a stand-in adb must not be answered by a real server on this machine.
+fn server_socket_allowed() -> bool {
+    std::env::var_os("TELESCOPE_ADB").is_none_or(|v| v.is_empty()) || std::env::var_os("ANDROID_ADB_SERVER_PORT").is_some()
+}
+
+/// `adb devices` asked of the running server over its socket, which saves starting a process. None when no server
+/// answers (the caller then runs adb, which starts one).
+pub fn devices_from_server(port: u16, timeout: Duration) -> Option<String> {
+    use std::io::{Read, Write};
+    let mut socket = std::net::TcpStream::connect_timeout(&([127, 0, 0, 1], port).into(), Duration::from_millis(300)).ok()?;
+    socket.set_read_timeout(Some(timeout)).ok()?;
+    socket.set_write_timeout(Some(timeout)).ok()?;
+    let request = "host:devices";
+    socket.write_all(format!("{:04x}{request}", request.len()).as_bytes()).ok()?;
+    let mut status = [0u8; 4];
+    socket.read_exact(&mut status).ok()?;
+    if &status != b"OKAY" {
+        return None;
+    }
+    let mut len = [0u8; 4];
+    socket.read_exact(&mut len).ok()?;
+    let len = usize::from_str_radix(std::str::from_utf8(&len).ok()?, 16).ok()?;
+    let mut body = vec![0u8; len];
+    socket.read_exact(&mut body).ok()?;
+    Some(format!("List of devices attached\n{}\n", String::from_utf8(body).ok()?))
 }
 
 /// Anything run through adb goes after a check that its server is up.
@@ -358,6 +400,37 @@ impl Adb {
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
+
+    fn serve_once(reply: &'static [u8]) -> u16 {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0u8; 16];
+            socket.read_exact(&mut request).unwrap();
+            assert_eq!(&request, b"000chost:devices");
+            socket.write_all(reply).unwrap();
+        });
+        port
+    }
+
+    #[test]
+    fn devices_are_asked_of_the_server_without_a_process() {
+        let port = serve_once(b"OKAY0024FAKE0001\tdevice\nSECOND\tunauthorized\n");
+        let list = devices_from_server(port, Duration::from_secs(2)).unwrap();
+        let adb = Adb { exe: Some("adb".into()), runner: Box::new(move |_, _, _| (0, list.clone(), String::new())) };
+        assert_eq!(adb.device_states(), vec![("FAKE0001".into(), "device".into()), ("SECOND".into(), "unauthorized".into())]);
+    }
+
+    #[test]
+    fn a_refusing_or_absent_server_means_run_adb_instead() {
+        assert!(devices_from_server(serve_once(b"FAIL0000"), Duration::from_secs(2)).is_none());
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        assert!(devices_from_server(closed, Duration::from_secs(1)).is_none());
+        assert!(is_plain_devices(&["/usr/bin/adb".into(), "devices".into()]));
+        assert!(!is_plain_devices(&["adb".into(), "devices".into(), "-l".into()]));
+    }
 
     #[test]
     fn off_windows_adb_runs_its_own_server() {
