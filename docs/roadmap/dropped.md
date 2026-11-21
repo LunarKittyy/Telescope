@@ -36,7 +36,7 @@ Two extras were left over from Auto grade. One was a whole-look button that also
 
 ## Colour matching between phones and 10-bit (November 2026)
 
-The idea was to pick the phone you like best and bring the others close to it, fitted from a printed sheet with grey and colour patches and applied as a colour matrix and a curve for each channel. The other half was 10-bit HLG or log from phones that offer it, for more room under heavy grades. 3D's Match already does a simple version of the matching for two phones. 10-bit would need 10-bit HEVC through the phone app, the protocol and the decoder, and H.265 is on this list too.
+The idea was to pick the phone you like best and bring the others close to it, fitted from a printed sheet with grey and colour patches and applied as a colour matrix and a curve for each channel. The other half was 10-bit HLG or log from phones that offer it, for more room under heavy grades. 3D's Match already does a simple version of the matching for two phones. 10-bit isn't worth it. Virtual cameras and the apps that read them are 8-bit, phones mostly give 10-bit as H.265 (which is on this list too) and the whole desktop chain is 8-bit. The gain is small next to that work.
 
 ## Going back to the Python version and downgrades in the updater (November 2026)
 
