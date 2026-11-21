@@ -3,9 +3,6 @@
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::image::resize_linear_into;
 
-#[cfg(target_arch = "x86_64")]
-mod avx2;
-
 /// frame scaled to fit width x height, keeping its shape, with black bars as needed (the same frame if it fits).
 pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     if (frame.width, frame.height) == (width, height) || frame.format != PixelFormat::I420 {
@@ -100,10 +97,7 @@ fn terms() -> &'static Terms {
 
 /// yuv_row for a whole row, the first 32 pixel blocks of it on AVX2 (within 1 of yuv_to_rgb) and the rest, or all of it on a processor without, the exact way.
 fn convert_row<const BGRA: bool>(t: &Terms, y: &[u8], u: &[u8], v: &[u8], out: &mut [u8]) {
-    #[cfg(target_arch = "x86_64")]
-    let done = avx2::row::<BGRA>(y, u, v, out);
-    #[cfg(not(target_arch = "x86_64"))]
-    let done = 0;
+    let done = if BGRA { telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(y, u, v, false, out) } else { telescope_core::yuv::row::<{ telescope_core::yuv::RGBA }>(y, u, v, false, out) };
     yuv_row::<BGRA>(t, &y[done..], &u[done / 2..], &v[done / 2..], &mut out[done * 4..]);
 }
 
@@ -568,7 +562,7 @@ mod tests {
         for u in 0..=255u8 {
             for v in 0..=255u8 {
                 let (us, vs) = ([u; 128], [v; 128]);
-                for (name, out) in [("bgra", { let mut o = [0u8; 1024]; assert_eq!(avx2::row::<true>(&ys, &us, &vs, &mut o), 256); o }), ("rgba", { let mut o = [0u8; 1024]; assert_eq!(avx2::row::<false>(&ys, &us, &vs, &mut o), 256); o })] {
+                for (name, out) in [("bgra", { let mut o = [0u8; 1024]; assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&ys, &us, &vs, false, &mut o), 256); o }), ("rgba", { let mut o = [0u8; 1024]; assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::RGBA }>(&ys, &us, &vs, false, &mut o), 256); o })] {
                     for (y, px) in out.as_chunks::<4>().0.iter().enumerate() {
                         let want = yuv_to_rgb(y as u8, u, v);
                         let got = if name == "bgra" { [px[2], px[1], px[0]] } else { [px[0], px[1], px[2]] };
@@ -596,7 +590,7 @@ mod tests {
         for off in 0..5 {
             // 70 pixels: two whole blocks and 6 over, which are left alone
             let mut out = vec![0xAAu8; 70 * 4 + 7 + off];
-            let done = avx2::row::<true>(&y[off..off + 70], &u[off..off + 35], &v[off..off + 35], &mut out[off..off + 70 * 4]);
+            let done = telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[off..off + 70], &u[off..off + 35], &v[off..off + 35], false, &mut out[off..off + 70 * 4]);
             assert_eq!(done, 64);
             assert!(out[..off].iter().all(|b| *b == 0xAA) && out[off + 64 * 4..].iter().all(|b| *b == 0xAA), "off {off}");
             let mut whole = vec![0u8; 64 * 4];
@@ -607,8 +601,8 @@ mod tests {
             largest_difference(&out[off..off + 64 * 4], &whole, 4, &format!("off {off}"));
         }
         // Rows too short for a block, or a buffer too short for the row, do nothing
-        assert_eq!(avx2::row::<true>(&y[..31], &u[..16], &v[..16], &mut [0u8; 124]), 0);
-        assert_eq!(avx2::row::<true>(&y[..64], &u[..32], &v[..32], &mut [0u8; 64 * 4 - 4]), 32);
+        assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[..31], &u[..16], &v[..16], false, &mut [0u8; 124]), 0);
+        assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[..64], &u[..32], &v[..32], false, &mut [0u8; 64 * 4 - 4]), 32);
     }
 
     #[test]
