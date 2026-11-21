@@ -66,8 +66,9 @@ impl StreamHandler for Producer {
         if id != pod::PARAM_FORMAT {
             return;
         }
-        if format.is_some() {
-            let (w, h) = self.0.size();
+        if let Some(format) = format {
+            // The size this format was agreed for, which a resize since may already have left behind
+            let (w, h) = format_size(&format).unwrap_or_else(|| self.0.size());
             stream.update_params(&[buffers(w, h)]);
             self.0.ready_width.store(w, Ordering::SeqCst);
             self.0.ready_height.store(h, Ordering::SeqCst);
@@ -82,11 +83,17 @@ impl StreamHandler for Producer {
         if !self.0.settled() {
             return;
         }
+        // A picture of another size, or none yet after a resize, would leave a short or mismatched buffer
+        let bytes = self.0.bytes.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let (width, height) = self.0.size();
+        if bytes.len() != width as usize * height as usize * 4 {
+            return;
+        }
         let buffer = stream.dequeue();
         if buffer.is_null() {
             return;
         }
-        fill(buffer, &self.0);
+        fill(buffer, &self.0, &bytes);
         // SAFETY: the buffer was dequeued from this stream and is queued once here
         unsafe { stream.queue(buffer) };
     }
@@ -94,8 +101,16 @@ impl StreamHandler for Producer {
     fn add_buffer(&mut self, _stream: &StreamRef, _buffer: *mut PwBuffer) {}
 }
 
+/// The size a negotiated format carries.
+fn format_size(format: &ObjectPod) -> Option<(u32, u32)> {
+    match &format.prop(pod::FORMAT_VIDEO_SIZE)?.value {
+        Value::One(Scalar::Rect(w, h)) => Some((*w, *h)),
+        _ => None,
+    }
+}
+
 /// Writes the latest picture into a buffer's memory, as much of it as the buffer holds.
-fn fill(buffer: *mut PwBuffer, latest: &Latest) {
+fn fill(buffer: *mut PwBuffer, latest: &Latest, bytes: &[u8]) {
     let (width, height) = latest.size();
     let stride = width as usize * 4;
     let wanted = stride * height as usize;
@@ -106,7 +121,6 @@ fn fill(buffer: *mut PwBuffer, latest: &Latest) {
             return;
         }
         let room = (data.maxsize as usize).min(wanted);
-        let bytes = latest.bytes.lock().unwrap_or_else(|e| e.into_inner()).clone();
         let n = room.min(bytes.len());
         std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.data.cast::<u8>(), n);
         let chunk = &mut *data.chunk;
@@ -144,10 +158,18 @@ impl VideoSender {
 
     /// Offers the same source at another size, which whoever reads it renegotiates, so the node and its id stay.
     pub fn resize(&self, width: u32, height: u32) {
-        self.latest.width.store(width, Ordering::SeqCst);
-        self.latest.height.store(height, Ordering::SeqCst);
-        *self.latest.bytes.lock().unwrap_or_else(|e| e.into_inner()) = Arc::default();
-        self.stream.locked(|stream| stream.update_params(&[enum_format(width, height)]));
+        // All under the loop lock, so a cycle never sees the new size with the old format or picture
+        self.stream.locked(|stream| {
+            let latest = &self.latest;
+            if latest.size() != (width, height) {
+                latest.ready_width.store(0, Ordering::SeqCst);
+                latest.ready_height.store(0, Ordering::SeqCst);
+            }
+            latest.width.store(width, Ordering::SeqCst);
+            latest.height.store(height, Ordering::SeqCst);
+            *latest.bytes.lock().unwrap_or_else(|e| e.into_inner()) = Arc::default();
+            stream.update_params(&[enum_format(width, height)]);
+        });
     }
 
     /// The next picture, `width * height * 4` bytes: it goes out on the cycle this starts.
@@ -181,5 +203,16 @@ impl VideoSender {
         let old = std::mem::replace(&mut *self.latest.bytes.lock().unwrap_or_else(|e| e.into_inner()), Arc::new(bgra));
         self.stream.trigger_process();
         old
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_negotiated_format_says_which_size_it_was_agreed_for() {
+        let format = ObjectPod::parse(&enum_format(1280, 720).bytes()).unwrap();
+        assert_eq!(format_size(&format), Some((1280, 720)));
     }
 }
