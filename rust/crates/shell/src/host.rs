@@ -719,6 +719,10 @@ impl HostStills for Ctx<'_> {
     }
     fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
         self.state.set_hiding(owner, source_id, on);
+        // The streams behind the panels hide first, so what another stream combines from them is never clear
+        if on && !self.state.effects.contains(&Effect::HideBehind) {
+            self.state.effects.push(Effect::HideBehind);
+        }
     }
     fn hidden_flag(&mut self, source_id: &str) -> Option<Arc<std::sync::atomic::AtomicBool>> {
         Some(self.state.hidden_flag(source_id))

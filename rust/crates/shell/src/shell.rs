@@ -121,6 +121,8 @@ pub enum Effect {
     CloseWindow { plugin: String, id: String },
     Tray(TrayAction),
     FrameStep(String),
+    /// A plugin began hiding something: streams behind the panels run the steps they have on their last frame (Blur now follows them), before the shown stream's frame steps are asked for again.
+    HideBehind,
     OpenSettings(String),
     /// Event::SettingsTouched: the controls showing these settings get an outline for a moment.
     TouchSettings { ids: Vec<String>, changed: bool },
@@ -4460,6 +4462,20 @@ mod tests {
         crate::host::Ctx { state: &mut s, me: "other".into() }.want_frame_history("other", 0);
         crate::host::Ctx { state: &mut s, me: "stereo".into() }.release_everything();
         assert_eq!(*told.0.lock().unwrap(), [6, 10, 6, 0]);
+    }
+
+    #[test]
+    fn a_plugin_that_starts_hiding_has_the_streams_behind_the_panels_hide_before_its_frame_steps_are_asked_for() {
+        use telescope_core::host::{HostStills, HostUi};
+        let mut s = quiet_state();
+        s.effects.clear();
+        crate::host::Ctx { state: &mut s, me: "privacy".into() }.set_hiding("privacy", None, false);
+        assert!(!s.effects.contains(&Effect::HideBehind), "nothing began hiding");
+        let mut host = crate::host::Ctx { state: &mut s, me: "privacy".into() };
+        host.set_hiding("privacy", None, true);
+        host.refresh_frame_step();
+        let at = |e: &Effect| s.effects.iter().position(|x| x == e).unwrap();
+        assert!(at(&Effect::HideBehind) < at(&Effect::FrameStep("privacy".into())));
     }
 
     #[test]

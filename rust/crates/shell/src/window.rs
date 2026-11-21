@@ -1813,6 +1813,7 @@ impl Window {
                 self.refresh_frame_steps();
             }
             Effect::FrameStep(_) => self.refresh_frame_steps(),
+            Effect::HideBehind => self.hide_behind(),
             Effect::CameraOn { on, auto } => self.set_camera_on(on, auto),
             Effect::MicChanged => self.mic_changed(),
             Effect::SourceSelected => self.source_selected(),
