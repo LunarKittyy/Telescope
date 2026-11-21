@@ -424,7 +424,7 @@ class Phone:
         body = {"name": self.name, "phone_id": self.id, "cert_sha256": self.pin,
                 "proof": pairing_proof(token, nonce, self.id, self.pin), "ips": [host]}
         raw = json.dumps(body).encode()
-        conn = http.client.HTTPConnection("127.0.0.1", int(offer["port"]), timeout=10, source_address=(host, 0))
+        conn = http.client.HTTPConnection("127.0.0.1", int(offer.get("pairing_port", offer["port"])), timeout=10, source_address=(host, 0))
         try:
             conn.request("POST", f"/pair/{nonce}", raw, {"Content-Type": "application/json"})
             status = conn.getresponse().status
@@ -433,7 +433,7 @@ class Phone:
         if status == 200:
             self.token = token
         # What's compared: the offer's fields and version, and the desktop's answer (the nonce and token change)
-        self.record(8765, "PAIR", "/pair", {"status": status, "version": offer.get("version"),
+        self.record(7479, "PAIR", "/pair", {"status": status, "version": offer.get("version"),
                                             "offer": sorted(offer)}, via="wifi")
         return status
 
@@ -631,9 +631,9 @@ def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None, adb_state=Non
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(cert, key)
     servers = []
-    listens = [(host, port, port, "wifi") for port in (8766, 8080)]
+    listens = [(host, port, port, "wifi") for port in (7480, 8080)]
     if adb_state is not None:
-        listens += [("127.0.0.1", 0, port, "usb") for port in (8766, 8080)]
+        listens += [("127.0.0.1", 0, port, "usb") for port in (7480, 8080)]
     for address, bind, port, via in listens:
         server = ThreadingHTTPServer((address, bind), handler_for(phone, port, via))
         server.daemon_threads = True
@@ -702,7 +702,7 @@ def main():
         print(json.dumps(entry), flush=True)
         hosts.append(host)
     extras = (" heavy" if jpegs else "") + (" audio" if audio else "")
-    print(f"{len(phone.units)} frames at {args.fps:g} fps{extras} on {', '.join(h + ':8766/:8080' for h in hosts)}", flush=True)
+    print(f"{len(phone.units)} frames at {args.fps:g} fps{extras} on {', '.join(h + ':7480/:8080' for h in hosts)}", flush=True)
     threading.Event().wait()
 
 

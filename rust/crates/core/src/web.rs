@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn the_first_of_each_step_is_logged_and_all_are_counted() {
-        let stats = ServerStats::new(8768, 8768, false, "On Air");
+        let stats = ServerStats::new(7482, 7482, false, "On Air");
         assert!(stats.nothing_arrived());
         stats.note(Step::Connections);
         stats.note(Step::Connections);

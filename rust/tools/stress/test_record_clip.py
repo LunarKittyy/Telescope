@@ -10,7 +10,7 @@ class RecordClipTest(unittest.TestCase):
         con.getresponse.return_value.read.return_value = b"{}"
         with patch.object(record_clip, "connection", return_value=con):
             for action in ("start", "stop"):
-                record_clip.post(8766, "token", "/v1/session", {"action": action})
+                record_clip.post(7480, "token", "/v1/session", {"action": action})
                 method, path, body, headers = con.request.call_args.args
                 self.assertEqual((method, path), ("POST", "/v1/session"))
                 self.assertEqual(record_clip.json.loads(body), {"action": action})

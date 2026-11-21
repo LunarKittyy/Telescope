@@ -92,6 +92,11 @@ pub trait PairingOffer: Send + Sync {
     fn offer_over_usb(&self, package: &str) -> usize;
     /// The phone that paired, once one has.
     fn poll(&self) -> Option<PairedPhone>;
+    /// The name of a phone whose app is older than this one that tried to pair since the last call: it can't connect
+    /// until it's updated.
+    fn poll_old_phone(&self) -> Option<String> {
+        None
+    }
     /// Sends the offer to one phone on a cable (the one picked in Add device), again each time it's called, since the
     /// broadcast only lands while the app is on screen. Blocking.
     fn offer_to(&self, _serial: &str, _package: &str) -> bool {

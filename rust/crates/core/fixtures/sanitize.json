@@ -8,8 +8,8 @@
   "cases": [
     ["", ""],
     ["code=AbCdEfGhIjKlMnOpQrStUvWx", "code=<redacted>"],
-    ["GET http://192.168.1.20:8765/v1/state failed", "GET <url> failed"],
-    ["phone at 10.0.0.5:8766 didn't answer", "phone at <ip> didn't answer"],
+    ["GET http://192.168.1.20:7479/v1/state failed", "GET <url> failed"],
+    ["phone at 10.0.0.5:7480 didn't answer", "phone at <ip> didn't answer"],
     ["reached fe80::1c2:3aff:fe44:5566 over wifi", "reached <ip> over wifi"],
     ["token=Zx9_kq2-LmN8pQrS7tUvWxYz0aBcDeF", "token=<redacted>"],
     ["12:30:45 stream dropped, version 0.5.0", "12:30:45 stream dropped, version 0.5.0"],

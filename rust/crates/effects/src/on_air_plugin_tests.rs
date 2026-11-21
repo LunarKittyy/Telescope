@@ -322,12 +322,12 @@ fn the_link_survives_a_restart_and_a_new_link_replaces_it() {
     let cfg = rig.plugin.get_config();
     let mut again = Rig::new(cfg);
     assert_eq!(again.plugin.token(), token);
-    assert_eq!(again.plugin.url(), format!("https://192.168.1.20:8768/#{token}"));
+    assert_eq!(again.plugin.url(), format!("https://192.168.1.20:7482/#{token}"));
     again.page_state(); // the restarted server takes it
     again.ui("new-link-clicked", vec![]);
     assert_ne!(again.plugin.token(), token);
     again.page_state(); // and the new one once it's made
-    assert_eq!(again.plugin.url(), format!("https://192.168.1.20:8768/#{}", again.plugin.token()));
+    assert_eq!(again.plugin.url(), format!("https://192.168.1.20:7482/#{}", again.plugin.token()));
     // A device on the old link is refused from its next request on
     let served = again.web.served.lock().unwrap();
     let old = Request { method: "GET".into(), target: "/state?after=-1".into(), headers: vec![("Authorization".into(), format!("Bearer {token}"))] };
@@ -341,7 +341,7 @@ fn the_certificate_is_asked_for_with_this_computers_addresses() {
     assert_eq!(asked.len(), 1);
     assert_eq!(asked[0].1, ["192.168.1.20"]);
     let served = rig.web.served.lock().unwrap();
-    assert_eq!((served[0].serve.port, served[0].serve.host.as_str()), (8768, ""));
+    assert_eq!((served[0].serve.port, served[0].serve.host.as_str()), (7482, ""));
 }
 
 #[test]
@@ -589,7 +589,7 @@ fn what_it_says_in_diagnostics() {
     let rig = Rig::new(json!({"webhook_url": "http://hub.local/hook", "webhook_method": "GET"}));
     let d: std::collections::HashMap<_, _> = rig.plugin.diagnostics().into_iter().collect();
     assert_eq!((d["On Air"].as_str(), d["On Air when"].as_str()), ("off", "camera"));
-    assert_eq!((d["On Air sign page"].as_str(), d["On Air webhook"].as_str()), ("on, port 8768", "set (GET)"));
+    assert_eq!((d["On Air sign page"].as_str(), d["On Air webhook"].as_str()), ("on, port 7482", "set (GET)"));
 }
 
 #[test]

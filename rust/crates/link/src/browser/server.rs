@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use telescope_core::i18n::tr;
 use telescope_core::web::{Certificate, PageHandler, Reply, Request, Serve, ServerStats, Socket, Step, Upgrade, Web, WebServer};
 
-pub const BROWSER_PORT: u16 = 8767;
+pub const BROWSER_PORT: u16 = 7481;
 /// Browsers answer pings by themselves, so a page that's quiet but there isn't closed as idle.
 const PING_EVERY: Duration = Duration::from_secs(3);
 /// How often the connection looks for something to send while nothing arrives.

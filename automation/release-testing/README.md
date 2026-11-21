@@ -45,7 +45,7 @@ A Windows 11 VM with a clean snapshot to go back to is enough. Keep UAC at its d
 - To see the Update card without waiting for a newer nightly, install a dev build with a lower build number: `./gradlew installDev -Pchannel=nightly -PbuildNumber=800` in `android/`. It installs next to the real app as `com.telescope.dev`.
 - Skip the "allow installs" settings screen with `adb shell appops set com.telescope.dev REQUEST_INSTALL_PACKAGES allow`.
 - Screenshots: `adb exec-out screencap -p > shot.png`. Taps are in device pixels.
-- To talk to the phone's session server (port 8766) from the host: `adb forward tcp:48766 tcp:8766`, then `curl -H "Authorization: Bearer <token>" localhost:48766/v1/ping`. A 401 means the token was revoked. Remove the forward afterwards.
+- To talk to the phone's session server (port 7480) from the host: `adb forward tcp:48766 tcp:7480`, then `curl -H "Authorization: Bearer <token>" localhost:48766/v1/ping`. A 401 means the token was revoked. Remove the forward afterwards.
 - USB pairing and Install over USB with the Linux desktop work through the emulator's adb.
 
 ## What these can't cover

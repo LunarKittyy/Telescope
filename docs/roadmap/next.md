@@ -137,7 +137,7 @@ A plugin that panics is switched off and the app carries on, unless it hides par
 
 ## Phones that find the computer again
 
-Paired phones used to lose the computer after a Wi-Fi change until they were paired again or plugged in. Both apps now keep a small UDP exchange open on port 8769 to swap their addresses. The old checks are the fallback. Both apps show a banner when their versions differ, naming the older side. It was tried on a real phone over Wi-Fi. The case of a router that drops the computer's traffic to the phone hasn't been forced yet, and the phone side only counts once it's in a phone release.
+Paired phones used to lose the computer after a Wi-Fi change until they were paired again or plugged in. Both apps now keep a small UDP exchange open on port 7483 to swap their addresses. The old checks are the fallback. Both apps show a banner when their versions differ, naming the older side. It was tried on a real phone over Wi-Fi. The case of a router that drops the computer's traffic to the phone hasn't been forced yet, and the phone side only counts once it's in a phone release.
 
 ## DSLRs on Windows
 

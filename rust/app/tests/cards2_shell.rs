@@ -244,7 +244,7 @@ fn opening_settings_tells_the_section_so_and_the_link_follows_the_network() {
     let mut rig = on_air_rig(json!({"token": TOKEN}));
     *rig.web.addresses.lock().unwrap() = vec!["10.0.0.7".into()];
     ui(&mut rig.state, "on_air", "on_air", "shown", vec![]);
-    assert_eq!(props_of(&rig.state, "on_air", "on_air")["url-text"], format!("https://10.0.0.7:8768/#{TOKEN}").as_str());
+    assert_eq!(props_of(&rig.state, "on_air", "on_air")["url-text"], format!("https://10.0.0.7:7482/#{TOKEN}").as_str());
     assert_eq!(rig.state.plugin_config("on_air").unwrap()["address"], "10.0.0.7");
 }
 

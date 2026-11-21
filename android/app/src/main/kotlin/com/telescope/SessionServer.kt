@@ -24,6 +24,10 @@ class SessionServer(
     // adb forward connects from the phone's own loopback, so that's what USB looks like here.
     private val isUsbPeer: (Socket) -> Boolean = { it.inetAddress?.isLoopbackAddress == true },
     private val authenticatedContact: (PairedComputer, Map<String, String>, String?) -> Unit = { _, _, _ -> },
+    // An old port: a computer with an older Telescope still comes here. It is told to update (426), whatever it asked,
+    // and this is told its name when its token is known.
+    private val oldPort: Boolean = false,
+    private val onOldPortContact: (String?) -> Unit = {},
 ) {
     private var serverSocket: ServerSocket? = null
     private val running = AtomicBoolean(false)
@@ -88,6 +92,9 @@ class SessionServer(
             val request = HttpWire.readRequest(socket, requestDeadlineMs) ?: return  // already responded/closed
             val out = socket.getOutputStream()
             val route = route(request.method, request.path)
+            if (oldPort) {
+                answerOldPort(socket, route, request); return
+            }
 
             // Still listening on Wi-Fi in Local only on purpose: ping lets the desktop see the toggle is on and tell the user
             if (route !in REACHABLE_WHEN_LOCAL_ONLY && localOnly() && !isUsbPeer(socket)) {
@@ -163,10 +170,36 @@ class SessionServer(
         }
     }
 
+    // An older computer asks who this is first, then pings with its token: only that token proves it is one of the paired
+    // computers, so only a ping that carries it shows the notice. Everything else, session commands included, is refused.
+    private fun answerOldPort(socket: Socket, route: Route, request: HttpWire.Request) {
+        val out = socket.getOutputStream()
+        if (route == Route.Hello) {
+            if (localOnly() && !isUsbPeer(socket)) {
+                HttpWire.sendError(out, 403, "Forbidden"); return
+            }
+            val snap = commands.snapshot()
+            HttpWire.sendJson(out, Json.encodeToString(
+                Hello.serializer(), Hello(PROTOCOL_VERSION, snap.phoneId, snap.phoneName, appVersion, appBuild, presence = 1)))
+            return
+        }
+        if (route == Route.Ping) {
+            computers().matchToken(HttpWire.bearerToken(request))?.let { onOldPortContact(it.name) }
+        }
+        HttpWire.sendError(out, 426, "Upgrade Required")
+    }
+
     enum class Route { Hello, Ping, Session, Unpair, NotFound, MethodNotAllowed }
 
     companion object {
-        const val DEFAULT_PORT = 8766
+        const val DEFAULT_PORT = 7480
+
+        // Where the desktop's pairing server and the phone's session server were before the move to 7479 and 7480. Still
+        // listened on for a couple of releases, only to tell an older Telescope on a computer to update.
+        val OLD_PORTS = listOf(8765, 8766)
+
+        // A dev build runs next to the real app, and holding 8766 would stop an older real app from opening its session port
+        fun oldPortsFor(buildType: String): List<Int> = if (buildType == "dev") emptyList() else OLD_PORTS
         const val ACCEPT_RETRY_MS = 200L
 
         // Optional metadata and presence capability are additive and do not bump this strictly matched protocol.
