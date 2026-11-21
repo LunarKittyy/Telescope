@@ -280,7 +280,7 @@ Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists w
 
 ## Presence
 
-Both apps listen on UDP port 8769 while their connection endpoint is alive. The desktop holds its endpoint until shutdown; the phone holds it only while an activity, streaming or **Wait for my computer** owns `SessionEndpoint`. **Local only** disables network presence. Android can suspend networking in Doze or close the process; network and foreground events restart outgoing probes when possible.
+Both apps listen on UDP port 7483 while their connection endpoint is alive. The desktop holds its endpoint until shutdown; the phone holds it only while an activity, streaming or **Wait for my computer** owns `SessionEndpoint`. **Local only** disables network presence. Android can suspend networking in Doze or close the process; network and foreground events restart outgoing probes when possible.
 
 `/v1/hello` and authenticated `/v1/ping` optionally advertise `"presence": 1`. Presence capability and desktop metadata are optional additions to session protocol 3. Older peers can ignore them without changing session behaviour. Authenticated HTTPS requests optionally include `X-Telescope-Version`, `X-Telescope-Addresses` (a comma-separated bounded list of IP literals) and `X-Telescope-Presence: 1`, including over USB. The phone stores the version and addresses against the authenticated computer. Missing version on an authenticated request identifies a desktop from before this feature; no contact leaves the version unknown. Different app versions are informational and do not reject a compatible session.
 

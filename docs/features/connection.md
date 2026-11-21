@@ -25,7 +25,7 @@ How it works with Telescope:
 - The QR code lists the computer's addresses, LAN ones first and the Tailscale one after. The phone tries the LAN ones over Wi-Fi first, then every address on whatever network it has. Away from home that ends on the Tailscale address. Each attempt gets 2 seconds and the whole run 12.
 - The computer remembers all of the phone's addresses. Later it tries the phone's address it found on the local network, then the last one that worked, then the rest with Tailscale first.
 - Pairing needs the **Add phone** dialog open on the computer, because that's the only time its pairing server on port 8765 runs. The phone has to reach the computer for this. After that both devices exchange presence packets and the computer checks the phone over HTTPS.
-- If you use Tailscale access rules, the phone needs to reach the computer on 8765 while pairing. The computer needs to reach the phone on 8766 and 8080. [Browser camera](sources.md#browser-camera) uses 8767 on the computer. Both devices also need UDP 8769 for presence. Tailscale's default rules allow all of this.
+- If you use Tailscale access rules, the phone needs to reach the computer on 8765 while pairing. The computer needs to reach the phone on 8766 and 8080. [Browser camera](sources.md#browser-camera) uses 8767 on the computer. Both devices also need UDP 7483 for presence. Tailscale's default rules allow all of this.
 
 ### Which path Tailscale uses
 
