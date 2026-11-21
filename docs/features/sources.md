@@ -125,10 +125,10 @@ The **Headset** switch on the 3D card (off by default) shows the 3D picture in a
 
 The picture hangs about 2 metres in front of you, at 16:9 and about 2.5 metres wide. Before you press Enter VR the page shows the same picture flat, with a line saying whether it is connected.
 
-To leave VR, press B or Y on a controller, or squeeze a grip. The trigger on its own does nothing, so it can't throw you out by accident. Press A or X to bring the picture back in front of you.
+To leave VR, press B or Y on a controller or squeeze a grip. The trigger alone does nothing. A stray press can't throw you out. Press A or X to bring the picture back in front of you.
 
-- Both eyes are packed into one JPEG up to 1920 x 1080, each squeezed to half the width as the camera's side by side does and stretched back by the page, at up to 30 frames a second. That is roughly 30 to 60 Mbit/s depending on the picture, so Wi-Fi 5 or newer, and nothing is made while no headset is connected
-- The link stays the same across restarts until you press **New link**. It is kept in its own file next to your settings, so presets and settings you share never carry it
-- It is the same picture the Telescope camera gets, with Fine tune and Match, so Privacy blur and the Wait screen apply. A headset that can't keep up skips pictures instead of falling behind. Two headsets can watch at once
-- The link has a secret in it, so others on the network can't watch. **New link** makes another and disconnects the old one. The link stays the same after Telescope restarts, but the switch is off again
+- Both eyes go into one JPEG up to 1920 x 1080 at up to 30 frames a second. Each eye is squeezed to half the width, as the camera's side by side does. The page stretches it back. That is roughly 30 to 60 Mbit/s depending on the picture, which wants Wi-Fi 5 or newer. Nothing is made while no headset is connected
+- The link is the same across restarts until you press **New link**. It lives in its own file next to your settings, away from presets and anything you share
+- It is the same picture the Telescope camera gets, with Fine tune and Match. Privacy blur and the Wait screen apply to it too. A headset that falls behind drops pictures and never lags. Two headsets can watch at once
+- The link has a secret in it that others on the network don't have. **New link** makes another and disconnects the old one. After Telescope restarts the link is the same but the switch is off
 - It listens on port 7484 while the switch is on, 3D is on and the plugin is running. A firewall has to let it through
