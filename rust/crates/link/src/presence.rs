@@ -51,6 +51,7 @@ struct Controls {
     hint: AtomicBool,
     wake: Mutex<Option<Arc<dyn Fn() + std::marker::Send + Sync>>>,
     stopped: AtomicBool,
+    failure: Mutex<Option<String>>,
 }
 
 impl Controls {
@@ -76,7 +77,11 @@ impl Presence {
         let mut previous = self.controls.credentials.lock().unwrap();
         if previous.as_ref() != Some(&credentials) {
             self.controls.revision.fetch_add(1, Ordering::AcqRel);
-            self.controls.events.lock().unwrap().clear();
+            let mut events = self.controls.events.lock().unwrap();
+            events.clear();
+            // The worker is gone for good when it could not start, so a credential change must not hide that
+            if let Some(why) = self.controls.failure.lock().unwrap().clone() { events.push_back(PresenceEvent::Degraded(why)); }
+            drop(events);
             self.controls.checks.lock().unwrap().clear();
             *previous = Some(credentials);
         }
@@ -99,7 +104,10 @@ impl Presence {
     }
 
     pub fn set_wake(&self, wake: Option<Arc<dyn Fn() + std::marker::Send + Sync>>) {
-        *self.controls.wake.lock().unwrap() = wake;
+        *self.controls.wake.lock().unwrap() = wake.clone();
+        // Events queued before the callback existed would otherwise wait for the next one
+        let pending = !self.controls.events.lock().unwrap().is_empty();
+        if let (true, Some(wake)) = (pending, wake) { wake(); }
     }
 
     pub fn take_events(&self) -> Vec<PresenceEvent> {
@@ -474,7 +482,9 @@ fn run(controls: Arc<Controls>) {
     let poller = match Poller::new() {
         Ok(poller) => Arc::new(poller),
         Err(error) => {
-            event(&controls, PresenceEvent::Degraded(format!("UDP presence could not wait for sockets: {error}")), controls.revision.load(Ordering::Acquire));
+            let why = format!("UDP presence could not wait for sockets: {error}");
+            *controls.failure.lock().unwrap() = Some(why.clone());
+            event(&controls, PresenceEvent::Degraded(why), controls.revision.load(Ordering::Acquire));
             return;
         }
     };
