@@ -36,6 +36,8 @@ pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
 pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 /// A mask of a frame further back than this is of a picture that's gone: frame steps hear there's none, not an old silhouette.
 pub const MASK_MAX_AGE_S: f64 = 0.5;
+/// A high quality cutout mask this much older than the normal one is behind it: the normal one stands in, however recent the cutout still is.
+pub const HQ_BEHIND_S: f64 = 0.15;
 /// How far apart two sizes' shapes can be for a mask of one to stand in for the other, as a share.
 const MASK_SHAPE_SLACK: f64 = 0.02;
 /// A crop that moves no more than this share of the picture between two masks keeps the model's memory and the last mask's carry.
@@ -196,6 +198,8 @@ pub(crate) struct MaskView {
     pub(crate) geometry: Option<Geometry>,
     pub(crate) keep_late: bool,
     pub(crate) space: MaskSpace,
+    /// The crop in `geometry` is a guess (MaskSpace::crop_unsure): a mask that isn't recent is as wrong as the guess is.
+    pub(crate) unsure: bool,
 }
 
 pub(crate) struct MaskSnapshot {
@@ -206,6 +210,11 @@ pub(crate) struct MaskSnapshot {
 impl MaskSnapshot {
     pub(crate) fn fresh(&self) -> bool {
         monotonic() - self.at <= MASK_MAX_AGE_S
+    }
+
+    /// How far behind the picture it is, seconds.
+    pub(crate) fn age(&self) -> f64 {
+        monotonic() - self.at
     }
 }
 

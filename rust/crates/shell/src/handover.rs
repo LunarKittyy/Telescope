@@ -27,6 +27,10 @@ const THUMB: (usize, usize) = (128, 72);
 const ARRIVED: f32 = 0.6;
 /// Every this many pixels of a frame go into its thumb.
 const SKIP: usize = 4;
+/// Frames that come this long (seconds) or more after a new share was sent carry a crop that may be well off, until a frame has fitted the whole move (or
+/// HANDOVER_S is over): the phone's picture may have started to move by then, and what the frames show of it is only found a step at a time, late, and not
+/// at all in a scene too flat to find it in.
+const UNSURE_S: f64 = 0.1;
 
 /// A frame, small, grey and blurred.
 #[derive(Clone, Debug, PartialEq)]
@@ -136,6 +140,43 @@ fn along(old: &PhoneZoom, new: &PhoneZoom, f: f64) -> PhoneZoom {
     PhoneZoom { ratio: 1.0, crop: total, x: centre(opx, npx), y: centre(opy, npy) }
 }
 
+/// Whether the crop named for frames of a new share is a guess: from UNSURE_S after it was sent until the picture holds still after a frame fitted the whole
+/// move, or HANDOVER_S is over. It outlives the handover, which is ended as soon as the share has been taken to arrive.
+#[derive(Clone)]
+struct Guess {
+    after: f64,
+    until: f64,
+    /// A frame fitted the picture of the whole move (not just a cut in it): the picture holding still after that is the phone on the new share, since a frame
+    /// that fits it while the picture still moves may be one a bit before the end.
+    fitted: bool,
+    confirmed: bool,
+    /// The frame the following ones are held against, and since when they have all been like it.
+    still: Option<(Thumb, f64)>,
+}
+
+impl Guess {
+    /// A share sent at `now`, on top of `earlier` when that is still a guess (its old share is only where that was guessed to be).
+    fn new(now: f64, earlier: Option<&Guess>) -> Guess {
+        let after = earlier.filter(|g| !g.confirmed && now <= g.until).map_or(now + UNSURE_S, |g| g.after);
+        Guess { after, until: now + HANDOVER_S, fitted: false, confirmed: false, still: None }
+    }
+
+    fn unsure(&self, now: f64) -> bool {
+        !self.confirmed && now >= self.after && now <= self.until
+    }
+
+    fn watch(&mut self, now: &Thumb, at: f64) {
+        if !self.fitted || self.confirmed {
+            return;
+        }
+        let holds = self.still.as_ref().is_some_and(|(frame, _)| compare(frame, now, (1.0, 0.0, 0.0)).is_some_and(|(stayed, _)| stayed <= 1.5));
+        if !holds {
+            self.still = Some((now.clone(), at));
+        }
+        self.confirmed = self.still.as_ref().is_some_and(|(_, since)| at - since >= SETTLED_S);
+    }
+}
+
 struct Handover {
     old: PhoneZoom,
     new: PhoneZoom,
@@ -144,6 +185,7 @@ struct Handover {
     /// The framing the crops are for, kept current like the views.
     framing: View,
     since: f64,
+    guess: Guess,
     arrived: bool,
     /// How far along from old to new the frames have been seen to get, 0 to 1.
     progress: f64,
@@ -192,8 +234,10 @@ impl Handover {
         }
         // Where the new share shows too little of the old picture to find it in, a cut in the picture is what shows
         let change = before.and_then(|b| compare(b, now, (1.0, 0.0, 0.0))).map_or(0.0, |(stayed, _)| stayed);
+        let mut cut = false;
         if !overlap && change > CUT_MIN && change > CUT_TIMES * self.calm.max(1.0) {
             best = Some((1.0, 0.0));
+            cut = true;
         } else {
             self.calm += (change - self.calm) * 0.1;
         }
@@ -201,6 +245,8 @@ impl Handover {
             Some((f, _)) => {
                 // From here on, the picture is taken to be where this says, which keeps what's compared near
                 self.progress = f;
+                // A cut says only that the picture changed, not by how much
+                self.guess.fitted |= f >= 1.0 && !cut;
                 self.base = Some((now.clone(), f, at));
             }
             // A frame the picture hasn't changed in since (or one that has gone unmatched too long) is the one to compare with
@@ -229,6 +275,8 @@ struct Inner {
     source: Option<String>,
     tracking: bool,
     handover: Option<Handover>,
+    /// The guess about the crop of a handover that has ended, for as long as it lasts.
+    guess: Option<Guess>,
     /// That stream's last frame, small, while the view controls its zoom.
     last: Option<Thumb>,
     shown: Option<(View, (f64, f64, f64))>,
@@ -260,6 +308,7 @@ impl ViewGate {
             inner.source = source.map(str::to_string);
             inner.last = None;
             inner.handover = None;
+            inner.guess = None;
             inner.shown = None;
         }
         inner.tracking = tracking;
@@ -268,17 +317,22 @@ impl ViewGate {
     pub fn begin(&self, old: PhoneZoom, new: PhoneZoom, mut views: (View, View), framing: &View, now: f64) {
         let mut inner = self.0.lock().unwrap();
         let old = inner.handover.as_ref().filter(|h| !h.arrived).map_or(old, |h| h.share(h.progress));
+        let guess = Guess::new(now, inner.handover.as_ref().map(|h| &h.guess).or(inner.guess.as_ref()));
+        inner.guess = None;
         if let Some((zoom, pan_x, pan_y)) = rest_within(framing.zoom as f64, framing.pan_x as f64, framing.pan_y as f64, &old, true) {
             views.0 = View { zoom: zoom as f32, pan_x: pan_x as f32, pan_y: pan_y as f32, ..views.0 };
         }
         // The last frame came in the old share, so it is the one to compare with
         let base = inner.last.clone().map(|b| (b, 0.0, now));
-        inner.handover = Some(Handover { old, new, views, framing: framing.clone(), since: now, arrived: false, progress: 0.0, base, calm: 0.0, still: None });
+        inner.handover = Some(Handover { old, new, views, framing: framing.clone(), since: now, guess, arrived: false, progress: 0.0, base, calm: 0.0, still: None });
     }
 
     pub fn end(&self) {
         let mut inner = self.0.lock().unwrap();
-        inner.handover = None;
+        // The share is taken to have arrived, but until a frame has shown it the crop named for frames is still a guess
+        if let Some(h) = inner.handover.take() {
+            inner.guess = Some(h.guess).filter(|g| !g.confirmed);
+        }
         inner.shown = None;
     }
 
@@ -317,13 +371,27 @@ impl ViewGate {
     }
 
     pub fn for_frame_snapshot(&self, source: &str, frame: &Frame, now: f64, replaced: bool) -> Option<(View, (f64, f64, f64))> {
+        self.for_frame_labelled(source, frame, now, replaced).0
+    }
+
+    /// for_frame_snapshot, and whether the crop it names for this frame is a guess: the phone's zoom is on its way, and the frames show how far it has got
+    /// only a step at a time, late (and in a scene too flat to find it in, not at all), so the crop the frame really has may be well off the one it's labelled with.
+    pub fn for_frame_labelled(&self, source: &str, frame: &Frame, now: f64, replaced: bool) -> (Option<(View, (f64, f64, f64))>, bool) {
         let mut inner = self.0.lock().unwrap();
         if inner.source.as_deref() != Some(source) {
-            return None;
+            return (None, false);
         }
-        let thumb = (inner.tracking || inner.handover.is_some()).then(|| thumb(frame));
+        let thumb = (inner.tracking || inner.handover.is_some() || inner.guess.is_some()).then(|| thumb(frame));
         let before = std::mem::replace(&mut inner.last, thumb.clone());
-        let h = inner.handover.as_mut()?;
+        let Some(h) = inner.handover.as_mut() else {
+            let unsure = inner.guess.as_mut().is_some_and(|g| {
+                if let Some(t) = &thumb {
+                    g.watch(t, now);
+                }
+                g.unsure(now)
+            });
+            return (None, unsure);
+        };
         if !h.arrived {
             if let Some(t) = &thumb {
                 if h.base.is_none() {
@@ -334,14 +402,18 @@ impl ViewGate {
             if now - h.since > HANDOVER_S {
                 (h.arrived, h.progress) = (true, 1.0);
             }
+        } else if let Some(t) = &thumb {
+            h.guess.watch(t, now);
         }
         let view = h.view();
         let source_crop = phone_window(Some(&h.share(if h.arrived { 1.0 } else { h.progress })));
+        let unsure = h.guess.unsure(now);
         let shown = (view.clone(), source_crop);
-        (replaced || inner.shown.as_ref() != Some(&shown)).then(|| {
+        let changed = (replaced || inner.shown.as_ref() != Some(&shown)).then(|| {
             inner.shown = Some(shown.clone());
             shown
-        })
+        });
+        (changed, unsure)
     }
 }
 
@@ -429,6 +501,65 @@ mod tests {
         assert_eq!(source_crop, phone_window(Some(&along(&old, &new, 0.5))));
         let (view, source_crop) = gate.for_frame_snapshot("a", &frame, 0.0, false).unwrap();
         assert_eq!((view.zoom, source_crop.0), (2.0, 4.0));
+    }
+
+    #[test]
+    fn a_label_is_a_guess_a_moment_after_a_new_zoom_is_sent_until_it_arrives() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"), true);
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 4.0, ..old };
+        let flat = Frame::new(8, 8, PixelFormat::I420, vec![120; 96]);
+        assert!(!gate.for_frame_labelled("a", &flat, 0.0, false).1, "nothing is on its way");
+        gate.begin(old, new, (View::default(), View::default()), &View::default(), 1.0);
+        assert!(!gate.for_frame_labelled("a", &flat, 1.05, false).1, "only just sent");
+        assert!(gate.for_frame_labelled("a", &flat, 1.4, false).1, "the picture shows nothing of it a while after");
+        assert!(!gate.for_frame_labelled("other", &flat, 1.4, false).1, "another stream's frames say nothing");
+        // Another share sent on top of it starts from where the first was guessed to be
+        gate.begin(new, old, (View::default(), View::default()), &View::default(), 1.5);
+        assert!(gate.for_frame_labelled("a", &flat, 1.52, false).1, "still guessing");
+        // A picture that holds still for a while is taken to have got there, which only guesses it
+        gate.0.lock().unwrap().handover.as_mut().unwrap().arrived = true;
+        assert!(gate.for_frame_labelled("a", &flat, 1.9, false).1, "still guessing");
+        assert!(!gate.for_frame_labelled("a", &flat, 3.6, false).1, "the phone has had all the time it is given");
+        gate.begin(old, new, (View::default(), View::default()), &View::default(), 4.0);
+        assert!(gate.for_frame_labelled("a", &flat, 4.5, false).1, "the picture shows nothing of it");
+        gate.0.lock().unwrap().handover.as_mut().unwrap().guess.confirmed = true;
+        assert!(!gate.for_frame_labelled("a", &flat, 4.6, false).1, "a frame fitted the whole move");
+        gate.begin(new, old, (View::default(), View::default()), &View::default(), 5.0);
+        assert!(!gate.for_frame_labelled("a", &flat, 5.05, false).1, "a new start from where it was");
+    }
+
+    #[test]
+    fn a_move_is_sure_once_the_picture_that_fitted_it_has_held_still() {
+        let (old, flat) = (PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 }, Frame::new(8, 8, PixelFormat::I420, vec![120; 96]));
+        let new = PhoneZoom { crop: 4.0, ..old };
+        // The view controller ends the handover as soon as the share is taken to have arrived, and the guess goes on without it
+        for ended in [false, true] {
+            let begun = |fitted: bool| {
+                let gate = ViewGate::default();
+                gate.follow(Some("a"), false);
+                gate.begin(old, new, (View::default(), View::default()), &View::default(), 1.0);
+                let mut inner = gate.0.lock().unwrap();
+                let h = inner.handover.as_mut().unwrap();
+                (h.arrived, h.guess.fitted) = (true, fitted);
+                drop(inner);
+                if ended {
+                    gate.end();
+                }
+                gate
+            };
+            // Arrived by the picture's holding still, with no frame having fitted the whole move: a guess until the phone has had all the time it is given
+            let gate = begun(false);
+            for t in [1.2, 1.4, 1.6, 1.9] {
+                assert!(gate.for_frame_labelled("a", &flat, t, false).1, "at {t}, ended {ended}");
+            }
+            assert!(!gate.for_frame_labelled("a", &flat, 3.1, false).1, "the phone has had all the time it is given");
+            let gate = begun(true);
+            assert!(gate.for_frame_labelled("a", &flat, 1.2, false).1, "only just fitted, ended {ended}");
+            assert!(gate.for_frame_labelled("a", &flat, 1.3, false).1, "not still for long enough, ended {ended}");
+            assert!(!gate.for_frame_labelled("a", &flat, 1.55, false).1, "held still, ended {ended}");
+        }
     }
 
     #[test]

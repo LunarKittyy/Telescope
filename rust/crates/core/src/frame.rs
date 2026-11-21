@@ -58,6 +58,8 @@ pub struct MaskSpace {
     pub source_size: (u32, u32),
     pub source_epoch: u64,
     pub warp: Option<u64>,
+    /// The crop in `Frame::geometry` is an estimate that can be well off: the phone's zoom is still arriving and its frames don't say how far it has got. Held masks aren't moved by it then.
+    pub crop_unsure: bool,
 }
 
 /// One 8-bit plane of how much of each pixel is the picture (255) and how much is whatever goes behind it (0), at the frame's full size.
@@ -678,7 +680,7 @@ mod tests {
         let pixels = Frame::new(2, 2, PixelFormat::I420, vec![1; 6]);
         let mut frame = Frame::from_surface(2, 2, PixelFormat::I420, Arc::new(Surface(pixels)));
         frame.geometry = geometry.clone();
-        let mask_space = MaskSpace { source_size: (1920, 1080), source_epoch: 3, warp: Some(9) };
+        let mask_space = MaskSpace { source_size: (1920, 1080), source_epoch: 3, warp: Some(9), crop_unsure: false };
         frame.mask_space = mask_space;
         assert_eq!(frame.clone().geometry, geometry);
         assert_eq!(frame.without_pixels().geometry, geometry);

@@ -497,10 +497,38 @@ fn background_prefers_fresh_quality_then_fresh_normal_then_newest_held_mask() {
     let max = service::MASK_MAX_AGE_S;
     for (hq_age, normal_age, expected) in [(0.0, 0.0, 1), (max * 2.0, 0.0, 2),
         (max * 2.0, max * 3.0, 1), (max * 3.0, max * 2.0, 2)] {
-        let selected = preferred_mask(Some(snapshot(1, hq_age)), Some(snapshot(2, normal_age))).unwrap();
+        let selected = preferred_mask(Some(snapshot(1, hq_age)), Some(snapshot(2, normal_age)), false).unwrap();
         assert_eq!(*selected.mask, [expected]);
     }
-    assert_eq!(*preferred_mask(None, Some(snapshot(2, max * 2.0))).unwrap().mask, [2]);
-    assert_eq!(*preferred_mask(Some(snapshot(1, max * 2.0)), None).unwrap().mask, [1]);
-    assert!(preferred_mask(None, None).is_none());
+    assert_eq!(*preferred_mask(None, Some(snapshot(2, max * 2.0)), false).unwrap().mask, [2]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, max * 2.0)), None, false).unwrap().mask, [1]);
+    assert!(preferred_mask(None, None, false).is_none());
+}
+
+#[test]
+fn a_cutout_mask_well_behind_a_fresher_normal_one_gives_way_to_it() {
+    let now = service::monotonic();
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age };
+    let max = service::MASK_MAX_AGE_S;
+    let behind = service::HQ_BEHIND_S;
+    // Both are within the age limit, but by age the normal one is the picture's
+    assert_eq!(*preferred_mask(Some(snapshot(1, max * 0.9)), Some(snapshot(2, 0.0)), false).unwrap().mask, [2]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 2.0)), Some(snapshot(2, 0.0)), false).unwrap().mask, [2]);
+    // A cutout a frame or so behind keeps its place: it cuts cleaner
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 0.5)), Some(snapshot(2, 0.0)), false).unwrap().mask, [1]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 1.5)), Some(snapshot(2, behind * 0.6)), false).unwrap().mask, [1]);
+    // The normal one older than the cutout never beats it
+    assert_eq!(*preferred_mask(Some(snapshot(1, 0.1)), Some(snapshot(2, 0.3)), false).unwrap().mask, [1]);
+}
+
+#[test]
+fn while_the_crop_label_is_a_guess_the_newer_mask_is_used_whichever_model_made_it() {
+    let now = service::monotonic();
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age };
+    let behind = service::HQ_BEHIND_S;
+    // A cutout a frame behind keeps its place when the label is sure, and gives it up when it is a guess
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 0.5)), Some(snapshot(2, 0.0)), false).unwrap().mask, [1]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 0.5)), Some(snapshot(2, 0.0)), true).unwrap().mask, [2]);
+    // And a cutout as recent as the normal one is still the cutout
+    assert_eq!(*preferred_mask(Some(snapshot(1, 0.0)), Some(snapshot(2, 0.0)), true).unwrap().mask, [1]);
 }
