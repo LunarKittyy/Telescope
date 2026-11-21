@@ -19,6 +19,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Range
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -868,7 +869,7 @@ class CameraStreamService : Service() {
 
     private fun enumerateAllCameras() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-        allCameras = enumerateCameras(manager)
+        allCameras = CameraWarmup.cameras(manager)
         val cameras = allCameras
         // Reading the maker's modes can take a moment per lens; the state lists photos for each lens once it's read
         kotlin.concurrent.thread(name = "still-caps", isDaemon = true) {
@@ -1001,12 +1002,17 @@ class CameraStreamService : Service() {
         return Triple(level, charging, tempC)
     }
 
-    private fun buildCamerasJson(): String {
-        val snap = controller?.snapshot()
-        val cams = allCameras.map { e ->
+    // What a lens can do doesn't change while the service runs (the encoder check alone costs a query per size), so
+    // it's built once per catalogue; each state read fills in the current lens and the photo modes read so far.
+    @Volatile private var capabilityCache: Pair<List<CameraEntry>, List<CameraCapability>>? = null
+
+    private fun staticCapabilities(): List<CameraCapability> {
+        val cameras = allCameras
+        capabilityCache?.takeIf { it.first === cameras }?.let { return it.second }
+        val built = cameras.map { e ->
             CameraCapability(
                 id = e.id, logicalId = e.logicalId, label = e.label,
-                facing = e.facing, focalMm = e.focalMm, lensKind = e.lensKind, current = (e.id == snap?.currentCamera?.id),
+                facing = e.facing, focalMm = e.focalMm, lensKind = e.lensKind, current = false,
                 hasOis = e.hasOis, isoMin = e.isoMin, isoMax = e.isoMax,
                 shutterMinNs = e.shutterMinNs, shutterMaxNs = e.shutterMaxNs,
                 supportsManualSensor = e.supportsManualSensor, supportsManualWB = e.supportsManualWB,
@@ -1022,9 +1028,15 @@ class CameraStreamService : Service() {
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
                 lensZooms = e.lensZooms,
                 maxFps = e.aeFpsRanges.maxOfOrNull { it.upper } ?: 0,
-                stills = stillCaps[e.id]?.capability(),
             )
         }
+        capabilityCache = cameras to built
+        return built
+    }
+
+    private fun buildCamerasJson(): String {
+        val snap = controller?.snapshot()
+        val cams = staticCapabilities().map { it.copy(current = it.id == snap?.currentCamera?.id, stills = stillCaps[it.id]?.capability()) }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
         // The size the computer asked for, even while the heat streams a smaller one (heat_width), so it keeps its pick
         val liveSize = controller?.getAskedSize() ?: android.util.Size(streamWidth, streamHeight)
@@ -1479,5 +1491,38 @@ class CameraStreamService : Service() {
     private fun releaseWifiLocks() {
         wifiLocks.forEach { runCatching { if (it.isHeld) it.release() } }
         wifiLocks.clear()
+    }
+}
+
+object CameraWarmup {
+    // The list the screens read in the background while the app comes up, so a stream's start doesn't read every lens on the main thread
+    private class Warm(val ids: List<String>, val readAtMs: Long, val cameras: List<CameraEntry>)
+    @Volatile private var warm: Warm? = null
+    @Volatile private var warming = false
+    private const val WARM_FOR_MS = 120_000L  // older than this it's read again, whatever the ids say
+
+    fun warmUp(context: Context) {
+        val w = warm
+        if (warming || (w != null && SystemClock.elapsedRealtime() - w.readAtMs < WARM_FOR_MS)) return
+        warming = true
+        val manager = context.applicationContext.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        kotlin.concurrent.thread(name = "camera-warm", isDaemon = true) {
+            try { enumerateNow(manager) } catch (_: Exception) {} finally { warming = false }
+        }
+    }
+
+    // The warm list while it's recent and the phone still lists the same camera ids (a plugged-in camera changes them); read afresh otherwise
+    fun cameras(manager: CameraManager): List<CameraEntry> {
+        val w = warm
+        val ids = manager.cameraIdList.toList()
+        if (w != null && w.ids == ids && SystemClock.elapsedRealtime() - w.readAtMs < WARM_FOR_MS) return w.cameras
+        return enumerateNow(manager)
+    }
+
+    private fun enumerateNow(manager: CameraManager): List<CameraEntry> {
+        val ids = manager.cameraIdList.toList()
+        val read = CameraStreamService.enumerateCameras(manager)
+        warm = Warm(ids, SystemClock.elapsedRealtime(), read)
+        return read
     }
 }
