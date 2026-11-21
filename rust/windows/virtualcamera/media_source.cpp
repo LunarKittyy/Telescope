@@ -241,33 +241,51 @@ HRESULT MediaStream::SetAllocator(IMFVideoSampleAllocator* allocator) {
     return S_OK;
 }
 
-// Hands out a frame for each request, no faster than the media type's frame rate.
+// Hands out a frame for each request, no faster than three quarters of the media type's frame rate. While Telescope
+// keeps sending, a frame goes out as it lands in the shared memory instead of at the next tick of a clock of our own,
+// which left it waiting for half a frame on average. With nothing new the last picture repeats at the frame rate.
 void MediaStream::Deliver() {
     using clock = std::chrono::steady_clock;
     // Other waits round up to Windows' 15.6 ms timer tick, so 60 fps frames came 15.6 or 31.2 ms apart
     HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
-    auto next = clock::now();
+    // Sleeps with the lock off, so stopping waits for at most one sleep. False once it's stopping.
+    auto sleep_until = [&](std::unique_lock<std::mutex>& lock, clock::time_point at) {
+        auto left = std::chrono::duration_cast<std::chrono::duration<LONGLONG, std::ratio<1, 10000000>>>(at - clock::now());
+        if (left.count() <= 0) return !m_stopWorker;
+        LARGE_INTEGER due;
+        due.QuadPart = -left.count();  // negative: relative, in 100 ns units
+        if (timer && SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) {
+            lock.unlock();
+            WaitForSingleObject(timer, INFINITE);
+            lock.lock();
+            return !m_stopWorker;
+        }
+        return !m_wake.wait_until(lock, at, [this] { return m_stopWorker; });
+    };
+    constexpr auto kLive = std::chrono::milliseconds(200);  // a frame this recently means Telescope is sending
+    constexpr auto kPoll = std::chrono::milliseconds(1);
+    auto period = std::chrono::nanoseconds(1000000000LL / m_fps);
+    auto next = clock::now();   // when the picture repeats if nothing new came
+    auto floor = next;          // the earliest a frame may follow the last one
+    auto fresh_at = next;
+    bool seen = false;
     std::unique_lock<std::mutex> lock(m_lock);
     while (!m_stopWorker) {
         // Paused, requests wait in the queue until it runs again
         m_wake.wait(lock, [this] { return m_stopWorker || (!m_tokens.empty() && m_state == MF_STREAM_STATE_RUNNING); });
         if (m_stopWorker) break;
-        auto left = std::chrono::duration_cast<std::chrono::duration<LONGLONG, std::ratio<1, 10000000>>>(next - clock::now());
-        LARGE_INTEGER due;
-        due.QuadPart = -left.count();  // negative: relative, in 100 ns units
-        if (left.count() > 0 && timer && SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) {
-            // Stopping waits for at most this one frame
-            lock.unlock();
-            WaitForSingleObject(timer, INFINITE);
-            lock.lock();
-            if (m_stopWorker) break;
-        } else if (m_wake.wait_until(lock, next, [this] { return m_stopWorker; })) {
-            break;
+        bool live = seen && clock::now() - fresh_at < kLive;
+        if (!sleep_until(lock, live ? std::min(floor, next) : next)) break;
+        while (live && !m_tokens.empty() && m_state == MF_STREAM_STATE_RUNNING && !m_channel.HasNew(m_width, m_height)
+               && clock::now() < next) {
+            if (!sleep_until(lock, std::min(next, clock::now() + kPoll))) break;
         }
+        if (m_stopWorker) break;
         if (m_tokens.empty() || m_state != MF_STREAM_STATE_RUNNING) continue;
         ComPtr<IUnknown> token = m_tokens.front();
         m_tokens.pop_front();
-        HRESULT hr = MakeSample(token.Get());
+        bool fresh = false;
+        HRESULT hr = MakeSample(token.Get(), &fresh);
         if (hr == MF_E_SAMPLEALLOCATOR_EMPTY) {
             // The reader holds every sample for now, so keep the request and try again shortly
             m_tokens.push_front(token);
@@ -279,14 +297,21 @@ void MediaStream::Deliver() {
             if (m_queue) m_queue->QueueEventParamVar(MEError, GUID_NULL, hr, nullptr);
             break;
         }
-        auto period = std::chrono::nanoseconds(1000000000LL / m_fps);
         auto now = clock::now();
-        next = (next + period < now) ? now : next + period;  // a late frame doesn't make the next ones rush
+        if (fresh) {
+            fresh_at = now;
+            seen = true;
+            floor = now + period * 3 / 4;
+            next = now + period * 3 / 2;  // a frame a little late (Wi-Fi jitter) is waited for, not covered with a repeat
+        } else {
+            floor = now;  // a repeat holds nothing up: the frame it stood in for goes out as soon as it lands
+            next = (next + period < now) ? now : next + period;  // a late frame doesn't make the next ones rush
+        }
     }
     if (timer) CloseHandle(timer);
 }
 
-HRESULT MediaStream::MakeSample(IUnknown* token) {
+HRESULT MediaStream::MakeSample(IUnknown* token, bool* fresh) {
     ComPtr<IMFSample> sample;
     ComPtr<IMFMediaBuffer> buffer;
     HRESULT hr = m_allocator->AllocateSample(&sample);
@@ -301,7 +326,7 @@ HRESULT MediaStream::MakeSample(IUnknown* token) {
         hr = buffer2d->Lock2DSize(MF2DBuffer_LockFlags_Write, &scan0, &pitch, &start, &length);
         if (FAILED(hr)) return hr;
         if (pitch > 0 && static_cast<DWORD>(pitch) * m_height * 3 / 2 <= length) {
-            m_channel.Fill(scan0, pitch, m_width, m_height);
+            *fresh = m_channel.Fill(scan0, pitch, m_width, m_height);
         }
         buffer2d->Unlock2D();
     } else {
@@ -309,7 +334,7 @@ HRESULT MediaStream::MakeSample(IUnknown* token) {
         DWORD max = 0;
         hr = buffer->Lock(&data, &max, nullptr);
         if (FAILED(hr)) return hr;
-        if (max >= m_width * m_height * 3 / 2) m_channel.Fill(data, m_width, m_width, m_height);
+        if (max >= m_width * m_height * 3 / 2) *fresh = m_channel.Fill(data, m_width, m_width, m_height);
         buffer->Unlock();
         buffer->SetCurrentLength(m_width * m_height * 3 / 2);
     }

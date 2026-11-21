@@ -11,7 +11,7 @@ When a release bumps the pinned version of a dependency listed here, check its e
 
 - **Bug:** the adb server sets no `TCP_NODELAY` on sockets a `forward` listener accepts (seen with strace on 37.0.0).
 - **Symptom:** on USB the end of a Light frame can wait for the desktop's delayed ACK, 40 ms. A frame then arrives 40 ms late with the next one right behind it, which reads as an 80 ms gap and a skipped frame about once a second.
-- **Workaround:** on Linux the desktop sets `TCP_QUICKACK` after each read from a loopback address. Windows has no workaround yet.
+- **Workaround:** on Linux the desktop sets `TCP_QUICKACK` after each read from a loopback address. Windows has none. A loopback test on Windows 11 with the same write pattern (a frame's body, then a short tail right behind it) showed no wait, 0.03 ms with or without `SIO_TCP_SET_ACK_FREQUENCY`. Windows seems to ack loopback at once. Not tried with a phone over USB.
 - **Code:** `ack_now` in [`rust/crates/link/src/https.rs`](../../rust/crates/link/src/https.rs)
 
 ## winit
