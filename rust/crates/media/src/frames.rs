@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use telescope_core::clock::{ClockSync, PhoneClock};
 use telescope_core::frame::{Frame, StreamFrame};
 use telescope_core::host::FrameStore;
-use telescope_core::media::{FrameSlot, PipelineFrame, StreamFrames};
+use telescope_core::media::{FrameSlot, PipelineFrame, PrivacyGate, StreamFrames};
 use telescope_core::time::monotonic_ns;
 
 /// Every frame a stream sends out gets the next number, across all streams, so a number never comes round again.
@@ -24,6 +24,8 @@ pub struct Slot {
     history: Arc<AtomicUsize>,
     /// The pipeline epoch shared by every slot of one Frames (FrameStore::pipeline_epoch): a past frame made under an older one isn't handed out.
     epoch: Arc<AtomicU64>,
+    /// The privacy count shared by every slot of one Frames.
+    privacy: PrivacyGate,
     /// What this stream's capture times were read against.
     clock: Mutex<Option<Arc<PhoneClock>>>,
     /// Until when (monotonic ns) something wants this stream's pictures in memory, renewed by every read of one (want_ram).
@@ -53,8 +55,8 @@ impl Slot {
     }
 
     /// A slot that also shares the pipeline epoch of the Frames it belongs to.
-    fn with_shared(history: Arc<AtomicUsize>, epoch: Arc<AtomicU64>) -> Arc<Slot> {
-        Arc::new(Slot { history, epoch, ..Slot::default() })
+    fn with_shared(history: Arc<AtomicUsize>, epoch: Arc<AtomicU64>, privacy: PrivacyGate) -> Arc<Slot> {
+        Arc::new(Slot { history, epoch, privacy, ..Slot::default() })
     }
 
     /// Lets go of past frames beyond what history allows now, so asking for fewer (or none) frees them without waiting for the next frame.
@@ -122,6 +124,10 @@ impl Slot {
 }
 
 impl FrameSlot for Slot {
+    fn privacy(&self) -> PrivacyGate {
+        self.privacy.clone()
+    }
+
     fn publish_picture_at(&self, frame: PipelineFrame, epoch: u64) -> u64 {
         self.put_out(frame, Some(epoch))
     }
@@ -222,6 +228,8 @@ pub struct Frames {
     slots: Mutex<Vec<Weak<Slot>>>,
     /// Goes up whenever any stream's steps are handed out again (Slot::forget_history), for all of them at once.
     epoch: Arc<AtomicU64>,
+    /// Goes up when pictures were made dark for a Blur (PrivacyGate), for all streams at once.
+    privacy: PrivacyGate,
 }
 
 impl Frames {
@@ -285,7 +293,7 @@ impl FrameStore for Frames {
 
 impl StreamFrames for Frames {
     fn new_slot(&self) -> Arc<dyn FrameSlot> {
-        let slot = Slot::with_shared(self.history.clone(), self.epoch.clone());
+        let slot = Slot::with_shared(self.history.clone(), self.epoch.clone(), self.privacy.clone());
         let mut slots = self.slots.lock().unwrap();
         slots.retain(|w| w.strong_count() > 0);
         slots.push(Arc::downgrade(&slot));
@@ -400,6 +408,16 @@ mod tests {
         assert!(slot.replace_if(frame(9), number, &latest.data));
         assert!(slot.latest_picture().unwrap().0.picture().is_none());
         assert_eq!(slot.latest().unwrap().0.data[0], 9);
+    }
+
+    #[test]
+    fn every_slot_of_one_host_counts_privacy_on_the_same_gate() {
+        let frames = Frames::default();
+        let (a, b) = (frames.new_slot(), frames.new_slot());
+        let began = b.privacy().current();
+        a.privacy().advance();
+        assert!(!b.privacy().holds(began), "a Blur on one stream is a Blur for the frames of every other");
+        assert!(Slot::new().privacy().current() == 0, "a slot of its own has a gate of its own");
     }
 
     #[test]

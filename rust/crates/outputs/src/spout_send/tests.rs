@@ -17,6 +17,24 @@ impl FrameContext for Ctx {
     }
 }
 
+/// A frame's context that says what privacy count the frame began under.
+struct Counted(String, telescope_core::media::PrivacyGate, u64);
+
+impl FrameContext for Counted {
+    fn source_id(&self) -> &str {
+        &self.0
+    }
+    fn privacy(&self) -> Option<(telescope_core::media::PrivacyGate, u64)> {
+        Some((self.1.clone(), self.2))
+    }
+    fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        None
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
 fn plugin() -> (SpoutSendPlugin, FakeHost, Arc<Log>) {
     let log = Arc::new(Log::default());
     let mut p = SpoutSendPlugin::new(Some(Arc::new(Mock(log.clone()))));
@@ -340,4 +358,20 @@ fn switching_the_plugin_off_stops_asking_for_every_cut_out() {
     p.shutdown(&mut host);
     assert_eq!(cut_out_events(&host).last(), Some(&("phone-a".to_string(), false)));
     assert!(p.told.is_empty());
+}
+
+#[test]
+fn the_step_shares_nothing_of_a_frame_that_began_before_a_blur_came_on() {
+    let (mut p, mut host, log) = plugin();
+    toggle(&mut p, &mut host, true);
+    let mut tap = step(&mut p);
+    let gate = telescope_core::media::PrivacyGate::default();
+    let began = gate.current();
+    gate.advance();
+    tap.process(&mut picture(2, 2, 5), &Counted("phone-a".into(), gate.clone(), began));
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(log.sent.lock().unwrap().is_empty() && log.opened.lock().unwrap().is_empty(), "the clear frame was shared");
+    tap.process(&mut picture(2, 2, 6), &Counted("phone-a".into(), gate.clone(), gate.current()));
+    wait_for("the picture", || !log.sent.lock().unwrap().is_empty());
+    assert_eq!(log.sent.lock().unwrap()[0][0], 6);
 }

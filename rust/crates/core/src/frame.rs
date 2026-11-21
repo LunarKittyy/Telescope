@@ -492,6 +492,11 @@ pub trait FrameContext {
     fn entry_epoch(&self) -> Option<u64> {
         None
     }
+    /// The privacy count (PrivacyGate) when the steps began on this frame, with the gate it is counted on; None where the host doesn't say. A step that hands the frame on to
+    /// somewhere it can be seen before the stream publishes it (a sender thread) drops it once the gate has moved on.
+    fn privacy(&self) -> Option<(crate::media::PrivacyGate, u64)> {
+        None
+    }
     /// Whether the stream is being stopped, so a step that would wait on something slow (the graphics card) gives up and the frame is dropped. False where the host doesn't say.
     fn stopped(&self) -> bool {
         false
