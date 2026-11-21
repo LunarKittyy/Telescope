@@ -367,3 +367,34 @@ fn installing_a_zip_from_inside_the_pack_folder_leaves_the_zip_alone() {
     assert!(f.info.installed(&f.folder));
     assert_eq!(names(&f.folder), [f.tree[..16].to_string(), "Telescope-vision-linux-0123456789abcdef.zip".to_string()]);
 }
+
+/// What the Python writers in tools/build_vision_pack.py made of these files: testdata/lzma.zip with write_zip now, testdata/deflate.zip as it was
+/// before packs went to LZMA (the ones on older releases), so both stay readable.
+fn python_made_files() -> Vec<(&'static str, Vec<u8>)> {
+    vec![("site/mediapipe/__init__.py", Vec::new()), ("models/a.task", b"model line\n".repeat(300)), ("NOTICES.txt", b"licences\n".repeat(100))]
+}
+
+fn installs_from_python_zip(bytes: &[u8], method: zip::CompressionMethod) {
+    let files = python_made_files();
+    let borrowed: Vec<(&str, &[u8])> = files.iter().map(|(n, d)| (*n, d.as_slice())).collect();
+    let tmp = scratch_dir("vision-pack-python");
+    let tree = tree_of(&borrowed, &tmp);
+    let archive = tmp.join("pack.zip");
+    std::fs::write(&archive, bytes).unwrap();
+    assert_eq!(zip::ZipArchive::new(std::fs::File::open(&archive).unwrap()).unwrap().by_index_raw(0).unwrap().compression(), method);
+    let info = PackInfo::from_json(&serde_json::json!({"linux": {"id": tree, "size": bytes.len(), "files": 3}}), Some("linux"));
+    let dir = tmp.join("vision");
+    let last = install_zip(&info, &dir, &archive).unwrap();
+    assert!(info.installed(&dir));
+    assert_eq!(std::fs::read(last.join("models/a.task")).unwrap(), b"model line\n".repeat(300));
+}
+
+#[test]
+fn a_pack_zipped_with_lzma_installs() {
+    installs_from_python_zip(include_bytes!("../testdata/lzma.zip"), zip::CompressionMethod::Lzma);
+}
+
+#[test]
+fn a_pack_zipped_with_deflate_from_an_older_release_still_installs() {
+    installs_from_python_zip(include_bytes!("../testdata/deflate.zip"), zip::CompressionMethod::Deflated);
+}
