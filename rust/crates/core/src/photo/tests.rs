@@ -1056,3 +1056,42 @@ fn a_heic_with_boxes_too_short_for_what_they_hold_is_refused() {
         let _ = heif::is_heif(&cut);
     }
 }
+
+/// EXIF data with a thumbnail that fills almost all of the 64 KiB a segment can hold, and no orientation tag
+fn exif_with_big_thumbnail(le: bool) -> Vec<u8> {
+    let s = |n: u16| if le { n.to_le_bytes() } else { n.to_be_bytes() };
+    let l = |n: u32| if le { n.to_le_bytes() } else { n.to_be_bytes() };
+    let entry = |tag: u16, kind: u16, count: u32, value: u32| [s(tag).as_slice(), &s(kind), &l(count), &l(value)].concat();
+    let mut t = if le { b"II\x2a\0".to_vec() } else { b"MM\0\x2a".to_vec() };
+    t.extend(l(8));
+    t.extend(s(1));
+    t.extend(entry(0x010f, 2, 10, 26));
+    t.extend(l(36));
+    t.extend(b"Telescope\0");
+    t.extend(s(2));
+    t.extend(entry(0x0201, 4, 1, 36 + 30));
+    t.extend(entry(0x0202, 4, 1, 65_440));
+    t.extend(l(0));
+    assert_eq!(t.len(), 36 + 30);
+    let mut thumbnail = vec![0xff, 0xd8, 0xff];
+    thumbnail.resize(65_440, 7);
+    t.extend(thumbnail);
+    t
+}
+
+#[test]
+fn a_nearly_full_exif_segment_gives_up_its_thumbnail_to_make_room_for_the_tag() {
+    for le in [true, false] {
+        let exif = app1(&exif_with_big_thumbnail(le));
+        let (file, gain_map) = ultra_hdr(le, Some(exif), false);
+        let output = apply_bytes(&file, &PhotoTransform { rotation: 90, ..PhotoTransform::default() }).unwrap();
+        assert_eq!(probe(&output).unwrap().exif_orientation, Some(6));
+        assert!(output.ends_with(&gain_map));
+        let (tiff, list) = picture_list(&output);
+        assert_eq!(tiff + list[1].1 as usize, output.len() - gain_map.len());
+        let tiff = first_exif_tiff(&output);
+        assert!(tiff.len() < 1000, "the thumbnail's bytes are gone");
+        let entries = ifd_entries(&tiff, the_first_ifd(&tiff));
+        assert!(entries.iter().any(|e| e.0 == 0x010f && e.3 == b"Telescope\0"), "the camera's own tags stay");
+    }
+}
