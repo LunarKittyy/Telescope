@@ -138,3 +138,12 @@ fn unavailable_shot_overrides_are_kept_for_validation() {
     assert_eq!(options["shot"], json!({"shutter_s": 10.0, "iso": 800}));
     assert!(telescope_core::shot::apply_to_dslr(options.as_object_mut().unwrap(), &json!({})).is_err());
 }
+
+#[test]
+fn the_shared_picker_clears_an_override_the_camera_cannot_set() {
+    let mut choice = ShotChoice { shutter_s: Some(10.0), iso: Some(800), focus_diopters: None };
+    assert!(pick_shot(&mut choice, &StillCaps::default(), true, 0, false));
+    assert!(pick_shot(&mut choice, &StillCaps::default(), false, 0, false));
+    assert_eq!(choice, ShotChoice::default());
+    assert!(!pick_shot(&mut choice, &StillCaps::default(), false, 0, false));
+}

@@ -297,6 +297,11 @@ pub fn shot_iso_stops(caps: &ShotCaps) -> Vec<i64> {
 pub fn shot_shutter_labels(stops: &[f64], value: Option<f64>) -> (Vec<String>, usize) {
     let mut labels = vec![tr("Camera")];
     labels.extend(stops.iter().map(|s| exposure_text(*s)));
+    // An override the camera has no stops for stays visible, so Camera is a pick away from it
+    if let (true, Some(v)) = (stops.is_empty(), value) {
+        labels.push(exposure_text(v));
+        return (labels, 1);
+    }
     let index = value.and_then(|v| stops.iter().enumerate()
         .min_by(|(_, a), (_, b)| (**a - v).abs().total_cmp(&(**b - v).abs())).map(|(i, _)| i + 1)).unwrap_or(0);
     (labels, index)
@@ -305,6 +310,10 @@ pub fn shot_shutter_labels(stops: &[f64], value: Option<f64>) -> (Vec<String>, u
 pub fn shot_iso_labels(stops: &[i64], value: Option<i64>) -> (Vec<String>, usize) {
     let mut labels = vec![tr("Camera")];
     labels.extend(stops.iter().map(ToString::to_string));
+    if let (true, Some(v)) = (stops.is_empty(), value) {
+        labels.push(v.to_string());
+        return (labels, 1);
+    }
     let index = value.and_then(|v| stops.iter().enumerate().min_by_key(|(_, n)| (**n).abs_diff(v)).map(|(i, _)| i + 1)).unwrap_or(0);
     (labels, index)
 }
@@ -340,16 +349,21 @@ pub fn shot_control_props(caps: Option<&StillCaps>, choice: &ShotChoice, shutter
 
 pub fn pick_shot(choice: &mut ShotChoice, caps: &StillCaps, shutter: bool, index: usize, suppressed: bool) -> bool {
     if suppressed { return false; }
-    let Some(caps) = &caps.shot else { return false };
     let before = choice.clone();
+    // Camera always clears the override, whatever the camera says it can set
+    if index == 0 {
+        if shutter { choice.shutter_s = None } else { choice.iso = None }
+        return *choice != before;
+    }
+    let Some(caps) = &caps.shot else { return false };
     if shutter {
         let stops = shot_shutter_stops(caps);
-        if stops.is_empty() || index > stops.len() { return false; }
-        choice.shutter_s = index.checked_sub(1).map(|i| stops[i]);
+        if index > stops.len() { return false; }
+        choice.shutter_s = Some(stops[index - 1]);
     } else {
         let stops = shot_iso_stops(caps);
-        if stops.is_empty() || index > stops.len() { return false; }
-        choice.iso = index.checked_sub(1).map(|i| stops[i]);
+        if index > stops.len() { return false; }
+        choice.iso = Some(stops[index - 1]);
     }
     *choice != before
 }
