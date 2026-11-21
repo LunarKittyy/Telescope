@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use telescope_core::bus::BusSender;
 use telescope_core::event::Event;
-use telescope_core::frame::Frame;
+use telescope_core::frame::{Frame, MaskSpace};
 use telescope_core::image::{frame_rgb, small_rgb};
 use telescope_core::people::PeopleTracking;
 use telescope_core::vision::{turned, PackZip, Turn, Upright, VisionPack, VisionService};
@@ -260,13 +260,13 @@ impl VisionHost {
 impl VisionHost {
     fn mask_normal(&self, source_id: &str, frame: &Frame, (w, h): (usize, usize), epoch: u64, keep_late: bool) -> Option<Arc<Vec<u8>>> {
         let shared = frame.clone();
-        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: frame.mask_space };
+        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: MaskSpace { crop_unsure: false, ..frame.mask_space }, unsure: frame.mask_space.crop_unsure };
         self.shared.vision.newest_normal_for(source_id, !keep_late, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)
     }
 
     fn mask_hq(&self, source_id: &str, frame: &Frame, size: (usize, usize), epoch: u64, keep_late: bool) -> Option<Arc<Vec<u8>>> {
         let (w, h) = size;
-        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: frame.mask_space };
+        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: MaskSpace { crop_unsure: false, ..frame.mask_space }, unsure: frame.mask_space.crop_unsure };
         let shared = frame.clone();
         let hq = self.shared.vision.newest_cutout_snapshot(source_id, frame.number, w, h, Box::new(move || rgb(&shared)), epoch, view);
         let normal = |frame: &Frame| {
@@ -284,13 +284,25 @@ impl VisionHost {
             }
             due
         };
-        let normal = (due || hq.as_ref().is_none_or(|m| !m.fresh())).then(|| normal(frame)).flatten();
-        preferred_mask(hq, normal).map(|m| m.mask)
+        // The normal mask is asked for as soon as the cutout falls behind, so it has something newer to give
+        let behind = hq_may_be_behind(view.unsure);
+        let normal = (due || hq.as_ref().is_none_or(|m| m.age() > behind)).then(|| normal(frame)).flatten();
+        preferred_mask(hq, normal, view.unsure).map(|m| m.mask)
     }
 }
 
-fn preferred_mask(hq: Option<MaskSnapshot>, normal: Option<MaskSnapshot>) -> Option<MaskSnapshot> {
-    if hq.as_ref().is_some_and(MaskSnapshot::fresh) {
+/// How far behind the normal mask the cutout's can be and still stand in for it: the cutout cuts cleaner, so a frame or so doesn't matter. Not at all
+/// while the crop label is a guess, since a held mask is moved by that guess and an older one is moved further by it.
+fn hq_may_be_behind(unsure: bool) -> f64 {
+    if unsure { 0.0 } else { service::HQ_BEHIND_S }
+}
+
+/// The mask a frame uses out of the cutout's and the normal model's newest: by how recent each is, not by which model made it. The cutout while it
+/// is within the age limit and no more than hq_may_be_behind behind a normal mask that is too; else the normal one while it is within the limit; else whichever was made last.
+fn preferred_mask(hq: Option<MaskSnapshot>, normal: Option<MaskSnapshot>, unsure: bool) -> Option<MaskSnapshot> {
+    let behind = hq_may_be_behind(unsure);
+    let normal_leads = |hq: &MaskSnapshot| normal.as_ref().is_some_and(|n| n.fresh() && n.at - hq.at > behind);
+    if hq.as_ref().is_some_and(|h| h.fresh() && !normal_leads(h)) {
         return hq;
     }
     if normal.as_ref().is_some_and(MaskSnapshot::fresh) {

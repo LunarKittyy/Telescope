@@ -1087,7 +1087,7 @@ fn background_keeps_an_inflight_mask_that_finishes_after_a_view_turn() {
 fn background_rejects_masks_from_another_lens_aspect_or_warp() {
     let (v, _) = finder(Duration::from_millis(1));
     let old = MaskView { geometry: Some(Geometry::default()), keep_late: true,
-        space: MaskSpace { source_size: (256, 144), source_epoch: 1, warp: None } };
+        space: MaskSpace { source_size: (256, 144), source_epoch: 1, warp: None, crop_unsure: false }, unsure: false };
     v.newest_normal_for("a", true, 1, 256, 144, Box::new(|| Some(someone_at(20))), v.view_epoch(), old).unwrap();
     for space in [MaskSpace { source_epoch: 2, ..old.space }, MaskSpace { source_size: (256, 192), ..old.space },
                   MaskSpace { warp: Some(42), ..old.space }] {

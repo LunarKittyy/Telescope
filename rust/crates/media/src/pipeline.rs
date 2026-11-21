@@ -1559,7 +1559,7 @@ pub(crate) mod tests {
         source.set_alpha(Arc::new(Alpha::new(17, 9, vec![128; 17 * 9], false)));
         source.number = 42;
         source.capture_ns = Some(1234);
-        source.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4) };
+        source.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4), crop_unsure: false };
         let mut eager = card_pipeline(gpu);
         let mut keep = shader(INVERT);
         if let FrameStep::Shader(ref mut shader) = keep.step {
@@ -2742,7 +2742,7 @@ pub(crate) mod tests {
         pipeline.set_steps(vec![StagedStep { owner: "filter".into(), stage: FrameStage::Effects, step: FrameStep::Cpu(Box::new(Rebuild)) }]);
         let mut frame = grey(8, 8, 100);
         frame.geometry = Some(Box::new(telescope_core::view::Geometry { zoom: 2.0, pan_x: 0.5, ..Default::default() }));
-        frame.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4) };
+        frame.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4), crop_unsure: false };
         let out = pipeline.process(frame.clone(), &NoContext);
         assert_eq!(out.geometry, frame.geometry);
         assert_eq!(out.mask_space, frame.mask_space);

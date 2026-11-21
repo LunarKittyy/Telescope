@@ -1092,6 +1092,7 @@ impl Shared {
             source_size: (frame.width, frame.height),
             source_epoch: self.gate.as_ref().map_or(0, |gate| gate.source_epoch(&self.source_id)),
             warp: None,
+            crop_unsure: false,
         };
         let mut frame = match (rw, rh) {
             (None, None) => frame,
@@ -1101,9 +1102,11 @@ impl Shared {
         // Its number before the steps see it: what a person mask is worked out once by (slot.publish numbers what goes out)
         frame.number = seq;
         if let Some(gate) = &self.gate {
-            if let Some((view, source_crop)) = gate.for_frame_snapshot(&self.source_id, &frame, crate::shell::now_s(), replaced) {
+            let (snapshot, unsure) = gate.for_frame_labelled(&self.source_id, &frame, crate::shell::now_s(), replaced);
+            if let Some((view, source_crop)) = snapshot {
                 pipeline.replace_steps("view", telescope_core::frame::FrameStage::View, telescope_core::view_step::steps_in(&view, source_crop));
             }
+            frame.mask_space.crop_unsure = unsure;
         }
         if let Some(feed) = &self.vision {
             let size = (frame.width, frame.height);
