@@ -141,4 +141,22 @@ class StartWindowTest {
         assertTrue(window.aborted(b))
         assertFalse(window.open())
     }
+
+    @Test
+    fun `abort runs onAbort immediately for cancelled starts and releases unadopted ownership`() {
+        val lock = CameraOwnerLock(clock = { now }, pendingMs = StartWindow.PENDING_MS)
+        val leaseA = lock.tryAcquire(CameraOwner.STREAM, adopted = false)!!
+        window.begin("a") { lock.releaseIfUnadopted(leaseA.id) }
+        val leaseB = lock.tryAcquire(CameraOwner.STREAM, adopted = false)!!
+        window.begin("b") { lock.releaseIfUnadopted(leaseB.id) }
+
+        // Stopping b releases b's lease immediately without disturbing a's queued start.
+        assertTrue(window.abort("b"))
+        assertTrue(lock.isHeldBy(CameraOwner.STREAM))
+
+        // Stopping a releases the last pending lease at once without waiting for PENDING_MS.
+        assertTrue(window.abort("a"))
+        assertFalse(lock.isHeld())
+        assertFalse(window.open())
+    }
 }

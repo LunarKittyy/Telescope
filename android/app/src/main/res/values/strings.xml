@@ -170,6 +170,46 @@
     <string name="about_title">About</string>
     <string name="copy_diagnostics">Copy diagnostics</string>
     <string name="diagnostics_copied">Diagnostics copied to clipboard</string>
+    <string name="camera_probe">Camera probe</string>
+    <string name="camera_probe_tooltip">Run the Camera2 probe on all lenses</string>
+    <string name="camera_probe_revealed">Camera probe unlocked under Diagnostics</string>
+    <string name="camera_probe_title">Camera probe</string>
+    <string name="probe_back_tooltip">Return to Settings</string>
+    <string name="probe_guidance">Tests Camera2 exposure, burst and session limits on every lens, main lens first. Takes about 10 to 15 minutes. Put the phone on a stand and keep the screen on until it finishes.</string>
+    <string name="probe_start">Start probe</string>
+    <string name="probe_start_tooltip">Start the Camera2 probe</string>
+    <string name="probe_cancel_tooltip">Stop the probe and keep results collected so far</string>
+    <string name="probe_copy_report">Copy report</string>
+    <string name="probe_copy_report_tooltip">Copy the probe report to the clipboard</string>
+    <string name="probe_report_copied">Probe report copied to clipboard</string>
+    <string name="probe_report_title">Probe report</string>
+    <string name="probe_status_ready">Ready to run</string>
+    <string name="probe_status_cached">Previous probe report ready to copy</string>
+    <string name="probe_status_starting">Starting probe…</string>
+    <!-- %1$d is the current lens number, %2$d is the total number of lenses -->
+    <string name="probe_status_running">Probing lens %1$d of %2$d</string>
+    <string name="probe_status_cancelling">Stopping probe and saving partial results…</string>
+    <!-- %1$d is the number of completed lenses, %2$d is the total number of lenses -->
+    <string name="probe_status_finished">Finished (%1$d of %2$d lenses)</string>
+    <!-- %1$d is the number of completed lenses, %2$d is the total number of lenses -->
+    <string name="probe_status_cancelled">Cancelled (%1$d of %2$d lenses completed)</string>
+    <!-- %1$d is the number of completed lenses, %2$d is the total number of lenses -->
+    <string name="probe_status_interrupted">Interrupted (%1$d of %2$d lenses completed)</string>
+    <!-- %1$d is the number of completed lenses, %2$d is the total number of lenses -->
+    <string name="probe_status_thermal_stop">Stopped because the phone got too hot (%1$d of %2$d lenses completed)</string>
+    <!-- %1$d is the number of completed lenses, %2$d is the total number of lenses -->
+    <string name="probe_status_failed">Probe failed (%1$d of %2$d lenses completed)</string>
+    <string name="probe_error_stream_running">Stop the stream first.</string>
+    <string name="probe_error_too_hot">The phone is too hot. Let it cool down and try again.</string>
+    <string name="probe_error_no_permission">Camera permission required.</string>
+    <!-- %1$s is the lens label, %2$s is the current step, %3$s is elapsed time such as 1m 20s -->
+    <string name="probe_step_detail">%1$s: %2$s (%3$s)</string>
+    <string name="probe_cache_saved">Saved to app cache. Tap Copy report to copy it to the clipboard.</string>
+    <string name="probe_cache_failed">Could not save the cache file. Copy the report from here before closing.</string>
+    <string name="probe_leave_title">Stop the camera probe?</string>
+    <string name="probe_leave_message">Results collected so far will be saved to the report.</string>
+    <string name="probe_keep_running">Keep running</string>
+    <string name="probe_stop_and_leave">Stop and leave</string>
     <string name="report_bug">Report a bug</string>
     <string name="troubleshooting">Troubleshooting</string>
     <string name="nightly_updates">Nightly updates</string>

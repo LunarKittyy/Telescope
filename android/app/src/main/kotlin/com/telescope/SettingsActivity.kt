@@ -9,11 +9,13 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.text.method.LinkMovementMethod
 import android.view.View
 import android.widget.CompoundButton
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.widget.TooltipCompat
 import androidx.core.text.HtmlCompat
 import com.google.android.material.button.MaterialButton
 
@@ -23,8 +25,13 @@ class SettingsActivity : LookActivity() {
     private lateinit var tvAppVersion: TextView
     private lateinit var btnCheckUpdates: MaterialButton
     private lateinit var tvUpdateStatus: TextView
+    private lateinit var btnCameraProbe: View
     // An update waiting for "Allow from this source" to be switched on
     private var pendingUpdate: UpdateManifest? = null
+    // Developer Camera2 probe button visibility, kept in memory only and revealed by version taps
+    private var probeRevealed = false
+    private var versionTapCount = 0
+    private var lastVersionTapMs = 0L
 
     private val updateListener: () -> Unit = { runOnUiThread { renderVersion() } }
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -60,6 +67,12 @@ class SettingsActivity : LookActivity() {
         }
 
         findViewById<View>(R.id.btnCopyDiagnostics).setOnClickListener { copyDiagnostics() }
+        btnCameraProbe = findViewById(R.id.btnCameraProbe)
+        TooltipCompat.setTooltipText(btnCameraProbe, getString(R.string.camera_probe_tooltip))
+        btnCameraProbe.setOnClickListener { startActivity(Intent(this, CameraProbeActivity::class.java)) }
+        probeRevealed = savedInstanceState?.getBoolean(STATE_PROBE_REVEALED, false) == true
+        if (probeRevealed) btnCameraProbe.visibility = View.VISIBLE
+        tvAppVersion.setOnClickListener { onVersionTapped() }
         findViewById<View>(R.id.btnReportBug).setOnClickListener { reportBug() }
         findViewById<View>(R.id.btnHelp).setOnClickListener { openUrl(HELP_URL) }
         findViewById<TextView>(R.id.tvMadeBy).apply {
@@ -198,7 +211,29 @@ class SettingsActivity : LookActivity() {
             .onFailure { Toast.makeText(this, getString(R.string.no_browser, url), Toast.LENGTH_LONG).show() }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_PROBE_REVEALED, probeRevealed)
+    }
+
+    // Reveals the developer Camera2 probe action beside Copy diagnostics after five version taps without saving a preference.
+    private fun onVersionTapped() {
+        if (probeRevealed) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastVersionTapMs > VERSION_TAP_WINDOW_MS) versionTapCount = 0
+        lastVersionTapMs = now
+        versionTapCount++
+        if (versionTapCount >= VERSION_TAPS_TO_REVEAL) {
+            probeRevealed = true
+            btnCameraProbe.visibility = View.VISIBLE
+            Toast.makeText(this, R.string.camera_probe_revealed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     companion object {
+        private const val STATE_PROBE_REVEALED = "probe_revealed"
+        private const val VERSION_TAPS_TO_REVEAL = 5
+        private const val VERSION_TAP_WINDOW_MS = 3_000L
         private const val AUTHOR_URL = "https://github.com/LunarKittyy"
         private const val HELP_URL = "https://github.com/${UpdateLogic.REPO}/blob/master/docs/troubleshooting.md"
         private const val BUG_REPORT_URL = "https://github.com/${UpdateLogic.REPO}/issues/new?template=bug.yml"
