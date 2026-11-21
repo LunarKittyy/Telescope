@@ -107,6 +107,11 @@ internal class PendingOpenTracker {
         ready.forEach { it() }
     }
 
+    // Runs release (closing a stale device) before resolving, so waiters like the camera lease see the device already closed.
+    fun resolveAfter(token: Int, release: () -> Unit) {
+        try { release() } finally { resolve(token) }
+    }
+
     fun whenSettled(onSettled: () -> Unit) {
         if (pending.isEmpty()) onSettled() else waiters.add(onSettled)
     }
@@ -779,11 +784,11 @@ private class AndroidCameraProbeBackend(
             @Suppress("MissingPermission")
             manager.openCamera(ctx.openId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
-                    openTracker.resolve(openToken)
                     if (myGen != stepGeneration || finished) {
-                        runCatching { camera.close() }
+                        openTracker.resolveAfter(openToken) { runCatching { camera.close() } }
                         return
                     }
+                    openTracker.resolve(openToken)
                     cancelActiveTimeout()
                     activeDevice = camera
                     ctx.device = camera

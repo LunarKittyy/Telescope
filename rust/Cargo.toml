@@ -66,7 +66,8 @@ rqrr = { version = "0.11", default-features = false }
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "accessibility"] }
 # Plugins people add: Lua 5.4 built from source, .zip packages, update checks over HTTPS, WGSL checks without a GPU
 mlua = { version = "0.12", features = ["lua54", "vendored", "send", "serialize"] }
-zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# lzma: the vision and matting packs are LZMA zips (tools/build_vision_pack.py), and older packs are deflate, so both are read
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs", "lzma"] }
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 # Unpacking the Linux update's .tar.gz, on the same zlib as zip
 tar = { version = "0.4", default-features = false }

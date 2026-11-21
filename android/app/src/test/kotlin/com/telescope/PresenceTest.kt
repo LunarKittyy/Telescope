@@ -209,9 +209,10 @@ class PresenceTest {
     }
 
     @Test
-    fun `version banner distinguishes no authenticated contact from legacy desktop`() {
+    fun `version banner stays hidden without contact or without a known version`() {
         assertNull(desktopVersionNotice(null, "5.1.4"))
-        assertEquals(DesktopVersionNotice.Legacy, desktopVersionNotice("", "5.1.4"))
+        assertNull(desktopVersionNotice("", "5.1.4"))
+        assertNull(desktopVersionNotice("  ", "5.1.4"))
         assertNull(desktopVersionNotice("5.1.4", "5.1.4"))
         assertEquals(DesktopVersionNotice.Different, desktopVersionNotice("5.1.3", "5.1.4"))
         assertEquals(DesktopVersionNotice.Different, desktopVersionNotice("5.1.4 nightly 5", "5.1.4"))

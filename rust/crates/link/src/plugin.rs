@@ -10,7 +10,7 @@ use crate::connection::{self, fix_actions, outdated_action, problem_text, route_
                         Check, Connection, Fix, ProbeOutcome, RouteChange, UsbWatch, UseRoute, PAIR_USB_POLL,
                         STATUS_POLL, USB_WATCH};
 use crate::phones::is_usb;
-use crate::shared::{Shared, StartProblem, POST_CHANGED, POST_START_PROBLEM};
+use crate::shared::{Shared, StartProblem, POST_CHANGED, POST_PRESENCE, POST_START_PROBLEM};
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -33,7 +33,6 @@ const OFFER_AGAIN_S: f64 = 4.0;
 
 // Timer tokens
 const T_POLL: &str = "poll";
-const T_PRESENCE: &str = "presence";
 const T_USB_WATCH: &str = "usb_watch";
 const T_PAIR_POLL: &str = "pair_poll";
 const T_PAIR_USB: &str = "pair_usb";
@@ -1086,6 +1085,7 @@ impl ConnectionPlugin {
                 self.render_add(host, true);
             }
             P_VCAM => self.on_vcam(host, data),
+            POST_PRESENCE => self.presence_tick(host),
             P_UPDATED => {
                 self.updating_phone = false;
                 self.update_note = Some(if data["ok"].as_bool() == Some(true) {
@@ -1127,10 +1127,6 @@ impl ConnectionPlugin {
                     let check = self.conn().poll_status(now);
                     self.run_check(check);
                 }
-            }
-            T_PRESENCE => {
-                host.schedule(250, T_PRESENCE);
-                self.presence_tick(host);
             }
             T_USB_WATCH => self.watch_usb(host),
             T_PAIR_POLL => self.poll_pairing(host),
@@ -1344,7 +1340,8 @@ impl Plugin for ConnectionPlugin {
         self.adb_available = self.link.adb_available();
         self.apk_bundled = self.link.bundled_apk().is_some();
         host.schedule(STATUS_POLL.as_millis() as u64, T_POLL);
-        host.schedule(250, T_PRESENCE);
+        let shared = self.shared.clone();
+        self.link.presence_wake(Some(Arc::new(move || shared.wake_presence())));
         self.sync_presence();
         self.link.presence_hint();
         self.catch_up(host);
@@ -1363,6 +1360,7 @@ impl Plugin for ConnectionPlugin {
     fn shutdown(&mut self, _host: &mut dyn Host) {
         self.add = None;
         self.shared.set_poster(None);
+        self.link.presence_wake(None);
         self.link.shutdown();
     }
 
@@ -3255,7 +3253,7 @@ mod tests {
         assert!(e.link.checks.lock().unwrap().is_empty());
         e.link.answer(ready(wifi()));
         e.link.presence_updates.lock().unwrap().push(telescope_core::link::PresenceUpdate::Probe { phone_id: "id-a".into() });
-        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        e.plugin.on_posted(&mut e.host, POST_PRESENCE, &serde_json::Value::Null);
         e.settle_until(|e| e.shared.conn().resolution.as_ref().is_some_and(|r| r.status == PhoneStatus::Ready));
         assert_eq!(*e.link.checks.lock().unwrap(), ["id-a"]);
         *e.link.presence_generation.lock().unwrap() = None;
@@ -3273,12 +3271,12 @@ mod tests {
             telescope_core::link::PresenceUpdate::Reachable { phone_id: "id-b".into(), address: "10.0.0.6".into(), addresses: vec![] },
             telescope_core::link::PresenceUpdate::Degraded("bind failed".into()),
         ]);
-        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        e.plugin.on_posted(&mut e.host, POST_PRESENCE, &serde_json::Value::Null);
         e.settle();
         assert!(e.link.checks.lock().unwrap().is_empty());
         assert_eq!(e.issue("presence").unwrap().details, "bind failed");
         e.link.presence_updates.lock().unwrap().push(telescope_core::link::PresenceUpdate::Restored);
-        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        e.plugin.on_posted(&mut e.host, POST_PRESENCE, &serde_json::Value::Null);
         assert!(e.issue("presence").is_none());
     }
 

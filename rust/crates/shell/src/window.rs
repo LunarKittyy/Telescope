@@ -313,6 +313,11 @@ export component PreviewPopout inherits Window {
 /// The picture a window's title bar and the taskbar show (create_app_icon): the installer's icon, as pixels, since a window
 /// icon has to be one and an SVG isn't.
 pub(crate) fn app_icon() -> Option<slint::Image> {
+    thread_local! { static ICON: Option<slint::Image> = decode_app_icon(); }
+    ICON.with(|icon| icon.clone())
+}
+
+fn decode_app_icon() -> Option<slint::Image> {
     let mut reader = png::Decoder::new(std::io::Cursor::new(include_bytes!("../ui/telescope.png").as_slice())).read_info().ok()?;
     let (width, height) = (reader.info().width, reader.info().height);
     let mut rgba = vec![0; reader.output_buffer_size()?];
@@ -1073,10 +1078,16 @@ impl Window {
         self.set_popout_open(popout_seen);
         let popout_visible = self.popout.borrow().as_ref().is_some_and(|p| p.window().is_visible());
         let plugin_visible = self.plugin_windows.borrow().iter().any(|(_, _, ui)| ui.window().is_visible());
-        let interval = crate::preview::housekeeping_interval(self.ui.window().is_visible(), popout_visible, plugin_visible);
+        let interval = crate::preview::housekeeping_interval(window_seen(self.ui.window()), popout_visible, plugin_visible);
         if self.preview_timer.interval() != interval {
             self.preview_timer.set_interval(interval);
         }
+    }
+
+    /// A window event says the main window may have been minimised or restored: looks now, not on the next slow tick.
+    pub(crate) fn visibility_changed(self: &Rc<Self>) {
+        self.sync_preview_visibility();
+        self.watch_focus();
     }
 
     pub(crate) fn housekeeping(self: &Rc<Self>) {

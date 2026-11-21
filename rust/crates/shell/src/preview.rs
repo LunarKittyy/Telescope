@@ -540,8 +540,10 @@ pub fn window_seen(visible: bool, minimized: bool) -> bool {
     visible && !minimized
 }
 
-pub(crate) fn housekeeping_interval(visible: bool, popout_visible: bool, plugin_visible: bool) -> std::time::Duration {
-    if visible || popout_visible || plugin_visible {
+/// How often the window's timer looks around: a window nobody can see (hidden or minimised) only needs it now and then, since the
+/// window's own events (input::watch) bring it back to the fast tick as soon as it's restored.
+pub(crate) fn housekeeping_interval(window_seen: bool, popout_visible: bool, plugin_visible: bool) -> std::time::Duration {
+    if window_seen || popout_visible || plugin_visible {
         std::time::Duration::from_millis(100)
     } else {
         std::time::Duration::from_secs(1)
@@ -647,11 +649,12 @@ mod tests {
 
     #[test]
     fn housekeeping_slows_only_when_every_window_is_hidden() {
-        for (state, visible) in [("hidden", false), ("visible", true), ("minimised", true)] {
+        for (state, visible, minimized) in [("hidden", false, false), ("visible", true, false), ("minimised", true, true)] {
+            let seen = window_seen(visible, minimized);
             for popout in [false, true] {
                 for plugin in [false, true] {
-                    let expected = if state == "hidden" && !popout && !plugin { 1000 } else { 100 };
-                    assert_eq!(housekeeping_interval(visible, popout, plugin), std::time::Duration::from_millis(expected), "{state}, popout={popout}, plugin={plugin}");
+                    let expected = if state != "visible" && !popout && !plugin { 1000 } else { 100 };
+                    assert_eq!(housekeeping_interval(seen, popout, plugin), std::time::Duration::from_millis(expected), "{state}, popout={popout}, plugin={plugin}");
                 }
             }
         }

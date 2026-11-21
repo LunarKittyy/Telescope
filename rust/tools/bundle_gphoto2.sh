@@ -2,11 +2,18 @@
 # Copies libgphoto2 into the Linux package so DSLRs work without installing anything: DEST/lib/gphoto2 gets libgphoto2, libgphoto2_port,
 # the ptp2 camera driver (Nikon, Canon and Sony DSLRs all speak PTP), the usb1 port driver and whatever else they link to that a desktop may lack.
 # The program loads it at run time and falls back to the system's (webcam_capture/gp.rs).
-# Usage: bundle_gphoto2.sh DEST
+# Usage: bundle_gphoto2.sh DEST [LIBXML2_LIB]
+# LIBXML2_LIB is a folder with a libxml2.so.2 (build_libxml2.sh) to bundle in place of the system's, which links ICU and would bring its 30 MB along.
 # Reads the build machine's own copies, so it needs libgphoto2 and its camera drivers installed there (Ubuntu: libgphoto2-6, libgphoto2-port12).
 set -euo pipefail
 
 dest=${1:?the package folder}/lib/gphoto2
+xml2=${2:-}
+if [ -n "$xml2" ]; then
+    [ -f "$xml2/libxml2.so.2" ] || { echo "$xml2/libxml2.so.2 not found" >&2; exit 1; }
+    # So that ldd below finds this one first, and what it links to (no ICU) is all that gets copied
+    export LD_LIBRARY_PATH=$(realpath "$xml2")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+fi
 cache=$(ldconfig -p)
 # The first x86-64 entry (not exiting early: that would break the pipe of ldconfig)
 find_lib() {
@@ -37,4 +44,9 @@ done
 for lib in libgphoto2.so.6 libgphoto2_port.so.12; do
     [ -e "$dest/$lib" ] || cp -L "$(find_lib "$lib")" "$dest/$lib"
 done
+# What libxml2 would have needed ICU for isn't used here, and a copy slipping back in is 30 MB
+if ls "$dest" | grep -q '^libicu'; then
+    echo "ICU is in the bundle: $(ls "$dest" | grep '^libicu' | tr '\n' ' ')(pass the folder build_libxml2.sh wrote)" >&2
+    exit 1
+fi
 echo "libgphoto2 is in $dest: $(ls "$dest" | tr '\n' ' ')"

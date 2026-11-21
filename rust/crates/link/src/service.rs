@@ -205,6 +205,8 @@ impl Link for LinkService {
 
     fn presence_hint(&self) { self.presence.hint(); }
 
+    fn presence_wake(&self, wake: Option<Arc<dyn Fn() + Send + Sync>>) { self.presence.set_wake(wake); }
+
     fn presence_updates(&self) -> Vec<PresenceUpdate> {
         self.apply_presence_events(self.presence.take_events())
     }

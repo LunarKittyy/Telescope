@@ -50,6 +50,8 @@ New-Item -ItemType Directory -Force $adb | Out-Null
 Set-Content "$adb\adb.exe" "x"
 New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Telescope\vision\pack\mediapipe" | Out-Null  # the vision download
 Set-Content "$env:LOCALAPPDATA\Telescope\vision\pack\.verified" "x"
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Telescope\matting\pack" | Out-Null  # the matting download
+Set-Content "$env:LOCALAPPDATA\Telescope\matting\pack\.verified" "x"
 Set-ItemProperty $runKey -Name "Telescope" -Value "`"$app\TelescopeDesktop.exe`" --minimized"
 # A camera registered from the app's own folder, the way Telescope 3.1.1 and older did, and one that isn't ours
 $ucKey = "HKLM:\SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70099}"
@@ -69,7 +71,7 @@ if (Test-Path $app) {
     $problems += "after uninstall, the folder is still there with: $($left -join ', ')"
 }
 if (Test-Path $menu) { $problems += "after uninstall, the Start menu entry is still there" }
-if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "after uninstall, the downloaded adb or vision files are still there" }
+if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "after uninstall, the downloaded adb, vision or matting files are still there" }
 if (Test-Path "$env:TEMP\Telescope") { $problems += "after uninstall, the log folder is still there" }
 # The runner is admin, so the silent uninstall takes the camera the driver check installed, and its firewall rules
 if (Test-Path "$env:ProgramFiles\Telescope") { $problems += "after uninstall, Program Files\Telescope (the camera) is still there" }

@@ -317,4 +317,20 @@ class UdpVideoTest {
         assertEquals(false, runner.isAlive)
         desktop.close(); server.close()
     }
+
+    @Test
+    fun `the frame before a capture stall is still there to repair when its successor goes out`() {
+        val sent = LinkedHashMap<Int, UdpFrame>()
+        fun add(seq: Int, at: Long) { sent[seq] = UdpFrame(seq, ByteArray(1), false, at); UdpVideoClient.dropOldFrames(sent, at) }
+        add(0, 0); add(1, 33); add(2, 66)
+        add(3, 66 + 1200)  // the capture stalled for 1.2 s, and frame 2 was lost before it
+        assertTrue(sent.containsKey(2))
+        assertTrue(sent.containsKey(3))
+        assertFalse(sent.containsKey(1))
+        add(4, 66 + 1233)  // frame 2 gets a second from when frame 3 was made
+        assertTrue(sent.containsKey(2))
+        add(5, 66 + 1200 + 1100)
+        assertFalse(sent.containsKey(2))
+        assertTrue(sent.containsKey(5))
+    }
 }
