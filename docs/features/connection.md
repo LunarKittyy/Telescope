@@ -47,7 +47,7 @@ If it never leaves DERP a stricter router on either side is usually why. Tailsca
 - **Wait for my computer** (off by default) lets you start the camera from your PC with the phone's screen off or the app closed. Tap **Stop waiting** in its notification to end it
 - Browser camera only listens on port 8767 while it is picked or a browser is streaming. Anyone can load the page but sending video needs the token in the code, which changes on every start and on **New link**. Its certificate isn't pinned like a phone's. Use a phone on a network you don't trust
 - The On Air sign listens on port 8768 while it's switched on. It serves nothing but the sign page and whether you're on air (that part only to its link's token)
-- The 3D headset viewer listens on TCP port 7484 while **Headset** and 3D are on. Anyone can load its page but the picture needs the link's token, which **New link** replaces
+- The 3D headset viewer listens on TCP port 7484 by default (the link shows the port if another one was needed) while **Headset** and 3D are on. Anyone can load its page but the picture needs the link's token, which **New link** replaces
 - The apps only go online to check GitHub for updates. On Windows the desktop also fetches adb from Google and VB-Cable from VB-Audio but only after you click to get them
 - On Linux only your user can read the config folder with the pairing tokens. On Windows the camera driver sits in Program Files where other programs can't swap it
 
