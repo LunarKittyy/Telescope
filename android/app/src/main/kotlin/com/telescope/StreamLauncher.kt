@@ -27,6 +27,7 @@ object StreamLauncher {
         fps: Int? = null,
         cameraOff: Boolean = false,
         owner: String? = null,
+        codec: String? = null,
     ): Result {
         if (CameraStreamService.instance?.isStreaming == true) return Result.AlreadyStreaming
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
@@ -63,6 +64,7 @@ object StreamLauncher {
             if (fps != null) putExtra(CameraStreamService.EXTRA_FPS, fps)
             putExtra(CameraStreamService.EXTRA_CAMERA_OFF, cameraOff)
             if (owner != null) putExtra(CameraStreamService.EXTRA_OWNER, owner)
+            if (codec != null) putExtra(CameraStreamService.EXTRA_CODEC, codec)
         }
         // Opened before the start, or a service that settles first would have its settle() undone;
         // a stop-before-start abort releases the unadopted lease at once rather than waiting for PENDING_MS.
@@ -95,7 +97,8 @@ object StreamLauncher {
         val selection = if (opening?.width != null && opening.height != null)
             (remembered ?: StreamPrefs.DEFAULT_SELECTION).copy(width = opening.width, height = opening.height)
         else remembered
-        return start(context, selection, remote = true, fps = opening?.fps, cameraOff = opening?.cameraOff == true, owner = owner)
+        return start(context, selection, remote = true, fps = opening?.fps, cameraOff = opening?.cameraOff == true, owner = owner,
+            codec = opening?.codec)
     }
 }
 
@@ -112,7 +115,9 @@ object RemoteStartPolicy {
 
 // What a computer's start asks for, so a size that just failed (too much for the encoder) isn't what opens again.
 // Each part is optional: an older computer sends none of them, and the phone then opens as it last did.
-data class StreamOpening(val width: Int?, val height: Int?, val fps: Int?, val cameraOff: Boolean = false) {
+// codec is the one the computer is going to read (h264 or mjpeg), so the camera opens once with it instead of again when its
+// video request arrives; an older phone ignores it and an older computer sends none.
+data class StreamOpening(val width: Int?, val height: Int?, val fps: Int?, val cameraOff: Boolean = false, val codec: String? = null) {
     companion object {
         private const val MAX_SIDE = 16_384
 
@@ -122,8 +127,9 @@ data class StreamOpening(val width: Int?, val height: Int?, val fps: Int?, val c
             val fps = params["fps"]?.toIntOrNull()?.takeIf { it > 0 }?.coerceAtMost(120)
             val sized = w != null && h != null
             val cameraOff = params["camera"] == "off"
-            if (!sized && fps == null && !cameraOff) return null
-            return StreamOpening(if (sized) w else null, if (sized) h else null, fps, cameraOff)
+            val codec = params["codec"]?.takeIf { it == H264Stream.CODEC_H264 || it == H264Stream.CODEC_MJPEG }
+            if (!sized && fps == null && !cameraOff && codec == null) return null
+            return StreamOpening(if (sized) w else null, if (sized) h else null, fps, cameraOff, codec)
         }
     }
 }

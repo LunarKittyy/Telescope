@@ -417,6 +417,11 @@ class CameraSessionController(
         return d.bitrate
     }
 
+    // The codec a start asked for, set before the first open so there's no second one when the video request arrives.
+    fun presetCodec(value: String) {
+        codec = value
+    }
+
     // Which route the viewer connected to decides the codec; switching rebuilds the output (a reopen).
     fun setCodec(value: String) {
         post {

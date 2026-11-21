@@ -317,6 +317,15 @@ class SessionServerTest {
     }
 
     @Test
+    fun `a start can say which codec the computer will read`() {
+        withServer { port, commands ->
+            val body = "{\"action\":\"start\",\"width\":1920,\"height\":1080,\"fps\":30,\"codec\":\"h264\"}"
+            assertEquals(200, post(port, "/v1/session", "secret-token", body).status)
+            assertEquals(listOf(StreamOpening(1920, 1080, 30, codec = "h264")), commands.openings)
+        }
+    }
+
+    @Test
     fun `a refusal comes back as ok false with the reason intact`() {
         val commands = FakeCommands(
             startResult = ControlResult(ok = false, error = "no_camera_permission"),

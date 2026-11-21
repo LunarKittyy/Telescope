@@ -62,52 +62,114 @@ pub fn is_usb(route: &RouteSpec) -> bool {
 
 type Discover = Box<dyn Fn(&str) -> Vec<String> + Send + Sync>;
 type Forward = Box<dyn Fn(&str, u16) -> Option<u16> + Send + Sync>;
-type Unforward = Box<dyn Fn(&str, u16) + Send + Sync>;
+type Unforward = Arc<dyn Fn(&str, u16) + Send + Sync>;
 
 /// Refcounted `adb forward tcp:0 tcp:<port>` per (serial, port).
 ///
 /// The status probe, a phone wake and a remote stop can overlap, and each one closing "its" forward used to tear down
 /// the tunnel another was still using. tcp:0 lets adb pick a free local port, so two plugged-in phones don't fight
 /// over one.
+///
+/// A port given a linger keeps its forward for that long after the last release, so a check followed by a start (or
+/// the next check) doesn't run `adb forward` and `adb forward --remove` again and again.
 pub struct UsbTunnels {
     forward: Forward,
     unforward: Unforward,
-    held: Mutex<HashMap<(String, u16), (u16, u32)>>,
+    held: Arc<Mutex<HashMap<(String, u16), Held>>>,
+    lingers: HashMap<u16, Duration>,
+}
+
+struct Held {
+    local: u16,
+    /// Zero while the forward only lingers.
+    refs: u32,
+    /// Bumped on each release to zero, so a linger's expiry knows whether it is still the latest.
+    idle: u64,
 }
 
 impl UsbTunnels {
     pub fn new(forward: impl Fn(&str, u16) -> Option<u16> + Send + Sync + 'static,
                unforward: impl Fn(&str, u16) + Send + Sync + 'static) -> UsbTunnels {
-        UsbTunnels { forward: Box::new(forward), unforward: Box::new(unforward), held: Mutex::default() }
+        UsbTunnels { forward: Box::new(forward), unforward: Arc::new(unforward), held: Arc::default(), lingers: HashMap::new() }
+    }
+
+    /// Keep the forward to remote_port for linger after its last release.
+    pub fn with_linger(mut self, remote_port: u16, linger: Duration) -> UsbTunnels {
+        self.lingers.insert(remote_port, linger);
+        self
     }
 
     pub fn acquire(&self, serial: &str, remote_port: u16) -> Option<u16> {
+        self.acquire_noting(serial, remote_port).map(|(local, _)| local)
+    }
+
+    /// Like acquire, and whether the forward was one that only lingered (so an adb restart may have dropped it).
+    pub fn acquire_noting(&self, serial: &str, remote_port: u16) -> Option<(u16, bool)> {
         let mut held = self.held.lock().unwrap();
-        if let Some((local, refs)) = held.get_mut(&(serial.to_string(), remote_port)) {
-            *refs += 1;
-            return Some(*local);
+        if let Some(entry) = held.get_mut(&(serial.to_string(), remote_port)) {
+            let lingered = entry.refs == 0;
+            entry.refs += 1;
+            return Some((entry.local, lingered));
         }
         let local = (self.forward)(serial, remote_port)?;
-        held.insert((serial.to_string(), remote_port), (local, 1));
-        Some(local)
+        held.insert((serial.to_string(), remote_port), Held { local, refs: 1, idle: 0 });
+        Some((local, false))
     }
 
     /// The local port of a forward someone holds, without holding it too.
     pub fn held_port(&self, serial: &str, remote_port: u16) -> Option<u16> {
-        self.held.lock().unwrap().get(&(serial.to_string(), remote_port)).map(|(local, _)| *local)
+        self.held.lock().unwrap().get(&(serial.to_string(), remote_port)).filter(|e| e.refs > 0).map(|e| e.local)
     }
 
     pub fn release(&self, serial: &str, remote_port: u16) {
+        self.let_go(serial, remote_port, false);
+    }
+
+    /// release for a forward that didn't work: it goes at once rather than lingering, so the next acquire opens a fresh one.
+    pub fn release_broken(&self, serial: &str, remote_port: u16) {
+        self.let_go(serial, remote_port, true);
+    }
+
+    /// Drops a forward nobody holds right now (one that lingers), e.g. after a start over it failed.
+    pub fn drop_idle(&self, serial: &str, remote_port: u16) {
         let mut held = self.held.lock().unwrap();
         let key = (serial.to_string(), remote_port);
-        let Some((local, refs)) = held.get_mut(&key) else { return };
-        *refs -= 1;
-        if *refs > 0 {
+        if held.get(&key).is_some_and(|e| e.refs == 0) {
+            if let Some(entry) = held.remove(&key) {
+                (self.unforward)(serial, entry.local);
+            }
+        }
+    }
+
+    fn let_go(&self, serial: &str, remote_port: u16, broken: bool) {
+        let mut held = self.held.lock().unwrap();
+        let key = (serial.to_string(), remote_port);
+        let Some(entry) = held.get_mut(&key) else { return };
+        entry.refs = entry.refs.saturating_sub(1);
+        if entry.refs > 0 {
             return;
         }
-        let local = *local;
-        held.remove(&key);
-        (self.unforward)(serial, local);
+        let linger = self.lingers.get(&remote_port).copied().filter(|d| !d.is_zero() && !broken);
+        let Some(linger) = linger else {
+            let local = entry.local;
+            held.remove(&key);
+            (self.unforward)(serial, local);
+            return;
+        };
+        entry.idle += 1;
+        let (idle, held_map, unforward) = (entry.idle, self.held.clone(), self.unforward.clone());
+        let serial = serial.to_string();
+        drop(held);
+        let _ = std::thread::Builder::new().name("adb-linger".into()).spawn(move || {
+            std::thread::sleep(linger);
+            let mut held = held_map.lock().unwrap();
+            let key = (serial.clone(), remote_port);
+            if held.get(&key).is_some_and(|e| e.refs == 0 && e.idle == idle) {
+                if let Some(entry) = held.remove(&key) {
+                    unforward(&serial, entry.local);
+                }
+            }
+        });
     }
 }
 
@@ -125,7 +187,7 @@ fn ready(route: RouteSpec, hello: &Hello, ping: &crate::session_client::Ping) ->
                  phone_version: hello.app_version.clone(), udp_dynamic: ping.udp_dynamic, presence: ping.presence && !ping.local_only, ..Resolution::new(PhoneStatus::Ready) }
 }
 
-pub type ClientFactory = Box<dyn Fn(&str, PhoneAuth) -> Box<dyn SessionApi> + Send + Sync>;
+pub type ClientFactory = Arc<dyn Fn(&str, PhoneAuth) -> Box<dyn SessionApi> + Send + Sync>;
 
 /// Decides how to reach a paired phone right now. Blocking: call off the window's thread.
 pub struct RouteResolver {
@@ -141,7 +203,7 @@ pub struct RouteResolver {
 
 impl RouteResolver {
     pub fn real_client() -> ClientFactory {
-        Box::new(|base, auth| Box::new(SessionClient::new(base, auth)))
+        Arc::new(|base, auth| Box::new(SessionClient::new(base, auth)))
     }
 
     pub fn resolve(&self, phone: &PairedPhone, preference: RoutePreference) -> Resolution {
@@ -179,8 +241,16 @@ impl RouteResolver {
             if state != "device" {
                 continue;
             }
-            let Some(local) = self.tunnels.acquire(serial, PING_PORT) else { continue };
-            let found = self.probe_usb(phone, serial, local, &mut saw_other, &mut old_app_serial);
+            let Some((local, lingered)) = self.tunnels.acquire_noting(serial, PING_PORT) else { continue };
+            let before = (saw_other, old_app_serial.clone());
+            let mut found = self.probe_usb(phone, serial, local, &mut saw_other, &mut old_app_serial);
+            if found.is_none() && lingered {
+                // A forward kept from the last check may be gone (adb restarted): one try on a fresh one before saying no
+                self.tunnels.release_broken(serial, PING_PORT);
+                (saw_other, old_app_serial) = before;
+                let Some(fresh) = self.tunnels.acquire(serial, PING_PORT) else { continue };
+                found = self.probe_usb(phone, serial, fresh, &mut saw_other, &mut old_app_serial);
+            }
             self.tunnels.release(serial, PING_PORT);
             if found.is_some() {
                 return (found, None);
@@ -241,10 +311,10 @@ impl RouteResolver {
         out
     }
 
-    fn probe_wifi(&self, phone: &PairedPhone, ip: &str) -> Option<Resolution> {
-        let client = (self.client)(&format!("https://{ip}:{PING_PORT}"), auth_of(phone));
+    fn probe_wifi(client_of: &ClientFactory, timeout: Duration, phone: &PairedPhone, ip: &str) -> Option<Resolution> {
+        let client = client_of(&format!("https://{ip}:{PING_PORT}"), auth_of(phone));
         let route = RouteSpec::Network { address: ip.to_string() };
-        let hello = client.hello(self.wifi_timeout);
+        let hello = client.hello(timeout);
         match hello.status {
             HelloStatus::Missing => return Some(Resolution { route: Some(route), ..Resolution::new(PhoneStatus::PhoneOutdated) }),
             HelloStatus::UsbOnly => {
@@ -272,32 +342,68 @@ impl RouteResolver {
         }
     }
 
+    /// Probes every address at once (four at a time) and answers as soon as the result can't change: the first Ready,
+    /// in candidate order, once every address before it has answered too. An address that never answers (another
+    /// network's, a dead VPN) after it no longer holds the check up for its whole timeout.
     fn try_wifi(&self, phone: &PairedPhone) -> Resolution {
-        let candidates = self.wifi_candidates(phone);
+        let candidates = Arc::new(self.wifi_candidates(phone));
         if candidates.is_empty() {
             return Resolution::new(PhoneStatus::Unreachable);
         }
-        let results: Mutex<Vec<Option<Resolution>>> = Mutex::new(vec![None; candidates.len()]);
-        let next = std::sync::atomic::AtomicUsize::new(0);
-        std::thread::scope(|scope| {
-            for _ in 0..candidates.len().min(4) {
-                scope.spawn(|| loop {
-                    let i = next.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                    let Some(ip) = candidates.get(i) else { break };
-                    let found = self.probe_wifi(phone, ip);
-                    results.lock().unwrap()[i] = found;
-                });
-            }
-        });
-        // Candidate order decides between several answers (the discovered address first)
-        let answers: Vec<Resolution> = results.into_inner().unwrap().into_iter().flatten().collect();
-        for wanted in [PhoneStatus::Ready, PhoneStatus::LocalOnly, PhoneStatus::NotPaired, PhoneStatus::PhoneOutdated, PhoneStatus::DesktopOutdated] {
-            if let Some(answer) = answers.iter().find(|a| a.status == wanted) {
-                return answer.clone();
-            }
+        let (client_of, timeout, phone) = (self.client.clone(), self.wifi_timeout, Arc::new(phone.clone()));
+        let (tx, rx) = std::sync::mpsc::channel::<(usize, Option<Resolution>)>();
+        let next = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let done = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        for _ in 0..candidates.len().min(4) {
+            let (tx, next, done, candidates, client_of, phone) = (tx.clone(), next.clone(), done.clone(), candidates.clone(), client_of.clone(), phone.clone());
+            std::thread::spawn(move || loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let Some(ip) = candidates.get(i) else { break };
+                if done.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+                if tx.send((i, RouteResolver::probe_wifi(&client_of, timeout, &phone, ip))).is_err() {
+                    break;
+                }
+            });
         }
-        Resolution { other_app: answers.iter().any(|a| a.other_app), ..Resolution::new(PhoneStatus::Unreachable) }
+        drop(tx);
+        let mut results: Vec<Option<Option<Resolution>>> = vec![None; candidates.len()];
+        let answer = loop {
+            if let Some(ready) = first_decided_ready(&results) {
+                break ready;
+            }
+            match rx.recv() {
+                Ok((i, found)) => results[i] = Some(found),
+                Err(_) => break pick_wifi_answer(results),
+            }
+        };
+        done.store(true, std::sync::atomic::Ordering::SeqCst);
+        answer
     }
+}
+
+/// The first Ready in candidate order, if every candidate before it has answered.
+fn first_decided_ready(results: &[Option<Option<Resolution>>]) -> Option<Resolution> {
+    for slot in results {
+        match slot {
+            None => return None,
+            Some(Some(r)) if r.status == PhoneStatus::Ready => return Some(r.clone()),
+            Some(_) => {}
+        }
+    }
+    None
+}
+
+/// Candidate order decides between several answers (the discovered address first); Ready wins, then the rest by how useful.
+fn pick_wifi_answer(results: Vec<Option<Option<Resolution>>>) -> Resolution {
+    let answers: Vec<Resolution> = results.into_iter().flatten().flatten().collect();
+    for wanted in [PhoneStatus::Ready, PhoneStatus::LocalOnly, PhoneStatus::NotPaired, PhoneStatus::PhoneOutdated, PhoneStatus::DesktopOutdated] {
+        if let Some(answer) = answers.iter().find(|a| a.status == wanted) {
+            return answer.clone();
+        }
+    }
+    Resolution { other_app: answers.iter().any(|a| a.other_app), ..Resolution::new(PhoneStatus::Unreachable) }
 }
 
 /// Why the connection isn't using USB, in the words the window shows.
@@ -344,6 +450,8 @@ pub(crate) mod tests {
         pub usb_only_hello: Vec<String>,
         pub pinged: Arc<Mutex<Vec<String>>>,
         pub auths: Arc<Mutex<Vec<PhoneAuth>>>,
+        /// How long a base URL takes to answer hello.
+        pub delays: HashMap<String, Duration>,
     }
 
     struct Client {
@@ -353,6 +461,9 @@ pub(crate) mod tests {
 
     impl SessionApi for Client {
         fn hello(&self, _timeout: Duration) -> Hello {
+            if let Some(delay) = self.net.delays.get(&self.base) {
+                std::thread::sleep(*delay);
+            }
             let a = self.net.answers.get(&self.base);
             if matches!(a, Some(Answer::OldApp)) {
                 return Hello::status(HelloStatus::Missing);
@@ -387,7 +498,7 @@ pub(crate) mod tests {
 
         pub fn factory(&self) -> ClientFactory {
             let net = self.clone();
-            Box::new(move |base, auth| {
+            Arc::new(move |base, auth| {
                 net.auths.lock().unwrap().push(auth);
                 Box::new(Client { base: base.to_string(), net: net.clone() })
             })
@@ -556,6 +667,83 @@ pub(crate) mod tests {
         assert_eq!((res.status, res.phone_version.as_str()), (PhoneStatus::Ready, "1.0"));
     }
 
+    fn resolve_with_delays(net: &FakeNet, discovered: &[&str]) -> (PhoneStatus, String, Duration) {
+        let mut net = net.clone();
+        net.delays = [(WIFI.to_string(), Duration::from_millis(600)), ("https://192.168.1.99:7480".to_string(), Duration::from_millis(600))].into();
+        let started = std::time::Instant::now();
+        let res = resolver(&net, &[], true, discovered).0.resolve(&phone(), RoutePreference::Auto);
+        let address = match res.route { Some(RouteSpec::Network { address }) => address, _ => String::new() };
+        (res.status, address, started.elapsed())
+    }
+
+    #[test]
+    fn a_dead_address_after_the_answering_one_doesnt_hold_the_check_up() {
+        // The discovered address answers at once; the remembered one never does (its answer takes 600 ms)
+        let net = FakeNet::new(&[("https://192.168.1.77:7480", answers("ph-1", PingStatus::Paired, false))]);
+        let (status, address, took) = resolve_with_delays(&net, &["192.168.1.77"]);
+        assert_eq!((status, address.as_str()), (PhoneStatus::Ready, "192.168.1.77"));
+        assert!(took < Duration::from_millis(300), "waited {took:?}");
+    }
+
+    #[test]
+    fn the_first_candidate_still_wins_when_a_later_one_answers_first() {
+        let net = FakeNet::new(&[(WIFI, answers("ph-1", PingStatus::Paired, false)), ("https://192.168.1.77:7480", answers("ph-1", PingStatus::Paired, false))]);
+        // 192.168.1.40 is slow but ranks after the discovered .77? No: discovered comes first, so make the first one the slow one
+        let (status, address, took) = resolve_with_delays(&net, &["192.168.1.40", "192.168.1.77"]);
+        assert_eq!((status, address.as_str()), (PhoneStatus::Ready, "192.168.1.40"));
+        assert!(took >= Duration::from_millis(600), "returned before the better candidate answered: {took:?}");
+    }
+
+    #[test]
+    fn nothing_answering_still_ends_when_every_address_has() {
+        let net = FakeNet::new(&[]);
+        let (status, _, took) = resolve_with_delays(&net, &["192.168.1.77"]);
+        assert_eq!(status, PhoneStatus::Unreachable);
+        assert!(took >= Duration::from_millis(600));
+    }
+
+    #[test]
+    fn a_session_forward_lingers_for_the_next_check_and_goes_when_unused() {
+        let calls: Arc<Mutex<Vec<String>>> = Arc::default();
+        let (a, b) = (calls.clone(), calls.clone());
+        let tunnels = UsbTunnels::new(move |s, _| {
+            a.lock().unwrap().push(format!("fwd {s}"));
+            Some(5000)
+        }, move |s, l| b.lock().unwrap().push(format!("unfwd {s} {l}"))).with_linger(7480, Duration::from_millis(150));
+        assert_eq!(tunnels.acquire_noting("A", 7480), Some((5000, false)));
+        tunnels.release("A", 7480);
+        assert_eq!(tunnels.held_port("A", 7480), None);
+        assert_eq!(tunnels.acquire_noting("A", 7480), Some((5000, true)));
+        tunnels.release("A", 7480);
+        // The first release's expiry passes while the second one is still the latest: only the last may remove it
+        std::thread::sleep(Duration::from_millis(100));
+        assert_eq!(*calls.lock().unwrap(), ["fwd A"]);
+        std::thread::sleep(Duration::from_millis(250));
+        assert_eq!(*calls.lock().unwrap(), ["fwd A", "unfwd A 5000"]);
+        // A port without a linger lets go at once
+        assert_eq!(tunnels.acquire("A", 8080), Some(5000));
+        tunnels.release("A", 8080);
+        assert_eq!(calls.lock().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn a_broken_or_failed_forward_is_not_kept() {
+        let calls: Arc<Mutex<Vec<String>>> = Arc::default();
+        let (a, b) = (calls.clone(), calls.clone());
+        let tunnels = UsbTunnels::new(move |s, _| {
+            a.lock().unwrap().push(format!("fwd {s}"));
+            Some(5000)
+        }, move |s, l| b.lock().unwrap().push(format!("unfwd {s} {l}"))).with_linger(7480, Duration::from_secs(30));
+        tunnels.acquire("A", 7480);
+        tunnels.release_broken("A", 7480);
+        assert_eq!(*calls.lock().unwrap(), ["fwd A", "unfwd A 5000"]);
+        tunnels.acquire("A", 7480);
+        tunnels.release("A", 7480);
+        tunnels.drop_idle("A", 7480);
+        assert_eq!(calls.lock().unwrap().len(), 4);
+        assert_eq!(tunnels.acquire_noting("A", 7480), Some((5000, false)));
+    }
+
     #[test]
     fn usb_tunnels_are_shared_and_released_last() {
         let calls: Arc<Mutex<Vec<String>>> = Arc::default();
@@ -611,7 +799,7 @@ pub(crate) mod tests {
         let resolver = RouteResolver {
             adb_available: Box::new(|| false), adb_device_states: Box::new(Vec::new),
             tunnels: Arc::new(UsbTunnels::new(|_, _| None, |_, _| {})), discover: Box::new(|_| vec!["127.0.0.1".into()]),
-            client: Box::new(move |base, auth| Box::new(SessionClient::new(&base.replace(":7480", &format!(":{port}")), auth))),
+            client: Arc::new(move |base, auth| Box::new(SessionClient::new(&base.replace(":7480", &format!(":{port}")), auth))),
             wifi_timeout: Duration::from_secs(1),
         };
         let phone = PairedPhone { ips: vec![], cert_sha256: pin_of("phone"), ..phone() };

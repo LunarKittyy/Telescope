@@ -40,6 +40,9 @@ pub struct StreamRequest {
     /// The phone opens with its camera off and the mic alone; an older phone ignores this and opens the camera.
     #[serde(default)]
     pub camera_off: bool,
+    /// The video is read as H.264, which the start says so the phone opens its camera once with it; an older phone ignores this.
+    #[serde(default)]
+    pub h264: bool,
 }
 
 /// One phone reached over one route: starting its camera, its video and its controls.

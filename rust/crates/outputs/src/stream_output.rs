@@ -717,7 +717,7 @@ impl Plugin for StreamOutputPlugin {
     fn opening(&self) -> Option<telescope_core::link::StreamRequest> {
         let body = StreamOutputPlugin::opening(self);
         let number = |key: &str| body.get(key).and_then(Value::as_u64).unwrap_or(0) as u32;
-        Some(telescope_core::link::StreamRequest { width: number("width"), height: number("height"), fps: number("fps"), camera_off: false })
+        Some(telescope_core::link::StreamRequest { width: number("width"), height: number("height"), fps: number("fps"), camera_off: false, h264: false })
     }
     fn info(&self) -> PluginInfo {
         PluginInfo {

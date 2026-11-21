@@ -3,6 +3,7 @@ package com.telescope
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.ServerSocket
@@ -14,6 +15,18 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 class TlsIdentityTest {
+
+    @Test
+    fun `the server socket factory is built once per identity`() {
+        val identity = TlsIdentity.generate("Test phone")
+        val t0 = System.nanoTime()
+        val first = identity.serverSocketFactory()
+        val t1 = System.nanoTime()
+        val second = identity.serverSocketFactory()
+        val t2 = System.nanoTime()
+        assertSame(first, second)
+        assertNotEquals(first, TlsIdentity.generate("Other phone").serverSocketFactory())
+    }
 
     @Test
     fun `a generated certificate is a valid self-signed P-256 certificate`() {
