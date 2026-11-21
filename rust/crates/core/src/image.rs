@@ -226,6 +226,18 @@ fn banded<T>(rows: usize, data: &[T]) -> bool {
     rows >= BANDED_ROWS && size_of_val(data) >= BANDED_BYTES
 }
 
+/// band(its first row's index, its rows) over all of data, spread over the workers when the picture or its input is big enough.
+fn over_bands_work<T: Send>(data: &mut [T], row_len: usize, work_bytes: usize, band: impl Fn(usize, &mut [T]) + Sync) {
+    let rows = data.len() / row_len.max(1);
+    if rows < 32 || work_bytes < BANDED_BYTES / 2 {
+        band(0, data);
+        return;
+    }
+    let per_band = rows.div_ceil(BANDS);
+    let mut parts: Vec<&mut [T]> = data.chunks_mut(per_band * row_len).collect();
+    each_part(&mut parts, |b, part| band(b * per_band, part));
+}
+
 /// band(its first row's index, its rows) over all of data, in a few bands of rows spread over the workers when the picture is big.
 /// For work that keeps what it found on one row for the next.
 pub fn over_bands<T: Send>(data: &mut [T], row_len: usize, band: impl Fn(usize, &mut [T]) + Sync) {
@@ -506,6 +518,19 @@ fn shrunk(src: &[u8], w: usize, h: usize, ch: usize, tw: usize, th: usize) -> Ve
 /// A small picture's colours from its planes: luma at w x h and each chroma plane at cw x ch (half of that, or the same), as run_to_rgb reads them (luma under black counts as that).
 fn small_yuv_rgb(y: &[u8], u: &[u8], v: &[u8], (w, h): (usize, usize), (cw, ch): (usize, usize), black: f32) -> Vec<u8> {
     let mut out = spare_bytes(w * h * 3);
+    if (cw, ch) == (w, h) {
+        over_bands_work(&mut out, w * 3, w * h * 3, |first, part| {
+            for (i, line) in part.chunks_exact_mut(w * 3).enumerate() {
+                let off = (first + i) * w;
+                for (c, o) in line.chunks_mut(PLANAR_RUN * 3).enumerate() {
+                    let x = c * PLANAR_RUN;
+                    let n = (w - x).min(PLANAR_RUN);
+                    run_to_rgb(&y[off + x..off + x + n], &u[off + x..off + x + n], &v[off + x..off + x + n], black, o);
+                }
+            }
+        });
+        return out;
+    }
     let columns: Vec<usize> = (0..w).map(|x| x * cw / w).collect();
     for (row, line) in out.chunks_exact_mut(w * 3).enumerate() {
         let at = (row * ch / h) * cw;
@@ -552,10 +577,14 @@ pub fn small_rgb(frame: &Frame, w: usize, h: usize, floored: bool) -> Option<Vec
                     (shrunk(&rest[..cw * ch], cw, ch, 1, size.0, size.1), shrunk(&rest[cw * ch..cw * ch * 2], cw, ch, 1, size.0, size.1))
                 } else {
                     let uv = shrunk(&rest[..cw * ch * 2], cw, ch, 2, size.0, size.1);
-                    (uv.iter().step_by(2).copied().collect(), uv.iter().skip(1).step_by(2).copied().collect())
+                    let pair = (uv.iter().step_by(2).copied().collect(), uv.iter().skip(1).step_by(2).copied().collect());
+                    keep_bytes(uv);
+                    pair
                 };
                 let out = small_yuv_rgb(&y, &u, &v, (w, h), size, if floored { 0.0 } else { -16.0 });
                 keep_bytes(y);
+                keep_bytes(u);
+                keep_bytes(v);
                 return Some(out);
             }
             PixelFormat::Rgba | PixelFormat::Bgra if d.len() >= fw * fh * 4 => {
@@ -727,7 +756,7 @@ fn blended(src: &[u8], (w, ch, pitch): (usize, usize, usize), xs: &[Tap], ys: &[
             _ => blend_across(row, xs, ch, into),
         }
     };
-    over_bands(dst, stride, |first, part| {
+    over_bands_work(dst, stride, src.len().max(dst.len()), |first, part| {
         let (mut top, mut bottom) = (vec![0i16; rowlen], vec![0i16; rowlen]);
         let (mut have_top, mut have_bottom) = (usize::MAX, usize::MAX);
         for (line, &(y0, y1, p, q)) in part.chunks_exact_mut(stride).zip(&ys[first.min(ys.len())..]) {
@@ -867,14 +896,26 @@ pub fn resize_area(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usi
             let rowlen = w2 * ch;
             let table = &table;
             // Everything fits 16 bits for the block sizes used, which lets rows add up a vector at a time
-            if kx * ky * 255 <= u16::MAX as usize && only_twos_and_threes(kx) {
+            let work = src.len().max(out.len());
+            if kx * ky * 255 <= u16::MAX as usize && (ch == 1 || only_twos_and_threes(kx)) {
                 let width = w2 * kx * ch;
-                over_bands(&mut out, rowlen, |first, part| {
-                    let (mut line, mut spare) = (vec![0u16; width], vec![0u16; width]);
+                over_bands_work(&mut out, rowlen, work, |first, part| {
+                    let mut line = vec![0u16; width];
+                    let mut spare = if ch == 1 { Vec::new() } else { vec![0u16; width] };
                     for (i, row) in part.chunks_exact_mut(rowlen).enumerate() {
                         line.fill(0);
                         for j in 0..ky {
                             add_row(&src[((first + i) * ky + j) * w * ch..][..width], &mut line);
+                        }
+                        if ch == 1 {
+                            match kx {
+                                2 => row.iter_mut().zip(line.as_chunks::<2>().0).for_each(|(o, s)| *o = table[(s[0] + s[1]) as usize]),
+                                3 => row.iter_mut().zip(line.as_chunks::<3>().0).for_each(|(o, s)| *o = table[(s[0] + s[1] + s[2]) as usize]),
+                                4 => row.iter_mut().zip(line.as_chunks::<4>().0).for_each(|(o, s)| *o = table[(s[0] + s[1] + s[2] + s[3]) as usize]),
+                                6 => row.iter_mut().zip(line.as_chunks::<6>().0).for_each(|(o, s)| *o = table[(s[0] + s[1] + s[2] + s[3] + s[4] + s[5]) as usize]),
+                                _ => row.iter_mut().zip(line.chunks_exact(kx)).for_each(|(o, s)| *o = table[s.iter().map(|&v| v as usize).sum::<usize>()]),
+                            }
+                            continue;
                         }
                         sum_runs(&mut line, &mut spare, kx, ch);
                         match ch {
@@ -885,7 +926,21 @@ pub fn resize_area(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usi
                 });
                 return out;
             }
-            over_bands(&mut out, rowlen, |first, part| {
+            if ky * 255 <= u16::MAX as usize && ch == 1 {
+                let width = w2 * kx;
+                over_bands_work(&mut out, rowlen, work, |first, part| {
+                    let mut line = vec![0u16; width];
+                    for (i, row) in part.chunks_exact_mut(rowlen).enumerate() {
+                        line.fill(0);
+                        for j in 0..ky {
+                            add_row(&src[((first + i) * ky + j) * w..][..width], &mut line);
+                        }
+                        row.iter_mut().zip(line.chunks_exact(kx)).for_each(|(o, s)| *o = table[s.iter().map(|&v| v as u32).sum::<u32>() as usize]);
+                    }
+                });
+                return out;
+            }
+            over_bands_work(&mut out, rowlen, work, |first, part| {
                 let mut sums = vec![0u32; rowlen];
                 for (i, line) in part.chunks_exact_mut(rowlen).enumerate() {
                     sums.fill(0);
@@ -1533,6 +1588,19 @@ mod tests {
             let old = time(&|| { let full = frame_rgb(&frame).unwrap(); keep_bytes(resize_area(&full, w, h, 3, tw, th)); keep_bytes(full); });
             let new = time(&|| keep_bytes(small_rgb(&frame, tw, th, true).unwrap()));
             println!("bgr {w}x{h} to {tw}x{th}: old {old:.2} ms, new {new:.2} ms");
+        }
+    }
+
+    #[test]
+    fn one_plane_shrinks_by_area_exactly_like_the_same_plane_as_three_channels() {
+        // Block sizes that take each way a single plane is added up: small, odd, wide and tall blocks
+        for (kx, ky) in [(2usize, 2usize), (3, 3), (4, 4), (5, 5), (7, 3), (6, 2), (8, 8), (16, 16), (30, 10), (40, 8), (3, 90), (2, 300)] {
+            let (w2, h2) = (11usize, 40usize.max(64 / ky));
+            let (w, h) = (w2 * kx, h2 * ky);
+            let plane: Vec<u8> = (0..w * h).map(|i| ((i * 7919 + i / w * 31) % 256) as u8).collect();
+            let rgb: Vec<u8> = plane.iter().flat_map(|&v| [v, v, v]).collect();
+            let (one, three) = (resize_area(&plane, w, h, 1, w2, h2), resize_area(&rgb, w, h, 3, w2, h2));
+            assert!(one.iter().zip(three.as_chunks::<3>().0).all(|(&a, p)| p[0] == a), "{kx}x{ky} blocks");
         }
     }
 
