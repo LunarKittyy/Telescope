@@ -56,7 +56,9 @@ for lib in libfontconfig.so.1 libfreetype.so.6 libexpat.so.1 libpng16.so.16 libb
 done
 cp tools/fonts.conf "$out/lib/fallback-fonts/fonts.conf"
 # DSLR support (libgphoto2 with the PTP camera driver and what it links to), found by the program in lib/gphoto2 before the system's own
-tools/bundle_gphoto2.sh "$out"
+# with a libxml2 built here without ICU, which the system's would drag in
+tools/build_libxml2.sh "$target/libxml2"
+tools/bundle_gphoto2.sh "$out" "$target/libxml2/lib"
 "$out/telescope-rs" app-icon "$out/telescope.png"
 python3 tools/fetch_rnnoise.py linux "$out"
 python3 tools/write_notices.py linux "$ffmpeg" "$out/THIRD_PARTY_NOTICES.txt"
