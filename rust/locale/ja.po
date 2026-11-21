@@ -5267,7 +5267,7 @@ msgstr "このアプリのアップデートが必要です"
 
 #: rust/crates/link/src/connection.rs:839
 #, python-brace-format
-msgid "The Telescope app on {phone} isn't the one this computer paired with. It was uninstalled or reinstalled, or another Telescope app such as Telescope (dev) is answering instead. Click Add device to pair it again."
+msgid "The Telescope app on {phone} has changed since you paired it. Click Add device to pair it again."
 msgstr ""
 
 #: rust/crates/link/src/connection.rs:840
