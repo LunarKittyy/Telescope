@@ -24,7 +24,7 @@ const LIST_CAPACITY: usize = 10;
 /// The DXGI number of the texture's format, B8G8R8A8_UNORM.
 const FORMAT: u32 = 87;
 
-/// How many views this thread has mapped and not yet unmapped, for the test that a failed Mapping::create leaves none.
+// How many views this thread has mapped and not yet unmapped, for the test that a failed Mapping::create leaves none.
 #[cfg(test)]
 thread_local! {
     static VIEWS: std::cell::Cell<isize> = const { std::cell::Cell::new(0) };
