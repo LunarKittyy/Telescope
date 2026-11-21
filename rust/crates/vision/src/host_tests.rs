@@ -193,6 +193,40 @@ fn yuv_frame(w: usize, h: usize) -> Frame {
     Frame::new(w as u32, h as u32, telescope_core::frame::PixelFormat::I420, (0..size).map(|i| (60 + i % 90) as u8).collect())
 }
 
+/// A smooth picture (a gradient with a lit patch), the kind of scene a camera sees, and the same with a patch of `size` pixels square moved in it.
+fn scene(w: usize, h: usize, noise: u8, patch: usize) -> Frame {
+    let mut frame = yuv_frame(w, h);
+    let data = Arc::make_mut(&mut frame.data);
+    for y in 0..h {
+        for x in 0..w {
+            data[y * w + x] = (40 + (x * 100 / w) + (y * 60 / h)) as u8 + if (x * 7 + y * 13) % 5 == 0 { noise } else { 0 };
+        }
+    }
+    for y in h / 3..h / 3 + patch {
+        for x in w / 3..w / 3 + patch {
+            data[y * w + x] = 230;
+        }
+    }
+    frame
+}
+
+#[test]
+fn the_grey_probe_calls_a_frame_moved_when_the_colour_picture_does() {
+    let (w, h) = (1920, 1080);
+    let base = scene(w, h, 0, 0);
+    // (frame, moved)
+    let cases = [(scene(w, h, 0, 0), false), (scene(w, h, 3, 0), false), (scene(w, h, 0, 90), true), (scene(w, h, 0, 400), true)];
+    for (frame, moved) in cases {
+        let (mut colour, mut grey) = (ops::Motion::default(), ops::Motion::default());
+        colour.moved(&people_rgb(&base).unwrap());
+        colour.used();
+        grey.moved_grey(people_look(&base).unwrap());
+        grey.used();
+        assert_eq!(colour.moved(&people_rgb(&frame).unwrap()), moved, "colour");
+        assert_eq!(grey.moved_grey(people_look(&frame).unwrap()), moved, "grey");
+    }
+}
+
 #[test]
 fn the_models_get_small_pictures_made_from_the_planes() {
     let sizes = |f: &Frame| (model_rgb(f).map(|p| (p.w, p.h, p.data.len())), people_rgb(f).map(|p| (p.w, p.h, p.data.len())));
@@ -235,6 +269,18 @@ fn bench_model_pictures() {
         let old_cut = measure(&mut || { let full = rgb(&frame).unwrap(); crate::matting::model_picture(&full).unwrap(); });
         let new_cut = measure(&mut || { let p = cutout_rgb(&frame).unwrap(); crate::matting::model_picture(&p); });
         println!("vision pictures {w}x{h} (wall ms, cpu ms): segmenter input old {old:.2?} new {new:.2?}; people input old {old_people:.2?} new {new_people:.2?}; cutout input old {old_cut:.2?} new {new_cut:.2?}");
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_still_scene_probe() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let frame = yuv_frame(w, h);
+        // what a frame of a still scene cost before it was dropped: the colour picture for the model, then its tiny grey copy
+        let old = measure(&mut || { let p = people_rgb(&frame).unwrap(); crate::ops::thumb(&p); });
+        let new = measure(&mut || { people_look(&frame).unwrap(); });
+        println!("vision still probe {w}x{h} (wall ms, cpu ms): old {old:.2?} new {new:.2?}");
     }
 }
 

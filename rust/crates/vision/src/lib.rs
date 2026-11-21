@@ -20,7 +20,7 @@ use std::time::Duration;
 use telescope_core::bus::BusSender;
 use telescope_core::event::Event;
 use telescope_core::frame::{Frame, MaskSpace};
-use telescope_core::image::{frame_rgb, small_rgb};
+use telescope_core::image::{frame_rgb, small_grey, small_rgb};
 use telescope_core::people::PeopleTracking;
 use telescope_core::vision::{turned, PackZip, Turn, Upright, VisionPack, VisionService};
 
@@ -98,6 +98,15 @@ fn people_rgb(frame: &Frame) -> Option<Rgb> {
         return rgb(frame);
     }
     small_rgb(frame, pw, ph, true).map(|data| Rgb::new(pw, ph, data))
+}
+
+/// The tiny grey copy a frame is told to have moved by (ops::THUMB), from the luma plane alone when the frame is YUV.
+fn people_look(frame: &Frame) -> Option<Vec<u8>> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    if w < ops::THUMB.0 || h < ops::THUMB.1 {
+        return rgb(frame).map(|picture| ops::thumb(&picture));
+    }
+    small_grey(frame, ops::THUMB.0, ops::THUMB.1)
 }
 
 /// The pack's backend from `load`: the marker only says the files matched once, and the library is native code that runs as the user.
@@ -358,8 +367,12 @@ impl VisionService for VisionHost {
         self.shared.vision.wants_people()
     }
 
+    fn people_due(&self, source_id: &str) -> bool {
+        self.shared.vision.people_due(source_id)
+    }
+
     fn feed_raw(&self, source_id: &str, frame: &Frame, upright: Upright) {
-        self.shared.vision.feed_raw(source_id, &mut || people_rgb(frame), upright);
+        self.shared.vision.feed_raw(source_id, &mut || people_look(frame), &mut || people_rgb(frame), upright);
     }
 
     fn tracked_people(&self, source_id: &str) -> (Vec<Value>, u32) {

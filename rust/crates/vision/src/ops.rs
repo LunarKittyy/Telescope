@@ -96,7 +96,11 @@ pub struct Motion {
 
 impl Motion {
     pub fn moved(&mut self, frame: &Rgb) -> bool {
-        let now = thumb(frame);
+        self.moved_grey(thumb(frame))
+    }
+
+    /// moved() for a thumb already made as grey (small_grey of THUMB size): what the people thread's frames are compared by, so a frame that goes no further is never made into a colour picture.
+    pub fn moved_grey(&mut self, now: Vec<u8>) -> bool {
         let moved = match &self.used {
             None => true,
             Some(used) => {
