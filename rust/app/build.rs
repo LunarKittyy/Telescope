@@ -1,5 +1,6 @@
 //! Puts the translations in the program: every <lang>.po and the template from the locale folder, as bytes the language
-//! loader reads (OUT_DIR/locale.rs). One file to ship and update, with no folder next to it to lose.
+//! loader reads (OUT_DIR/locale.rs). One file to ship and update, with no folder next to it to lose. Each is trimmed to what
+//! the loader reads (no comments, obsolete or fuzzy entries) and compressed with zlib, which core::i18n undoes.
 
 use std::path::{Path, PathBuf};
 
@@ -78,6 +79,28 @@ fn program_resources() {
     resources.compile().expect("the program's resources");
 }
 
+/// A .po file without what core::i18n's reader throws away (comments, obsolete and fuzzy entries), as zlib.
+fn pack_catalog(text: &str) -> Vec<u8> {
+    use std::io::Write;
+    let mut kept: Vec<String> = Vec::new();
+    for block in text.replace("\r\n", "\n").split("\n\n") {
+        let lines: Vec<&str> = block.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+        let body: Vec<&str> = lines.iter().copied().filter(|l| !l.starts_with('#')).collect();
+        // The header (the empty text) is read whatever its flags say
+        let header = body.first() == Some(&"msgid \"\"");
+        let fuzzy = lines.iter().any(|l| l.starts_with("#,") && l[2..].split(',').any(|f| f.trim() == "fuzzy"));
+        let obsolete = lines.iter().any(|l| l.starts_with("#~"));
+        if !obsolete && (header || !fuzzy) && !body.is_empty() {
+            kept.push(body.join("\n"));
+        }
+    }
+    let mut out = kept.join("\n\n");
+    out.push('\n');
+    let mut zlib = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::best());
+    zlib.write_all(out.as_bytes()).expect("compress a catalog");
+    zlib.finish().expect("compress a catalog")
+}
+
 fn main() {
     #[cfg(windows)]
     program_resources();
@@ -89,7 +112,15 @@ fn main() {
     let folder = manifest.join(LOCALE);
     println!("cargo:rerun-if-changed={}", folder.display());
     println!("cargo:rerun-if-changed=build.rs");
-    let include = |path: &Path| format!("include_bytes!({:?})", path.to_string_lossy().replace('\\', "/"));
+    let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").expect("cargo sets it"));
+    // The trimmed, compressed copy in OUT_DIR, as the include_bytes! of it
+    let include = |path: &Path| {
+        let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let name = path.file_name().expect("a file").to_string_lossy().into_owned();
+        let target = out_dir.join(format!("{name}.z"));
+        std::fs::write(&target, pack_catalog(&text)).expect("write a packed catalog");
+        format!("include_bytes!({:?})", target.to_string_lossy().replace('\\', "/"))
+    };
     let mut catalogs: Vec<(String, PathBuf)> = std::fs::read_dir(&folder)
         .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "po")).filter_map(|p| Some((p.file_stem()?.to_string_lossy().into_owned(), p))).collect())
         .unwrap_or_default();
@@ -109,6 +140,6 @@ fn main() {
         out += &format!("    ({code:?}, {}),\n", include(path));
     }
     out += "];\n";
-    let target = PathBuf::from(std::env::var_os("OUT_DIR").expect("cargo sets it")).join("locale.rs");
+    let target = out_dir.join("locale.rs");
     std::fs::write(target, out).expect("write locale.rs");
 }
