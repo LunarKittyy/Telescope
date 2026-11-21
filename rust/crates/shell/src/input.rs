@@ -168,6 +168,10 @@ pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &Windo
                 None
             }
             WindowEvent::Focused(false) => Some(Pointer::Unfocused),
+            WindowEvent::Focused(true) => {
+                visibility_changed();
+                None
+            }
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
                 if matches!(&event.logical_key, Key::Named(NamedKey::Tab | NamedKey::ArrowUp | NamedKey::ArrowDown | NamedKey::ArrowLeft | NamedKey::ArrowRight)) {
                     if let Some(ui) = weak.upgrade() {
@@ -177,6 +181,7 @@ pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &Windo
                 None
             }
             WindowEvent::Resized(size) => {
+                visibility_changed();
                 if let Some(ui) = weak.upgrade() {
                     set_room(&ui, slint::PhysicalSize::new(size.width, size.height).to_logical(window.scale_factor()));
                 }
@@ -189,6 +194,12 @@ pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &Windo
         }
         then(window, event)
     });
+}
+
+/// A resize or a focus change may be a minimise or a restore, which the main window's timer would otherwise only notice on its slow
+/// tick. Asked after the event, when Slint has taken it in.
+fn visibility_changed() {
+    let _ = slint::invoke_from_event_loop(|| crate::window::with_window(|w| w.visibility_changed()));
 }
 
 /// The window's size as the kit's dialogs and lists see it; a window that says so itself in its document keeps saying the same.

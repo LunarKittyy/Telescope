@@ -991,6 +991,32 @@ fn background_keeps_a_late_mask_while_privacy_still_rejects_it() {
 }
 
 #[test]
+fn background_does_not_hold_a_late_mask_while_the_crop_is_a_guess() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let sure = MaskView { geometry: Some(Geometry::default()), keep_late: true, ..Default::default() };
+    v.newest_normal_for("a", true, 1, 256, 144, Box::new(|| Some(someone_at(50))), v.view_epoch(), sure).unwrap();
+    age_newest(&v, MASK_MAX_AGE_S * 2.0);
+    let guess = MaskView { unsure: true, ..sure };
+    assert!(v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), guess).is_none());
+    assert!(v.newest_normal_for("a", false, 2, 256, 144, Box::new(|| None), v.view_epoch(), sure).is_some());
+}
+
+#[test]
+fn a_guessed_crop_does_not_carry_what_the_model_remembers() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let stream = v.stream("a");
+    let mut state = stream.mask.lock().unwrap();
+    let (old, new) = (Geometry::default(), Geometry { zoom: 1.05, ..Default::default() });
+    state.geometry(Some(old), MaskSpace::default(), false);
+    state.small = Some(Gray { w: 4, h: 4, data: vec![255; 16] });
+    state.geometry(Some(new), MaskSpace::default(), false);
+    assert!(state.small.is_some(), "a small move of a known crop is carried");
+    state.small = Some(Gray { w: 4, h: 4, data: vec![255; 16] });
+    state.geometry(Some(old), MaskSpace::default(), true);
+    assert!(state.small.is_none(), "a move to a guessed crop starts over");
+}
+
+#[test]
 fn a_moving_crop_remaps_the_held_mask_and_queues_the_cropped_picture() {
     let (v, _) = finder(Duration::from_millis(1));
     let old = MaskView { geometry: Some(Geometry::default()), keep_late: true, ..Default::default() };

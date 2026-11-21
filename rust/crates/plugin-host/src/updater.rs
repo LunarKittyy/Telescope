@@ -105,8 +105,9 @@ impl PluginUpdater {
         self.checking(folder) && folder.switches.switch(AUTO_UPDATE, false)
     }
 
+    /// True while a check is running or has finished but not been taken in by poll() yet.
     pub fn running(&self) -> bool {
-        self.thread.as_ref().is_some_and(|t| !t.is_finished())
+        self.thread.is_some()
     }
 
     /// The release newer than the installed item that the last check found, or None.

@@ -49,6 +49,7 @@ struct Controls {
     events: Mutex<VecDeque<PresenceEvent>>,
     checks: Mutex<VecDeque<(PairedPhone, bool)>>,
     hint: AtomicBool,
+    wake: Mutex<Option<Arc<dyn Fn() + std::marker::Send + Sync>>>,
     stopped: AtomicBool,
 }
 
@@ -95,6 +96,10 @@ impl Presence {
     pub fn hint(&self) {
         self.controls.hint.store(true, Ordering::Relaxed);
         self.controls.notify();
+    }
+
+    pub fn set_wake(&self, wake: Option<Arc<dyn Fn() + std::marker::Send + Sync>>) {
+        *self.controls.wake.lock().unwrap() = wake;
     }
 
     pub fn take_events(&self) -> Vec<PresenceEvent> {
@@ -455,10 +460,14 @@ fn dispatch(transport: &mut impl Transport, sends: Vec<Send>) {
 }
 
 fn event(controls: &Controls, value: PresenceEvent, revision: u64) {
-    let mut events = controls.events.lock().unwrap();
-    if controls.revision.load(Ordering::Acquire) != revision { return; }
-    if events.len() == 64 { events.pop_front(); }
-    events.push_back(value);
+    {
+        let mut events = controls.events.lock().unwrap();
+        if controls.revision.load(Ordering::Acquire) != revision { return; }
+        if events.len() == 64 { events.pop_front(); }
+        events.push_back(value);
+    }
+    let wake = controls.wake.lock().unwrap().clone();
+    if let Some(wake) = wake { wake(); }
 }
 
 fn run(controls: Arc<Controls>) {
@@ -498,6 +507,7 @@ fn run(controls: Arc<Controls>) {
                 (!engine.id.is_empty() && engine.id != config.id) || engine.peers.get(&phone.id).is_some_and(|old| old.phone.token != phone.token)
             }).map(|phone| phone.id.clone()).collect();
             engine.configure(config, now);
+            scan_at = 0.0; // a phone may have come: its interfaces are looked at now
             let mut capabilities = controls.capabilities.lock().unwrap();
             capabilities.retain(|id, _| engine.peers.contains_key(id) && !rotated.contains(id));
         }
@@ -510,7 +520,8 @@ fn run(controls: Arc<Controls>) {
             continue;
         }
         if now >= scan_at {
-            scan_at = now + 5.0;
+            // With no phone paired there is no one to hear from: the interfaces are looked at again when one is added (configure) or on a hint
+            scan_at = now + if engine.peers.is_empty() { 3600.0 } else { 5.0 };
             let adapters = AdapterAddresses::new(crate::net::pairing_addresses().into_iter().map(|item| item.ip));
             let changed = adapters.bound != adapter_ips;
             if changed || sockets.0.len() != adapters.bound.len() || sockets.0.is_empty() {

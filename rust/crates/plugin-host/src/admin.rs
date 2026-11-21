@@ -97,6 +97,9 @@ impl PluginAdmin for Admin {
     fn maybe_check_updates(&self) {
         self.updater().maybe_check(&self.folder);
     }
+    fn update_running(&self) -> bool {
+        self.updater().running()
+    }
     fn poll_updates(&self) -> bool {
         self.updater().poll(&self.folder)
     }

@@ -413,7 +413,6 @@ class MainActivity : LookActivity() {
     private fun renderComputerVersion() {
         val lines = PairedComputers.list(this).computers.mapNotNull { computer ->
             when (desktopVersionNotice(computer.desktopVersion, BuildConfig.VERSION_NAME, PairedComputers.heardThisRun(computer.id))) {
-                DesktopVersionNotice.Legacy -> getString(R.string.computer_version_legacy, computer.name)
                 DesktopVersionNotice.Different -> getString(R.string.computer_version_different, computer.name, displayAppVersion(computer.desktopVersion.orEmpty()), displayAppVersion(BuildConfig.VERSION_NAME))
                 null -> null
             }

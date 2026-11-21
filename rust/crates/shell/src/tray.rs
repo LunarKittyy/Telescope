@@ -233,6 +233,11 @@ impl Window {
             changed
         };
         if changed {
+            if !shown {
+                // A tip or bubble left up would keep its two heartbeat timers running for a window nobody sees
+                crate::input::tips(&self.ui, "dismiss", &[]);
+                let _ = self.ui.set_global_property("Peeks", "shown", slint_interpreter::Value::Bool(false));
+            }
             self.state.borrow_mut().bus.emit(Event::WindowShown { shown });
         }
         changed

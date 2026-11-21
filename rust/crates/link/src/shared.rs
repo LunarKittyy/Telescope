@@ -14,6 +14,8 @@ use telescope_core::source::{PairedPhone, RouteSpec};
 
 /// Posted when the model changed under the plugin (a route moved, a check landed); data {"save": bool}.
 pub const POST_CHANGED: &str = "changed";
+/// The presence worker has events for the plugin (Link::presence_wake).
+pub const POST_PRESENCE: &str = "presence";
 /// Posted when a start (or a dropped stream) can't go on; data is a StartProblem.
 pub const POST_START_PROBLEM: &str = "start_problem";
 
@@ -80,6 +82,11 @@ impl Shared {
         if let Some(poster) = poster {
             poster.post(token, data);
         }
+    }
+
+    /// Tells the plugin the presence worker has news (posted as POST_PRESENCE).
+    pub fn wake_presence(&self) {
+        self.post(POST_PRESENCE, Value::Null);
     }
 
     /// Opens route's USB forward before the model is locked, so holding it there only counts it; unpin after.
@@ -209,6 +216,7 @@ impl Shared {
         let Some(res) = c.resolution.as_mut() else { return };
         if res.phone_version == version { return; }
         res.phone_version = version.to_string();
+        c.check_id += 1;
         drop(c);
         self.changed(false);
     }
@@ -505,6 +513,16 @@ mod tests {
         shared.conn().on_resolved(check.check_id, "id-a", ready(wifi()));
         assert_eq!(shared.conn().resolution, Some(updated));
         assert_eq!(host.take_posted(), vec![(POST_CHANGED.into(), json!({"save": false}))]);
+    }
+
+    #[test]
+    fn a_late_check_cannot_bring_back_a_version_presence_just_replaced() {
+        let (shared, _host) = with_phone(Arc::new(FakeTunnels::default()));
+        shared.conn().apply_resolution(Resolution { phone_version: "5.1.3".into(), ..ready(wifi()) });
+        let check = shared.conn().check_status(0.0).unwrap();
+        shared.presence_version("id-a", "5.1.4");
+        shared.conn().on_resolved(check.check_id, "id-a", Resolution { phone_version: "5.1.3".into(), ..ready(wifi()) });
+        assert_eq!(shared.conn().resolution.as_ref().map(|r| r.phone_version.as_str()), Some("5.1.4"));
     }
 
     #[test]

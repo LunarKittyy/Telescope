@@ -55,7 +55,7 @@ If it never leaves DERP a stricter router on either side is usually why. Tailsca
 - Both apps check at launch and once a day, on **Stable** or **Nightly**
 - **Desktop:** an **Update** button appears in the header and installs in one click (not while streaming). If an update gets cut short or the new version won't start the next launch finishes it or restores the old one
 - **Phone:** the update card downloads, checks and installs the new APK. If the phone app is older than the desktop the Connection panel mentions it and can update it over USB
-- **Different versions:** when the phone and the desktop run different app versions, the desktop shows a notice naming the phone. When both run releases or both run nightlies, the notice names the older side. Otherwise it notes that the versions differ. The phone shows the same on its home screen for a computer it has heard from since the app started, with both version numbers and no side named (a desktop that doesn't report a version is called an older desktop app). Both clear when the versions match, even while streaming. Your own dev builds never trigger it
+- **Different versions:** when the phone and the desktop run different app versions, the desktop shows a notice naming the phone. When both run releases or both run nightlies, the notice names the older side. Otherwise it notes that the versions differ. The phone shows the same on its home screen for a computer it has heard from since the app started, with both version numbers and no side named (nothing shows for a desktop that doesn't report a version). Both clear when the versions match, even while streaming. Your own dev builds never trigger it
 
 <details>
 <summary><b>Updating an unzipped Windows copy</b></summary>

@@ -33,7 +33,7 @@ pub const VIDEO_CODECS: [&str; 2] = ["H264", "VP8"];
 const H264_ANSWERS: [(u8, u8, u32); 2] = [(108, 109, 0x42e01f), (127, 121, 0x42001f)];
 /// The longest the connection's thread sleeps, so close() is noticed soon.
 const TICK: Duration = Duration::from_millis(100);
-/// How long the thread sleeps when no socket has anything.
+/// How long the thread sleeps when no socket has anything and the system can't say when one does.
 const IDLE_NAP: Duration = Duration::from_millis(2);
 /// A keyframe is asked for this often until one comes.
 const KEYFRAME_AGAIN: Duration = Duration::from_secs(1);
@@ -233,10 +233,48 @@ impl Drop for StrSession {
     }
 }
 
+/// Sleeps until a packet comes in on one of the sockets or the time is up (a short nap on a system that can't wait on them).
+struct Waiter<'a> {
+    poller: Option<polling::Poller>,
+    sockets: &'a [UdpSocket],
+    events: polling::Events,
+}
+
+impl<'a> Waiter<'a> {
+    fn new(sockets: &'a [UdpSocket]) -> Waiter<'a> {
+        let poller = polling::Poller::new().ok().filter(|poller| sockets.iter().enumerate().all(|(i, socket)| {
+            // SAFETY: Drop takes each socket out again before the borrow of them ends
+            unsafe { poller.add_with_mode(socket, polling::Event::readable(i), polling::PollMode::Level) }.is_ok()
+        }));
+        Waiter { poller, sockets, events: polling::Events::new() }
+    }
+
+    fn wait(&mut self, wait: Duration) {
+        match &self.poller {
+            Some(poller) => {
+                self.events.clear();
+                let _ = poller.wait(&mut self.events, Some(wait));
+            }
+            None => std::thread::sleep(wait.min(IDLE_NAP)),
+        }
+    }
+}
+
+impl Drop for Waiter<'_> {
+    fn drop(&mut self) {
+        if let Some(poller) = &self.poller {
+            for socket in self.sockets {
+                let _ = poller.delete(socket);
+            }
+        }
+    }
+}
+
 /// The connection until it's closed or the browser goes.
 fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &AtomicBool, mut video: VideoSink, mut audio: AudioSink,
        mut opus: Option<Box<dyn AudioDecoder>>, max_kbps: u32) {
     let mut buf = vec![0u8; 2000];
+    let mut waiter = Waiter::new(sockets);
     let mut video_mid: Option<Mid> = None;
     let (mut frames, mut received, mut since, mut per_frame) = (0u64, 0u64, Instant::now(), 0u64);
     let mut asked = Instant::now() - KEYFRAME_AGAIN;
@@ -325,8 +363,8 @@ fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &Atomic
                 Input::Receive(Instant::now(), Receive { proto: Protocol::Udp, source, destination, contents })
             }
             None => {
-                // Nothing in on any of them: a short nap, never past str0m's own next deadline
-                std::thread::sleep(wait.min(IDLE_NAP));
+                // Nothing in on any of them: waits for a packet, never past str0m's own next deadline
+                waiter.wait(wait);
                 Input::Timeout(Instant::now())
             }
         };
