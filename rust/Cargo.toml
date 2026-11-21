@@ -98,10 +98,52 @@ i-slint-core = { path = "vendor/i-slint-core" }
 
 [profile.release]
 opt-level = 3
-lto = "thin"
+lto = "fat"
 codegen-units = 1
 strip = true
 # No panic = "abort": the host catches a panicking plugin and carries on, as the Python app catches its exceptions
+
+# Crates that run once at a start or a click, never per frame: smaller code instead of faster
+[profile.release.package.naga]
+opt-level = "s"
+[profile.release.package.zbus]
+opt-level = "s"
+[profile.release.package.zvariant]
+opt-level = "s"
+[profile.release.package.zbus_names]
+opt-level = "s"
+[profile.release.package.ureq]
+opt-level = "s"
+[profile.release.package.mdns-sd]
+opt-level = "s"
+[profile.release.package.usvg]
+opt-level = "s"
+[profile.release.package.resvg]
+opt-level = "s"
+[profile.release.package.pulldown-cmark]
+opt-level = "s"
+[profile.release.package.accesskit_unix]
+opt-level = "s"
+[profile.release.package.zip]
+opt-level = "s"
+[profile.release.package.tar]
+opt-level = "s"
+[profile.release.package.roxmltree]
+opt-level = "s"
+[profile.release.package.winit]
+opt-level = "s"
+[profile.release.package.wayland-client]
+opt-level = "s"
+[profile.release.package.wayland-protocols]
+opt-level = "s"
+[profile.release.package.wayland-protocols-plasma]
+opt-level = "s"
+[profile.release.package.wayland-protocols-wlr]
+opt-level = "s"
+[profile.release.package.sctk-adwaita]
+opt-level = "s"
+[profile.release.package.smithay-client-toolkit]
+opt-level = "s"
 
 # Every test window goes through Slint's compiler, and unoptimised it spends over a second on each one
 [profile.dev.package.i-slint-compiler]
