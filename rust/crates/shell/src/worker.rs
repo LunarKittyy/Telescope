@@ -968,37 +968,21 @@ impl Shared {
     /// stalled, a long exposure). So the moment steps are handed over they go in now, and the steps that hide things (Blur now, the wait screen) run on
     /// that last frame, which goes out in its place: nothing clear is sent while it waits for a frame to hide.
     fn hide_cached(self: &Arc<Self>) {
-        self.hide_latest(true, false);
+        self.hide_latest(true);
     }
 
     /// The steps this stream already has start hiding something without being handed over (Blur now on the shown stream, which a stream behind the panels follows): they run on the last frame it made, which goes out in its place, as in `hide_cached`.
     pub(crate) fn hide_behind(self: &Arc<Self>) {
-        self.hide_latest(false, true);
+        self.hide_latest(false);
     }
 
     /// `hide_cached` for steps just handed over (`install`), or for the ones the pipeline has.
-    /// `defer`: a stream whose frame is busy being made (its card readback holds the lock) is hidden from a thread of its own, so the window's thread goes on to the shown stream at once.
-    fn hide_latest(self: &Arc<Self>, install: bool, defer: bool) {
+    fn hide_latest(self: &Arc<Self>, install: bool) {
         // A replay of the last hand-over that still holds the pipeline is told at once (its wait on the card ends and what it makes is dropped), so this isn't kept waiting for it; the dark frame it stands in for is out meanwhile
         if install && self.next_steps.lock().unwrap().is_some() {
             self.handed.fetch_add(1, Ordering::SeqCst);
         }
-        let mut publish = match self.publish.try_lock() {
-            Ok(publish) => publish,
-            Err(std::sync::TryLockError::WouldBlock) if defer => {
-                let shared = self.clone();
-                let mut replays = self.replays.lock().unwrap();
-                replays.retain(|t| !t.is_finished());
-                if !self.stopped() {
-                    match std::thread::Builder::new().name("hide-behind".into()).spawn(move || shared.hide_latest(false, false)) {
-                        Ok(thread) => replays.push(thread),
-                        Err(e) => log::error!("Couldn't start the thread that hides a stream behind the panels ({e})"),
-                    }
-                }
-                return;
-            }
-            Err(_) => self.publish.lock().unwrap(),
-        };
+        let mut publish = self.publish.lock().unwrap();
         // Read under the lock frames are published under, so a newer frame can't be taken for the one that was there
         let Some((latest, _)) = self.slot.latest_picture() else { return };
         let epoch = if install {
@@ -3162,51 +3146,6 @@ mod tests {
         w.set_steps(privacy_step());
         wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
         assert_eq!(*cams.urgent.lock().unwrap(), [7], "the hidden frame is not thinned out, and only that one");
-        w.stop();
-    }
-
-    /// Passes frames through, but a frame marked 201 takes its time (as a card readback does, holding the lock frames are published under); hides while its cue is on.
-    struct SlowFrame(Arc<AtomicBool>, Arc<AtomicBool>);
-
-    impl FramePipeline for SlowFrame {
-        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
-        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
-            if frame.data[0] == 201 {
-                let until = Instant::now() + Duration::from_secs(10);
-                while !self.1.load(Ordering::SeqCst) && Instant::now() < until {
-                    std::thread::sleep(Duration::from_millis(5));
-                }
-            }
-            frame
-        }
-        fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
-            self.0.load(Ordering::SeqCst).then(|| grey(frame.width, frame.height, 7))
-        }
-        fn is_empty(&self) -> bool {
-            false
-        }
-    }
-
-    #[test]
-    fn a_stream_behind_the_panels_busy_with_a_frame_does_not_hold_up_the_window_hiding_the_shown_one() {
-        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
-        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_millis(300)), Step::Frame(201), Step::Pause(Duration::from_secs(30))])]);
-        let (cue, release) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false)));
-        let media = WithPipeline(Box::new({
-            let (cue, release) = (cue.clone(), release.clone());
-            move || Box::new(SlowFrame(cue.clone(), release.clone()))
-        }));
-        let w = start(setup(opener), Arc::new(media), &cams, &log);
-        wait_for(|| cams.sent.lock().unwrap().contains(&200));
-        // The frame after it is being made, holding the lock
-        wait_for(|| w.shared.publish.try_lock().is_err());
-        cue.store(true, Ordering::SeqCst);
-        let began = Instant::now();
-        w.hide_behind();
-        assert!(began.elapsed() < Duration::from_secs(1), "the window's thread waited {:?} for a stream behind the panels", began.elapsed());
-        // Once the frame is out the stream is hidden all the same
-        release.store(true, Ordering::SeqCst);
-        wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
         w.stop();
     }
 
