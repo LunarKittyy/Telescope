@@ -313,6 +313,11 @@ export component PreviewPopout inherits Window {
 /// The picture a window's title bar and the taskbar show (create_app_icon): the installer's icon, as pixels, since a window
 /// icon has to be one and an SVG isn't.
 pub(crate) fn app_icon() -> Option<slint::Image> {
+    thread_local! { static ICON: Option<slint::Image> = decode_app_icon(); }
+    ICON.with(|icon| icon.clone())
+}
+
+fn decode_app_icon() -> Option<slint::Image> {
     let mut reader = png::Decoder::new(std::io::Cursor::new(include_bytes!("../ui/telescope.png").as_slice())).read_info().ok()?;
     let (width, height) = (reader.info().width, reader.info().height);
     let mut rgba = vec![0; reader.output_buffer_size()?];
@@ -1066,17 +1071,26 @@ impl Window {
     pub(crate) fn sync_preview_visibility(&self) {
         let popout_seen = self.popout_seen();
         let unwanted = !(window_seen(self.ui.window()) || popout_seen);
-        self.streams.frame_unwanted.store(unwanted, std::sync::atomic::Ordering::SeqCst);
+        let was_unwanted = self.streams.frame_unwanted.swap(unwanted, std::sync::atomic::Ordering::SeqCst);
         if unwanted {
             self.painted.set(0);
+            if !was_unwanted {
+                (app_hooks().release_memory_soon)();
+            }
         }
         self.set_popout_open(popout_seen);
         let popout_visible = self.popout.borrow().as_ref().is_some_and(|p| p.window().is_visible());
         let plugin_visible = self.plugin_windows.borrow().iter().any(|(_, _, ui)| ui.window().is_visible());
-        let interval = crate::preview::housekeeping_interval(self.ui.window().is_visible(), popout_visible, plugin_visible);
+        let interval = crate::preview::housekeeping_interval(window_seen(self.ui.window()), popout_visible, plugin_visible);
         if self.preview_timer.interval() != interval {
             self.preview_timer.set_interval(interval);
         }
+    }
+
+    /// A window event says the main window may have been minimised or restored: looks now, not on the next slow tick.
+    pub(crate) fn visibility_changed(self: &Rc<Self>) {
+        self.sync_preview_visibility();
+        self.watch_focus();
     }
 
     pub(crate) fn housekeeping(self: &Rc<Self>) {
@@ -1665,6 +1679,8 @@ impl Window {
     /// HostUi::close_window, or the person closed it: gone, and the plugin hears "closed".
     /// A plugin that panicked is off until the next start: its card and header widget are hidden, its windows close and its frame steps come out.
     fn plugin_stopped(self: &Rc<Self>, plugin: &str) {
+        // A timer it scheduled would wake the window for nobody
+        self.timers.borrow_mut().retain(|(owner, _), _| owner != plugin);
         for r in self.pieces.iter().filter(|r| r.plugin == plugin) {
             let _ = self.ui.set_property(&format!("{}-visible", r.id), SValue::Bool(false));
         }
@@ -1800,6 +1816,7 @@ impl Window {
                 self.refresh_frame_steps();
             }
             Effect::FrameStep(_) => self.refresh_frame_steps(),
+            Effect::HideBehind => self.hide_behind(),
             Effect::CameraOn { on, auto } => self.set_camera_on(on, auto),
             Effect::MicChanged => self.mic_changed(),
             Effect::SourceSelected => self.source_selected(),
@@ -2070,6 +2087,8 @@ pub struct AppHooks {
     pub commit: fn() -> &'static str,
     /// Hands memory the allocator kept after frames were freed back to the system.
     pub release_memory: fn(),
+    /// The same for a pause or a window nobody sees: from a thread of its own, at most once in a few seconds, so it never holds up a frame.
+    pub release_memory_soon: fn(),
     /// Starts argv on its own, outliving this process.
     pub relaunch: fn(&[String]) -> std::io::Result<()>,
 }
@@ -2085,6 +2104,7 @@ pub(crate) fn app_hooks() -> &'static AppHooks {
         build: || telescope_core::version::version().to_string(),
         commit: || "",
         release_memory: || {},
+        release_memory_soon: || {},
         relaunch: |_| Err(std::io::ErrorKind::Unsupported.into()),
     })
 }

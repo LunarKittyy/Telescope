@@ -91,6 +91,8 @@ pub struct Preview {
     /// What the phone's other lenses see, and how far the boxes have faded since the framing last moved.
     boxes: Vec<LensBox>,
     boxes_opacity: f32,
+    /// The window is in the tray or minimised (Event::WindowShown), so its card has nobody looking at it.
+    window_hidden: bool,
     /// The Skeleton button, and the people it draws.
     skeleton: bool,
     smooth: bool,
@@ -199,13 +201,29 @@ impl Preview {
         host.set_ui_props("card", &json!({"skeleton-lines": lines, "skeleton-shown": Self::skeleton_there(host), "skeleton-on": self.skeleton, "reset-shown": self.reset_shown()}));
     }
 
+    /// Whether the lines would be seen: the pop-out shows them, and so does the card while it is shown in a window someone can see.
+    fn skeleton_seen(&self) -> bool {
+        self.popout || (!self.hidden && !self.window_hidden)
+    }
+
+    /// Finding people is only asked for while the button is on and its lines would be seen. When they stop being, the old lines go, and
+    /// they come back with the first pose after.
+    fn sync_skeleton_demand(&mut self, host: &mut dyn Host) {
+        let wanted = self.skeleton && self.skeleton_seen();
+        host.want_people(SKELETON_OWNER, wanted);
+        if !wanted && !self.people.is_empty() {
+            self.people.clear();
+            self.show_skeleton(host);
+        }
+    }
+
     /// _on_skeleton.
     fn set_skeleton(&mut self, host: &mut dyn Host, on: bool) {
         self.skeleton = on;
-        host.want_people(SKELETON_OWNER, on);
         if !on {
             self.people.clear();
         }
+        self.sync_skeleton_demand(host);
         self.show_skeleton(host);
         host.schedule_save();
     }
@@ -213,7 +231,7 @@ impl Preview {
     /// Saved settings or the plugins' start reached the toolbar: a button vision can't back goes off.
     fn settle(&mut self, host: &mut dyn Host) {
         self.skeleton &= Self::skeleton_there(host);
-        host.want_people(SKELETON_OWNER, self.skeleton);
+        self.sync_skeleton_demand(host);
         self.show_skeleton(host);
         self.show_smooth(host);
         self.show_boxes(host);
@@ -221,6 +239,7 @@ impl Preview {
 
     fn toggle(&mut self, host: &mut dyn Host) {
         self.hidden = !self.hidden;
+        self.sync_skeleton_demand(host);
         self.render(host, true);
     }
 
@@ -334,6 +353,7 @@ impl Preview {
             self.hidden = true;
             self.popout = true;
         }
+        self.sync_skeleton_demand(host);
         self.render(host, true);
     }
 
@@ -347,6 +367,7 @@ impl Preview {
             self.hidden = false;
         }
         self.hid_for_popout = false;
+        self.sync_skeleton_demand(host);
         self.render(host, true);
     }
 }
@@ -407,6 +428,10 @@ impl Plugin for Preview {
         match event {
             Event::SetupNeeded { showing } => self.setup_needed = *showing,
             Event::SourceSelected { source_id } => self.picked = source_id.clone(),
+            Event::WindowShown { shown } => {
+                self.window_hidden = !*shown;
+                return self.sync_skeleton_demand(host);
+            }
             Event::CameraOnChanged { .. } | Event::MicChanged { .. } => {}
             Event::FocusPointAvailable { available } => {
                 self.pickable = *available;
@@ -915,6 +940,47 @@ mod tests {
         p.on_event(&mut host, &Event::VisionStateChanged { state: vision::MISSING.into() });
         assert_eq!((card(&host)["skeleton-shown"].as_bool(), card(&host)["skeleton-on"].as_bool()), (Some(false), Some(false)));
         assert!(host.calls.iter().any(|c| c == "want_people Preview skeleton false"));
+    }
+
+    /// What the plugin last asked vision for Skeleton.
+    fn skeleton_asked(host: &FakeHost) -> Option<bool> {
+        host.calls.iter().rev().find_map(|c| c.strip_prefix("want_people Preview skeleton ").map(|v| v == "true"))
+    }
+
+    #[test]
+    fn people_are_only_asked_for_while_the_skeleton_would_be_seen() {
+        let (mut p, mut host) = skeleton_card(vision::READY);
+        click(&mut p, &mut host, "skeleton-clicked");
+        assert_eq!(skeleton_asked(&host), Some(true));
+        seen(&mut p, &mut host, "phone", vec![figure(false)]);
+        assert!(!lines(&host).is_empty());
+        // Hide: nobody sees the lines, so pose stops and the old lines go
+        click(&mut p, &mut host, "toggle");
+        assert_eq!(skeleton_asked(&host), Some(false));
+        assert!(lines(&host).is_empty());
+        assert_eq!(card(&host)["skeleton-on"], true, "the button's choice stays");
+        click(&mut p, &mut host, "toggle");
+        assert_eq!(skeleton_asked(&host), Some(true));
+        // The pop-out opens with the card hidden and shows the lines
+        click(&mut p, &mut host, "pop-out");
+        assert_eq!(skeleton_asked(&host), Some(true));
+        click(&mut p, &mut host, "popout-closed");
+        assert_eq!(skeleton_asked(&host), Some(true));
+        // The window in the tray shows nothing
+        p.on_event(&mut host, &Event::WindowShown { shown: false });
+        assert_eq!(skeleton_asked(&host), Some(false));
+        p.on_event(&mut host, &Event::WindowShown { shown: true });
+        assert_eq!(skeleton_asked(&host), Some(true));
+        // but the pop-out on its own does
+        p.on_event(&mut host, &Event::WindowShown { shown: false });
+        click(&mut p, &mut host, "pop-out");
+        assert_eq!(skeleton_asked(&host), Some(true));
+        click(&mut p, &mut host, "popout-closed");
+        assert_eq!(skeleton_asked(&host), Some(false));
+        // and a button that is off never asks
+        click(&mut p, &mut host, "skeleton-clicked");
+        p.on_event(&mut host, &Event::WindowShown { shown: true });
+        assert_eq!(skeleton_asked(&host), Some(false));
     }
 
     #[test]

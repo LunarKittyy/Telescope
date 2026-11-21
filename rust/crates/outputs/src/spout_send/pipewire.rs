@@ -1,6 +1,6 @@
 //! Spout send on Linux: a PipeWire video source for each shared stream.
 
-use super::{Backend, Sender};
+use super::{Backend, Resized, Sender};
 use crate::pipewire::{Connection, VideoSender};
 use std::sync::{Arc, Mutex};
 
@@ -42,9 +42,9 @@ impl Sender for VideoSender {
         VideoSender::wants_frame(self)
     }
 
-    fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
+    fn resize(&mut self, width: u32, height: u32) -> Result<Resized, String> {
         VideoSender::resize(self, width, height);
-        Ok(true)
+        Ok(Resized::Yes)
     }
 
     fn send(&mut self, bgra: &[u8]) -> Result<(), String> {
@@ -147,7 +147,7 @@ mod tests {
             sender.send(&first).unwrap();
             assert!(Instant::now() < until, "no picture arrived");
         }
-        assert_eq!(sender.resize(32, 18), Ok(true));
+        assert_eq!(sender.resize(32, 18), Ok(Resized::Yes));
         let second = picture(32, 18);
         let until = Instant::now() + Duration::from_secs(8);
         let got = loop {

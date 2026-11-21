@@ -10,7 +10,7 @@ use crate::connection::{self, fix_actions, outdated_action, problem_text, route_
                         Check, Connection, Fix, ProbeOutcome, RouteChange, UsbWatch, UseRoute, PAIR_USB_POLL,
                         STATUS_POLL, USB_WATCH};
 use crate::phones::is_usb;
-use crate::shared::{Shared, StartProblem, POST_CHANGED, POST_START_PROBLEM};
+use crate::shared::{Shared, StartProblem, POST_CHANGED, POST_PRESENCE, POST_START_PROBLEM};
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -33,7 +33,6 @@ const OFFER_AGAIN_S: f64 = 4.0;
 
 // Timer tokens
 const T_POLL: &str = "poll";
-const T_PRESENCE: &str = "presence";
 const T_USB_WATCH: &str = "usb_watch";
 const T_PAIR_POLL: &str = "pair_poll";
 const T_PAIR_USB: &str = "pair_usb";
@@ -214,7 +213,8 @@ impl ConnectionPlugin {
         let notice = {
             let c = self.conn();
             c.selected_phone().zip(c.resolution.as_ref()).and_then(|(phone, res)| {
-                if res.status != PhoneStatus::Ready { return None; }
+                // An unreachable phone still tells its version over presence: an app from before the port move can't be reached on the new one
+                if !matches!(res.status, PhoneStatus::Ready | PhoneStatus::Unreachable) { return None; }
                 let difference = compare(&res.phone_version, &self.desktop_version)?;
                 let text = match difference {
                     Difference::PhoneOlder => tr("The Telescope app on {phone} is older than this one. Update it on the phone."),
@@ -818,6 +818,7 @@ impl ConnectionPlugin {
     fn close_add(&mut self, host: &mut dyn Host) {
         log::debug!("Add device closed");
         self.add = None; // revokes the offer
+        host.clear_issue(Some("old_phone"), None);
         host.cancel_schedule(T_PAIR_POLL);
         host.cancel_schedule(T_PAIR_USB);
         host.set_ui_props("card", &json!({"add-open": false}));
@@ -826,11 +827,19 @@ impl ConnectionPlugin {
     fn poll_pairing(&mut self, host: &mut dyn Host) {
         let Some(add) = self.add.as_mut() else { return };
         let Some(offer) = add.offer.clone() else { return };
+        if let Some(name) = offer.poll_old_phone() {
+            log::info!("{name} tried to pair with an older app");
+            host.show_issue("old_phone", Issue {
+                title: tr("Phone app is out of date"), text: tr("Update the Telescope app on {phone} to connect").field("phone", &name),
+                kind: "warn".into(), actions: vec![], details: String::new(), tell_dismiss: false,
+            });
+        }
         let Some(phone) = offer.poll() else {
             host.schedule(PAIR_POLL_MS, T_PAIR_POLL);
             return;
         };
         log::info!("Paired with {} ({})", phone.name, phone.id);
+        host.clear_issue(Some("old_phone"), None);
         add.paired = Some(phone.name.clone());
         offer.revoke();
         add.offer = None;
@@ -1086,6 +1095,7 @@ impl ConnectionPlugin {
                 self.render_add(host, true);
             }
             P_VCAM => self.on_vcam(host, data),
+            POST_PRESENCE => self.presence_tick(host),
             P_UPDATED => {
                 self.updating_phone = false;
                 self.update_note = Some(if data["ok"].as_bool() == Some(true) {
@@ -1127,10 +1137,6 @@ impl ConnectionPlugin {
                     let check = self.conn().poll_status(now);
                     self.run_check(check);
                 }
-            }
-            T_PRESENCE => {
-                host.schedule(250, T_PRESENCE);
-                self.presence_tick(host);
             }
             T_USB_WATCH => self.watch_usb(host),
             T_PAIR_POLL => self.poll_pairing(host),
@@ -1344,7 +1350,8 @@ impl Plugin for ConnectionPlugin {
         self.adb_available = self.link.adb_available();
         self.apk_bundled = self.link.bundled_apk().is_some();
         host.schedule(STATUS_POLL.as_millis() as u64, T_POLL);
-        host.schedule(250, T_PRESENCE);
+        let shared = self.shared.clone();
+        self.link.presence_wake(Some(Arc::new(move || shared.wake_presence())));
         self.sync_presence();
         self.link.presence_hint();
         self.catch_up(host);
@@ -1363,6 +1370,7 @@ impl Plugin for ConnectionPlugin {
     fn shutdown(&mut self, _host: &mut dyn Host) {
         self.add = None;
         self.shared.set_poster(None);
+        self.link.presence_wake(None);
         self.link.shutdown();
     }
 
@@ -1764,6 +1772,7 @@ mod tests {
     #[derive(Default)]
     struct FakeOffer {
         paired: Mutex<Option<PairedPhone>>,
+        old_phone: Mutex<Option<String>>,
         offline: bool,
         offered: Mutex<Vec<String>>,
         revoked: std::sync::atomic::AtomicBool,
@@ -1774,7 +1783,7 @@ mod tests {
             "{\"v\": 4}".into()
         }
         fn port(&self) -> u16 {
-            8765
+            7479
         }
         fn addresses(&self) -> Vec<String> {
             if self.offline { Vec::new() } else { vec!["192.168.1.2".into()] }
@@ -1784,6 +1793,9 @@ mod tests {
         }
         fn poll(&self) -> Option<PairedPhone> {
             self.paired.lock().unwrap().take()
+        }
+        fn poll_old_phone(&self) -> Option<String> {
+            self.old_phone.lock().unwrap().take()
         }
         fn offer_to(&self, serial: &str, _package: &str) -> bool {
             self.offered.lock().unwrap().push(serial.to_string());
@@ -2123,6 +2135,11 @@ mod tests {
             e.resolve(Resolution { phone_version: "3.5.0".into(), ..Resolution::new(status) });
             assert!(e.issue("app_version").is_none());
         }
+        // Unreachable still shows it: a phone from before the port move is only heard over presence
+        e.resolve(Resolution { phone_version: "3.5.0".into(), ..Resolution::new(PhoneStatus::Unreachable) });
+        assert!(e.issue("app_version").unwrap().text.contains("Pixel is older"));
+        e.resolve(Resolution::new(PhoneStatus::Unreachable));
+        assert!(e.issue("app_version").is_none());
         e.resolve(Resolution { phone_version: "3.7.0".into(), ..ready(wifi()) });
         assert!(e.issue("app_version").unwrap().text.contains("Pixel is newer"));
         e.resolve(ready(wifi()));
@@ -3255,7 +3272,7 @@ mod tests {
         assert!(e.link.checks.lock().unwrap().is_empty());
         e.link.answer(ready(wifi()));
         e.link.presence_updates.lock().unwrap().push(telescope_core::link::PresenceUpdate::Probe { phone_id: "id-a".into() });
-        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        e.plugin.on_posted(&mut e.host, POST_PRESENCE, &serde_json::Value::Null);
         e.settle_until(|e| e.shared.conn().resolution.as_ref().is_some_and(|r| r.status == PhoneStatus::Ready));
         assert_eq!(*e.link.checks.lock().unwrap(), ["id-a"]);
         *e.link.presence_generation.lock().unwrap() = None;
@@ -3273,12 +3290,12 @@ mod tests {
             telescope_core::link::PresenceUpdate::Reachable { phone_id: "id-b".into(), address: "10.0.0.6".into(), addresses: vec![] },
             telescope_core::link::PresenceUpdate::Degraded("bind failed".into()),
         ]);
-        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        e.plugin.on_posted(&mut e.host, POST_PRESENCE, &serde_json::Value::Null);
         e.settle();
         assert!(e.link.checks.lock().unwrap().is_empty());
         assert_eq!(e.issue("presence").unwrap().details, "bind failed");
         e.link.presence_updates.lock().unwrap().push(telescope_core::link::PresenceUpdate::Restored);
-        e.plugin.on_timer(&mut e.host, T_PRESENCE);
+        e.plugin.on_posted(&mut e.host, POST_PRESENCE, &serde_json::Value::Null);
         assert!(e.issue("presence").is_none());
     }
 
@@ -3323,6 +3340,35 @@ mod tests {
         *held.paired.lock().unwrap() = Some(phone("id-a", "Pixel"));
         e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
         assert!(held.revoked.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn a_phone_with_an_older_app_knocking_gets_an_update_notice() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        let held = offer(&e);
+        assert!(e.issue("old_phone").is_none());
+        *held.old_phone.lock().unwrap() = Some("Pixel 6".into());
+        e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
+        let issue = e.issue("old_phone").expect("a notice");
+        assert_eq!(issue.text, "Update the Telescope app on Pixel 6 to connect");
+        // It keeps listening: the person may fix the phone and scan again
+        assert!(!held.revoked.load(std::sync::atomic::Ordering::SeqCst));
+        e.ui("card", "add-closed", vec![]);
+        assert!(e.issue("old_phone").is_none());
+    }
+
+    #[test]
+    fn the_update_notice_goes_when_another_phone_pairs() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        let held = offer(&e);
+        *held.old_phone.lock().unwrap() = Some("Pixel 6".into());
+        e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
+        assert!(e.issue("old_phone").is_some());
+        *held.paired.lock().unwrap() = Some(phone("id-a", "Pixel"));
+        e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
+        assert!(e.issue("old_phone").is_none());
     }
 
     #[test]

@@ -19,8 +19,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use telescope_core::bus::BusSender;
 use telescope_core::event::Event;
-use telescope_core::frame::Frame;
-use telescope_core::image::{frame_rgb, small_rgb};
+use telescope_core::frame::{Frame, MaskSpace};
+use telescope_core::image::{frame_rgb, small_grey, small_rgb};
 use telescope_core::people::PeopleTracking;
 use telescope_core::vision::{turned, PackZip, Turn, Upright, VisionPack, VisionService};
 
@@ -83,6 +83,13 @@ fn model_rgb(frame: &Frame) -> Option<Rgb> {
     small_rgb(frame, mw, mh, true).map(|data| Rgb::new(mw, mh, data))
 }
 
+/// The frame as RGB at the size the high quality cutout takes (see matting::model_picture). A frame at least four times that on each side is shrunk on its planes first like model_rgb, so a 4K frame never becomes a full-size picture. A smaller one (1080p) goes whole and the model shrinks it, the old way, where the half-size colour planes don't divide into whole blocks and shrinking them is the slower route.
+fn cutout_rgb(frame: &Frame) -> Option<Rgb> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let Some((mw, mh)) = ops::model_input_size(w, h, matting::input_size(w, h)).filter(|&(mw, mh)| w >= mw * 4 && h >= mh * 4) else { return rgb(frame) };
+    small_rgb(frame, mw, mh, true).map(|data| Rgb::new(mw, mh, data))
+}
+
 /// The frame as RGB at the size the pose model gets (see ops::people_size), shrunk on its planes first.
 fn people_rgb(frame: &Frame) -> Option<Rgb> {
     let (w, h) = (frame.width as usize, frame.height as usize);
@@ -91,6 +98,15 @@ fn people_rgb(frame: &Frame) -> Option<Rgb> {
         return rgb(frame);
     }
     small_rgb(frame, pw, ph, true).map(|data| Rgb::new(pw, ph, data))
+}
+
+/// The tiny grey copy a frame is told to have moved by (ops::THUMB), from the luma plane alone when the frame is YUV.
+fn people_look(frame: &Frame) -> Option<Vec<u8>> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    if w < ops::THUMB.0 || h < ops::THUMB.1 {
+        return rgb(frame).map(|picture| ops::thumb(&picture));
+    }
+    small_grey(frame, ops::THUMB.0, ops::THUMB.1)
 }
 
 /// The pack's backend from `load`: the marker only says the files matched once, and the library is native code that runs as the user.
@@ -260,15 +276,15 @@ impl VisionHost {
 impl VisionHost {
     fn mask_normal(&self, source_id: &str, frame: &Frame, (w, h): (usize, usize), epoch: u64, keep_late: bool) -> Option<Arc<Vec<u8>>> {
         let shared = frame.clone();
-        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: frame.mask_space };
+        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: MaskSpace { crop_unsure: false, ..frame.mask_space }, unsure: frame.mask_space.crop_unsure };
         self.shared.vision.newest_normal_for(source_id, !keep_late, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)
     }
 
     fn mask_hq(&self, source_id: &str, frame: &Frame, size: (usize, usize), epoch: u64, keep_late: bool) -> Option<Arc<Vec<u8>>> {
         let (w, h) = size;
-        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: frame.mask_space };
+        let view = MaskView { geometry: Some(frame.geometry.as_deref().copied().unwrap_or_default()), keep_late, space: MaskSpace { crop_unsure: false, ..frame.mask_space }, unsure: frame.mask_space.crop_unsure };
         let shared = frame.clone();
-        let hq = self.shared.vision.newest_cutout_snapshot(source_id, frame.number, w, h, Box::new(move || rgb(&shared)), epoch, view);
+        let hq = self.shared.vision.newest_cutout_snapshot(source_id, frame.number, w, h, Box::new(move || cutout_rgb(&shared)), epoch, view);
         let normal = |frame: &Frame| {
             let shared = frame.clone();
             self.shared.vision.newest_normal_snapshot(source_id, false, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch, view)
@@ -284,13 +300,25 @@ impl VisionHost {
             }
             due
         };
-        let normal = (due || hq.as_ref().is_none_or(|m| !m.fresh())).then(|| normal(frame)).flatten();
-        preferred_mask(hq, normal).map(|m| m.mask)
+        // The normal mask is asked for as soon as the cutout falls behind, so it has something newer to give
+        let behind = hq_may_be_behind(view.unsure);
+        let normal = (due || hq.as_ref().is_none_or(|m| m.age() > behind)).then(|| normal(frame)).flatten();
+        preferred_mask(hq, normal, view.unsure).map(|m| m.mask)
     }
 }
 
-fn preferred_mask(hq: Option<MaskSnapshot>, normal: Option<MaskSnapshot>) -> Option<MaskSnapshot> {
-    if hq.as_ref().is_some_and(MaskSnapshot::fresh) {
+/// How far behind the normal mask the cutout's can be and still stand in for it: the cutout cuts cleaner, so a frame or so doesn't matter. Not at all
+/// while the crop label is a guess, since a held mask is moved by that guess and an older one is moved further by it.
+fn hq_may_be_behind(unsure: bool) -> f64 {
+    if unsure { 0.0 } else { service::HQ_BEHIND_S }
+}
+
+/// The mask a frame uses out of the cutout's and the normal model's newest: by how recent each is, not by which model made it. The cutout while it
+/// is within the age limit and no more than hq_may_be_behind behind a normal mask that is too; else the normal one while it is within the limit; else whichever was made last.
+fn preferred_mask(hq: Option<MaskSnapshot>, normal: Option<MaskSnapshot>, unsure: bool) -> Option<MaskSnapshot> {
+    let behind = hq_may_be_behind(unsure);
+    let normal_leads = |hq: &MaskSnapshot| normal.as_ref().is_some_and(|n| n.fresh() && n.seq != hq.seq && n.at - hq.at > behind);
+    if hq.as_ref().is_some_and(|h| h.fresh() && !normal_leads(h)) {
         return hq;
     }
     if normal.as_ref().is_some_and(MaskSnapshot::fresh) {
@@ -339,8 +367,12 @@ impl VisionService for VisionHost {
         self.shared.vision.wants_people()
     }
 
+    fn people_due(&self, source_id: &str) -> bool {
+        self.shared.vision.people_due(source_id)
+    }
+
     fn feed_raw(&self, source_id: &str, frame: &Frame, upright: Upright) {
-        self.shared.vision.feed_raw(source_id, &mut || people_rgb(frame), upright);
+        self.shared.vision.feed_raw(source_id, &mut || people_look(frame), &mut || people_rgb(frame), upright);
     }
 
     fn tracked_people(&self, source_id: &str) -> (Vec<Value>, u32) {

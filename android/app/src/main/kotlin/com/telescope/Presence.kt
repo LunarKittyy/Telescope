@@ -4,7 +4,7 @@ import java.security.MessageDigest
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-internal const val PRESENCE_PORT = 8769
+internal const val PRESENCE_PORT = 7483
 internal const val PRESENCE_PACKET_LIMIT = 512
 
 internal fun presenceAddress(ip: String): Boolean = isValidIpv4(ip) && !ip.startsWith("127.") && !ip.startsWith("169.254.") && ip != "0.0.0.0" && ip.split('.')[0].toInt() !in 224..239
@@ -162,7 +162,7 @@ internal class PresenceExchange(private val phoneId: String, private val version
     }
 }
 
-internal enum class DesktopVersionNotice { Legacy, Different }
+internal enum class DesktopVersionNotice { Different }
 
 // Written the way the app shows its own version (5.1.4-nightly.4255), whichever way the desktop spelt it
 internal fun displayAppVersion(version: String): String =
@@ -174,7 +174,8 @@ internal fun displayAppVersion(version: String): String =
 // Only a computer heard from since this app started counts, so a stored version from a computer that is now off never shows
 internal fun desktopVersionNotice(desktop: String?, phone: String, heardThisRun: Boolean = true): DesktopVersionNotice? {
     if (desktop == null || !heardThisRun) return null
-    if (desktop.isEmpty()) return DesktopVersionNotice.Legacy
+    // No version at all says nothing about which side is older, so there is nothing to claim
+    if (desktop.isBlank()) return null
     fun dev(v: String) = v.endsWith(" dev") || v.contains("-dev.")
     if (desktop.trim() == phone.trim() || dev(desktop) || dev(phone)) return null
     val nightly = Regex("^\\d+\\.\\d+\\.\\d+(?:-nightly\\.| nightly )(\\d+)$")

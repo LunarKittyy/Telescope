@@ -42,6 +42,7 @@ pub fn write_nv12(frame: &Frame, out: &mut [u8]) {
 }
 
 /// BT.601 limited range, as OpenCV's YUV I420 conversions use.
+#[cfg(test)]
 pub(crate) fn yuv_to_rgb(y: u8, u: u8, v: u8) -> [u8; 3] {
     let c = (y as f32 - 16.0) * 1.164;
     let (d, e) = (u as f32 - 128.0, v as f32 - 128.0);
@@ -94,6 +95,12 @@ fn terms() -> &'static Terms {
     })
 }
 
+/// yuv_row for a whole row, the first 32 pixel blocks of it on AVX2 (within 1 of yuv_to_rgb) and the rest, or all of it on a processor without, the exact way.
+fn convert_row<const BGRA: bool>(t: &Terms, y: &[u8], u: &[u8], v: &[u8], out: &mut [u8]) {
+    let done = if BGRA { telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(y, u, v, false, out) } else { telescope_core::yuv::row::<{ telescope_core::yuv::RGBA }>(y, u, v, false, out) };
+    yuv_row::<BGRA>(t, &y[done..], &u[done / 2..], &v[done / 2..], &mut out[done * 4..]);
+}
+
 /// The RGB yuv_to_rgb makes of a run of luma, each pair of pixels sharing its chroma sample; out is RGBA, or BGRA when BGRA is set.
 fn yuv_row<const BGRA: bool>(t: &Terms, y: &[u8], u: &[u8], v: &[u8], out: &mut [u8]) {
     for ((ys, os), (u, v)) in y.chunks(2).zip(out.chunks_mut(8)).zip(u.iter().zip(v)) {
@@ -125,7 +132,7 @@ pub fn i420_to_rgba_flipped_into(frame: &Frame, out: &mut Vec<u8>) {
     let (t, cw) = (terms(), w.div_ceil(2));
     telescope_core::image::over_rows(out, w * 4, |at, line| {
         let row = h - 1 - at;
-        yuv_row::<false>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
+        convert_row::<false>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
     });
 }
 
@@ -144,7 +151,7 @@ pub fn i420_to_bgra_into(frame: &Frame, out: &mut Vec<u8>) {
     }
     let (t, cw) = (terms(), w.div_ceil(2));
     telescope_core::image::over_rows(out, w * 4, |row, line| {
-        yuv_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
+        convert_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
     });
 }
 
@@ -153,14 +160,15 @@ pub fn i420_to_bgr(frame: &Frame) -> Vec<u8> {
     let (w, h) = (frame.width as usize, frame.height as usize);
     let mut out = vec![0u8; w * h * 3];
     let Some((py, pu, pv)) = frame.i420_planes() else { return out };
-    let cw = w.div_ceil(2);
-    for row in 0..h {
-        for col in 0..w {
-            let ci = (row / 2) * cw + col / 2;
-            let [r, g, b] = yuv_to_rgb(py[row * w + col], pu[ci], pv[ci]);
-            out[(row * w + col) * 3..][..3].copy_from_slice(&[b, g, r]);
-        }
+    if w == 0 {
+        return out;
     }
+    let (t, cw) = (terms(), w.div_ceil(2));
+    telescope_core::image::over_rows(&mut out, w * 3, |row, line| {
+        let mut bgra = vec![0u8; w * 4];
+        convert_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], &mut bgra);
+        line.as_chunks_mut::<3>().0.iter_mut().zip(bgra.as_chunks::<4>().0).for_each(|(o, p)| o.copy_from_slice(&p[..3]));
+    });
     out
 }
 
@@ -365,6 +373,40 @@ mod tests {
             out
         }
 
+        /// i420_to_bgra_into as it was before the vector version: the table row loop, a band of rows to each worker.
+        pub fn i420_to_bgra_into_tables(frame: &Frame, out: &mut Vec<u8>) {
+            let (w, h) = (frame.width as usize, frame.height as usize);
+            let Some((py, pu, pv)) = frame.i420_planes() else { return };
+            out.resize(w * h * 4, 0);
+            let (t, cw) = (terms(), w.div_ceil(2));
+            telescope_core::image::over_rows(out, w * 4, |row, line| {
+                yuv_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
+            });
+        }
+
+        /// i420_to_bgra_into as the float formula says it, pixel by pixel.
+        pub fn i420_to_bgra(frame: &Frame) -> Vec<u8> {
+            let (w, h) = (frame.width as usize, frame.height as usize);
+            let rgba = i420_to_rgba_flipped(frame);
+            (0..h).flat_map(|row| rgba[(h - 1 - row) * w * 4..][..w * 4].as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect::<Vec<_>>()).collect()
+        }
+
+        /// i420_to_bgr as the float formula says it, pixel by pixel.
+        pub fn i420_to_bgr(frame: &Frame) -> Vec<u8> {
+            let (w, h) = (frame.width as usize, frame.height as usize);
+            let mut out = vec![0u8; w * h * 3];
+            let Some((py, pu, pv)) = frame.i420_planes() else { return out };
+            let cw = w.div_ceil(2);
+            for row in 0..h {
+                for col in 0..w {
+                    let ci = (row / 2) * cw + col / 2;
+                    let [r, g, b] = yuv_to_rgb(py[row * w + col], pu[ci], pv[ci]);
+                    out[(row * w + col) * 3..][..3].copy_from_slice(&[b, g, r]);
+                }
+            }
+            out
+        }
+
         pub fn rgb_to_i420(pixels: &[u8], width: u32, height: u32, channels: usize, mirror: bool) -> Frame {
             let (w, h) = (width as usize, height as usize);
             let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
@@ -445,17 +487,137 @@ mod tests {
         }
     }
 
+    /// The largest difference between two pictures' bytes, which has to be 1 or less (the vector conversion rounds a little differently, and the alpha is the same)
+    fn largest_difference(a: &[u8], b: &[u8], channels: usize, what: &str) -> (u8, usize) {
+        assert_eq!(a.len(), b.len(), "{what}");
+        let (mut most, mut differing) = (0u8, 0usize);
+        for (i, (x, y)) in a.iter().zip(b).enumerate() {
+            let d = x.abs_diff(*y);
+            assert!(d <= 1, "{what}: byte {i} is {x}, was {y}");
+            if channels == 4 && i % 4 == 3 {
+                assert_eq!(x, y, "{what}: alpha of byte {i}");
+            }
+            most = most.max(d);
+            differing += (d > 0) as usize;
+        }
+        (most, differing)
+    }
+
+    /// Sizes around the 32 pixel blocks, odd ones, and tall and thin ones
+    const SIZES: [(u32, u32); 21] = [(1, 1), (2, 2), (3, 3), (5, 2), (2, 7), (17, 9), (31, 3), (32, 2), (33, 3), (63, 4), (64, 36), (65, 5), (95, 7), (96, 1), (97, 6), (1, 40), (300, 301), (1366, 33), (1921, 33), (1920, 6), (3841, 5)];
+
     #[test]
-    fn frames_convert_to_rgba_as_before_at_every_awkward_size() {
-        for (w, h) in [(1, 1), (2, 2), (3, 3), (5, 2), (2, 7), (17, 9), (64, 36), (1921, 33), (300, 301)] {
+    fn frames_convert_to_rgba_within_a_level_of_before_at_every_awkward_size() {
+        for (w, h) in SIZES {
             let f = noisy_i420(w, h, w * 31 + h);
-            assert_eq!(i420_to_rgba_flipped(&f), reference::i420_to_rgba_flipped(&f), "{w}x{h}");
+            largest_difference(&i420_to_rgba_flipped(&f), &reference::i420_to_rgba_flipped(&f), 4, &format!("{w}x{h}"));
         }
         let mut reused = vec![9u8; 3];
         i420_to_rgba_flipped_into(&noisy_i420(6, 4, 1), &mut reused);
-        let f = noisy_i420(10, 6, 2);
+        let f = noisy_i420(70, 6, 2);
         i420_to_rgba_flipped_into(&f, &mut reused);
-        assert_eq!(reused, reference::i420_to_rgba_flipped(&f));
+        largest_difference(&reused, &reference::i420_to_rgba_flipped(&f), 4, "reused");
+    }
+
+    #[test]
+    fn frames_convert_to_bgra_and_bgr_within_a_level_of_before_at_every_awkward_size() {
+        for (w, h) in SIZES {
+            let f = noisy_i420(w, h, w * 17 + h);
+            let mut out = vec![7u8; 5];
+            i420_to_bgra_into(&f, &mut out);
+            largest_difference(&out, &reference::i420_to_bgra(&f), 4, &format!("bgra {w}x{h}"));
+            largest_difference(&i420_to_bgr(&f), &reference::i420_to_bgr(&f), 3, &format!("bgr {w}x{h}"));
+        }
+    }
+
+    /// Smooth pictures like a camera makes (a gradient of luma with slowly changing chroma and some noise), at both the sizes that matter
+    fn camera_like(w: u32, h: u32) -> Frame {
+        let (cw, ch) = (w.div_ceil(2) as usize, h.div_ceil(2) as usize);
+        let grain = noise(w as usize * h as usize, 3);
+        let mut data: Vec<u8> = (0..w as usize * h as usize).map(|i| (16.0 + 219.0 * ((i % w as usize) as f32 / w as f32 * 0.7 + (i / w as usize) as f32 / h as f32 * 0.3)) as u8 + grain[i] % 3).collect();
+        data.extend((0..cw * ch).map(|i| (60 + (i % cw) * 130 / cw) as u8));
+        data.extend((0..cw * ch).map(|i| (200 - (i / cw) * 130 / ch) as u8));
+        Frame::new(w, h, PixelFormat::I420, data)
+    }
+
+    #[test]
+    fn camera_like_frames_stay_within_a_level_at_hd_and_4k() {
+        for (w, h) in [(1920, 1080), (3840, 2160), (1280, 720)] {
+            let f = camera_like(w, h);
+            let mut out = Vec::new();
+            i420_to_bgra_into(&f, &mut out);
+            let (most, differing) = largest_difference(&out, &reference::i420_to_bgra(&f), 4, &format!("{w}x{h}"));
+            eprintln!("{w}x{h}: largest difference {most}, {:.2}% of bytes differ", differing as f64 * 100.0 / out.len() as f64);
+        }
+    }
+
+    #[test]
+    #[cfg(target_arch = "x86_64")]
+    fn every_yuv_value_converts_within_a_level_on_the_vector_path() {
+        if !std::arch::is_x86_feature_detected!("avx2") {
+            return;
+        }
+        let ys: Vec<u8> = (0..=255).collect();
+        let (mut differing, mut most) = (0usize, 0u8);
+        for u in 0..=255u8 {
+            for v in 0..=255u8 {
+                let (us, vs) = ([u; 128], [v; 128]);
+                for (name, out) in [("bgra", { let mut o = [0u8; 1024]; assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&ys, &us, &vs, false, &mut o), 256); o }), ("rgba", { let mut o = [0u8; 1024]; assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::RGBA }>(&ys, &us, &vs, false, &mut o), 256); o })] {
+                    for (y, px) in out.as_chunks::<4>().0.iter().enumerate() {
+                        let want = yuv_to_rgb(y as u8, u, v);
+                        let got = if name == "bgra" { [px[2], px[1], px[0]] } else { [px[0], px[1], px[2]] };
+                        assert_eq!(px[3], 255);
+                        for c in 0..3 {
+                            let d = got[c].abs_diff(want[c]);
+                            assert!(d <= 1, "{name} y {y} u {u} v {v}: {got:?}, was {want:?}");
+                            most = most.max(d);
+                            differing += (d > 0) as usize;
+                        }
+                    }
+                }
+            }
+        }
+        eprintln!("vector conversion: largest difference {most}, {:.2}% of channel values differ", differing as f64 * 100.0 / (256.0 * 256.0 * 256.0 * 6.0));
+    }
+
+    #[test]
+    #[cfg(target_arch = "x86_64")]
+    fn the_vector_path_reads_and_writes_only_its_own_blocks_whatever_the_alignment() {
+        if !std::arch::is_x86_feature_detected!("avx2") {
+            return;
+        }
+        let (y, u, v) = (noise(300, 1), noise(200, 2), noise(200, 3));
+        for off in 0..5 {
+            // 70 pixels: two whole blocks and 6 over, which are left alone
+            let mut out = vec![0xAAu8; 70 * 4 + 7 + off];
+            let done = telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[off..off + 70], &u[off..off + 35], &v[off..off + 35], false, &mut out[off..off + 70 * 4]);
+            assert_eq!(done, 64);
+            assert!(out[..off].iter().all(|b| *b == 0xAA) && out[off + 64 * 4..].iter().all(|b| *b == 0xAA), "off {off}");
+            let mut whole = vec![0u8; 64 * 4];
+            for x in 0..64 {
+                let c = yuv_to_rgb(y[off + x], u[off + x / 2], v[off + x / 2]);
+                whole[x * 4..][..4].copy_from_slice(&[c[2], c[1], c[0], 255]);
+            }
+            largest_difference(&out[off..off + 64 * 4], &whole, 4, &format!("off {off}"));
+        }
+        // Rows too short for a block, or a buffer too short for the row, do nothing
+        assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[..31], &u[..16], &v[..16], false, &mut [0u8; 124]), 0);
+        assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[..64], &u[..32], &v[..32], false, &mut [0u8; 64 * 4 - 4]), 32);
+    }
+
+    #[test]
+    fn black_white_and_the_privacy_cover_colours_come_out_exact() {
+        for (w, h) in [(64usize, 4usize), (70, 3)] {
+            for (y, u, v, want) in [(16u8, 128u8, 128u8, [0u8, 0, 0]), (235, 128, 128, [255, 255, 255]), (126, 128, 128, [128, 128, 128])] {
+                let mut data = vec![y; w * h];
+                data.extend(vec![u; w.div_ceil(2) * h.div_ceil(2)]);
+                data.extend(vec![v; w.div_ceil(2) * h.div_ceil(2)]);
+                let f = Frame::new(w as u32, h as u32, PixelFormat::I420, data);
+                let mut out = Vec::new();
+                i420_to_bgra_into(&f, &mut out);
+                assert!(out.as_chunks::<4>().0.iter().all(|p| p[..3] == want && p[3] == 255), "{w}x{h} y {y}: {:?}", &out[..4]);
+            }
+        }
     }
 
     #[test]
@@ -502,6 +664,20 @@ mod tests {
         for (name, w, h) in [("1080p", 1920u32, 1080u32), ("4K", 3840, 2160)] {
             let i420 = noisy_i420(w, h, 5);
             let rgba = noise((w * h * 4) as usize, 6);
+            let mut out = Vec::new();
+            time(&format!("{name} i420->bgra, tables"), 20, || { reference::i420_to_bgra_into_tables(&i420, &mut out); std::hint::black_box(&out); });
+            time(&format!("{name} i420->bgra, new"), 20, || { i420_to_bgra_into(&i420, &mut out); std::hint::black_box(&out); });
+            time(&format!("{name} i420->bgra, tables"), 20, || { reference::i420_to_bgra_into_tables(&i420, &mut out); std::hint::black_box(&out); });
+            time(&format!("{name} i420->bgra, new"), 20, || { i420_to_bgra_into(&i420, &mut out); std::hint::black_box(&out); });
+            time(&format!("{name} i420->bgra, tables"), 20, || { reference::i420_to_bgra_into_tables(&i420, &mut out); std::hint::black_box(&out); });
+            time(&format!("{name} i420->bgra, new"), 20, || { i420_to_bgra_into(&i420, &mut out); std::hint::black_box(&out); });
+            // One thread, as the cost in CPU time
+            let (py, pu, pv) = i420.i420_planes().unwrap();
+            let (t, cw, w, h) = (terms(), (w as usize).div_ceil(2), w as usize, h as usize);
+            let mut line = vec![0u8; w * 4];
+            time(&format!("{name} i420->bgra one thread, tables"), 5, || for row in 0..h { yuv_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], &mut line); std::hint::black_box(&line); });
+            time(&format!("{name} i420->bgra one thread, new"), 5, || for row in 0..h { convert_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], &mut line); std::hint::black_box(&line); });
+            let (w, h) = (w as u32, h as u32);
             time(&format!("{name} i420->rgba flipped, old"), 5, || { std::hint::black_box(reference::i420_to_rgba_flipped(&i420)); });
             let mut out = Vec::new();
             time(&format!("{name} i420->rgba flipped, new"), 20, || { i420_to_rgba_flipped_into(&i420, &mut out); std::hint::black_box(&out); });

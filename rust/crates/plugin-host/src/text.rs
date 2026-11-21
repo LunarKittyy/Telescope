@@ -2,6 +2,10 @@
 
 use std::fmt::Display;
 
+/// The longest a filled-in text may get. A plugin chooses both the text and the values, and a field repeated many times over would
+/// otherwise be built in full by Rust before Lua's own memory limit could say anything.
+const MAX_FILLED: usize = 16 * 1024 * 1024;
+
 /// text with each {name} replaced by its value; {{ and }} stand for braces. A field with no value stays as it was.
 pub fn fill(text: &str, fields: &[(&str, &dyn Display)]) -> Result<String, String> {
     let mut out = String::with_capacity(text.len());
@@ -21,6 +25,9 @@ pub fn fill(text: &str, fields: &[(&str, &dyn Display)]) -> Result<String, Strin
         let name = &tail[1..end];
         let (_, value) = fields.iter().find(|(n, _)| *n == name).ok_or_else(|| format!("no value for {{{name}}} in {text:?}"))?;
         out += &value.to_string();
+        if out.len() > MAX_FILLED {
+            return Err(format!("a text fills in to more than {MAX_FILLED} bytes"));
+        }
         rest = &tail[end + 1..];
     }
     out += rest;
@@ -36,6 +43,14 @@ pub fn tr(msgid: &str, fields: &[(&str, &dyn Display)]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_text_cant_fill_in_to_more_than_it_may_hold() {
+        let big = "x".repeat(1 << 20);
+        assert_eq!(fill("{a}", &[("a", &big)]).unwrap().len(), 1 << 20);
+        assert!(fill(&"{a}".repeat(32), &[("a", &big)]).is_err());
+        assert_eq!(tr(&"{a}".repeat(32), &[("a", &big)]), "{a}".repeat(32), "the text stays as it was written");
+    }
 
     #[test]
     fn fields_fill_like_str_format() {

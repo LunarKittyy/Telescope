@@ -17,6 +17,10 @@ pub struct Slot {
 pub trait VideoOutput: Send {
     /// The frame has to be the size it was opened at, in a format from formats().
     fn send(&mut self, frame: &Frame) -> Result<(), String>;
+    /// `send` for the first frame after the steps that hide things ran on the last one: a camera that drops frames to keep to its reader's rate (the Windows 11 camera) writes it anyway, or the reader would go on showing the clear picture until the next frame.
+    fn send_now(&mut self, frame: &Frame) -> Result<(), String> {
+        self.send(frame)
+    }
     fn size(&self) -> (u32, u32);
     /// The size to fit frames to now, when an app reading the camera has taken another one than it was opened at.
     fn fit_size(&mut self) -> Option<(u32, u32)> {
@@ -164,6 +168,10 @@ pub trait Outputs: Send + Sync {
     /// (vcam.CameraWatch). Start it to begin.
     fn watch(&self, _on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn Held>> {
         None
+    }
+    /// watch for slot's camera: the extra cameras' wait screens move (an animation) only while an app reads their camera. None when this system can't tell for that slot.
+    fn watch_slot(&self, slot: u32, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn Held>> {
+        if slot == 0 { self.watch(on_change) } else { None }
     }
     /// Whether the watch can tell for sure that nobody reads the camera (v4l2loopback usage events, the Windows 11 camera's heartbeat), so
     /// that "not watched" is safe to act on. False for the /proc fallback, UnityCapture and anything unknown.

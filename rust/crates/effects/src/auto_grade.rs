@@ -4,7 +4,6 @@ use crate::auto_measure::{noise_level, Look, Measurement, Measurer};
 use crate::auto_tuning::*;
 use telescope_core::i18n::{n_, tr};
 use crate::cpu::Rgb;
-use crate::shared::mask_of;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -158,7 +157,7 @@ impl CpuStep for MeasureStep {
         let noise = noise_level(&rgb);
         let (w, h) = (rgb.w, rgb.h);
         let small = if w > SMALL_WIDTH { rgb.shrink(SMALL_WIDTH, ((h * SMALL_WIDTH) as f64 / w as f64).round().max(1.0) as usize) } else { rgb.clone() };
-        let mask = mask_of(ctx, frame).map(|m| m.shrink(small.w, small.h));
+        let mask = crate::shared::mask_small(ctx, frame, small.w, small.h);
         let (people, main, view, mut measurer) = {
             let mut i = self.shared.inner.lock().unwrap();
             if self.shared.generation.load(Ordering::SeqCst) != generation {

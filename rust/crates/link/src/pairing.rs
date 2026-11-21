@@ -11,7 +11,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
-pub const PAIRING_PORT: u16 = 8765;
+pub const PAIRING_PORT: u16 = 7479;
+/// How many names of phones with an older app wait to be shown at once (a replayed request can't grow the list).
+const MAX_OLD_PHONES: usize = 4;
+/// Where phones from before the port move pair. Listen only: whoever knocks there is told to update, nothing pairs.
+pub const OLD_PAIRING_PORT: u16 = 8765;
 /// Desktop and app ship together.
 /// 3: the offer names this computer (computer_id/computer_name), the phone answers with its phone_id.
 /// 4: the phone answers with its TLS certificate's fingerprint and a proof of the token, never the token itself.
@@ -46,6 +50,8 @@ impl Default for Limits {
 pub struct PairingOffer {
     pub payload: String,
     pub port: u16,
+    /// Where phones from before the port move knock (they read the offer's "port"), when that port could be taken.
+    pub old_port: Option<u16>,
     pub nonce: String,
     pub token: String,
     pub candidates: Vec<PairingAddress>,
@@ -88,6 +94,8 @@ struct Shared {
     /// One offer pairs one phone; a second (two plugged in, both sent the USB offer) is refused.
     claimed: Mutex<Option<String>>,
     on_paired: Box<dyn Fn(PairingResult) + Send + Sync>,
+    /// Names of phones that knocked on the old port, until taken.
+    old_phones: Mutex<Vec<String>>,
     stop: AtomicBool,
 }
 
@@ -123,19 +131,21 @@ pub struct PairingServer {
 impl PairingServer {
     /// Binds and starts serving. candidates is empty when this computer has no usable network; usb_payload still works
     /// then, over adb reverse. advertise replaces the adapter scan.
-    pub fn start(computer_id: &str, computer_name: &str, advertise: Option<Vec<PairingAddress>>,
+    pub fn start(old_port: Option<u16>, computer_id: &str, computer_name: &str, advertise: Option<Vec<PairingAddress>>,
                  on_paired: impl Fn(PairingResult) + Send + Sync + 'static) -> std::io::Result<PairingServer> {
-        PairingServer::start_on(PAIRING_PORT, computer_id, computer_name, advertise, Limits::default(), on_paired)
+        PairingServer::start_scanning(PAIRING_PORT, old_port, computer_id, computer_name, advertise, net::pairing_addresses,
+                                      Limits::default(), on_paired)
     }
 
     /// The same on a given port (0: any), falling back to any free one.
     pub fn start_on(port: u16, computer_id: &str, computer_name: &str, advertise: Option<Vec<PairingAddress>>, limits: Limits,
                     on_paired: impl Fn(PairingResult) + Send + Sync + 'static) -> std::io::Result<PairingServer> {
-        PairingServer::start_scanning(port, computer_id, computer_name, advertise, net::pairing_addresses, limits, on_paired)
+        PairingServer::start_scanning(port, None, computer_id, computer_name, advertise, net::pairing_addresses, limits, on_paired)
     }
 
-    /// The same with scan standing for the adapter scan.
-    fn start_scanning(port: u16, computer_id: &str, computer_name: &str, advertise: Option<Vec<PairingAddress>>,
+    /// The same with scan standing for the adapter scan, and old_port (when given) also listening for phones that still
+    /// use the old port. Without it, or when it's taken, old phones are sent to the pairing port and pair as usual.
+    pub(crate) fn start_scanning(port: u16, old_port: Option<u16>, computer_id: &str, computer_name: &str, advertise: Option<Vec<PairingAddress>>,
                       scan: impl FnOnce() -> Vec<PairingAddress>, limits: Limits,
                       on_paired: impl Fn(PairingResult) + Send + Sync + 'static) -> std::io::Result<PairingServer> {
         let candidates = advertise.unwrap_or_else(scan);
@@ -147,26 +157,40 @@ impl PairingServer {
         let listener = bind(port).or_else(|_| bind(0))?;
         let port = listener.local_addr()?.port();
         listener.set_nonblocking(true)?;
+        let old_listener = old_port.filter(|old| *old != port).and_then(|old| bind(old).ok()).and_then(|l| l.set_nonblocking(true).ok().map(|_| l));
+        let old_port = old_listener.as_ref().and_then(|l| l.local_addr().ok()).map(|a| a.port());
         let payload_for = |addrs: &[PairingAddress]| {
             util::python_json(&json!({
-                "version": PAIRING_PROTOCOL_VERSION, "port": port, "candidates": addrs,
+                "version": PAIRING_PROTOCOL_VERSION, "port": old_port.unwrap_or(port), "pairing_port": port, "candidates": addrs,
                 "nonce": nonce, "token": token, "computer_id": computer_id, "computer_name": computer_name,
             }))
         };
         let mut usb = vec![PairingAddress { ip: "127.0.0.1".into(), interface: "USB (adb)".into(), kind: "other" }];
         usb.extend(candidates.iter().cloned());
-        let offer = PairingOffer { payload: payload_for(&candidates), usb_payload: payload_for(&usb), port, nonce: nonce.clone(),
+        let offer = PairingOffer { payload: payload_for(&candidates), usb_payload: payload_for(&usb), port, old_port, nonce: nonce.clone(),
                                    token: token.clone(), candidates };
-        let shared = Arc::new(Shared { nonce, token, limits, open: Mutex::default(), claimed: Mutex::default(), on_paired: Box::new(on_paired), stop: AtomicBool::new(false) });
+        let shared = Arc::new(Shared { nonce, token, limits, open: Mutex::default(), claimed: Mutex::default(), on_paired: Box::new(on_paired),
+                                          old_phones: Mutex::default(), stop: AtomicBool::new(false) });
         let serving = shared.clone();
-        std::thread::Builder::new().name("pairing-server".into()).spawn(move || serve(listener, serving))?;
-        Ok(PairingServer { offer, shared })
+        std::thread::Builder::new().name("pairing-server".into()).spawn(move || serve(listener, serving, false))?;
+        // From here the server's drop stops the thread above, if the one below can't start
+        let server = PairingServer { offer, shared: shared.clone() };
+        if let Some(listener) = old_listener {
+            std::thread::Builder::new().name("pairing-server-old".into()).spawn(move || serve(listener, shared, true))?;
+        }
+        Ok(server)
     }
 
     /// Refuses every request from now on, ones on a connection already open too (idempotent); the port closes within a
     /// moment.
     pub fn stop(&self) {
         self.shared.stop.store(true, Ordering::SeqCst);
+    }
+
+    /// The name of a phone that knocked on the old port since the last call: its app is older than this one.
+    pub fn take_old_phone(&self) -> Option<String> {
+        let mut seen = self.shared.old_phones.lock().unwrap();
+        (!seen.is_empty()).then(|| seen.remove(0))
     }
 
     /// How many connections each address has open now.
@@ -185,7 +209,8 @@ fn bind(port: u16) -> std::io::Result<TcpListener> {
     TcpListener::bind(("0.0.0.0", port))
 }
 
-fn serve(listener: TcpListener, shared: Arc<Shared>) {
+/// old: the listen-only socket on the old port.
+fn serve(listener: TcpListener, shared: Arc<Shared>, old: bool) {
     while !shared.stop.load(Ordering::SeqCst) {
         let (conn, addr) = match listener.accept() {
             Ok(c) => c,
@@ -217,7 +242,7 @@ fn serve(listener: TcpListener, shared: Arc<Shared>) {
                     }
                 });
             }
-            let _ = handle(&conn, &host, &shared);
+            let _ = handle(&conn, &host, &shared, old);
             let _ = done.send(());
             shared.release(&host);
         });
@@ -257,7 +282,7 @@ fn drain(reader: &mut impl Read, length: Option<i64>) {
     }
 }
 
-fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared) -> std::io::Result<()> {
+fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared, old: bool) -> std::io::Result<()> {
     conn.set_read_timeout(Some(shared.limits.request_timeout))?;
     let mut reader = BufReader::new(conn.try_clone()?);
     // The request line and headers are cut off at the same sizes as an answer from a phone (https.rs)
@@ -305,6 +330,15 @@ fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared) -> std::io::Result
     let Some(result) = check(&body, &shared.nonce, &shared.token, source_ip) else { return respond(conn, "400 Bad Request", b"") };
     if shared.stop.load(Ordering::SeqCst) {
         return respond(conn, "404 Not Found", b"");
+    }
+    if old {
+        // Nothing pairs here: the phone proved it read this offer, so its name is worth showing
+        let mut seen = shared.old_phones.lock().unwrap();
+        if seen.len() < MAX_OLD_PHONES && !seen.contains(&result.name) {
+            seen.push(result.name);
+        }
+        drop(seen);
+        return respond(conn, "426 Upgrade Required", b"");
     }
     let taken = {
         let mut claimed = shared.claimed.lock().unwrap();
@@ -411,7 +445,7 @@ mod tests {
 
     #[test]
     fn start_without_network_still_offers_usb_pairing() {
-        let server = PairingServer::start_scanning(0, "", "", None, Vec::new, Limits::default(), |_| {}).unwrap();
+        let server = PairingServer::start_scanning(0, None, "", "", None, Vec::new, Limits::default(), |_| {}).unwrap();
         assert!(server.offer.candidates.is_empty());
         let usb: Value = serde_json::from_str(&server.offer.usb_payload).unwrap();
         assert_eq!(usb["candidates"], json!([{"ip": "127.0.0.1", "interface": "USB (adb)", "kind": "other"}]));
@@ -438,14 +472,14 @@ mod tests {
     #[test]
     fn the_payload_is_written_like_pythons_json() {
         let (server, _) = server_with(Limits::default(), vec![]);
-        assert!(server.offer.payload.starts_with(&format!("{{\"version\": 4, \"port\": {}, \"candidates\": [], \"nonce\": ", server.offer.port)));
+        assert!(server.offer.payload.starts_with(&format!("{{\"version\": 4, \"port\": {}, \"pairing_port\": {}, \"candidates\": [], \"nonce\": ", server.offer.port, server.offer.port)));
     }
 
     #[test]
     fn start_with_advertised_addresses_skips_discovery() {
         let usb = vec![PairingAddress { ip: "127.0.0.1".into(), interface: "USB (adb)".into(), kind: "other" }];
         let scan = || panic!("should not enumerate interfaces");
-        let server = PairingServer::start_scanning(0, "", "", Some(usb), scan, Limits::default(), |_| {}).unwrap();
+        let server = PairingServer::start_scanning(0, None, "", "", Some(usb), scan, Limits::default(), |_| {}).unwrap();
         let payload: Value = serde_json::from_str(&server.offer.payload).unwrap();
         assert_eq!(payload["candidates"], json!([{"ip": "127.0.0.1", "interface": "USB (adb)", "kind": "other"}]));
     }
@@ -565,6 +599,107 @@ mod tests {
         let offer = &server.offer;
         assert_eq!(post(offer.port, &format!("/pair/{}", offer.nonce), &body(offer, "Phone", &[], "ph-1", "not-hex", None)), 400);
         assert!(paired.lock().unwrap().is_empty());
+    }
+
+    fn with_old_port(old: Option<u16>) -> (PairingServer, Arc<Mutex<Vec<PairingResult>>>) {
+        let paired: Arc<Mutex<Vec<PairingResult>>> = Arc::default();
+        let record = paired.clone();
+        let server = PairingServer::start_scanning(0, old, "", "", Some(candidates()), Vec::new, Limits::default(),
+                                                   move |r| record.lock().unwrap().push(r)).unwrap();
+        (server, paired)
+    }
+
+    fn free_port() -> u16 {
+        bind(0).unwrap().local_addr().unwrap().port()
+    }
+
+    #[test]
+    fn the_ports_are_the_new_block_and_the_old_pairing_port() {
+        assert_eq!((PAIRING_PORT, OLD_PAIRING_PORT), (7479, 8765));
+    }
+
+    #[test]
+    fn a_phone_knocking_on_the_old_port_is_not_paired_and_is_named() {
+        let (server, paired) = with_old_port(Some(free_port()));
+        let offer = server.offer.clone();
+        let old = offer.old_port.unwrap();
+        assert_ne!(old, offer.port);
+        assert_eq!(server.take_old_phone(), None);
+        assert_eq!(post(old, &format!("/pair/{}", offer.nonce), &body(&offer, "Old Phone", &[], "ph-1", PIN, None)), 426);
+        assert_eq!(server.take_old_phone().as_deref(), Some("Old Phone"));
+        assert!(paired.lock().unwrap().is_empty());
+        assert_eq!(server.take_old_phone(), None);
+        // The real port still pairs the same offer
+        assert_eq!(post(offer.port, &format!("/pair/{}", offer.nonce), &pair_body(&offer)), 200);
+    }
+
+    #[test]
+    fn a_phone_knocking_again_is_named_once() {
+        let (server, _) = with_old_port(Some(free_port()));
+        let offer = server.offer.clone();
+        let old = offer.old_port.unwrap();
+        for _ in 0..3 {
+            assert_eq!(post(old, &format!("/pair/{}", offer.nonce), &body(&offer, "Old Phone", &[], "ph-1", PIN, None)), 426);
+        }
+        assert_eq!(server.take_old_phone().as_deref(), Some("Old Phone"));
+        assert_eq!(server.take_old_phone(), None);
+    }
+
+    #[test]
+    fn only_a_few_names_wait_to_be_shown() {
+        let (server, _) = with_old_port(Some(free_port()));
+        let offer = server.offer.clone();
+        let old = offer.old_port.unwrap();
+        for i in 0..MAX_OLD_PHONES + 3 {
+            assert_eq!(post(old, &format!("/pair/{}", offer.nonce), &body(&offer, &format!("Phone {i}"), &[], "ph-1", PIN, None)), 426);
+        }
+        let mut taken = 0;
+        while server.take_old_phone().is_some() {
+            taken += 1;
+        }
+        assert_eq!(taken, MAX_OLD_PHONES);
+    }
+
+    #[test]
+    fn the_old_port_names_only_phones_that_read_the_offer() {
+        let (server, _) = with_old_port(Some(free_port()));
+        let offer = server.offer.clone();
+        let old = offer.old_port.unwrap();
+        assert_eq!(post(old, "/pair/not-the-nonce", b"{}"), 404);
+        assert_eq!(post(old, &format!("/pair/{}", offer.nonce), &body(&offer, "Forger", &[], "ph-1", PIN, Some("bad"))), 400);
+        assert_eq!(server.take_old_phone(), None);
+    }
+
+    #[test]
+    fn the_offer_tells_old_phones_the_old_port_and_new_ones_the_pairing_port() {
+        let (server, _) = with_old_port(Some(free_port()));
+        let offer = &server.offer;
+        for raw in [&offer.payload, &offer.usb_payload] {
+            let data: Value = serde_json::from_str(raw).unwrap();
+            assert_eq!(data["port"], offer.old_port.unwrap());
+            assert_eq!(data["pairing_port"], offer.port);
+        }
+    }
+
+    #[test]
+    fn without_the_old_port_old_phones_get_the_pairing_port() {
+        let taken = TcpListener::bind(("0.0.0.0", 0)).unwrap();
+        let (server, _) = with_old_port(Some(taken.local_addr().unwrap().port()));
+        assert_eq!(server.offer.old_port, None);
+        let data: Value = serde_json::from_str(&server.offer.payload).unwrap();
+        assert_eq!((data["port"].as_u64(), data["pairing_port"].as_u64()), (Some(server.offer.port as u64), Some(server.offer.port as u64)));
+    }
+
+    #[test]
+    fn stopping_closes_the_old_port_too() {
+        let (server, _) = with_old_port(Some(free_port()));
+        let offer = server.offer.clone();
+        server.stop();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while TcpStream::connect(("127.0.0.1", offer.old_port.unwrap())).is_ok() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(30));
+        }
+        assert!(TcpStream::connect(("127.0.0.1", offer.old_port.unwrap())).is_err());
     }
 
     #[test]

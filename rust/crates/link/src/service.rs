@@ -205,6 +205,8 @@ impl Link for LinkService {
 
     fn presence_hint(&self) { self.presence.hint(); }
 
+    fn presence_wake(&self, wake: Option<Arc<dyn Fn() + Send + Sync>>) { self.presence.set_wake(wake); }
+
     fn presence_updates(&self) -> Vec<PresenceUpdate> {
         self.apply_presence_events(self.presence.take_events())
     }
@@ -515,26 +517,42 @@ impl Offer {
 
     /// start, advertising these addresses in place of the adapter scan.
     pub(crate) fn start_on(computer_id: &str, computer_name: &str, advertise: Option<Vec<crate::net::PairingAddress>>, adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> Result<Offer, String> {
+        Offer::start_with(Some(crate::pairing::OLD_PAIRING_PORT), computer_id, computer_name, advertise, adb)
+    }
+
+    /// start_on, also listening on old_port (when given) for phones from before the port move.
+    pub(crate) fn start_with(old_port: Option<u16>, computer_id: &str, computer_name: &str, advertise: Option<Vec<crate::net::PairingAddress>>,
+                             adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> Result<Offer, String> {
         let (tx, rx) = mpsc::channel::<PairingResult>();
         let tx = Mutex::new(tx);
-        let server = PairingServer::start(computer_id, computer_name, advertise, move |r| {
+        let server = PairingServer::start(old_port, computer_id, computer_name, advertise, move |r| {
             let _ = tx.lock().unwrap().send(r);
         }).map_err(|e| e.to_string())?;
         Ok(Offer { server, paired: Mutex::new(rx), reversed: Mutex::new(Some(HashSet::new())), adb })
     }
 
+    /// What a phone on a cable reaches through adb reverse: the pairing port, and the old one for phones that still use it.
+    fn usb_ports(&self) -> Vec<u16> {
+        let offer = &self.server.offer;
+        std::iter::once(offer.port).chain(offer.old_port).collect()
+    }
+
     /// Sends the USB offer to one phone (again: the broadcast only lands while the app is on screen).
     fn offer_to(&self, adb: &Adb, serial: &str, package: &str) -> bool {
         let b64 = crate::util::base64(self.server.offer.usb_payload.as_bytes());
-        let port = self.server.offer.port;
+        let ports = self.usb_ports();
         let Some(fresh) = self.reversed.lock().unwrap().as_mut().map(|r| r.insert(serial.to_string())) else { return false };
         if fresh {
-            adb.reverse(port, Some(serial));
+            for port in &ports {
+                adb.reverse(*port, Some(serial));
+            }
         }
         if self.reversed.lock().unwrap().is_none() {
             // Revoked during that reverse: its removal may have gone first
             if fresh {
-                adb.unreverse(port, Some(serial));
+                for port in &ports {
+                    adb.unreverse(*port, Some(serial));
+                }
             }
             return false;
         }
@@ -564,17 +582,26 @@ impl PairingOffer for Offer {
         self.paired.lock().unwrap().try_recv().ok().map(|r| r.phone())
     }
 
+    fn poll_old_phone(&self) -> Option<String> {
+        self.server.take_old_phone()
+    }
+
     fn offer_to(&self, serial: &str, package: &str) -> bool {
         Offer::offer_to(self, &(self.adb)(), serial, package)
     }
 
     fn revoke(&self) {
         self.server.stop();
-        let port = self.server.offer.port;
+        let ports = self.usb_ports();
         let serials = self.reversed.lock().unwrap().take().unwrap_or_default();
         for serial in serials {
             let adb = self.adb.clone();
-            std::thread::spawn(move || adb().unreverse(port, Some(&serial)));
+            let ports = ports.clone();
+            std::thread::spawn(move || {
+                for port in ports {
+                    adb().unreverse(port, Some(&serial));
+                }
+            });
         }
     }
 }
@@ -599,7 +626,7 @@ fn stop_over(tunnels: &dyn connection::Tunnels, phone: &PairedPhone, route: &Rou
 mod tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::net::TcpStream;
+    use std::net::{TcpListener, TcpStream};
 
     #[test]
     fn headless_requests_send_the_version_without_a_connection_plugin() {
@@ -698,6 +725,29 @@ mod tests {
         assert_eq!((phone.name.as_str(), phone.token.as_str(), phone.active_ip), ("Pixel 8", token, None));
     }
 
+    #[test]
+    fn the_old_port_is_reversed_for_usb_and_a_knock_on_it_names_the_phone() {
+        let (adb, seen, _free) = stalling_adb("never");
+        let old = TcpListener::bind(("0.0.0.0", 0)).unwrap().local_addr().unwrap().port();
+        let offer = Offer::start_with(Some(old), "computer", "desk", None, adb).unwrap();
+        assert!(Offer::offer_to(&offer, &(offer.adb)(), "serial-1", "app"));
+        let reversed: Vec<String> = seen.try_iter().filter(|c| c.iter().any(|a| a == "reverse")).map(|c| c[c.len() - 1].clone()).collect();
+        assert_eq!(reversed, [format!("tcp:{}", offer.port()), format!("tcp:{old}")]);
+        let payload: Value = serde_json::from_str(&offer.payload()).unwrap();
+        let (nonce, token) = (payload["nonce"].as_str().unwrap(), payload["token"].as_str().unwrap());
+        let cert = "ab".repeat(32);
+        let proof = crate::util::pairing_proof(token, nonce, "phone-1", &cert);
+        let body = serde_json::json!({"name": "Pixel 8", "phone_id": "phone-1", "cert_sha256": cert, "proof": proof, "ips": []}).to_string();
+        let mut conn = TcpStream::connect(("127.0.0.1", old)).unwrap();
+        write!(conn, "POST /pair/{nonce} HTTP/1.1\r\nContent-Length: {}\r\n\r\n{body}", body.len()).unwrap();
+        let mut reply = String::new();
+        conn.read_to_string(&mut reply).unwrap();
+        assert!(reply.starts_with("HTTP/1.1 426"), "{reply}");
+        assert_eq!(PairingOffer::poll_old_phone(&offer).as_deref(), Some("Pixel 8"));
+        assert_eq!(PairingOffer::poll_old_phone(&offer), None);
+        assert!(offer.poll().is_none());
+    }
+
     /// adb that logs each command and stalls in the first one holding `stalls` until the sender goes.
     fn stalling_adb(stalls: &'static str) -> (Arc<dyn Fn() -> Adb + Send + Sync>, mpsc::Receiver<Vec<String>>, mpsc::Sender<()>) {
         let (log, seen) = mpsc::channel::<Vec<String>>();
@@ -738,7 +788,7 @@ mod tests {
     #[test]
     fn revoking_during_a_stalled_broadcast_shuts_the_offer_at_once() {
         let (adb, seen, free) = stalling_adb("shell");
-        let offer = Arc::new(Offer::start("computer", "desk", adb).unwrap());
+        let offer = Arc::new(Offer::start_with(None, "computer", "desk", None, adb).unwrap());
         let sending = offer.clone();
         let thread = std::thread::spawn(move || sending.offer_to(&(sending.adb)(), "serial-1", "app"));
         assert!(seen.iter().any(|cmd| cmd.iter().any(|a| a == "shell")));
@@ -756,7 +806,7 @@ mod tests {
     #[test]
     fn a_reverse_that_comes_back_after_the_revoke_is_taken_down_and_nothing_is_sent() {
         let (adb, seen, free) = stalling_adb("reverse");
-        let offer = Arc::new(Offer::start("computer", "desk", adb).unwrap());
+        let offer = Arc::new(Offer::start_with(None, "computer", "desk", None, adb).unwrap());
         let sending = offer.clone();
         let thread = std::thread::spawn(move || sending.offer_to(&(sending.adb)(), "serial-1", "app"));
         assert!(seen.recv().is_ok_and(|cmd| !removes_reverse(&cmd)));

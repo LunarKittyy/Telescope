@@ -611,6 +611,10 @@ impl Job for ScreenJob {
                 }
             }
             let (_, fmt, frames) = prepared.as_ref().unwrap();
+            // Preparing can outlast the wait Stop makes for this thread: a stopped screen doesn't open the camera, which a new stream or a driver reload may be taking over
+            if stop.is_set() {
+                return;
+            }
             let mut cam = match (self.deps.open_camera)(size.0, size.1, 30, *fmt) {
                 Ok(cam) => cam,
                 Err(e) => {
@@ -946,6 +950,28 @@ mod tests {
         s.show(64, 36, None, false);
         wait_for(|| log.sent(0) > 0, 2.0);
         s.stop();
+    }
+
+    #[test]
+    fn a_screen_stopped_while_its_picture_was_being_made_never_opens_the_camera() {
+        let (release, gate) = std::sync::mpsc::channel::<()>();
+        let gate = Mutex::new(gate);
+        let (entered, inside) = std::sync::mpsc::channel::<()>();
+        let entered = Mutex::new(entered);
+        let loader: Loader = Arc::new(move |p, w, h| {
+            let _ = entered.lock().unwrap().send(());
+            let _ = gate.lock().unwrap().recv();
+            black(p, w, h)
+        });
+        let (s, log, _g) = screen(Setup { loader, ..Setup::default() });
+        s.show(64, 36, None, false);
+        inside.recv_timeout(Duration::from_secs(5)).expect("the picture to be asked for");
+        // Stop gives the thread a moment and leaves it to end by itself
+        s.stop();
+        release.send(()).unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(log.attempts.lock().unwrap().is_empty(), "the stopped screen opened the camera: {:?}", log.attempts.lock().unwrap());
+        assert!(log.cams().is_empty());
     }
 
     // test_vcam.py::test_mirror_flips_the_screen_left_to_right

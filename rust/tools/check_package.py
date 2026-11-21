@@ -36,7 +36,7 @@ WINDOWS_FILES = ("TelescopeDesktop.exe", "rnnoise.dll", "vcruntime140.dll", "vcr
                  "unitycapture/UnityCaptureFilter64.dll", "unitycapture/UnityCaptureFilter32.dll", "unitycapture/LICENSE")
 WINDOWS_LIBRARIES = ("avcodec-", "avutil-", "swresample-", "swscale-")
 # What the app asks FFmpeg for (media/src/ffmpeg.rs, opus.rs and h264.rs), so a recipe change that drops one shows up here and not on someone's phone
-DECODERS = (b"h264", b"hevc", b"mjpeg", b"vp8", b"opus", b"png", b"webp", b"bmp")
+DECODERS = (b"h264", b"mjpeg", b"vp8", b"opus", b"png", b"webp", b"bmp")
 HARDWARE = {"linux": (b"vaapi", b"cuda"), "win32": (b"d3d11va", b"cuda")}
 # No GPL parts in what ships, and adb's licence doesn't allow passing it on
 FORBIDDEN = re.compile(r"(^|/)(libx264|libx265|x264|avfilter|avdevice|postproc|adb)[^/]*$", re.I)

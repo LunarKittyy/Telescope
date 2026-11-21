@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use telescope_core::source::PairedPhone;
 
-pub const PORT: u16 = 8769;
+pub const PORT: u16 = 7483;
 const MAX_PACKET: usize = 512;
 const MAX_PEERS: usize = 64;
 const MAX_PENDING: usize = 256;
@@ -49,7 +49,9 @@ struct Controls {
     events: Mutex<VecDeque<PresenceEvent>>,
     checks: Mutex<VecDeque<(PairedPhone, bool)>>,
     hint: AtomicBool,
+    wake: Mutex<Option<Arc<dyn Fn() + std::marker::Send + Sync>>>,
     stopped: AtomicBool,
+    failure: Mutex<Option<String>>,
 }
 
 impl Controls {
@@ -75,7 +77,11 @@ impl Presence {
         let mut previous = self.controls.credentials.lock().unwrap();
         if previous.as_ref() != Some(&credentials) {
             self.controls.revision.fetch_add(1, Ordering::AcqRel);
-            self.controls.events.lock().unwrap().clear();
+            let mut events = self.controls.events.lock().unwrap();
+            events.clear();
+            // The worker is gone for good when it could not start, so a credential change must not hide that
+            if let Some(why) = self.controls.failure.lock().unwrap().clone() { events.push_back(PresenceEvent::Degraded(why)); }
+            drop(events);
             self.controls.checks.lock().unwrap().clear();
             *previous = Some(credentials);
         }
@@ -95,6 +101,13 @@ impl Presence {
     pub fn hint(&self) {
         self.controls.hint.store(true, Ordering::Relaxed);
         self.controls.notify();
+    }
+
+    pub fn set_wake(&self, wake: Option<Arc<dyn Fn() + std::marker::Send + Sync>>) {
+        *self.controls.wake.lock().unwrap() = wake.clone();
+        // Events queued before the callback existed would otherwise wait for the next one
+        let pending = !self.controls.events.lock().unwrap().is_empty();
+        if let (true, Some(wake)) = (pending, wake) { wake(); }
     }
 
     pub fn take_events(&self) -> Vec<PresenceEvent> {
@@ -455,17 +468,23 @@ fn dispatch(transport: &mut impl Transport, sends: Vec<Send>) {
 }
 
 fn event(controls: &Controls, value: PresenceEvent, revision: u64) {
-    let mut events = controls.events.lock().unwrap();
-    if controls.revision.load(Ordering::Acquire) != revision { return; }
-    if events.len() == 64 { events.pop_front(); }
-    events.push_back(value);
+    {
+        let mut events = controls.events.lock().unwrap();
+        if controls.revision.load(Ordering::Acquire) != revision { return; }
+        if events.len() == 64 { events.pop_front(); }
+        events.push_back(value);
+    }
+    let wake = controls.wake.lock().unwrap().clone();
+    if let Some(wake) = wake { wake(); }
 }
 
 fn run(controls: Arc<Controls>) {
     let poller = match Poller::new() {
         Ok(poller) => Arc::new(poller),
         Err(error) => {
-            event(&controls, PresenceEvent::Degraded(format!("UDP presence could not wait for sockets: {error}")), controls.revision.load(Ordering::Acquire));
+            let why = format!("UDP presence could not wait for sockets: {error}");
+            *controls.failure.lock().unwrap() = Some(why.clone());
+            event(&controls, PresenceEvent::Degraded(why), controls.revision.load(Ordering::Acquire));
             return;
         }
     };
@@ -498,6 +517,7 @@ fn run(controls: Arc<Controls>) {
                 (!engine.id.is_empty() && engine.id != config.id) || engine.peers.get(&phone.id).is_some_and(|old| old.phone.token != phone.token)
             }).map(|phone| phone.id.clone()).collect();
             engine.configure(config, now);
+            scan_at = 0.0; // a phone may have come: its interfaces are looked at now
             let mut capabilities = controls.capabilities.lock().unwrap();
             capabilities.retain(|id, _| engine.peers.contains_key(id) && !rotated.contains(id));
         }
@@ -510,7 +530,8 @@ fn run(controls: Arc<Controls>) {
             continue;
         }
         if now >= scan_at {
-            scan_at = now + 5.0;
+            // With no phone paired there is no one to hear from: the interfaces are looked at again when one is added (configure) or on a hint
+            scan_at = now + if engine.peers.is_empty() { 3600.0 } else { 5.0 };
             let adapters = AdapterAddresses::new(crate::net::pairing_addresses().into_iter().map(|item| item.ip));
             let changed = adapters.bound != adapter_ips;
             if changed || sockets.0.len() != adapters.bound.len() || sockets.0.is_empty() {

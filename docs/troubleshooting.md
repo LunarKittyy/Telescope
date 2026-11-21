@@ -71,7 +71,13 @@ Click **Retry**. If it fails again open an issue with your **Copy diagnostics** 
 ## Pairing and connecting
 
 **QR pairing fails ("Couldn't reach your computer.")**
-The phone and computer aren't on the same network, or the computer's firewall blocks port 8765. The dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is). Or plug the phone in and pair over USB.
+The phone and computer aren't on the same network, or the computer's firewall blocks port 7479. The dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is). Or plug the phone in and pair over USB.
+
+**"Update Telescope on <computer> to keep using this phone with it" or "Update the Telescope app on <phone> to connect"**
+The two apps are on different versions from before Telescope moved its ports (they were 8765 to 8768 and are now 7479 to 7482). Update the one the message names, or both. Telescope on the computer and on the phone has to be the same version.
+
+**Which ports does the firewall need?**
+Allow 7479 on the computer while pairing. Browser camera uses 7481 and On Air 7482. Presence needs UDP 7483. The computer also has to reach the phone on 7480 and 8080. These are the defaults. Browser camera picks another free port if its own is taken and shows the port it picked in its link. Pairing does the same, but only the QR code carries the port, so allow Telescope itself instead of the port if 7479 is taken. Windows asks about Telescope itself the first time and that rule covers every port. If you added rules by hand after an earlier version, replace 8765 to 8768 with 7479 to 7482. For a few releases the update messages between an older and a newer version travel over the old ports (8766 on the phone, and 8765 on the computer while pairing). With only the new ports open, an older and a newer version still don't connect, and neither can name the one to update.
 
 **QR pairing fails on guest or public Wi-Fi**
 Those networks usually block devices from talking to each other. Nothing can work around that. Use USB pairing or a network you control.
@@ -114,28 +120,28 @@ Another computer paired with the phone started its camera first. Stop it there o
 
 **Paired devices need another pairing before Wi-Fi works**
 
-Open Telescope on both devices or connect over USB once so existing pairings can learn the computer's addresses. Presence uses UDP 8769 in both directions; HTTPS fallback still works when UDP is blocked. A network that isolates devices can block both paths.
+Open Telescope on both devices or connect over USB once so existing pairings can learn the computer's addresses. Presence uses UDP 7483 in both directions; HTTPS fallback still works when UDP is blocked. A network that isolates devices can block both paths.
 
 On Windows allow Telescope itself through the firewall. For a port-specific rule, run PowerShell as administrator and use the actual path of your copy:
 
 ```powershell
-New-NetFirewallRule -DisplayName "Telescope presence" -Direction Inbound -Program "C:\path\to\TelescopeDesktop.exe" -Protocol UDP -LocalPort 8769 -Action Allow
+New-NetFirewallRule -DisplayName "Telescope presence" -Direction Inbound -Program "C:\path\to\TelescopeDesktop.exe" -Protocol UDP -LocalPort 7483 -Action Allow
 ```
 
-On Linux allow incoming UDP 8769 from the phone's network. For example, with UFW (replace the subnet with yours):
+On Linux allow incoming UDP 7483 from the phone's network. For example, with UFW (replace the subnet with yours):
 
 ```bash
-sudo ufw allow from 192.168.1.0/24 to any port 8769 proto udp
+sudo ufw allow from 192.168.1.0/24 to any port 7483 proto udp
 ```
 
 With firewalld, add the port to the zone containing the phone's interface:
 
 ```bash
-sudo firewall-cmd --zone=home --add-port=8769/udp --permanent
+sudo firewall-cmd --zone=home --add-port=7483/udp --permanent
 sudo firewall-cmd --reload
 ```
 
-Include the Tailscale interface or subnet too if you use it. The phone must permit UDP 8769 as well. Presence can recover an address only while either remembered addresses or network discovery still reach the other device; USB or pairing again is needed when both fail.
+Include the Tailscale interface or subnet too if you use it. The phone must permit UDP 7483 as well. Presence can recover an address only while either remembered addresses or network discovery still reach the other device; USB or pairing again is needed when both fail.
 
 **Windows asks about the firewall again after an update**
 The update moved an unzipped copy to the installed one and Windows treats it as a new program. Click Allow on private networks like the first time. The old copy's rule is left behind and does nothing.
@@ -197,13 +203,13 @@ Auto framing is moving them. Switch it off on its card and your own zoom and pan
 ## Browser camera
 
 **The page won't load**
-The device isn't on the same network, or a firewall blocks port 8767. Use the address on the card that matches the device's network (the card lists each one if there are several) and allow port 8767 in the firewall. If you clicked Cancel on the Windows firewall prompt, allow Telescope in Windows Security under Firewall & network protection, Allow an app through firewall.
+The device isn't on the same network, or a firewall blocks port 7481. Use the address on the card that matches the device's network (the card lists each one if there are several) and allow port 7481 in the firewall. If you clicked Cancel on the Windows firewall prompt, allow Telescope in Windows Security under Firewall & network protection, Allow an app through firewall.
 
 **The page says it can't reach the computer or that the code was replaced**
 The code changed (**New link**, or Telescope restarted). Scan the code on the card again.
 
 **The page stays on "Connecting the video…" or keeps reconnecting**
-The video goes over WebRTC on UDP ports picked each time, which a strict firewall can block even with port 8767 open. On Windows allow Telescope itself in the firewall, not only the port. On Linux allow incoming UDP from your local network, or turn the firewall off for a moment to confirm that's it.
+The video goes over WebRTC on UDP ports picked each time, which a strict firewall can block even with port 7481 open. On Windows allow Telescope itself in the firewall, not only the port. On Linux allow incoming UDP from your local network, or turn the firewall off for a moment to confirm that's it.
 
 **It stops when the phone locks or you switch apps**
 Phones pause the camera for pages in the background. Leave the page open with the screen on. Returning to it starts it again.

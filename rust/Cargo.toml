@@ -63,10 +63,11 @@ pollster = "1"
 qrcode = { version = "0.14", default-features = false }
 # Reading QR codes off the picture (QR codes), without the image crate it can use for files
 rqrr = { version = "0.11", default-features = false }
-slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "renderer-software", "accessibility"] }
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "accessibility"] }
 # Plugins people add: Lua 5.4 built from source, .zip packages, update checks over HTTPS, WGSL checks without a GPU
 mlua = { version = "0.12", features = ["lua54", "vendored", "send", "serialize"] }
-zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# lzma: the vision and matting packs are LZMA zips (tools/build_vision_pack.py), and older packs are deflate, so both are read
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs", "lzma"] }
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 # Unpacking the Linux update's .tar.gz, on the same zlib as zip
 tar = { version = "0.4", default-features = false }
@@ -86,7 +87,7 @@ image = { version = "0.25", default-features = false }
 winresource = "0.1"
 cpal = "0.18"
 naga = { version = "30", default-features = false, features = ["wgsl-in"] }
-slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "renderer-software", "accessibility"] }
+slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "accessibility"] }
 
 # femtovg 0.27 (the version Slint 1.18 takes) drops every pipeline a flush didn't use and compiles it again on the next one, which was most of a frame's cost: see vendor/femtovg/PATCH.txt
 [patch.crates-io]
@@ -98,10 +99,52 @@ i-slint-core = { path = "vendor/i-slint-core" }
 
 [profile.release]
 opt-level = 3
-lto = "thin"
+lto = "fat"
 codegen-units = 1
 strip = true
 # No panic = "abort": the host catches a panicking plugin and carries on, as the Python app catches its exceptions
+
+# Crates that run once at a start or a click, never per frame: smaller code instead of faster
+[profile.release.package.naga]
+opt-level = "s"
+[profile.release.package.zbus]
+opt-level = "s"
+[profile.release.package.zvariant]
+opt-level = "s"
+[profile.release.package.zbus_names]
+opt-level = "s"
+[profile.release.package.ureq]
+opt-level = "s"
+[profile.release.package.mdns-sd]
+opt-level = "s"
+[profile.release.package.usvg]
+opt-level = "s"
+[profile.release.package.resvg]
+opt-level = "s"
+[profile.release.package.pulldown-cmark]
+opt-level = "s"
+[profile.release.package.accesskit_unix]
+opt-level = "s"
+[profile.release.package.zip]
+opt-level = "s"
+[profile.release.package.tar]
+opt-level = "s"
+[profile.release.package.roxmltree]
+opt-level = "s"
+[profile.release.package.winit]
+opt-level = "s"
+[profile.release.package.wayland-client]
+opt-level = "s"
+[profile.release.package.wayland-protocols]
+opt-level = "s"
+[profile.release.package.wayland-protocols-plasma]
+opt-level = "s"
+[profile.release.package.wayland-protocols-wlr]
+opt-level = "s"
+[profile.release.package.sctk-adwaita]
+opt-level = "s"
+[profile.release.package.smithay-client-toolkit]
+opt-level = "s"
 
 # Every test window goes through Slint's compiler, and unoptimised it spends over a second on each one
 [profile.dev.package.i-slint-compiler]

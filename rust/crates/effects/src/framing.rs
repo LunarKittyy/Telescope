@@ -896,6 +896,8 @@ impl FramingPlugin {
             self.followed = Some((self.people[i].clone(), (self.clock)()));
             self.followed_vel = (0.0, 0.0);
             self.others_vel.clear();
+            // an unclear spell of the old pick doesn't count against the new one
+            self.coasting_since = None;
             let now = (self.clock)();
             self.others = self.people.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, p)| (p.clone(), now)).collect();
             self.last_box = None;

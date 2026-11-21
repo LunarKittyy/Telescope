@@ -58,6 +58,8 @@ pub struct MaskSpace {
     pub source_size: (u32, u32),
     pub source_epoch: u64,
     pub warp: Option<u64>,
+    /// The crop in `Frame::geometry` is an estimate that can be well off: the phone's zoom is still arriving and its frames don't say how far it has got. Held masks aren't moved by it then.
+    pub crop_unsure: bool,
 }
 
 /// One 8-bit plane of how much of each pixel is the picture (255) and how much is whatever goes behind it (0), at the frame's full size.
@@ -553,6 +555,16 @@ pub trait CpuStep: Send {
     fn hides(&self) -> bool {
         false
     }
+    /// Whether process() lays a picture of its own over the whole frame, whatever the frame held (the wait screen). The pipeline then doesn't
+    /// run the earlier steps that say `pixels_only`, since their work is thrown away.
+    fn covers(&self) -> bool {
+        false
+    }
+    /// Whether this step does nothing but change pixels: it reads no mask, tells nobody anything and keeps no picture or count of its own
+    /// between frames, so a frame that gets covered anyway can go without it. Only a built-in colour or filter step says so.
+    fn pixels_only(&self) -> bool {
+        false
+    }
     /// Asked right before process. Only a step that's certain may answer less than Changes.
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         Touch::Changes
@@ -678,7 +690,7 @@ mod tests {
         let pixels = Frame::new(2, 2, PixelFormat::I420, vec![1; 6]);
         let mut frame = Frame::from_surface(2, 2, PixelFormat::I420, Arc::new(Surface(pixels)));
         frame.geometry = geometry.clone();
-        let mask_space = MaskSpace { source_size: (1920, 1080), source_epoch: 3, warp: Some(9) };
+        let mask_space = MaskSpace { source_size: (1920, 1080), source_epoch: 3, warp: Some(9), crop_unsure: false };
         frame.mask_space = mask_space;
         assert_eq!(frame.clone().geometry, geometry);
         assert_eq!(frame.without_pixels().geometry, geometry);

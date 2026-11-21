@@ -15,6 +15,12 @@ pub(crate) fn mask_of(ctx: &dyn FrameContext, frame: &Frame) -> Option<crate::im
     Some(crate::imgops::Gray { w: frame.width as usize, h: frame.height as usize, data: m.to_vec() })
 }
 
+/// The mask made at w x h in the first place, for a step that only looks at a small picture: the full-size one is never built or copied.
+pub(crate) fn mask_small(ctx: &dyn FrameContext, frame: &Frame, w: usize, h: usize) -> Option<crate::imgops::Gray> {
+    let m = ctx.person_mask_at(frame, w, h)?;
+    (m.len() == w * h).then(|| crate::imgops::Gray { w, h, data: m.to_vec() })
+}
+
 /// The same mask without copying it. The vision service hands out one Arc for as long as the mask hasn't changed, so a step can
 /// tell an unchanged mask by `Arc::ptr_eq` and keep what it worked out from it (holding the Arc, so the address can't be reused).
 pub(crate) fn mask_shared(ctx: &dyn FrameContext, frame: &Frame) -> Option<Arc<Vec<u8>>> {
@@ -322,5 +328,78 @@ mod tests {
         assert_eq!(p.hear(&Event::PhonesChanged { count: 0 }), Some(false));
         assert_eq!(p.hear(&Event::SourceSelected { source_id: "browser".into() }), Some(true));
         assert_eq!(p.hear(&Event::StreamStopped), None);
+    }
+}
+
+#[cfg(test)]
+mod small_mask_tests {
+    use super::*;
+
+    /// Has a mask only at the size asked for, and notes the sizes.
+    struct Small(Mutex<Vec<(usize, usize)>>);
+
+    impl FrameContext for Small {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push((0, 0));
+            None
+        }
+        fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push((w, h));
+            Some(Arc::new(vec![200; w * h]))
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    fn a_small_mask_is_made_small_and_the_full_size_one_is_never_asked_for() {
+        let ctx = Small(Mutex::new(Vec::new()));
+        let frame = Frame::dark(1920, 1080, telescope_core::frame::PixelFormat::I420);
+        let m = mask_small(&ctx, &frame, 160, 90).unwrap();
+        assert_eq!((m.w, m.h, m.data.len(), m.data[0]), (160, 90, 160 * 90, 200));
+        assert_eq!(*ctx.0.lock().unwrap(), [(160, 90)]);
+    }
+
+    /// Hands out the same Arc at each size, as the vision service's cache does.
+    struct Cached(Vec<((usize, usize), Arc<Vec<u8>>)>);
+
+    impl FrameContext for Cached {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            self.person_mask_at(frame, frame.width as usize, frame.height as usize)
+        }
+        fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+            self.0.iter().find(|(size, _)| *size == (w, h)).map(|(_, m)| m.clone())
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    #[ignore = "timing bench: cargo test --release -p telescope-effects --lib auto_grade_mask_cost -- --ignored --nocapture"]
+    fn auto_grade_mask_cost() {
+        for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+            let (sw, sh) = (160, 90);
+            let ctx = Cached(vec![((w, h), Arc::new(vec![180; w * h])), ((sw, sh), Arc::new(vec![180; sw * sh]))]);
+            let frame = Frame::dark(w as u32, h as u32, telescope_core::frame::PixelFormat::I420);
+            let time = |f: &dyn Fn()| {
+                f();
+                let t = std::time::Instant::now();
+                for _ in 0..50 {
+                    f();
+                }
+                t.elapsed().as_secs_f64() * 1000.0 / 50.0
+            };
+            let old = time(&|| { std::hint::black_box(mask_of(&ctx, &frame).map(|m| m.shrink(sw, sh))); });
+            let new = time(&|| { std::hint::black_box(mask_small(&ctx, &frame, sw, sh)); });
+            println!("auto grade mask {w}x{h}: old {old:.3} ms, new {new:.3} ms a measured frame");
+        }
     }
 }

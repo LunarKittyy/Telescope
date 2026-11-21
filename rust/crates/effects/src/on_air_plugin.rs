@@ -400,12 +400,16 @@ impl OnAirPlugin {
         if let Some(off) = off {
             self.webhook_off = off.into();
         }
-        if !self.webhook_ready() && (self.webhook_failing || self.retrying) {
-            // Nothing left to send to: a failure from before can't keep its banner up
-            self.retrying = false;
-            host.cancel_schedule(T_RETRY);
-            (self.retries, self.webhook_failing) = (0, false);
-            host.clear_issue(Some(ISSUE), None);
+        if !self.webhook_ready() {
+            // An answer still on its way is about an address that is gone, and can't bring the banner back
+            self.state_gen += 1;
+            if self.webhook_failing || self.retrying {
+                // Nothing left to send to: a failure from before can't keep its banner up
+                self.retrying = false;
+                host.cancel_schedule(T_RETRY);
+                (self.retries, self.webhook_failing) = (0, false);
+                host.clear_issue(Some(ISSUE), None);
+            }
         }
         host.schedule_save();
     }
@@ -581,7 +585,9 @@ impl Plugin for OnAirPlugin {
         host.cancel_schedule(T_SETTLE);
         let retrying = std::mem::take(&mut self.retrying);
         host.cancel_schedule(T_RETRY);
-        if (self.on() || retrying) && self.webhook_ready() {
+        // An "off" still going out counts too: leaving it unfinished can leave the light on
+        let unfinished = self.sender.as_ref().is_some_and(|sender| sender.slot_busy("state"));
+        if (self.on() || retrying || unfinished) && self.webhook_ready() {
             if let Some(sender) = &self.sender {
                 // Behind anything still going out, so a late "on" can't land after it; quitting waits only so long
                 sender.send(self.request(false), "quit", Some("state"));

@@ -36,6 +36,8 @@ const RETRY: Duration = Duration::from_secs(10);
 const TICK: &str = "preview-tick";
 /// What a post says when a cover has been made.
 const COVER_MADE: &str = "cover-made";
+/// What an extra camera's watch posts, with the slot after it.
+const WATCHED_SLOT: &str = "watched:";
 /// The formats the pictures can be loaded from, as the file dialog lists them: the ones Qt reads in the Python app that this can too.
 pub(crate) const PICKER_FORMATS: &str = "*.bmp *.gif *.ico *.jfif *.jpeg *.jpg *.pbm *.pgm *.png *.ppm *.tga *.webp";
 
@@ -212,6 +214,10 @@ impl CpuStep for CoverStep {
         true
     }
 
+    fn covers(&self) -> bool {
+        true
+    }
+
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
         let size = (frame.width, frame.height);
         let key = CoverKey { size, format: frame.format, image: self.image.clone(), mirror: self.mirror, note: self.note.clone() };
@@ -265,6 +271,8 @@ pub struct WaitScreenPlugin {
     screen: Option<Box<dyn WaitScreen>>,
     /// The extra cameras' screens, kept once made (each registers for driver reloads).
     extras: BTreeMap<u32, Box<dyn WaitScreen>>,
+    /// Whether an app reads each extra camera, for the animation on its screen: running while the screen is.
+    extra_watches: BTreeMap<u32, Box<dyn Held>>,
     /// The extra cameras nothing streams to.
     idle: Vec<u32>,
     /// Nothing streams to the main camera while others stream to extra ones.
@@ -301,6 +309,7 @@ impl WaitScreenPlugin {
             copy: Box::new(|from, to| std::fs::copy(from, to).map(|_| ())),
             screen: None,
             extras: BTreeMap::new(),
+            extra_watches: BTreeMap::new(),
             idle: Vec::new(),
             main_idle: false,
             watch: None,
@@ -366,6 +375,9 @@ impl WaitScreenPlugin {
         for (slot, screen) in &self.extras {
             if !self.idle.contains(slot) {
                 screen.stop();
+                if let Some(watch) = self.extra_watches.get(slot) {
+                    watch.stop();
+                }
             }
         }
         let was_idle = std::mem::replace(&mut self.main_idle, slots.contains(&0));
@@ -394,7 +406,28 @@ impl WaitScreenPlugin {
                     None => continue,
                 }
             }
+            self.watch_extra(host, slot);
             self.extras[&slot].show(size.0, size.1, self.image_path.as_deref(), self.mirror);
+        }
+    }
+
+    /// Starts telling an extra camera's screen whether an app reads that camera: its animation moves only then.
+    fn watch_extra(&mut self, host: &mut dyn Host, slot: u32) {
+        if !self.extra_watches.contains_key(&slot) {
+            let Some(poster) = host.poster() else { return };
+            let token = format!("{WATCHED_SLOT}{slot}");
+            let Some(watch) = self.outputs.watch_slot(slot, Box::new(move |watched| poster.post(&token, json!(watched)))) else { return };
+            self.extra_watches.insert(slot, watch);
+        }
+        if let Some(watch) = self.extra_watches.get(&slot) {
+            watch.start();
+        }
+    }
+
+    fn on_extra_watched(&mut self, slot: u32, watched: bool) {
+        // A watch that was stopped with its screen can still have one report on its way
+        if let Some(screen) = self.extras.get(&slot).filter(|_| self.idle.contains(&slot)) {
+            screen.set_watched(watched);
         }
     }
 
@@ -610,6 +643,9 @@ impl Plugin for WaitScreenPlugin {
         for screen in self.extras.values() {
             screen.stop();
         }
+        for watch in self.extra_watches.values() {
+            watch.stop();
+        }
         if let Some(watch) = &self.watch {
             watch.stop();
         }
@@ -626,6 +662,11 @@ impl Plugin for WaitScreenPlugin {
             }
             Event::CoverRequested { owner, on, note } => self.on_cover_requested(host, owner, *on, note.as_deref()),
             Event::Posted { owner, token, data } if owner == NAME && token == "watched" => self.on_watched(host, data.as_bool().unwrap_or(false)),
+            Event::Posted { owner, token, data } if owner == NAME && token.starts_with(WATCHED_SLOT) => {
+                if let Ok(slot) = token[WATCHED_SLOT.len()..].parse() {
+                    self.on_extra_watched(slot, data.as_bool().unwrap_or(false));
+                }
+            }
             // A stream that stalled while its cover was still being made keeps sending the black stand-in until its step is asked for again
             Event::Posted { owner, token, .. } if owner == NAME && token == COVER_MADE => {
                 if self.covering {

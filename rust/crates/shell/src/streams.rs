@@ -642,6 +642,14 @@ impl Window {
         }
     }
 
+    /// A plugin began hiding something: a stream behind the panels hides its last frame with the steps it has, the way the shown one does when its steps are handed over.
+    pub fn hide_behind(self: &Rc<Self>) {
+        let behind: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| !w.live.get()).cloned().collect();
+        for w in behind {
+            w.inner.hide_behind();
+        }
+    }
+
     /// A colour bake finished. A stream behind the panels takes its own LUT and keeps the rest of the steps it had, as
     /// Python's frames look their LUT up each time.
     pub fn colour_baked(self: &Rc<Self>) {

@@ -388,6 +388,15 @@ pub fn usb_key(folder: &std::path::Path, devices: &std::path::Path) -> String {
     format!("usb-port-{}", rel.replace('/', "-"))
 }
 
+/// Whether the node a camera was scanned at still holds it (only USB cameras can be told apart, anything else counts as the same).
+pub fn node_is_still(sysfs: &std::path::Path, devices: &std::path::Path, device: &Device) -> bool {
+    if !device.key.starts_with("usb-") {
+        return true;
+    }
+    let Some(node) = std::path::Path::new(&device.location).file_name() else { return true };
+    usb_key(&sysfs.join(node), devices) == device.key
+}
+
 #[cfg(unix)]
 fn inode(meta: &std::fs::Metadata) -> u64 {
     std::os::unix::fs::MetadataExt::ino(meta)
@@ -401,6 +410,9 @@ fn inode(_meta: &std::fs::Metadata) -> u64 {
 /// Opens a node and asks it (caps, modes); None if it can't be opened.
 pub type OpenNode = Box<dyn Fn(&str) -> Option<NodeInfo> + Send>;
 
+/// How many times a node that answered badly is asked before the answer is kept.
+const PROBE_TRIES: u8 = 3;
+
 /// What tells a node apart from itself later: (real sysfs path, inode, the dev file's text).
 type NodeIdent = (String, u64, String);
 
@@ -412,7 +424,7 @@ pub struct LinuxScanner {
     pub allow_loopback: bool,
     pub open: OpenNode,
     pub stable_keys: Box<dyn Fn() -> HashMap<String, String> + Send>,
-    known: HashMap<String, (NodeIdent, Option<Device>)>,
+    known: HashMap<String, (NodeIdent, Option<Device>, u8)>,
 }
 
 impl LinuxScanner {
@@ -448,7 +460,8 @@ impl LinuxScanner {
             let Ok(meta) = std::fs::metadata(&folder) else { continue };
             let real = std::fs::canonicalize(&folder).map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
             let ident = (real, inode(&meta), read(&folder.join("dev")));
-            if let Some(cached) = self.known.get(&node).filter(|c| c.0 == ident && !loopback).cloned() {
+            // A node that answered badly (no caps, no modes) is asked again a few times, as that may have been a hiccup
+            if let Some(cached) = self.known.get(&node).filter(|c| c.0 == ident && !loopback && (c.2 == 0 || c.2 >= PROBE_TRIES)).cloned() {
                 let mut cached = cached;
                 if let Some(dev) = cached.1.as_mut().filter(|d| d.key == node) {
                     // udev hadn't made its link yet: look again
@@ -464,7 +477,12 @@ impl LinuxScanner {
             let path = self.dev.join(&node).to_string_lossy().to_string();
             let Some(opened) = (self.open)(&path) else { continue }; // no permission or it went away: try again later
             let mut device = None;
+            // Anything but a definite answer: that it can't capture, or the modes it has
+            let mut failed = true;
             if let (Some((driver, card, captures)), modes) = opened {
+                if !captures || !modes.is_empty() {
+                    failed = false;
+                }
                 let virtual_ = VIRTUAL_DRIVERS.contains(&driver.as_str()) && !(self.allow_loopback && driver == "v4l2 loopback");
                 let shown = if card.is_empty() { name.clone() } else { card.clone() };
                 if captures && !modes.is_empty() && !virtual_ && !is_virtual(&shown, "") {
@@ -475,7 +493,8 @@ impl LinuxScanner {
             if let Some(d) = &device {
                 found.push(d.clone());
             }
-            known.insert(node, (ident, device));
+            let tries = if device.is_none() && failed { self.known.get(&node).filter(|c| c.0 == ident).map_or(0, |c| c.2).saturating_add(1) } else { 0 };
+            known.insert(node, (ident, device, tries));
         }
         self.known = known;
         tell_apart(found)
@@ -645,16 +664,24 @@ pub struct GphotoScanner {
     library: bool,
     state: std::sync::Arc<std::sync::Mutex<GphotoState>>,
     last: Option<std::time::Instant>,
+    /// Called from the look's thread when it finds a different set of cameras than before.
+    on_change: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
 }
 
 #[cfg(any(target_os = "linux", windows))]
 impl GphotoScanner {
     pub fn new(program: &str, every: std::time::Duration, limit: std::time::Duration) -> GphotoScanner {
-        GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None }
+        GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None, on_change: None }
     }
 
     pub fn system() -> GphotoScanner {
         GphotoScanner { library: true, ..GphotoScanner::new("gphoto2", std::time::Duration::from_secs(4), GPHOTO_DETECT_TIMEOUT) }
+    }
+
+    /// Has `f` called whenever a look finds a different set of cameras, so a late result isn't left until the next scan.
+    pub fn on_change(mut self, f: std::sync::Arc<dyn Fn() + Send + Sync>) -> GphotoScanner {
+        self.on_change = Some(f);
+        self
     }
 
     pub fn scan(&mut self) -> Vec<Device> {
@@ -666,7 +693,7 @@ impl GphotoScanner {
         if !running && self.last.is_none_or(|t| t.elapsed() >= wait) {
             self.last = Some(std::time::Instant::now());
             self.state.lock().unwrap().running = true;
-            let (state, program, limit, library) = (self.state.clone(), self.program.clone(), self.limit, self.library);
+            let (state, program, limit, library, on_change) = (self.state.clone(), self.program.clone(), self.limit, self.library, self.on_change.clone());
             std::thread::spawn(move || {
                 // Through libgphoto2 when it's there (the release carries one, so no gphoto2 command is needed), else the command
                 let out = if library && crate::webcam_capture::gphoto_lib::available() {
@@ -685,22 +712,31 @@ impl GphotoScanner {
                         Err(false)
                     }
                 };
-                let mut st = state.lock().unwrap();
-                st.running = false;
-                match out {
-                    Ok(text) => {
-                        st.missing = false;
-                        st.found = text.into_iter().map(|(model, port)| {
-                            let identity = identity_of(&port);
-                            Detected { model, port, identity }
-                        }).collect();
+                let changed = {
+                    let mut st = state.lock().unwrap();
+                    st.running = false;
+                    let before = st.found.clone();
+                    match out {
+                        Ok(text) => {
+                            st.missing = false;
+                            st.found = text.into_iter().map(|(model, port)| {
+                                let identity = identity_of(&port);
+                                Detected { model, port, identity }
+                            }).collect();
+                        }
+                        Err(true) => {
+                            st.missing = true;
+                            st.found.clear();
+                        }
+                        // Stuck or failed once: keep what was found
+                        Err(false) => {}
                     }
-                    Err(true) => {
-                        st.missing = true;
-                        st.found.clear();
+                    st.found != before
+                };
+                if changed {
+                    if let Some(f) = on_change {
+                        f();
                     }
-                    // Stuck or failed once: keep what was found
-                    Err(false) => {}
                 }
             });
         }

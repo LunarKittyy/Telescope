@@ -209,6 +209,10 @@ pub trait VisionService: Send + Sync {
     /// While any owner wants people, fed frames are looked at and people_seen and people_tracked follow.
     fn want_people(&self, owner: &str, on: bool);
     fn wants_people(&self) -> bool;
+    /// Whether feed_raw would look at this stream's next frame now: a caller that has to make the frame's pixels first (off a card) only does when this is true. The default always looks.
+    fn people_due(&self, _source_id: &str) -> bool {
+        self.wants_people()
+    }
     /// A stream's frame before the view, from its thread; most are skipped (about 12 a second go on while something moves).
     fn feed_raw(&self, source_id: &str, frame: &Frame, upright: Upright);
     /// (Track records, how many people) on source_id's stream as the last people_tracked said; ([], 0) when stale.

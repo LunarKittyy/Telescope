@@ -88,18 +88,29 @@ pub fn use_mf(reg: &dyn Registry, slot: u32) -> bool {
     mf_allowed(reg) && mf_registered(reg, slot)
 }
 
+/// The registry key of UnityCapture camera num's filter.
+fn uc_key(num: u32) -> String {
+    let offset = if cfg!(target_pointer_width = "64") { 0x10 } else { 0x20 };
+    let last = offset + num + u32::from(num != 0);
+    format!(r"CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{last:02X}}}")
+}
+
 /// The UnityCapture cameras registered, (number, name), numbered the way pyvirtualcam numbers them.
 pub fn uc_names(reg: &dyn Registry) -> Vec<(u32, String)> {
-    let offset = if cfg!(target_pointer_width = "64") { 0x10 } else { 0x20 };
     let mut names = Vec::new();
     for num in 0..(b'z' - b'0') as u32 {
-        let last = offset + num + u32::from(num != 0);
-        let key = format!(r"CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{last:02X}}}");
-        if let Some(name) = reg.classes_string(&key, "") {
+        if let Some(name) = reg.classes_string(&uc_key(num), "") {
             names.push((num, name.trim().to_string()));
         }
     }
     names
+}
+
+/// Whether UnityCapture camera num is Telescope's own filter (its DLL in uc_dir or Program Files), not another app's.
+pub fn uc_is_ours(reg: &dyn Registry, num: u32, uc_dir: &Path) -> bool {
+    let Some(value) = reg.classes_string(&format!(r"{}\InprocServer32", uc_key(num)), "") else { return false };
+    [uc_dir.to_path_buf(), protected_dir(reg, "UnityCapture")].iter()
+        .any(|f| f.join(UC_DLL_64).to_string_lossy().to_lowercase() == value.to_lowercase())
 }
 
 /// The number pyvirtualcam would give the camera called name, or the first registered one, as open_camera falls back to.
@@ -267,6 +278,12 @@ pub(crate) mod tests {
                 reg.classes.lock().unwrap().insert((format!(r"CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{last:02X}}}"), String::new()), name.to_string());
             }
             reg
+        }
+
+        /// Camera num's filter registered from dll.
+        pub fn with_uc_dll(self, num: u32, dll: &Path) -> FakeRegistry {
+            self.classes.lock().unwrap().insert((format!(r"{}\InprocServer32", uc_key(num)), String::new()), dll.to_string_lossy().to_string());
+            self
         }
 
         pub fn with_mf(mut self, slots: &[u32]) -> FakeRegistry {

@@ -14,7 +14,7 @@ pub const POSE_MODEL: &str = "pose_landmarker_lite.task";
 pub const DONE: &str = ".verified";
 /// How long connecting, the server's answer and each wait for more bytes may take: it bounds a dead connection, never the whole download.
 const TIMEOUT: Duration = Duration::from_secs(30);
-/// Zips of the same files can come out a little bigger on another machine's zlib.
+/// Zips of the same files can come out a little bigger on another machine's zlib or liblzma.
 const SLACK: f64 = 1.1;
 const CHUNK: usize = 256 * 1024;
 /// Most bytes a pack may unpack to (the Linux pack is 135 MB, the Windows one smaller), so a small zip that expands to gigabytes is stopped
@@ -287,7 +287,8 @@ impl From<io::Error> for Failed {
     }
 }
 
-/// Download this version's pack, check it and unpack it; older packs go.
+/// Download this version's pack, check it and unpack it; older packs go. The zip is LZMA since the packs were rebuilt that way, and deflate
+/// ones (older releases) unpack the same.
 pub fn download(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64, u64), cancelled: &dyn Fn() -> bool,
                 opener: Opener, url: Option<&str>) -> Result<PathBuf, PackError> {
     download_capped(info, vision_dir, progress, cancelled, opener, url, MAX_UNPACKED, TIMEOUT)

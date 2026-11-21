@@ -350,6 +350,15 @@ impl Motion {
         stream.and_then(|s| s.lock().unwrap().moving.get(owner).map(|m| m.iter().map(|&i| i as u32).collect())).unwrap_or_default()
     }
 
+    /// Whether feed would look at the stream's next frame at `now`, for a caller that has to make the frame's pixels first.
+    pub fn due(&self, key: &str, now: f64) -> bool {
+        if !self.watching() {
+            return false;
+        }
+        let stream = self.streams.lock().unwrap().get(key).cloned();
+        stream.is_none_or(|s| now - s.lock().unwrap().at >= EVERY_S)
+    }
+
     /// A stream's frame before the view (worker thread): one every EVERY_S is looked at while anyone watches.
     pub fn feed(&self, frame: &Frame, key: &str, upright: Option<&Upright>, now: f64) {
         let to_shown = upright.map(|u| move |x: f64, y: f64| u.to_shown(x, y));

@@ -124,14 +124,15 @@ def build(key: str, work: Path, cache: Path) -> Path:
 
 
 def write_zip(root: Path, dest: Path):
-    """Same files in the same order with the same dates, so it only changes when what's in it does."""
-    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+    """Same files in the same order with the same dates, so it only changes when what's in it does. LZMA, which is a fifth smaller
+    than deflate here: the app reads it through the zip crate's lzma feature (crates/vision/src/pack.rs) and still reads deflate packs."""
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_LZMA) as z:
         for path in sorted((p for p in root.rglob("*") if p.is_file()),
                            key=lambda p: p.relative_to(root).parts):
             info = zipfile.ZipInfo(path.relative_to(root).as_posix(), _EPOCH)
-            info.compress_type = zipfile.ZIP_DEFLATED
+            info.compress_type = zipfile.ZIP_LZMA
             info.external_attr = 0o644 << 16
-            z.writestr(info, path.read_bytes(), compresslevel=9)
+            z.writestr(info, path.read_bytes())
 
 
 def main():

@@ -11,8 +11,8 @@ FFMPEG_VERSION=8.1.3
 FFMPEG_SHA256=7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3
 NVCODEC_VERSION=12.2.72.0
 NVCODEC_SHA256=dbeaec433d93b850714760282f1d0992b1254fc3b5a6cb7d76fc1340a1e47563
-# Every decoder the app opens (media/src/ffmpeg.rs and opus.rs), and HEVC, which costs under a megabyte, for H.265 some day
-DECODERS=h264,hevc,mjpeg,vp8,opus,png,webp,bmp
+# Every decoder the app opens (media/src/ffmpeg.rs and opus.rs). H.265 is not one: docs/roadmap/dropped.md has why
+DECODERS=h264,mjpeg,vp8,opus,png,webp,bmp
 JOBS=${FFMPEG_JOBS:-3}
 
 target=${1:?linux or windows}
@@ -44,17 +44,17 @@ flags=(
     --prefix="$out" --enable-shared --disable-static --enable-pic
     --disable-autodetect --disable-everything --disable-programs --disable-doc --disable-debug --disable-network
     --disable-avdevice --disable-avformat --disable-avfilter
-    --enable-decoder="$DECODERS" --enable-parser=h264,hevc
-    --enable-zlib --enable-ffnvcodec --enable-nvdec --enable-hwaccel=h264_nvdec,hevc_nvdec
+    --enable-decoder="$DECODERS" --enable-parser=h264
+    --enable-zlib --enable-ffnvcodec --enable-nvdec --enable-hwaccel=h264_nvdec
 )
 case $target in
     linux)
-        flags+=(--enable-vaapi --enable-hwaccel=h264_vaapi,hevc_vaapi)
+        flags+=(--enable-vaapi --enable-hwaccel=h264_vaapi)
         ;;
     windows)
         flags+=(--target-os=mingw32 --arch=x86_64 --enable-cross-compile --cross-prefix=x86_64-w64-mingw32- --pkg-config=pkg-config
                 --enable-w32threads --enable-d3d11va --enable-dxva2 --disable-stripping
-                --enable-hwaccel=h264_d3d11va,h264_d3d11va2,h264_dxva2,hevc_d3d11va,hevc_d3d11va2,hevc_dxva2
+                --enable-hwaccel=h264_d3d11va,h264_d3d11va2,h264_dxva2
                 --extra-ldflags=-static-libgcc --extra-ldflags=-Wl,--no-insert-timestamp --extra-ldflags="-L$work/zlib")
         # A folder with only the static zlib, so no zlib1.dll has to ship
         mkdir -p "$work/zlib"

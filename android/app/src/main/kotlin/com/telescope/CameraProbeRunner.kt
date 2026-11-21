@@ -83,6 +83,43 @@ internal interface CameraProbeBackend {
     fun enumerateLenses(): List<ProbeLens>
     fun probeLens(lens: ProbeLens, acc: ProbeSessionAccumulator, host: ProbeLensHost)
     fun closeActive(abort: Boolean)
+
+    // Calls onSettled on the camera thread once every pending openCamera has reported back and been closed if stale.
+    fun whenOpensSettled(onSettled: () -> Unit)
+}
+
+// Tracks openCamera calls whose callback has not arrived yet, so teardown can wait for them. Camera thread only.
+internal class PendingOpenTracker {
+    private val pending = HashSet<Int>()
+    private val waiters = mutableListOf<() -> Unit>()
+    private var nextToken = 0
+
+    fun begin(): Int {
+        val token = nextToken++
+        pending.add(token)
+        return token
+    }
+
+    fun resolve(token: Int) {
+        if (!pending.remove(token) || pending.isNotEmpty()) return
+        val ready = waiters.toList()
+        waiters.clear()
+        ready.forEach { it() }
+    }
+
+    // Runs release (closing a stale device) before resolving, so waiters like the camera lease see the device already closed.
+    fun resolveAfter(token: Int, release: () -> Unit) {
+        try { release() } finally { resolve(token) }
+    }
+
+    fun whenSettled(onSettled: () -> Unit) {
+        if (pending.isEmpty()) onSettled() else waiters.add(onSettled)
+    }
+}
+
+internal object ProbeOpenPolicy {
+    // A disconnect only fails the run when it hits the lens being probed right now and the run is still going.
+    fun disconnectIsFatal(runFinished: Boolean, isCurrentLens: Boolean): Boolean = !runFinished && isCurrentLens
 }
 
 // Runs the full Camera2 probe on every lens, main lens first, with no total time limit.
@@ -110,6 +147,10 @@ class CameraProbeRunner internal constructor(
         data object NoPermission : StartResult
         data class TooHot(val thermal: ProbeThermalSnapshot) : StartResult
         data class Failed(val detail: String) : StartResult
+    }
+
+    private companion object {
+        const val OPEN_SETTLE_TIMEOUT_MS = 11_000L
     }
 
     private var lease: CameraLease? = null
@@ -321,6 +362,7 @@ class CameraProbeRunner internal constructor(
         runCatching { thermalMonitor?.cancel() }
         thermalMonitor = null
         runCatching { backend.closeActive(abort = status != ProbeRunStatus.COMPLETED) }
+        releaseWhenOpensSettled()
 
         val finalThermal = runCatching { backend.readThermalSnapshot() }
             .getOrDefault(ProbeThermalSnapshot(status = 0))
@@ -343,9 +385,6 @@ class CameraProbeRunner internal constructor(
             lenses = emptyList(),
         )
 
-        // Release exclusive camera ownership after hardware teardown so streams can start again immediately.
-        releaseOwnership()
-
         val executor = writerExecutor
         writerExecutor = null
         if (executor != null) {
@@ -364,10 +403,24 @@ class CameraProbeRunner internal constructor(
             val reportText = CameraProbeReport.format(data)
             backend.postMain { listener.onFinished(data, reportText, false) }
         }
+    }
 
+    // A cancel can land while openCamera is still pending, so ownership and the worker stay until its callback closes the device.
+    private fun releaseWhenOpensSettled() {
         val activeWorker = worker
         worker = null
-        runCatching { activeWorker?.quit() }
+        var released = false
+        var guard: ProbeCancellable? = null
+        val release = {
+            if (!released) {
+                released = true
+                runCatching { guard?.cancel() }
+                releaseOwnership()
+                runCatching { activeWorker?.quit() }
+            }
+        }
+        guard = activeWorker?.postDelayed(OPEN_SETTLE_TIMEOUT_MS) { release() }
+        runCatching { backend.whenOpensSettled(release) }.onFailure { release() }
     }
 
     private fun releaseOwnership() {
@@ -593,6 +646,9 @@ private class AndroidCameraProbeBackend(
     private var currentHost: ProbeLensHost? = null
     private var accumulator: ProbeSessionAccumulator? = null
     private var currentLensContext: LensContext? = null
+    private val openTracker = PendingOpenTracker()
+
+    override fun whenOpensSettled(onSettled: () -> Unit) = openTracker.whenSettled(onSettled)
 
     private var activeDevice: CameraDevice? = null
     private var activeSession: CameraCaptureSession? = null
@@ -723,14 +779,16 @@ private class AndroidCameraProbeBackend(
         }
         armTimeout(timeout, CAMERA_OPEN_TIMEOUT_MS)
 
+        val openToken = openTracker.begin()
         try {
             @Suppress("MissingPermission")
             manager.openCamera(ctx.openId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     if (myGen != stepGeneration || finished) {
-                        runCatching { camera.close() }
+                        openTracker.resolveAfter(openToken) { runCatching { camera.close() } }
                         return
                     }
+                    openTracker.resolve(openToken)
                     cancelActiveTimeout()
                     activeDevice = camera
                     ctx.device = camera
@@ -740,14 +798,16 @@ private class AndroidCameraProbeBackend(
 
                 override fun onDisconnected(camera: CameraDevice) {
                     runCatching { camera.close() }
+                    openTracker.resolve(openToken)
                     if (activeDevice === camera) activeDevice = null
                     if (ctx.device === camera) ctx.device = null
-                    if (finished) return
+                    if (!ProbeOpenPolicy.disconnectIsFatal(finished, currentLensContext === ctx)) return
                     currentHost?.onFatalFailure("Camera disconnected while probing lens ${ctx.lens.id}")
                 }
 
                 override fun onError(camera: CameraDevice, error: Int) {
                     runCatching { camera.close() }
+                    openTracker.resolve(openToken)
                     if (activeDevice === camera) activeDevice = null
                     if (ctx.device === camera) ctx.device = null
                     if (finished) return
@@ -757,6 +817,7 @@ private class AndroidCameraProbeBackend(
                 }
             }, handler)
         } catch (e: Exception) {
+            openTracker.resolve(openToken)
             cancelActiveTimeout()
             val detail = "${e.javaClass.simpleName}: ${e.message}"
             finishLensWith(ProbeOutcome.ERROR, "openCamera failed: $detail")

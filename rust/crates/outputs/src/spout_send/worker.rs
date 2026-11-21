@@ -2,16 +2,18 @@
 //! to the backend's sender, which it opens when the first picture comes and again when the size changes, and closes when the pictures stop.
 
 use super::pack;
-use super::{Backend, Sender};
+use super::{Backend, Resized, Sender};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use telescope_core::frame::Frame;
 
 /// Without a new picture for this long the sender is taken down, so a stream that stopped doesn't leave one behind.
 pub const IDLE: Duration = Duration::from_secs(3);
 /// After a sender couldn't be opened or written, the time before the next try.
 pub const RETRY: Duration = Duration::from_secs(2);
+/// After a sender that is busy with a reader couldn't change size, the time before the next try.
+const RESIZE_RETRY: Duration = Duration::from_millis(100);
 
 /// Why a sender isn't working, in words the card has texts for (the backend's own error goes to the log).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -36,7 +38,8 @@ pub enum State {
 }
 
 struct Slot {
-    latest: Mutex<Option<Frame>>,
+    /// The picture and when it was handed over (a retry keeps the time it first came).
+    latest: Mutex<Option<(Frame, Instant)>>,
     ready: Condvar,
     stop: AtomicBool,
     alive: AtomicBool,
@@ -81,7 +84,7 @@ impl Worker {
         if !self.alive() {
             return false;
         }
-        *latest = Some(frame);
+        *latest = Some((frame, Instant::now()));
         self.slot.ready.notify_all();
         true
     }
@@ -105,7 +108,7 @@ impl Drop for Worker {
 }
 
 enum Next {
-    Picture(Frame),
+    Picture(Frame, Instant),
     /// No picture for the idle time.
     Quiet,
     Stopped,
@@ -118,7 +121,19 @@ fn next(slot: &Slot, idle: Duration) -> Next {
     if slot.stop.load(Ordering::SeqCst) {
         return Next::Stopped;
     }
-    latest.take().map_or(Next::Quiet, Next::Picture)
+    latest.take().map_or(Next::Quiet, |(frame, offered)| Next::Picture(frame, offered))
+}
+
+/// Puts a picture back to be taken again, unless a newer one has come meanwhile (which is then the one that goes out).
+fn requeue(slot: &Slot, frame: Frame, offered: Instant) {
+    let mut latest = slot.latest.lock().unwrap_or_else(|e| e.into_inner());
+    if latest.is_none() {
+        *latest = Some((frame, offered));
+    }
+}
+
+fn stopped(slot: &Slot) -> bool {
+    slot.stop.load(Ordering::SeqCst)
 }
 
 /// Waits `time`, ending early when stopped.
@@ -132,8 +147,16 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
     let mut open: Option<(u32, u32, Box<dyn Sender>)> = None;
     let mut bytes = Vec::new();
     loop {
-        let frame = match next(slot, idle) {
-            Next::Picture(frame) => frame,
+        let (frame, offered) = match next(slot, idle) {
+            // A picture retried past the idle time counts as no picture, so a stream that stopped doesn't send its last one late
+            Next::Picture(_, offered) if offered.elapsed() >= idle => {
+                if keep {
+                    tell(State::Idle);
+                    continue;
+                }
+                break;
+            }
+            Next::Picture(frame, offered) => (frame, offered),
             Next::Quiet if keep => {
                 tell(State::Idle);
                 continue;
@@ -147,13 +170,23 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
         // A sender that can change size where it is keeps its place, so whoever reads it isn't cut off
         if let Some((w, h, sender)) = open.as_mut().filter(|(w, h, _)| (*w, *h) != size) {
             match sender.resize(size.0, size.1) {
-                Ok(true) => (*w, *h) = size,
-                Ok(false) => open = None,
+                Ok(Resized::Yes) => (*w, *h) = size,
+                Ok(Resized::Remake) => open = None,
+                // A reader holds the picture just now: the sender stays where it is (a reader that is busy is not a sender that is gone) and this picture is tried again
+                Ok(Resized::Busy) => {
+                    requeue(slot, frame, offered);
+                    pause(slot, RESIZE_RETRY);
+                    continue;
+                }
                 Err(why) => {
                     log::warn!("the sender {name} couldn't change size: {why}");
                     open = None;
                 }
             }
+        }
+        // Opening and resizing can take a while, and Stop doesn't wait for them: a picture taken before it is not sent after
+        if stopped(slot) {
+            break;
         }
         if open.is_none() {
             match backend.open(name, size.0, size.1) {
@@ -165,6 +198,9 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
                     continue;
                 }
             }
+            if stopped(slot) {
+                break;
+            }
         }
         if open.as_ref().is_some_and(|(_, _, sender)| !sender.wants_frame()) {
             tell(State::Idle);
@@ -175,6 +211,10 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
         if !pack::bgra(&frame, cut_out.map(|a| &a.data[..]), &mut bytes) {
             tell(State::Failed(Problem::Format));
             continue;
+        }
+        // The last look before the picture leaves
+        if stopped(slot) {
+            break;
         }
         if let Some((_, _, sender)) = open.as_mut() {
             match sender.send_buffer(&mut bytes) {

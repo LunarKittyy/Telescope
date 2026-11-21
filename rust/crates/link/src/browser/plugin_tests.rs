@@ -124,7 +124,7 @@ impl Serving for FakeServer {
         self.log.stopped.store(true, Ordering::SeqCst);
     }
     fn url_for(&self, host: &str) -> String {
-        format!("https://{host}:8767/#{}", self.log.token.lock().unwrap())
+        format!("https://{host}:7481/#{}", self.log.token.lock().unwrap())
     }
     fn new_token(&self) {
         *self.log.token.lock().unwrap() = "t2".into();
@@ -157,7 +157,7 @@ struct Rig {
 
 impl Rig {
     fn new() -> Rig {
-        Rig::with(|| ServerStats::new(8767, 8767, false, "Browser camera"))
+        Rig::with(|| ServerStats::new(7481, 7481, false, "Browser camera"))
     }
 
     fn with(stats: impl Fn() -> ServerStats + Send + 'static) -> Rig {
@@ -256,7 +256,7 @@ fn picking_it_runs_the_server_and_shows_the_code() {
     assert!(server.started.load(Ordering::SeqCst));
     let card = r.card();
     assert_eq!(card["shown"], true);
-    assert_eq!(card["url"], "https://192.168.1.20:8767/#t1");
+    assert_eq!(card["url"], "https://192.168.1.20:7481/#t1");
     assert!(card["qr-size"].as_u64().unwrap() > 0);
     assert_eq!(card["show-addresses"], true); // two addresses to choose from
 
@@ -412,7 +412,7 @@ fn closing_the_waiting_tile_or_the_banner_hides_the_code() {
     assert!(r.card()["shown"] == false && r.server().stopped.load(Ordering::SeqCst) && !launcher.waiting());
 
     // The banner goes through the plugin as the window runs it, with nothing else streaming
-    let (maker, servers) = fake_servers(|| ServerStats::new(8767, 8767, false, "Browser camera"));
+    let (maker, servers) = fake_servers(|| ServerStats::new(7481, 7481, false, "Browser camera"));
     let mut plugin = BrowserCameraPlugin::new(maker, || vec!["192.168.1.20".into()]);
     let mut host = telescope_core::testing::FakeHost::new();
     plugin.setup(&mut host);
@@ -520,7 +520,7 @@ fn a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten() {
     r.changed();
     assert_eq!(lists(&r.host).last().unwrap(), &[("browser:pixel-aaaaaaaa".to_string(), "Chrome on Android".to_string())]);
 
-    let (maker, _) = fake_servers(|| ServerStats::new(8767, 8767, false, "Browser camera"));
+    let (maker, _) = fake_servers(|| ServerStats::new(7481, 7481, false, "Browser camera"));
     let mut again = BrowserCameraPlugin::new(maker, Vec::new);
     again.setup_on(&mut r.host, None);
     again.set_config(&r.plugin.get_config()).unwrap();
@@ -584,23 +584,23 @@ fn diagnostics_say_how_far_browsers_got_but_never_name_the_device() {
     feed.note_sent(gen, Sent { width: Some(1280), height: Some(720), fps: Some(30), limit: "bandwidth".into() });
     let diag: HashMap<String, String> = r.plugin.diagnostics().into_iter().collect();
     assert_eq!(diag["Browser camera"], "1 browser connected, sending H.264, 1280×720 at 30 fps (held back: bandwidth)");
-    assert_eq!(diag["Browser camera port"], "8767");
+    assert_eq!(diag["Browser camera port"], "7481");
     assert!(diag["Browser camera reached"].starts_with("1 connections, 1 certificate refusals, 0 page loads"));
     assert!(!format!("{diag:?}").contains("iPhone"));
 
-    let mut r = Rig::with(|| ServerStats::new(41234, 8767, true, "Browser camera"));
+    let mut r = Rig::with(|| ServerStats::new(41234, 7481, true, "Browser camera"));
     r.select(SOURCE_ID);
     let diag: HashMap<String, String> = r.plugin.diagnostics().into_iter().collect();
-    assert_eq!(diag["Browser camera port"], "41234 (8767 was taken)");
+    assert_eq!(diag["Browser camera port"], "41234 (7481 was taken)");
 }
 
 #[test]
 fn waiting_hint_points_at_the_step_that_failed() {
-    let stats = ServerStats::new(8767, 8767, false, "Browser camera");
+    let stats = ServerStats::new(7481, 7481, false, "Browser camera");
     let t0 = stats.started;
     let late = t0 + HINT_AFTER + Duration::from_secs(1);
     assert_eq!(waiting_hint(Some(&stats), false, t0 + Duration::from_secs(5)), ""); // still scanning, probably
-    assert!(waiting_hint(Some(&stats), false, late).contains("firewall allows port 8767"));
+    assert!(waiting_hint(Some(&stats), false, late).contains("firewall allows port 7481"));
     assert_eq!(waiting_hint(Some(&stats), true, late), "");
     stats.note(Step::Connections);
     assert_eq!(waiting_hint(Some(&stats), false, late), "");
@@ -616,11 +616,11 @@ fn card_shows_the_firewall_hint_once_the_wait_is_long() {
     r.select(SOURCE_ID);
     assert_eq!(r.host.card["hint-text"], "");
     assert_eq!(r.host.timers, [TIMER_HINT]);
-    let mut stats = ServerStats::new(8767, 8767, false, "Browser camera");
+    let mut stats = ServerStats::new(7481, 7481, false, "Browser camera");
     stats.started -= HINT_AFTER;
     *r.server().aged.lock().unwrap() = Some(Arc::new(stats));
     r.plugin.hear(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: TIMER_HINT.into() }); // what the timer does
-    assert!(r.host.card["hint-text"].as_str().unwrap().contains("port 8767"), "{}", r.host.card["hint-text"]);
+    assert!(r.host.card["hint-text"].as_str().unwrap().contains("port 7481"), "{}", r.host.card["hint-text"]);
 }
 
 #[test]

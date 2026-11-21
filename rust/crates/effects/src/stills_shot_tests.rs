@@ -131,10 +131,31 @@ fn unavailable_shot_overrides_are_kept_for_validation() {
     let choice = ShotChoice { shutter_s: Some(10.0), iso: Some(800), ..ShotChoice::default() };
     let caps = StillCaps::default();
     let props = shot_control_props(Some(&caps), &choice, true, false);
-    assert_eq!(props["shot-shutter-enabled"], false);
-    assert_eq!(props["shot-iso-enabled"], false);
+    assert_eq!(props["shot-shutter-enabled"], true);
+    assert_eq!(props["shot-iso-enabled"], true);
     let mut options = json!({});
     add_shot(&mut options, &choice, true, false);
     assert_eq!(options["shot"], json!({"shutter_s": 10.0, "iso": 800}));
     assert!(telescope_core::shot::apply_to_dslr(options.as_object_mut().unwrap(), &json!({})).is_err());
+}
+
+#[test]
+fn the_shared_picker_clears_an_override_the_camera_cannot_set() {
+    let mut choice = ShotChoice { shutter_s: Some(10.0), iso: Some(800), focus_diopters: None };
+    assert!(pick_shot(&mut choice, &StillCaps::default(), true, 0, false));
+    assert!(pick_shot(&mut choice, &StillCaps::default(), false, 0, false));
+    assert_eq!(choice, ShotChoice::default());
+    assert!(!pick_shot(&mut choice, &StillCaps::default(), false, 0, false));
+}
+
+#[test]
+fn an_override_the_camera_cannot_set_keeps_its_control_enabled_to_clear_it() {
+    let choice = ShotChoice { shutter_s: Some(10.0), iso: Some(800), focus_diopters: None };
+    for caps in [Some(StillCaps::default()), None] {
+        let props = shot_control_props(caps.as_ref(), &choice, true, false);
+        assert_eq!(props["shot-shutter-enabled"], true);
+        assert_eq!(props["shot-iso-enabled"], true);
+    }
+    assert_eq!(shot_control_props(None, &ShotChoice::default(), true, false)["shot-iso-enabled"], false);
+    assert_eq!(shot_control_props(None, &choice, true, true)["shot-iso-enabled"], false);
 }

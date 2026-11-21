@@ -1,11 +1,11 @@
-//! The phone's session port (8766), reachable whenever the app is up, unlike the stream port (session_client.py).
+//! The phone's session port (7480), reachable whenever the app is up, unlike the stream port (session_client.py).
 
 use crate::https::{self, Error, PhoneAuth, Request, MAX_REPLY_BYTES};
 use crate::util::clean_name;
 use serde_json::{json, Map, Value};
 use std::time::Duration;
 
-pub const PING_PORT: u16 = 8766;
+pub const PING_PORT: u16 = 7480;
 /// Shape of the phone's session API (its SessionServer.PROTOCOL_VERSION); both apps must match.
 /// 3: TLS on both of the phone's ports, pinned to the certificate fingerprint it gave at pairing.
 pub const SESSION_PROTOCOL: i64 = 3;
@@ -70,13 +70,13 @@ impl Ping {
 pub enum HelloStatus {
     /// A Telescope app answered with its identity.
     Ok,
-    /// Something answered on the session port but has no /v1/hello: an app too old.
+    /// The phone answered over its pinned TLS but has no /v1/hello: an app too old.
     Missing,
     /// Nothing answered.
     None,
     /// The phone has Local only on and answers only ping off USB (403).
     UsbOnly,
-    /// Something answered over TLS, but not with the certificate this phone paired with.
+    /// Something answered, but not as the phone this one paired with: another certificate, or no TLS at all.
     OtherCert,
 }
 
@@ -148,7 +148,7 @@ impl SessionClient {
         self.hello_with(timeout, &|timeout| self.answers_plain_http(timeout))
     }
 
-    /// hello, with plain_look being the plain-HTTP look for an old app.
+    /// hello, with plain_look being the plain-HTTP look for a listener that doesn't speak TLS.
     fn hello_with(&self, timeout: Duration, plain_look: &dyn Fn(Duration) -> bool) -> Hello {
         let url = format!("{}/v1/hello", self.base);
         let body = match self.auth.json(Request::get(&url, timeout).without_token()) {
@@ -157,8 +157,8 @@ impl SessionClient {
             Err(Error::Http(404)) => return Hello::status(HelloStatus::Missing),
             Err(Error::Http(403)) => return Hello::status(HelloStatus::UsbOnly),
             Err(e) if https::pin_rejected(&e) => return Hello::status(HelloStatus::OtherCert),
-            // LEGACY MIGRATION PATH: only a listener that took the connection but not TLS gets a plain look
-            Err(e) if https::handshake_failed(&e) && plain_look(timeout) => return Hello::status(HelloStatus::Missing),
+            // A paired phone speaks TLS with its pin, so a plain HTTP listener here is something else (a recycled address, say), never proof of an old app
+            Err(e) if https::handshake_failed(&e) && plain_look(timeout) => return Hello::status(HelloStatus::OtherCert),
             Err(_) => return Hello::status(HelloStatus::None),
         };
         let Some(phone_id) = body.get("phoneId").and_then(Value::as_str).filter(|id| !id.is_empty()) else {
@@ -170,7 +170,7 @@ impl SessionClient {
                 protocol: int("protocol"), app_version: text("appVersion"), build: int("build") }
     }
 
-    /// LEGACY MIGRATION PATH: whether an app from before TLS answers here, over plain HTTP with nothing that matters sent.
+    /// Whether something answers here over plain HTTP, with nothing that matters sent.
     pub fn answers_plain_http(&self, timeout: Duration) -> bool {
         let Some(rest) = self.base.strip_prefix("https://") else { return false };
         let url = format!("http://{rest}/v1/hello");
@@ -300,6 +300,11 @@ mod tests {
     use super::*;
     use crate::https::testing::*;
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn the_phone_session_port_is_in_the_new_block() {
+        assert_eq!(PING_PORT, 7480);
+    }
 
     /// A plain-HTTP phone answering every request with (status, body), recording what it got.
     fn phone(status: u16, body: &'static [u8]) -> (Server, SessionClient) {
@@ -495,7 +500,7 @@ mod tests {
 
     #[test]
     fn an_address_nobody_answers_on_costs_one_timeout_not_two() {
-        // The plain-HTTP look for an old app only follows a failed TLS handshake, never a dead address
+        // The plain-HTTP look only follows a failed TLS handshake, never a dead address
         let refused = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         // Takes the connection and never says anything, so the handshake times out
         let silent = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -514,13 +519,13 @@ mod tests {
             let timeout = Duration::from_millis(300);
             let status = client.hello_with(timeout, &|t| { probes.lock().unwrap().push(t); true }).status;
             assert_eq!(!probes.lock().unwrap().is_empty(), expect_probe, "port {port}");
-            assert_eq!(status, if expect_probe { HelloStatus::Missing } else { HelloStatus::None }, "port {port}");
+            assert_eq!(status, if expect_probe { HelloStatus::OtherCert } else { HelloStatus::None }, "port {port}");
         }
     }
 
     #[test]
     fn the_look_for_an_old_app_skips_a_configured_proxy() {
-        // A proxy answering 502 for a closed phone app would read as "an old app is here". Run as a child with the
+        // A proxy answering 502 for a closed phone app would read as "something is here". Run as a child with the
         // proxy set, since a test can't safely change its own process's variables
         let proxy = serve(None, Arc::new(|_req| (502, "text/plain".into(), Vec::new())));
         const CHILD: &str = "TELESCOPE_TEST_PROXIED";
@@ -570,10 +575,10 @@ mod tests {
     }
 
     #[test]
-    fn an_app_from_before_tls_reads_as_outdated_without_being_sent_the_token() {
+    fn a_plain_http_listener_is_not_the_phone_and_is_not_sent_the_token() {
         let server = serve(None, phone_handler());
         let client = SessionClient::new(&format!("https://127.0.0.1:{}", server.port), PhoneAuth::new("secret", &pin_of("phone")));
-        assert_eq!(client.hello(Duration::from_secs(1)).status, HelloStatus::Missing);
+        assert_eq!(client.hello(Duration::from_secs(1)).status, HelloStatus::OtherCert);
         assert!(sent(&server).iter().all(|s| s.auth.is_none()));
     }
 

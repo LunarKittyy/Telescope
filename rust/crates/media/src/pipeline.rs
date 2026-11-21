@@ -110,6 +110,23 @@ impl Entry {
         }
     }
 
+    /// Whether this step puts a picture of its own over the whole frame, so what runs before it on this frame is thrown away.
+    fn covers(&self) -> bool {
+        !self.skipped() && match &self.kind {
+            Kind::Cpu(step) | Kind::Either(_, step) => step.covers(),
+            Kind::Shader(_) => false,
+        }
+    }
+
+    /// Whether the frame can go without this step when a later one covers it: an Effects or Colour step that only changes pixels and keeps nothing between frames (no history, no mask, no count).
+    fn pixels_only(&self) -> bool {
+        matches!(self.stage, FrameStage::Effects | FrameStage::Colour) && match &self.kind {
+            Kind::Cpu(step) => step.pixels_only(),
+            Kind::Shader(slot) => !slot.keeps_history(),
+            Kind::Either(slot, step) => !slot.keeps_history() && step.pixels_only(),
+        }
+    }
+
     fn failed(&mut self, why: &str) {
         self.fails += 1;
         let (hides, owner) = (self.hides(), &self.owner);
@@ -138,7 +155,7 @@ struct Chain {
     ups: u32,
     downs: u32,
     /// The person mask this frame asked for and the size it was asked at: a second shader using it needn't bring the picture down.
-    mask: Option<(u32, u32, Option<Arc<Vec<u8>>>)>,
+    mask: Option<(u32, u32, Option<(u32, u32, Arc<Vec<u8>>)>)>,
     /// What it has waited for the card so far.
     waited_ns: u64,
     /// Whether the steps are being timed, so the readbacks are too.
@@ -284,6 +301,8 @@ impl Pipeline {
         // Asked once a frame: a step is only timed while the stats panel wants every plugin's time
         let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
         chain.timing = timing;
+        // A step that covers the whole picture makes what pixel-only steps before it did on this frame pointless; the cover itself always runs
+        let covered_by = self.steps.iter().position(Entry::covers);
         for i in 0..self.steps.len() {
             if ctx.stopped() {
                 // Stop is waiting for this worker: nothing more is done, and what's left goes out dark in case it is published after all
@@ -303,6 +322,9 @@ impl Pipeline {
                 continue;
             }
             if chain.withheld && self.restores_pixels(i) {
+                continue;
+            }
+            if covered_by.is_some_and(|c| i < c) && self.steps[i].pixels_only() {
                 continue;
             }
             let geometry = frame.geometry.clone();
@@ -564,6 +586,19 @@ impl Pipeline {
         }
     }
 
+    /// The picture a replay (hide_again) sends out in place of the one that went out is also what the steps at the end of the chain (Spout send) get to see, or they keep showing the clear picture until the next frame comes.
+    fn tap_final(&mut self, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) {
+        // A replay that was replaced or a stream that stopped makes nothing that goes out
+        if ctx.stopped() {
+            return;
+        }
+        for i in 0..self.steps.len() {
+            if self.steps[i].stage == FrameStage::Final && !self.steps[i].skipped() && matches!(self.steps[i].kind, Kind::Cpu(_) | Kind::Either(..)) {
+                self.run_cpu(i, frame, chain, ctx);
+            }
+        }
+    }
+
     fn lost_card(&mut self, why: &str) {
         if !self.card_lost {
             log::error!("The graphics card failed a frame ({why}); steps that can run on the CPU stay there until the stream restarts");
@@ -674,11 +709,13 @@ impl Pipeline {
                 if chain.withheld && self.restores_pixels(i) {
                     return;
                 }
-                let asked = catch_unwind(AssertUnwindSafe(|| ctx.person_mask(frame))).unwrap_or(None);
-                chain.mask = Some((frame.width, frame.height, asked));
+                // A shader reads the mask by uv through a linear sampler, so it goes up at a size near the model's own, not the frame's
+                let (mw, mh) = mask_up_size(frame.width, frame.height);
+                let asked = catch_unwind(AssertUnwindSafe(|| if (mw, mh) == (frame.width, frame.height) { ctx.person_mask(frame) } else { ctx.person_mask_at(frame, mw as usize, mh as usize) })).unwrap_or(None);
+                chain.mask = Some((frame.width, frame.height, asked.map(|mask| (mw, mh, mask))));
             }
             let kept = match &chain.mask {
-                Some((w, h, Some(mask))) => Some(gpu.keep_mask(&mut self.mask, mask, *w, *h)),
+                Some((_, _, Some((w, h, mask)))) => Some(gpu.keep_mask(&mut self.mask, mask, *w, *h)),
                 _ => None,
             };
             match kept {
@@ -815,12 +852,12 @@ impl Pipeline {
         }
     }
 
-    /// Looks at what the View stage's steps do to the picture's geometry: when that is not what it was, the next frame makes every step
+    /// Looks at what the View and Geometry stages' steps do to the picture's geometry (the window's own turn, Desk mode's sheet): when that is not what it was, the next frame makes every step
     /// that keeps pictures of its own forget them. A rebuilt step that does the same (a filter's slider, another plugin's refresh) doesn't.
     fn note_geometry(&mut self) {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        for entry in self.steps.iter().filter(|e| e.stage == FrameStage::View) {
+        for entry in self.steps.iter().filter(|e| matches!(e.stage, FrameStage::View | FrameStage::Geometry)) {
             match &entry.kind {
                 Kind::Cpu(step) | Kind::Either(_, step) => step.geometry_key().hash(&mut hasher),
                 Kind::Shader(slot) => slot.geometry_key().hash(&mut hasher),
@@ -876,6 +913,17 @@ impl Drop for Trial {
 }
 
 /// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
+/// The width a person mask goes up to the card at.
+const MASK_UP_WIDTH: u32 = 640;
+
+/// The size a shader's person mask is asked at for a frame of w x h: the frame's own when it is no wider than MASK_UP_WIDTH, else that wide in the frame's shape.
+fn mask_up_size(w: u32, h: u32) -> (u32, u32) {
+    if w <= MASK_UP_WIDTH {
+        return (w, h);
+    }
+    (MASK_UP_WIDTH, ((h as u64 * MASK_UP_WIDTH as u64 + w as u64 / 2) / w as u64).max(1) as u32)
+}
+
 fn neutral((w, h): (u32, u32), format: PixelFormat, stands_for: &Frame) -> Frame {
     let mut out = Frame::dark(w, h, format);
     (out.number, out.time_ns, out.capture_ns) = (stands_for.number, stands_for.time_ns, stands_for.capture_ns);
@@ -1004,6 +1052,7 @@ impl FramePipeline for Pipeline {
             self.bring_down(&mut chain, &mut frame, ctx, false);
             frame.number = number;
             frame.capture_ns = capture_ns;
+            self.tap_final(&mut frame, &mut chain, ctx);
             // A hurried pass left the shaders undone, and a dark frame says nothing of what was done: a step that failed is still to be tried
             if !ctx.hurried() && !self.steps.iter().any(|e| e.fails > 0 && e.hides()) {
                 self.applied = self.hiding.clone();
@@ -1175,6 +1224,22 @@ pub(crate) mod tests {
         p.replace_steps("view", FrameStage::View, Vec::new());
         p.process(grey(4, 2, 0), &NoContext);
         assert_eq!(forgot.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn steps_that_keep_pictures_start_again_when_a_geometry_step_moves_the_picture_to_the_same_size() {
+        let forgot = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("desk", FrameStage::Geometry, Moves(1)), step("filters", FrameStage::Effects, Keeps(forgot.clone()))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        p.set_steps(vec![step("desk", FrameStage::Geometry, Moves(1)), step("filters", FrameStage::Effects, Keeps(forgot.clone()))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        assert!(forgot.lock().unwrap().is_empty(), "the same sheet again moves nothing");
+        // The corners of the sheet moved: same size out, other pixels in
+        p.replace_steps("desk", FrameStage::Geometry, vec![FrameStep::Cpu(Box::new(Moves(2)))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        p.process(grey(4, 2, 0), &NoContext);
+        assert_eq!(*forgot.lock().unwrap(), [""], "once, on the first frame after");
     }
 
     /// What number the frame has when it gets here.
@@ -1434,6 +1499,46 @@ pub(crate) mod tests {
         assert_eq!(went_out.data[0], 200);
     }
 
+    #[test]
+    fn a_frame_sent_again_hidden_is_also_what_the_last_steps_see() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let read = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Privacy, HidesOnCue(on.clone())), step("spout", FrameStage::Final, Looks(read.clone()))]);
+        let went_out = grey(4, 2, 200);
+        assert!(p.hide_again(went_out.clone(), &NoContext).is_none());
+        assert!(read.lock().unwrap().is_empty(), "nothing was hidden, so the last steps keep what they have");
+        on.store(true, Ordering::SeqCst);
+        let hidden = p.hide_again(went_out, &NoContext).expect("hidden now");
+        assert_eq!(*read.lock().unwrap(), [hidden.data[0]], "the picture that goes out in place is the one they get");
+        assert_eq!(hidden.data[0], 9);
+    }
+
+    #[test]
+    fn a_replay_that_was_stopped_gives_the_last_steps_nothing() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let read = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Privacy, HidesOnCue(on)), step("spout", FrameStage::Final, Looks(read.clone()))]);
+        struct Stopped;
+        impl FrameContext for Stopped {
+            fn source_id(&self) -> &str {
+                ""
+            }
+            fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+                None
+            }
+            fn colour_preview(&self, frame: &Frame) -> Frame {
+                frame.clone()
+            }
+            fn stopped(&self) -> bool {
+                true
+            }
+        }
+        p.hide_again(grey(4, 2, 200), &Stopped);
+        assert!(read.lock().unwrap().is_empty());
+    }
+
     /// Notes where the pixels were when the step got them and when it was done.
     struct Where(Arc<std::sync::Mutex<Vec<(usize, usize)>>>);
 
@@ -1559,7 +1664,7 @@ pub(crate) mod tests {
         source.set_alpha(Arc::new(Alpha::new(17, 9, vec![128; 17 * 9], false)));
         source.number = 42;
         source.capture_ns = Some(1234);
-        source.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4) };
+        source.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4), crop_unsure: false };
         let mut eager = card_pipeline(gpu);
         let mut keep = shader(INVERT);
         if let FrameStep::Shader(ref mut shader) = keep.step {
@@ -1907,6 +2012,43 @@ pub(crate) mod tests {
         *ctx.0.lock().unwrap() = Some(Arc::new(vec![255; 4]));
         let out = p.process(grey(16, 8, 16), &ctx);
         assert!((luma(&out, 0) - 126).abs() <= 3, "{}", luma(&out, 0));
+    }
+
+    /// Answers person_mask_at with a left half that is a person, and notes the sizes it was asked at; the full size it has none of.
+    struct MaskedSmall(std::sync::Mutex<Vec<(usize, usize)>>);
+
+    impl FrameContext for MaskedSmall {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push((0, 0));
+            None
+        }
+        fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push((w, h));
+            Some(Arc::new((0..w * h).map(|i| if i % w < w / 2 { 255 } else { 0 }).collect()))
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    fn a_big_frames_mask_goes_up_small_and_a_small_frames_at_its_own_size() {
+        assert_eq!([mask_up_size(3840, 2160), mask_up_size(1920, 1080), mask_up_size(1280, 720), mask_up_size(640, 480), mask_up_size(16, 8), mask_up_size(1080, 1920)], [(640, 360), (640, 360), (640, 360), (640, 480), (16, 8), (640, 1138)]);
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let ctx = MaskedSmall(Default::default());
+        let mut p = Pipeline::new();
+        p.set_steps(vec![shader(SHOW_MASK)]);
+        let before = transfers::totals().mask_up;
+        let out = p.process(grey(1280, 720, 16), &ctx);
+        assert_eq!(*ctx.0.lock().unwrap(), [(640, 360)]);
+        assert_eq!(transfers::totals().mask_up - before, 1);
+        let (left, right) = (out.data[100 * 1280 + 100] as i32, out.data[100 * 1280 + 1180] as i32);
+        assert!(left >= 232 && right <= 19, "{left} {right}");
     }
 
     #[test]
@@ -2742,7 +2884,7 @@ pub(crate) mod tests {
         pipeline.set_steps(vec![StagedStep { owner: "filter".into(), stage: FrameStage::Effects, step: FrameStep::Cpu(Box::new(Rebuild)) }]);
         let mut frame = grey(8, 8, 100);
         frame.geometry = Some(Box::new(telescope_core::view::Geometry { zoom: 2.0, pan_x: 0.5, ..Default::default() }));
-        frame.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4) };
+        frame.mask_space = telescope_core::frame::MaskSpace { source_size: (1920, 1080), source_epoch: 2, warp: Some(4), crop_unsure: false };
         let out = pipeline.process(frame.clone(), &NoContext);
         assert_eq!(out.geometry, frame.geometry);
         assert_eq!(out.mask_space, frame.mask_space);
@@ -2909,6 +3051,52 @@ pub(crate) mod tests {
         fn keeps_geometry(&self) -> bool {
             true
         }
+    }
+
+    /// Counts its runs and brightens; says whether the frame can go without it.
+    struct Tints(Arc<std::sync::Mutex<u32>>, bool);
+
+    impl CpuStep for Tints {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            *self.0.lock().unwrap() += 1;
+            frame.data_mut()[1] = 77;
+        }
+        fn pixels_only(&self) -> bool {
+            self.1
+        }
+    }
+
+    /// Puts its own picture over the whole frame, like the wait screen.
+    struct Covers;
+
+    impl CpuStep for Covers {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            frame.data_mut().fill(5);
+        }
+        fn hides(&self) -> bool {
+            true
+        }
+        fn covers(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn a_covered_frame_goes_without_the_pixel_only_steps_before_the_cover_and_keeps_the_rest() {
+        let (pure, other, after_cover) = (Arc::new(std::sync::Mutex::new(0)), Arc::new(std::sync::Mutex::new(0)), Arc::new(std::sync::Mutex::new(0)));
+        let steps = |cover: bool| {
+            let mut v = vec![step("filters", FrameStage::Effects, Tints(pure.clone(), true)), step("reader", FrameStage::Effects, Tints(other.clone(), false)), step("grade", FrameStage::Colour, Tints(pure.clone(), true))];
+            if cover {
+                v.push(step("wait", FrameStage::Cover, Covers));
+            }
+            v.push(step("tap", FrameStage::Final, Tints(after_cover.clone(), true)));
+            v
+        };
+        let out = after(steps(true));
+        assert!(out.data.iter().all(|&b| b == 5 || b == 77) && out.data[0] == 5, "the cover is what goes out");
+        assert_eq!((*pure.lock().unwrap(), *other.lock().unwrap(), *after_cover.lock().unwrap()), (0, 1, 1), "a pixel-only step before the cover is skipped, one that isn't and one after it run");
+        after(steps(false));
+        assert_eq!(*pure.lock().unwrap(), 2, "without a cover they run as ever");
     }
 
     fn after(steps: Vec<StagedStep>) -> Frame {

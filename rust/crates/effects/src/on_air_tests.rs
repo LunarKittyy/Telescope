@@ -3,6 +3,11 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use telescope_core::web::ServerStats;
 
+#[test]
+fn the_on_air_port_is_in_the_new_block() {
+    assert_eq!(ON_AIR_PORT, 7482);
+}
+
 fn approx(a: f64, b: f64) -> bool {
     (a - b).abs() < 1e-9
 }
@@ -453,7 +458,7 @@ fn get(sign: &Sign, stats: &ServerStats, target: &str, token: Option<&str>) -> R
 }
 
 fn sign() -> (Arc<Sign>, ServerStats) {
-    (Arc::new(Sign::with_wait(&"a".repeat(24), Duration::from_secs(5))), ServerStats::new(8768, 8768, false, "On Air"))
+    (Arc::new(Sign::with_wait(&"a".repeat(24), Duration::from_secs(5))), ServerStats::new(7482, 7482, false, "On Air"))
 }
 
 #[test]

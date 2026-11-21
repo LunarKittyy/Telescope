@@ -87,6 +87,9 @@ impl VideoOutput for UcCamera {
             return Err(format!("UnityCapture takes I420 or RGBA frames, not {:?}", frame.format));
         }
         if !self.target.ready() {
+            // No app has the camera open: the picture is made again when one does
+            self.rgba = Vec::new();
+            self.made = None;
             return Ok(());
         }
         let same = self.made.as_ref().is_some_and(|m| std::ptr::eq(m.source.as_ptr(), std::sync::Arc::as_ptr(&frame.data)) && m.format == frame.format && m.size == (frame.width, frame.height));
@@ -248,7 +251,7 @@ mod tests {
     }
 
     struct Sink {
-        ready: bool,
+        ready: std::sync::Arc<std::sync::atomic::AtomicBool>,
         sent: std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>>,
     }
 
@@ -258,13 +261,36 @@ mod tests {
             Ok(())
         }
         fn ready(&mut self) -> bool {
-            self.ready
+            self.ready.load(std::sync::atomic::Ordering::SeqCst)
         }
     }
 
     fn camera(ready: bool) -> (UcCamera, std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>>) {
+        let (cam, sent, _) = switchable_camera(ready);
+        (cam, sent)
+    }
+
+    /// A camera and the switch that tells it whether an app has the camera open.
+    fn switchable_camera(ready: bool) -> (UcCamera, std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>>, std::sync::Arc<std::sync::atomic::AtomicBool>) {
         let sent = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        (UcCamera::new(4, 4, "cam".into(), Box::new(Sink { ready, sent: sent.clone() }), Box::new(|| false)), sent)
+        let switch = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(ready));
+        (UcCamera::new(4, 4, "cam".into(), Box::new(Sink { ready: switch.clone(), sent: sent.clone() }), Box::new(|| false)), sent, switch)
+    }
+
+    #[test]
+    fn the_picture_is_let_go_while_no_app_has_the_camera_open_and_made_again_after() {
+        let (mut cam, sent, open) = switchable_camera(true);
+        let f = grey(4, 4, 100);
+        cam.send(&f).unwrap();
+        assert!(cam.rgba.capacity() > 0);
+        open.store(false, std::sync::atomic::Ordering::SeqCst);
+        cam.send(&f).unwrap();
+        assert_eq!(cam.rgba.capacity(), 0, "the RGBA buffer is not kept for a camera nobody reads");
+        open.store(true, std::sync::atomic::Ordering::SeqCst);
+        cam.send(&f).unwrap();
+        let sent = sent.lock().unwrap();
+        assert_eq!(sent.len(), 2);
+        assert_eq!(sent[1], picture(&f, 4, 4).unwrap(), "the same frame is made again, not sent from an empty buffer");
     }
 
     #[test]

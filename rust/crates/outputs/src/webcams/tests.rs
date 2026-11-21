@@ -298,6 +298,26 @@ fn scanning_lists_capture_nodes_and_skips_the_rest() {
     assert!(!opened.contains(&"video10".to_string()) && !opened.contains(&"video11".to_string()));
 }
 
+#[test]
+fn a_node_that_answered_badly_once_is_asked_again() {
+    let root = sysfs();
+    node(&root, "video0", "HD Webcam", false);
+    let (mut s, rig) = scanner(&root, false);
+    // QUERYCAP failed this time
+    rig.answers.lock().unwrap().insert("video0".into(), (None, Vec::new()));
+    assert!(s.scan().is_empty());
+    rig.answers.lock().unwrap().insert("video0".into(), webcam());
+    assert_eq!(s.scan().len(), 1, "it shows up on the next scan, no replug needed");
+    assert_eq!(*rig.opened.lock().unwrap(), ["video0", "video0"]);
+    // Asked a few times, and then the answer is kept
+    node(&root, "video1", "Encoder", false);
+    rig.answers.lock().unwrap().insert("video1".into(), answer("encoder", "Encoder", true, vec![]));
+    for _ in 0..6 {
+        s.scan();
+    }
+    assert_eq!(rig.opened.lock().unwrap().iter().filter(|n| *n == "video1").count(), 3);
+}
+
 // test_webcams.py::test_a_node_is_only_opened_again_once_it_was_replaced
 #[test]
 fn a_node_is_only_opened_again_once_it_was_replaced() {
@@ -560,6 +580,26 @@ mod gphoto_scanning {
     }
 
     #[test]
+    fn a_camera_found_after_the_scan_returned_says_so() {
+        let p = program("wake", &format!("sleep 0.2\ncat <<'EOF'\n{DETECTED}EOF\n"));
+        let woken = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let w = woken.clone();
+        let mut scanner = GphotoScanner::new(&p, Duration::from_millis(50), Duration::from_secs(5))
+            .on_change(Arc::new(move || { w.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }));
+        assert!(scanner.scan().is_empty());
+        let until = Instant::now() + Duration::from_secs(5);
+        while woken.load(std::sync::atomic::Ordering::SeqCst) == 0 && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(woken.load(std::sync::atomic::Ordering::SeqCst), 1);
+        scan_until(&mut scanner, |d| !d.is_empty());
+        std::thread::sleep(Duration::from_millis(500));
+        scanner.scan();
+        std::thread::sleep(Duration::from_millis(500));
+        assert_eq!(woken.load(std::sync::atomic::Ordering::SeqCst), 1, "the same cameras again are no news");
+    }
+
+    #[test]
     fn a_stuck_gphoto2_is_cut_off() {
         let p = program("stuck", "exec sleep 30\n");
         let started = Instant::now();
@@ -576,4 +616,21 @@ mod gphoto_scanning {
             std::thread::sleep(Duration::from_millis(30));
         }
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_node_taken_by_another_webcam_is_not_the_scanned_one() {
+    let tmp = telescope_core::testing::scratch_dir("webcams-replaced");
+    let root = tmp.join("video4linux");
+    std::fs::create_dir_all(&root).unwrap();
+    usb(&tmp, &root, "video0", "1-2", "AAA");
+    let devices = tmp.join("devices");
+    let key = usb_key(&root.join("video0"), &devices);
+    let a = dev(&key, "HD Pro Webcam C920", "/dev/video0");
+    assert!(node_is_still(&root, &devices, &a));
+    std::fs::remove_dir_all(root.join("video0")).unwrap();
+    usb(&tmp, &root, "video0", "1-3", "BBB");
+    assert!(!node_is_still(&root, &devices, &a), "another camera answers on the old node");
+    assert!(node_is_still(&root, &devices, &dev("Vendor_Cam", "Cam", "/dev/video0")), "only USB keys can be checked");
 }

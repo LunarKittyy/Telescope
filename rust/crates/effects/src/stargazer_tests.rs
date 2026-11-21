@@ -1332,9 +1332,14 @@ fn missing_caps_disable_controls_and_a_missing_shutter_has_its_reason() {
     assert_eq!(props["iso-enabled"], true);
     host.still_caps = Some(json!({"shot": {"iso": {"min": 50, "max": 3200}}}));
     let props = plugin.state_props(&host);
+    // The unsupported override stays clearable
+    assert_eq!(props["shutter-enabled"], true);
+    assert_eq!(props["shutter-tip"], "Use the camera's own shutter speed.");
+    assert_eq!(props["iso-enabled"], true);
+    plugin.shot = ShotChoice::default();
+    let props = plugin.state_props(&host);
     assert_eq!(props["shutter-enabled"], false);
     assert_eq!(props["shutter-tip"], "This camera can't set the shutter speed.");
-    assert_eq!(props["iso-enabled"], true);
     host.still_caps = Some(json!({}));
     assert_eq!(plugin.state_props(&host)["iso-tip"], "This camera can't set the ISO.");
     host.still_caps = None;
@@ -1658,4 +1663,44 @@ fn a_start_right_after_stop_waits_for_the_camera_the_cancelled_photo_still_holds
     rig.click("run-clicked", Value::Null);
     assert_eq!(rig.plugin.phase, Phase::Idle);
     assert_eq!(rig.plugin.problem.as_deref(), Some("Couldn't take the photo"));
+}
+
+#[test]
+fn progress_from_before_an_input_change_or_a_reset_is_ignored() {
+    let mut rig = Rig::new("stale", config("live"));
+    rig.click("run-clicked", Value::Null);
+    for _ in 0..6 {
+        rig.feed(field(2.0));
+    }
+    let old = rig.plugin.run;
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    let stale = |rig: &mut Rig, run: u64| rig.event(Event::Posted { owner: NAME.into(), token: "progress".into(), data: json!({"run": run, "collected": 6, "target": 50, "count": 6, "refused": 0}) });
+    rig.click("input-picked", json!(1));
+    assert_eq!(rig.plugin.count, 0);
+    stale(&mut rig, old);
+    assert_eq!(rig.plugin.count, 0);
+    assert_eq!(rig.props()["save-enabled"], false);
+    let now = rig.plugin.run;
+    rig.click("reset-clicked", Value::Null);
+    assert!(rig.plugin.run > now);
+    stale(&mut rig, now);
+    assert_eq!(rig.plugin.count, 0);
+    assert_eq!(rig.props()["save-enabled"], false);
+}
+
+#[test]
+fn unsupported_shutter_and_iso_overrides_can_be_set_back_to_the_camera() {
+    let mut plugin = StargazerPlugin::new();
+    plugin.input = Input::Photos;
+    plugin.shot = ShotChoice { shutter_s: Some(10.0), iso: Some(800), focus_diopters: None };
+    let shutter = plugin.shutter_props(None);
+    let iso = plugin.iso_props(None);
+    assert_eq!((shutter["shutter-enabled"].clone(), iso["iso-enabled"].clone()), (json!(true), json!(true)));
+    assert_eq!((shutter["shutter-index"].clone(), iso["iso-index"].clone()), (json!(1), json!(1)));
+    let mut host = FakeHost::new();
+    plugin.pick_shot(&mut host, "shutter-picked", 0);
+    plugin.pick_shot(&mut host, "iso-picked", 0);
+    assert_eq!(plugin.shot, ShotChoice::default());
+    assert_eq!(plugin.shutter_props(None)["shutter-enabled"], false);
 }

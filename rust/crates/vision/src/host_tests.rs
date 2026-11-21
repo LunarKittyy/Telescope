@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::service::tests::{wait, Fake};
+use crate::service::{PoseModel, Segmenter, VisionError};
 use std::io::Cursor;
 use telescope_core::bus::EventBus;
 use telescope_core::people::Track;
@@ -192,6 +193,40 @@ fn yuv_frame(w: usize, h: usize) -> Frame {
     Frame::new(w as u32, h as u32, telescope_core::frame::PixelFormat::I420, (0..size).map(|i| (60 + i % 90) as u8).collect())
 }
 
+/// A smooth picture (a gradient with a lit patch), the kind of scene a camera sees, and the same with a patch of `size` pixels square moved in it.
+fn scene(w: usize, h: usize, noise: u8, patch: usize) -> Frame {
+    let mut frame = yuv_frame(w, h);
+    let data = Arc::make_mut(&mut frame.data);
+    for y in 0..h {
+        for x in 0..w {
+            data[y * w + x] = (40 + (x * 100 / w) + (y * 60 / h)) as u8 + if (x * 7 + y * 13) % 5 == 0 { noise } else { 0 };
+        }
+    }
+    for y in h / 3..h / 3 + patch {
+        for x in w / 3..w / 3 + patch {
+            data[y * w + x] = 230;
+        }
+    }
+    frame
+}
+
+#[test]
+fn the_grey_probe_calls_a_frame_moved_when_the_colour_picture_does() {
+    let (w, h) = (1920, 1080);
+    let base = scene(w, h, 0, 0);
+    // (frame, moved)
+    let cases = [(scene(w, h, 0, 0), false), (scene(w, h, 3, 0), false), (scene(w, h, 0, 90), true), (scene(w, h, 0, 400), true)];
+    for (frame, moved) in cases {
+        let (mut colour, mut grey) = (ops::Motion::default(), ops::Motion::default());
+        colour.moved(&people_rgb(&base).unwrap());
+        colour.used();
+        grey.moved_grey(people_look(&base).unwrap());
+        grey.used();
+        assert_eq!(colour.moved(&people_rgb(&frame).unwrap()), moved, "colour");
+        assert_eq!(grey.moved_grey(people_look(&frame).unwrap()), moved, "grey");
+    }
+}
+
 #[test]
 fn the_models_get_small_pictures_made_from_the_planes() {
     let sizes = |f: &Frame| (model_rgb(f).map(|p| (p.w, p.h, p.data.len())), people_rgb(f).map(|p| (p.w, p.h, p.data.len())));
@@ -224,14 +259,28 @@ fn measure(f: &mut dyn FnMut()) -> (f64, f64) {
 #[test]
 #[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
 fn bench_model_pictures() {
-    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+    for (w, h) in [(1920usize, 1080usize), (2560, 1440), (3840, 2160)] {
         let frame = yuv_frame(w, h);
         let (pw, ph) = ops::people_size(w, h, service::PEOPLE_WIDTH);
         let old = measure(&mut || { let full = rgb(&frame).unwrap(); crate::ops::model_input(&full, ops::MODEL_SIZE).unwrap(); });
         let new = measure(&mut || { model_rgb(&frame).unwrap(); });
         let old_people = measure(&mut || { rgb(&frame).unwrap().area(pw, ph); });
         let new_people = measure(&mut || { people_rgb(&frame).unwrap(); });
-        println!("vision pictures {w}x{h} (wall ms, cpu ms): segmenter input old {old:.2?} new {new:.2?}; people input old {old_people:.2?} new {new_people:.2?}");
+        let old_cut = measure(&mut || { let full = rgb(&frame).unwrap(); crate::matting::model_picture(&full).unwrap(); });
+        let new_cut = measure(&mut || { let p = cutout_rgb(&frame).unwrap(); crate::matting::model_picture(&p); });
+        println!("vision pictures {w}x{h} (wall ms, cpu ms): segmenter input old {old:.2?} new {new:.2?}; people input old {old_people:.2?} new {new_people:.2?}; cutout input old {old_cut:.2?} new {new_cut:.2?}");
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_still_scene_probe() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let frame = yuv_frame(w, h);
+        // what a frame of a still scene cost before it was dropped: the colour picture for the model, then its tiny grey copy
+        let old = measure(&mut || { let p = people_rgb(&frame).unwrap(); crate::ops::thumb(&p); });
+        let new = measure(&mut || { people_look(&frame).unwrap(); });
+        println!("vision still probe {w}x{h} (wall ms, cpu ms): old {old:.2?} new {new:.2?}");
     }
 }
 
@@ -493,14 +542,122 @@ fn a_plugin_waiting_during_a_failed_zip_install_is_told_why() {
 #[test]
 fn background_prefers_fresh_quality_then_fresh_normal_then_newest_held_mask() {
     let now = service::monotonic();
-    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age };
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, seq: value as u64 };
     let max = service::MASK_MAX_AGE_S;
     for (hq_age, normal_age, expected) in [(0.0, 0.0, 1), (max * 2.0, 0.0, 2),
         (max * 2.0, max * 3.0, 1), (max * 3.0, max * 2.0, 2)] {
-        let selected = preferred_mask(Some(snapshot(1, hq_age)), Some(snapshot(2, normal_age))).unwrap();
+        let selected = preferred_mask(Some(snapshot(1, hq_age)), Some(snapshot(2, normal_age)), false).unwrap();
         assert_eq!(*selected.mask, [expected]);
     }
-    assert_eq!(*preferred_mask(None, Some(snapshot(2, max * 2.0))).unwrap().mask, [2]);
-    assert_eq!(*preferred_mask(Some(snapshot(1, max * 2.0)), None).unwrap().mask, [1]);
-    assert!(preferred_mask(None, None).is_none());
+    assert_eq!(*preferred_mask(None, Some(snapshot(2, max * 2.0)), false).unwrap().mask, [2]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, max * 2.0)), None, false).unwrap().mask, [1]);
+    assert!(preferred_mask(None, None, false).is_none());
+}
+
+#[test]
+fn a_cutout_mask_well_behind_a_fresher_normal_one_gives_way_to_it() {
+    let now = service::monotonic();
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, seq: value as u64 };
+    let max = service::MASK_MAX_AGE_S;
+    let behind = service::HQ_BEHIND_S;
+    // Both are within the age limit, but by age the normal one is the picture's
+    assert_eq!(*preferred_mask(Some(snapshot(1, max * 0.9)), Some(snapshot(2, 0.0)), false).unwrap().mask, [2]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 2.0)), Some(snapshot(2, 0.0)), false).unwrap().mask, [2]);
+    // A cutout a frame or so behind keeps its place: it cuts cleaner
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 0.5)), Some(snapshot(2, 0.0)), false).unwrap().mask, [1]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 1.5)), Some(snapshot(2, behind * 0.6)), false).unwrap().mask, [1]);
+    // The normal one older than the cutout never beats it
+    assert_eq!(*preferred_mask(Some(snapshot(1, 0.1)), Some(snapshot(2, 0.3)), false).unwrap().mask, [1]);
+}
+
+#[test]
+fn while_the_crop_label_is_a_guess_the_newer_mask_is_used_whichever_model_made_it() {
+    let now = service::monotonic();
+    let snapshot = |value, age| MaskSnapshot { mask: Arc::new(vec![value]), at: now - age, seq: value as u64 };
+    let behind = service::HQ_BEHIND_S;
+    // A cutout a frame behind keeps its place when the label is sure, and gives it up when it is a guess
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 0.5)), Some(snapshot(2, 0.0)), false).unwrap().mask, [1]);
+    assert_eq!(*preferred_mask(Some(snapshot(1, behind * 0.5)), Some(snapshot(2, 0.0)), true).unwrap().mask, [2]);
+    // And a cutout as recent as the normal one is still the cutout
+    assert_eq!(*preferred_mask(Some(snapshot(1, 0.0)), Some(snapshot(2, 0.0)), true).unwrap().mask, [1]);
+}
+
+/// A cutout model that notes the size of the picture it is first handed and of the one it runs on.
+struct Seen {
+    handed: Arc<Mutex<Vec<(usize, usize)>>>,
+    ran: Arc<Mutex<Vec<(usize, usize)>>>,
+}
+
+impl Segmenter for Seen {
+    fn segment(&mut self, frame: &Rgb, _ts: i64) -> Result<crate::service::Gray, VisionError> {
+        self.ran.lock().unwrap().push((frame.w, frame.h));
+        Ok(crate::service::Gray { w: frame.w, h: frame.h, data: vec![200; frame.w * frame.h] })
+    }
+    fn input(&self, frame: &Rgb) -> Option<Rgb> {
+        self.handed.lock().unwrap().push((frame.w, frame.h));
+        crate::matting::model_picture(frame)
+    }
+    fn blends_last(&self) -> bool {
+        false
+    }
+}
+
+struct SeenCutout(Arc<Mutex<Vec<(usize, usize)>>>, Arc<Mutex<Vec<(usize, usize)>>>);
+
+impl Backend for SeenCutout {
+    fn version(&self) -> String {
+        "seen".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        Ok(Box::new(Seen { handed: self.0.clone(), ran: self.1.clone() }))
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        Err(VisionError::new("Nope", "no pose"))
+    }
+}
+
+#[test]
+fn the_cutout_is_handed_a_small_picture_made_from_the_planes() {
+    let (handed, ran): (Arc<Mutex<Vec<(usize, usize)>>>, Arc<Mutex<Vec<(usize, usize)>>>) = Default::default();
+    let cutout = Arc::new(SeenCutout(handed.clone(), ran.clone()));
+    let (h, _bus, _normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let h = h.with_cutout(Box::new(move || Ok(cutout.clone() as Arc<dyn Backend>)), None, scratch_dir("small-cutout"), PackInfo::default());
+    h.load();
+    wait(|| h.state() == READY);
+    let base = yuv_frame(3840, 2160);
+    let n = std::cell::Cell::new(0);
+    wait(|| {
+        std::thread::sleep(Duration::from_millis(5));
+        n.set(n.get() + 1);
+        let mut frame = base.clone();
+        frame.number = n.get();
+        h.person_mask_hq("a", &frame, 3840, 2160, 0);
+        !ran.lock().unwrap().is_empty()
+    });
+    assert_eq!(handed.lock().unwrap()[0], (640, 360), "the model was handed a full size picture");
+    assert_eq!(ran.lock().unwrap()[0], (640, 360));
+    h.shutdown();
+}
+
+#[test]
+fn the_cutouts_picture_is_already_the_size_its_model_wants() {
+    // the model's own shrink then has nothing left to do, at any shape
+    for (w, h) in [(3840usize, 2160usize), (1920, 1080), (1280, 720), (640, 480), (1080, 1920), (3000, 2000), (4000, 3000), (2560, 1080), (1000, 1000), (1333, 777)] {
+        let (mw, mh) = ops::model_input_size(w, h, matting::input_size(w, h)).unwrap();
+        let picture = Rgb::new(mw, mh, vec![0; mw * mh * 3]);
+        assert!(matting::model_picture(&picture).is_none(), "{w}x{h} came out {mw}x{mh} and was shrunk again");
+    }
+}
+
+#[test]
+fn masks_of_the_same_frame_keep_the_cutout_while_the_crop_is_a_guess() {
+    let now = service::monotonic();
+    // The normal one was asked for a moment after the cutout, so it carries a later time for the same frame
+    let hq = MaskSnapshot { mask: Arc::new(vec![1]), at: now - 0.02, seq: 7 };
+    let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, seq: 7 };
+    assert_eq!(*preferred_mask(Some(hq), Some(normal), true).unwrap().mask, [1]);
+    // A normal mask of a newer frame still wins
+    let hq = MaskSnapshot { mask: Arc::new(vec![1]), at: now - 0.12, seq: 7 };
+    let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, seq: 8 };
+    assert_eq!(*preferred_mask(Some(hq), Some(normal), true).unwrap().mask, [2]);
 }

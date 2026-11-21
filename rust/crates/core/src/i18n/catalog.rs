@@ -164,7 +164,7 @@ pub fn pseudo(text: &str) -> String {
 /// Where the catalogs come from: the files in the program (a shipped build), or a folder of .po files.
 #[derive(Clone)]
 pub enum Source {
-    /// The template and the catalogs by language code, as bytes.
+    /// The template and the catalogs by language code, as zlib bytes of a .po file (app/build.rs trims and packs them).
     Embedded { template: &'static [u8], catalogs: &'static [(&'static str, &'static [u8])] },
     Folder(PathBuf),
 }
@@ -180,22 +180,31 @@ impl Source {
         out
     }
 
-    fn read(&self, file: &str) -> Result<std::borrow::Cow<'static, [u8]>, String> {
+    /// A file's bytes, or only its first `limit` bytes when it is a long file and the start is all that's wanted.
+    fn read(&self, file: &str, limit: u64) -> Result<Vec<u8>, String> {
+        use std::io::Read;
         match self {
             Source::Embedded { template, catalogs } => {
                 let found = if file == "telescope.pot" { Some(*template) } else { catalogs.iter().find(|(code, _)| format!("{code}.po") == file).map(|(_, b)| *b) };
-                found.map(std::borrow::Cow::Borrowed).ok_or_else(|| format!("no {file}"))
+                let packed = found.ok_or_else(|| format!("no {file}"))?;
+                let mut out = Vec::new();
+                flate2::read::ZlibDecoder::new(packed).take(limit).read_to_end(&mut out).map_err(|e| format!("{file}: {e}"))?;
+                Ok(out)
             }
-            Source::Folder(dir) => std::fs::read(dir.join(file)).map(std::borrow::Cow::Owned).map_err(|e| format!("{file}: {e}")),
+            Source::Folder(dir) => {
+                let mut out = Vec::new();
+                std::fs::File::open(dir.join(file)).and_then(|f| f.take(limit).read_to_end(&mut out)).map_err(|e| format!("{file}: {e}"))?;
+                Ok(out)
+            }
         }
     }
 
     /// The catalog of a language, or the pseudo language.
     pub fn catalog(&self, lang: &str) -> Result<Catalog, String> {
         if lang == PSEUDO_LANGUAGE {
-            return Catalog::pseudo_from(&self.read("telescope.pot")?);
+            return Catalog::pseudo_from(&self.read("telescope.pot", u64::MAX)?);
         }
-        Catalog::from_po(&self.read(&format!("{lang}.po"))?)
+        Catalog::from_po(&self.read(&format!("{lang}.po"), u64::MAX)?)
     }
 
     /// A first draft nobody has checked yet (its header says X-Telescope-Draft: yes): Settings marks it as one.
@@ -203,9 +212,12 @@ impl Source {
         if lang == super::lang::SOURCE_LANGUAGE {
             return false;
         }
-        let Ok(bytes) = self.read(&format!("{lang}.po")) else { return false };
-        // The header is the first entry, so only that much has to be read
-        let Ok(text) = std::str::from_utf8(&bytes) else { return false };
+        // The header is the first entry, so only that much has to be read (a cut can end inside a character, so what's cut off is dropped)
+        let Ok(bytes) = self.read(&format!("{lang}.po"), 4096) else { return false };
+        let text = match std::str::from_utf8(&bytes) {
+            Ok(text) => text,
+            Err(e) => std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or_default(),
+        };
         let head = text.split("\n\n").next().unwrap_or("");
         match read_po(head) {
             Ok((_, header)) => po::header_field(&header, "X-Telescope-Draft").eq_ignore_ascii_case("yes"),

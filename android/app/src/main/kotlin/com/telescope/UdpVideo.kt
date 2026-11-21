@@ -61,7 +61,7 @@ object UdpWire {
 }
 
 // Retain the frame once; repairs only need a reference to it and a fragment index
-class UdpFrame(val seq: Int, val data: ByteArray, val key: Boolean) {
+class UdpFrame(val seq: Int, val data: ByteArray, val key: Boolean, val madeMs: Long = System.nanoTime() / 1_000_000) {
     val count = UdpWire.fragmentCount(data.size)
 }
 
@@ -542,6 +542,7 @@ class UdpVideoClient(
     var paceBps: Int
         get() = transmitter.paceBps
         set(value) { transmitter.paceBps = value; queue.repairBps = repairBpsFor(value) }
+    // Oldest first, at most KEEP_FRAMES; sendLoop also drops old ones (dropOldFrames)
     private val sent = object : LinkedHashMap<Int, UdpFrame>() {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, UdpFrame>) = size > KEEP_FRAMES
     }
@@ -590,7 +591,10 @@ class UdpVideoClient(
                         // A keyframe carries the encoder's setup, so a desktop can start from any of them
                         val data = if (job.key) config()?.let { it + job.frame } ?: job.frame else job.frame
                         val frame = UdpFrame(frameSeq++, data, job.key)
-                        synchronized(sent) { sent[frame.seq] = frame }
+                        synchronized(sent) {
+                            sent[frame.seq] = frame
+                            dropOldFrames(sent, frame.madeMs)
+                        }
                         transmitter.frame(frame, job.atMs, job.pacedAtMs)
                     }
                     is UdpJob.Repair -> transmitter.repair(job.frame, job.index)
@@ -698,7 +702,16 @@ class UdpVideoClient(
         const val REPAIR_BURST = 32 * 1024
         // What may go out again each second: a share of the pace, so a whole-frame request can't crowd out live video
         fun repairBpsFor(paceBps: Int): Int = if (paceBps <= 0) 8_000_000 else maxOf(2_000_000, paceBps * 3 / 10)
-        const val KEEP_FRAMES = 90       // about three seconds at 30 fps for a NACK to ask for again
+        const val KEEP_FRAMES = 90       // at most this many frames kept for a NACK to ask for again
+        const val KEEP_MS = 1000L        // and none older than this: the desktop gives up on a loss after 250 ms
+        // A frame ages from when its successor was made, the first moment the desktop can see it missing. After a capture stall
+        // the frame before the gap is therefore still there for the NACK, and the newest frame is never dropped.
+        fun dropOldFrames(sent: MutableMap<Int, UdpFrame>, newestMadeMs: Long) {
+            val frames = sent.values.toList()
+            for (i in 0 until frames.size - 1) {
+                if (newestMadeMs - frames[i + 1].madeMs > KEEP_MS) sent.remove(frames[i].seq) else break
+            }
+        }
         const val KEEPALIVE_MS = 1000L
         const val FEEDBACK_TIMEOUT_MS = 5_000L
         const val KEY_ASK_GAP_MS = 300L  // one keyframe per this, however many a lossy link asks for

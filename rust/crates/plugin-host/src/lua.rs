@@ -47,7 +47,12 @@ local function settle(ok, ...)
   return ok, ...
 end
 function pcall(...) return settle(base_pcall(...)) end
-function xpcall(...) return settle(base_xpcall(...)) end
+-- When the time runs out inside xpcall, Lua calls the message handler with its hooks off, so a handler that loops would hang the app: the
+-- handler is only called once the time is known to be left
+function xpcall(f, handler, ...)
+  if type(handler) ~= "function" then return settle(base_xpcall(f, handler, ...)) end
+  return settle(base_xpcall(f, function(message) expired() return handler(message) end, ...))
+end
 function coroutine.resume(...) return settle(base_resume(...)) end
 
 function require(name)
@@ -61,8 +66,9 @@ function require(name)
   return loaded[name]
 end
 
-function load(chunk, chunkname, mode, env)
-  return base_load(chunk, chunkname, "t", env)
+-- The text mode is forced; whether an environment was given is kept, since an explicit nil there is no environment at all
+function load(chunk, chunkname, mode, ...)
+  return base_load(chunk, chunkname, "t", ...)
 end
 
 host = {}
@@ -242,7 +248,7 @@ fn bridge_call(lua: &Lua, calls: &mut HostCalls<'_>, op: &str, args: MultiValue)
                 return Err(lua_err(format!("{name:?} isn't a module name")));
             }
             let path = format!("{}.lua", name.replace('.', "/"));
-            let source = calls.context().read_text(&path).map_err(lua_err)?;
+            let source = calls.context().module_source(&path).map_err(lua_err)?;
             Ok(MultiValue::from_vec(vec![mlua::Value::String(lua.create_string(source)?), mlua::Value::String(lua.create_string(format!("@{path}"))?)]))
         }
         "log" => {
@@ -362,20 +368,22 @@ impl LuaGuest {
     }
 
     /// Runs a lookup that may go through a metatable (a plugin that inherits from a base) under the deadline, so a looping __index is stopped.
-    fn looked_up<R>(&self, f: impl FnOnce() -> mlua::Result<Option<R>>) -> Option<R> {
+    /// A lookup that fails is an error and not an absent hook: the plugin has the hook, it just can't be reached, and treating it as
+    /// missing would hand the host an empty answer (empty settings that then get saved over the real ones).
+    fn looked_up<R>(&self, f: impl FnOnce() -> mlua::Result<Option<R>>) -> Result<Option<R>, String> {
         let started = {
             let mut at = self.deadline.lock().unwrap_or_else(|e| e.into_inner());
             at.is_none().then(|| *at = Some(Instant::now() + self.hook_limit())).is_some()
         };
-        let found = f().ok().flatten();
+        let found = f().map_err(|e| capped(&message(&e)).to_string());
         if started {
             *self.deadline.lock().unwrap_or_else(|e| e.into_inner()) = None;
         }
         found
     }
 
-    fn function(&self, hook: &str) -> Option<Function> {
-        let table = self.table()?;
+    fn function(&self, hook: &str) -> Result<Option<Function>, String> {
+        let Some(table) = self.table() else { return Ok(None) };
         self.looked_up(|| table.get::<Option<Function>>(hook))
     }
 
@@ -384,7 +392,7 @@ impl LuaGuest {
         self.looked_up(|| {
             let Some(events) = table.get::<Option<Table>>("events")? else { return Ok(None) };
             events.get::<Option<Function>>(event)
-        })
+        }).unwrap_or(None)
     }
 
     fn hook_limit(&self) -> Duration {
@@ -418,7 +426,7 @@ impl Guest for LuaGuest {
             };
             self.handler(name).ok_or_else(|| format!("no handler for {name}"))?
         } else {
-            self.function(hook).ok_or_else(|| format!("no hook {hook}"))?
+            self.function(hook)?.ok_or_else(|| format!("no hook {hook}"))?
         };
         self.run(calls, self.hook_limit(), |lua| {
             let lua_args = args.iter().map(|a| to_lua(lua, a)).collect::<mlua::Result<Vec<_>>>()?;
@@ -432,8 +440,9 @@ impl Guest for LuaGuest {
         })
     }
 
+    /// A hook that can't be looked up counts as defined, so calling it reports why (see looked_up).
     fn defines(&self, hook: &str) -> bool {
-        self.function(hook).is_some()
+        !matches!(self.function(hook), Ok(None))
     }
 
     fn listens(&self, event: &str) -> bool {

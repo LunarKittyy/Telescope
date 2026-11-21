@@ -322,12 +322,12 @@ fn the_link_survives_a_restart_and_a_new_link_replaces_it() {
     let cfg = rig.plugin.get_config();
     let mut again = Rig::new(cfg);
     assert_eq!(again.plugin.token(), token);
-    assert_eq!(again.plugin.url(), format!("https://192.168.1.20:8768/#{token}"));
+    assert_eq!(again.plugin.url(), format!("https://192.168.1.20:7482/#{token}"));
     again.page_state(); // the restarted server takes it
     again.ui("new-link-clicked", vec![]);
     assert_ne!(again.plugin.token(), token);
     again.page_state(); // and the new one once it's made
-    assert_eq!(again.plugin.url(), format!("https://192.168.1.20:8768/#{}", again.plugin.token()));
+    assert_eq!(again.plugin.url(), format!("https://192.168.1.20:7482/#{}", again.plugin.token()));
     // A device on the old link is refused from its next request on
     let served = again.web.served.lock().unwrap();
     let old = Request { method: "GET".into(), target: "/state?after=-1".into(), headers: vec![("Authorization".into(), format!("Bearer {token}"))] };
@@ -341,7 +341,7 @@ fn the_certificate_is_asked_for_with_this_computers_addresses() {
     assert_eq!(asked.len(), 1);
     assert_eq!(asked[0].1, ["192.168.1.20"]);
     let served = rig.web.served.lock().unwrap();
-    assert_eq!((served[0].serve.port, served[0].serve.host.as_str()), (8768, ""));
+    assert_eq!((served[0].serve.port, served[0].serve.host.as_str()), (7482, ""));
 }
 
 #[test]
@@ -457,6 +457,35 @@ fn quitting_off_air_sends_nothing() {
 }
 
 #[test]
+fn quitting_while_the_off_request_is_still_going_out_waits_for_it() {
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    rig.watched(true);
+    rig.later(2.0);
+    rig.bodies();
+    rig.sent.lock().unwrap().clear();
+    // Off air, with its webhook held up by a slow hub
+    rig.hold.store(true, Ordering::SeqCst);
+    rig.plugin.on_event(&mut rig.host, &Event::CameraWatched { watched: false });
+    *rig.now.lock().unwrap() += 30.0;
+    rig.plugin.on_event(&mut rig.host, &Event::TimerFired { owner: NAME.into(), token: "settle".into() });
+    assert!(!rig.plugin.on());
+    // The off request has to be on its way before quitting, or the quit one would only replace it while it waits for the thread
+    let waited = Instant::now();
+    while rig.sent.lock().unwrap().is_empty() && waited.elapsed() < Duration::from_secs(5) {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let release = rig.hold.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        release.store(false, Ordering::SeqCst);
+    });
+    let started = Instant::now();
+    rig.plugin.shutdown(&mut rig.host);
+    assert!(started.elapsed() >= Duration::from_millis(250), "{:?}", started.elapsed());
+    assert_eq!(rig.sent.lock().unwrap().len(), 2, "the off request and the last one behind it");
+}
+
+#[test]
 fn quitting_with_a_failure_waiting_to_be_retried_still_turns_the_light_off() {
     let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
     rig.answered("Connection refused");
@@ -492,6 +521,15 @@ fn clearing_the_address_ends_the_retries_and_the_banner() {
     rig.ui("url-edited", vec![json!("")]);
     assert!(rig.issue().is_none() && rig.retry_timer().is_none());
     assert_eq!(rig.plugin.diagnostics()[3].1, "not set");
+}
+
+#[test]
+fn a_late_failure_after_the_address_was_cleared_brings_back_no_banner_or_retry() {
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    let old = rig.plugin.state_tag();
+    rig.ui("url-edited", vec![json!("")]);
+    rig.answer(&old, "Connection refused");
+    assert!(rig.issue().is_none() && rig.retry_timer().is_none());
 }
 
 #[test]
@@ -551,7 +589,7 @@ fn what_it_says_in_diagnostics() {
     let rig = Rig::new(json!({"webhook_url": "http://hub.local/hook", "webhook_method": "GET"}));
     let d: std::collections::HashMap<_, _> = rig.plugin.diagnostics().into_iter().collect();
     assert_eq!((d["On Air"].as_str(), d["On Air when"].as_str()), ("off", "camera"));
-    assert_eq!((d["On Air sign page"].as_str(), d["On Air webhook"].as_str()), ("on, port 8768", "set (GET)"));
+    assert_eq!((d["On Air sign page"].as_str(), d["On Air webhook"].as_str()), ("on, port 7482", "set (GET)"));
 }
 
 #[test]

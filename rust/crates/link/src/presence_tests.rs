@@ -13,7 +13,7 @@ fn engine() -> Engine {
 }
 
 fn nonce(n: u32) -> String { format!("{n:032x}") }
-fn source() -> SocketAddr { "192.168.1.20:8769".parse().unwrap() }
+fn source() -> SocketAddr { "192.168.1.20:7483".parse().unwrap() }
 fn local() -> IpAddr { "192.168.1.10".parse().unwrap() }
 
 #[derive(Default)]
@@ -292,17 +292,17 @@ fn presence_logs_first_contact_timeout_and_return_without_packet_or_probe_noise(
     assert!(log_lines().is_empty(), "probes and phones never heard from stay quiet");
     let request = |n| encode("q", "phone", "desktop", &nonce(n), "3.7.0", &[], "secret").unwrap();
     engine.receive(&request(3), source(), local(), 3.0, nonce(4));
-    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:8769 (phone started the exchange)"]);
+    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:7483 (phone started the exchange)"]);
     engine.receive(&request(5), source(), local(), 10.0, nonce(6));
     engine.tick(129.9, || nonce(7));
     assert!(log_lines().is_empty(), "fresh traffic extends the timeout without another line");
     engine.tick(130.0, || nonce(8));
-    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:8769 (phone started the exchange)"]);
+    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:7483 (phone started the exchange)"]);
     engine.tick(200.0, || nonce(9));
     assert!(log_lines().is_empty(), "remaining quiet does not repeat the loss");
-    let moved = "192.168.1.21:8769".parse().unwrap();
+    let moved = "192.168.1.21:7483".parse().unwrap();
     engine.receive(&request(10), moved, local(), 201.0, nonce(11));
-    assert_eq!(log_lines(), ["Presence: Phone heard again from 192.168.1.21:8769 (phone started the exchange)"]);
+    assert_eq!(log_lines(), ["Presence: Phone heard again from 192.168.1.21:7483 (phone started the exchange)"]);
     engine.receive(&request(12), moved, local(), 202.0, nonce(13));
     assert!(log_lines().is_empty());
 }
@@ -314,24 +314,24 @@ fn only_fresh_authenticated_requests_and_matched_answers_refresh_presence_logs()
     let answer = encode("a", "phone", "desktop", &nonce(1), "3.7.0", &[], "secret").unwrap();
     engine.receive(&answer, source(), local(), 0.0, nonce(2));
     engine.question("phone", source(), None, 0.0, nonce(1));
-    let other = "192.168.1.21:8769".parse().unwrap();
+    let other = "192.168.1.21:7483".parse().unwrap();
     engine.receive(&answer, other, local(), 1.0, nonce(2));
     assert!(log_lines().is_empty());
     engine.receive(&answer, source(), local(), 1.0, nonce(2));
-    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:8769 (desktop started the exchange)"]);
+    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:7483 (desktop started the exchange)"]);
     engine.receive(&answer, source(), local(), 5.0, nonce(2));
     let request = encode("q", "phone", "desktop", &nonce(3), "3.7.0", &[], "wrong-secret").unwrap();
     engine.receive(&request, source(), local(), 10.0, nonce(4));
     engine.question("phone", source(), None, 10.0, nonce(1));
     engine.receive(&answer, source(), local(), 20.0, nonce(2));
     engine.tick(121.0, || nonce(5));
-    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:8769 (desktop started the exchange)"]);
+    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:7483 (desktop started the exchange)"]);
     let request = encode("q", "phone", "desktop", &nonce(6), "3.7.0", &[], "secret").unwrap();
     engine.receive(&request, source(), local(), 122.0, nonce(7));
     assert_eq!(log_lines().len(), 1);
     engine.receive(&request, source(), local(), 200.0, nonce(8));
     engine.tick(242.0, || nonce(9));
-    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:8769 (phone started the exchange)"]);
+    assert_eq!(log_lines(), ["Presence: Phone went quiet; last heard 120.0s ago from 192.168.1.20:7483 (phone started the exchange)"]);
 }
 
 #[test]
@@ -344,16 +344,16 @@ fn unreachable_logs_distinguish_silence_from_a_phone_that_still_sends_requests()
     assert!(log_lines().is_empty());
     engine.checked(&phone("secret"), false, 2.0);
     let request = encode("q", "phone", "desktop", &nonce(1), "3.7.0", &[], "secret").unwrap();
-    let moved = "192.168.1.21:8769".parse().unwrap();
+    let moved = "192.168.1.21:7483".parse().unwrap();
     assert!(engine.receive(&request, moved, local(), 3.0, nonce(2)).1.is_none());
     log_lines();
     engine.checked(&phone("secret"), true, 3.5);
-    assert_eq!(log_lines(), ["Phone is unreachable; presence last heard 0.5s ago from 192.168.1.21:8769"]);
+    assert_eq!(log_lines(), ["Phone is unreachable; presence last heard 0.5s ago from 192.168.1.21:7483"]);
     engine.tick(123.0, || nonce(3));
     log_lines();
     engine.checked(&phone("secret"), false, 123.0);
     engine.checked(&phone("secret"), true, 124.0);
-    assert_eq!(log_lines(), ["Phone is unreachable; presence last heard 121.0s ago from 192.168.1.21:8769"]);
+    assert_eq!(log_lines(), ["Phone is unreachable; presence last heard 121.0s ago from 192.168.1.21:7483"]);
 }
 
 #[test]
@@ -370,7 +370,7 @@ fn reconfiguration_keeps_log_state_but_new_credentials_clear_it() {
     engine.checked(&phone("secret"), true, 4.0);
     assert!(log_lines().is_empty());
     engine.tick(121.0, || nonce(3));
-    assert_eq!(log_lines(), ["Presence: Renamed phone went quiet; last heard 120.0s ago from 192.168.1.20:8769 (phone started the exchange)"]);
+    assert_eq!(log_lines(), ["Presence: Renamed phone went quiet; last heard 120.0s ago from 192.168.1.20:7483 (phone started the exchange)"]);
     engine.configure(Config { id: "desktop".into(), version: "3.7.0".into(), phones: vec![phone("new-secret")] }, 122.0);
     engine.checked(&phone("secret"), true, 123.0);
     assert!(log_lines().is_empty(), "a check with revoked credentials cannot report the new pairing");
@@ -379,5 +379,18 @@ fn reconfiguration_keeps_log_state_but_new_credentials_clear_it() {
     engine.receive(&request("secret"), source(), local(), 124.0, nonce(4));
     assert!(log_lines().is_empty());
     engine.receive(&request("new-secret"), source(), local(), 125.0, nonce(5));
-    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:8769 (phone started the exchange)"]);
+    assert_eq!(log_lines(), ["Presence: Phone first heard from 192.168.1.20:7483 (phone started the exchange)"]);
+}
+
+#[test]
+fn a_failure_queued_before_the_wake_callback_still_wakes_and_survives_a_reset() {
+    let presence = Presence { controls: Arc::new(Controls::default()) };
+    *presence.controls.failure.lock().unwrap() = Some("no poller".into());
+    event(&presence.controls, PresenceEvent::Degraded("no poller".into()), 0);
+    let woke = Arc::new(AtomicU64::new(0));
+    let counter = woke.clone();
+    presence.set_wake(Some(Arc::new(move || { counter.fetch_add(1, Ordering::Relaxed); })));
+    assert_eq!(woke.load(Ordering::Relaxed), 1);
+    presence.configure("desktop".into(), "3.6.0".into(), vec![phone("secret")]);
+    assert!(matches!(presence.take_events().as_slice(), [PresenceEvent::Degraded(why)] if why == "no poller"));
 }

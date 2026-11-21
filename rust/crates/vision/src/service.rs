@@ -29,6 +29,8 @@ pub const MASK_CARRY: f64 = 0.3;
 pub const MASK_CARRY_STILL: f64 = 0.5;
 /// While nothing moves the mask is worked out this often, instead of for every frame.
 pub const MASK_STILL_EVERY_S: f64 = 1.0 / 15.0;
+/// The high quality cutout costs about ten times the normal model a run, so while nothing moves it is worked out this often.
+pub const CUTOUT_STILL_EVERY_S: f64 = 0.25;
 /// Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often.
 pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
 pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
@@ -36,6 +38,8 @@ pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
 pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 /// A mask of a frame further back than this is of a picture that's gone: frame steps hear there's none, not an old silhouette.
 pub const MASK_MAX_AGE_S: f64 = 0.5;
+/// A high quality cutout mask this much older than the normal one is behind it: the normal one stands in, however recent the cutout still is.
+pub const HQ_BEHIND_S: f64 = 0.15;
 /// How far apart two sizes' shapes can be for a mask of one to stand in for the other, as a share.
 const MASK_SHAPE_SLACK: f64 = 0.02;
 /// A crop that moves no more than this share of the picture between two masks keeps the model's memory and the last mask's carry.
@@ -142,6 +146,10 @@ pub(crate) struct MaskState {
     /// As the model gave it, with the last ones carried in.
     pub(crate) small: Option<Gray>,
     pub(crate) at: f64,
+    /// When a frame last looked the same as the one `small` is of, so the mask held over a still scene is no older than that.
+    pub(crate) seen: f64,
+    /// The frame the model last ran on, which `small` is of: a frame that got `small` again without a run is not it.
+    pub(crate) ran: Option<u64>,
     pub(crate) motion: Motion,
     pub(crate) asked: f64,
     /// The view's turns it has seen (Inner::turns): when that moves on, everything above is of another picture.
@@ -150,16 +158,19 @@ pub(crate) struct MaskState {
     pub(crate) fails: u32,
     geometry: Option<Geometry>,
     space: MaskSpace,
+    /// The crop `geometry` was a guess: what the model remembers isn't moved along with a guessed crop.
+    unsure: bool,
 }
 
 impl MaskState {
-    fn geometry(&mut self, geometry: Option<Geometry>, space: MaskSpace) {
+    fn geometry(&mut self, geometry: Option<Geometry>, space: MaskSpace, unsure: bool) {
+        let was_unsure = std::mem::replace(&mut self.unsure, unsure);
         if self.geometry == geometry && self.space == space {
             return;
         }
         // A small move of the crop keeps what the model remembers, moved with it: dropping it on every step of a moving crop leaves every mask unsteadied
         let carried = match (self.geometry, geometry) {
-            (Some(old), Some(new)) if self.space == space && compatible_geometry(Some(old), Some(new)) && crop_jump(&old, &new) <= CARRY_JUMP => Some((old, new)),
+            (Some(old), Some(new)) if !unsure && !was_unsure && self.space == space && compatible_geometry(Some(old), Some(new)) && crop_jump(&old, &new) <= CARRY_JUMP => Some((old, new)),
             _ => None,
         };
         self.geometry = geometry;
@@ -196,16 +207,25 @@ pub(crate) struct MaskView {
     pub(crate) geometry: Option<Geometry>,
     pub(crate) keep_late: bool,
     pub(crate) space: MaskSpace,
+    /// The crop in `geometry` is a guess (MaskSpace::crop_unsure): a mask that isn't recent is as wrong as the guess is.
+    pub(crate) unsure: bool,
 }
 
 pub(crate) struct MaskSnapshot {
     pub(crate) mask: Arc<Vec<u8>>,
     pub(crate) at: f64,
+    /// The frame it was made for: two masks of one frame are equally recent whichever was asked for first.
+    pub(crate) seq: u64,
 }
 
 impl MaskSnapshot {
     pub(crate) fn fresh(&self) -> bool {
         monotonic() - self.at <= MASK_MAX_AGE_S
+    }
+
+    /// How far behind the picture it is, seconds.
+    pub(crate) fn age(&self) -> f64 {
+        monotonic() - self.at
     }
 }
 
@@ -216,10 +236,9 @@ struct MaskJob {
     seq: u64,
     size: (usize, usize),
     picture: Picture,
-    /// When the frame was handed over.
-    at: f64,
     /// The view's turns its picture was made under (Inner::turns when its step asked).
     epoch: u64,
+    unsure: bool,
 }
 
 /// The newest mask a frame step can get at once.
@@ -230,8 +249,9 @@ struct MadeMask {
     w: usize,
     h: usize,
     mask: Arc<Vec<u8>>,
-    /// When its frame was handed over.
+    /// When the model ran, which for a mask got again without a run is the run it came from.
     at: f64,
+    seq: u64,
     /// The same mask at other sizes asked for since, dropped with it when the next one comes.
     sizes: Vec<MaskSize>,
     /// Which inference this is, so a size made outside the lock is only kept if it still belongs.
@@ -306,6 +326,8 @@ pub(crate) struct PeopleState {
     /// The newest small frame waiting for the pose model, and how to turn it upright.
     pub(crate) frame: Option<(Rgb, Upright)>,
     pub(crate) at: f64,
+    /// When a frame was last looked at to see whether it moved, so a still scene is looked at once per cadence, not once per frame.
+    pub(crate) probed: f64,
     pub(crate) motion: Motion,
     pub(crate) thread: Option<JoinHandle<()>>,
     /// Set: that people thread closes its model and ends.
@@ -329,12 +351,12 @@ pub(crate) struct StreamVision {
 impl StreamVision {
     fn new() -> StreamVision {
         StreamVision {
-            mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0,
-                                         motion: Motion::default(), asked: 0.0, turns: 0, fails: 0, geometry: None, space: MaskSpace::default() }),
+            mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0, seen: 0.0, ran: None,
+                                         motion: Motion::default(), asked: 0.0, turns: 0, fails: 0, geometry: None, space: MaskSpace::default(), unsure: false }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
             mask_done: Condvar::new(),
-            people: Mutex::new(PeopleState { frame: None, at: 0.0, motion: Motion::default(), thread: None, quit: None, wake: false, fed: 0.0 }),
+            people: Mutex::new(PeopleState { frame: None, at: 0.0, probed: 0.0, motion: Motion::default(), thread: None, quit: None, wake: false, fed: 0.0 }),
             woken: Condvar::new(),
             stopping: AtomicBool::new(false),
         }
@@ -606,9 +628,9 @@ impl Vision {
             };
             let sv = self.stream(key);
             let mut m = sv.mask.lock().unwrap();
-            m.geometry(view.geometry, view.space);
+            m.geometry(view.geometry, view.space, view.unsure);
             m.asked = monotonic();
-            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at });
+            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), seq: m.ran.unwrap_or(seq) });
         }
         let Some(backend) = self.ready() else {
             self.load();
@@ -645,8 +667,8 @@ impl Vision {
             let sv = self.stream(&key);
             let mut m = sv.mask.lock().unwrap();
             m.asked = monotonic();
-            m.geometry(view.geometry, view.space);
-            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at });
+            m.geometry(view.geometry, view.space, view.unsure);
+            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), seq: m.ran.unwrap_or(seq) });
         }
         self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, picture, epoch, view)
     }
@@ -662,7 +684,7 @@ impl Vision {
         }
         if n.asked != Some(seq) {
             n.asked = Some(seq);
-            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic(), epoch, geometry: view.geometry, space: view.space });
+            n.job = Some(MaskJob { seq, size: (w, h), picture, epoch, geometry: view.geometry, space: view.space, unsure: view.unsure });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2, which)).is_ok();
@@ -670,7 +692,7 @@ impl Vision {
             sv.mask_wanted.notify_all();
         }
         let usable = |n: &NewestMask| n.for_view(view).is_some_and(|m| (view.keep_late || m.epoch == epoch)
-            && (view.keep_late || m.usable(w, h)) && m.space == view.space && compatible_geometry(m.geometry, view.geometry));
+            && (view.keep_late && !view.unsure || m.usable(w, h)) && m.space == view.space && compatible_geometry(m.geometry, view.geometry));
         if wait && !usable(&n) && !n.gave_up {
             let (done, until) = (n.done, std::time::Instant::now() + std::time::Duration::from_secs_f64(FIRST_MASK_WAIT_S));
             while !usable(&n) && n.done == done {
@@ -685,12 +707,12 @@ impl Vision {
             return None;
         }
         let made = n.for_view(view)?;
-        let at = made.at;
+        let (at, made_seq) = (made.at, made.seq);
         if (made.w, made.h) == (w, h) && made.geometry == view.geometry {
-            return Some(MaskSnapshot { mask: made.mask.clone(), at });
+            return Some(MaskSnapshot { mask: made.mask.clone(), at, seq: made_seq });
         }
         if let Some(m) = made.sizes.iter().find(|m| m.size == (w, h) && m.geometry == view.geometry) {
-            return Some(MaskSnapshot { mask: m.mask.clone(), at });
+            return Some(MaskSnapshot { mask: m.mask.clone(), at, seq: made_seq });
         }
         let (base, (bw, bh), geometry, generation) = (made.mask.clone(), (made.w, made.h), made.geometry, made.generation);
         drop(n);
@@ -702,13 +724,13 @@ impl Vision {
         let made = if view.keep_late { &mut n.background } else { &mut n.mask };
         if let Some(made) = made.as_mut().filter(|m| m.generation == generation) {
             if let Some(m) = made.sizes.iter().find(|m| m.size == (w, h) && m.geometry == view.geometry) {
-                return Some(MaskSnapshot { mask: m.mask.clone(), at });
+                return Some(MaskSnapshot { mask: m.mask.clone(), at, seq: made_seq });
             }
             // Moving crops must not keep a resized mask for every position they pass.
             made.sizes.truncate(3);
             made.sizes.insert(0, MaskSize { size: (w, h), geometry: view.geometry, mask: resized.clone() });
         }
-        Some(MaskSnapshot { mask: resized, at })
+        Some(MaskSnapshot { mask: resized, at, seq: made_seq })
     }
 
     /// From now on a frame step waits for its own mask, as a test with a real model wants.
@@ -742,7 +764,7 @@ impl Vision {
         }
         if m.turns != epoch {
             // The view turned since what was kept was made: it, and what the next mask would blend in, is of the old picture
-            (m.turns, m.seq, m.mask, m.small, m.motion) = (epoch, None, None, None, Motion::default());
+            (m.turns, m.seq, m.mask, m.small, m.motion, m.ran, m.seen) = (epoch, None, None, None, Motion::default(), None, 0.0);
             // A model that keeps its own memory of the last frames (the cutout's) forgets them too
             if let Some(segment) = m.segment.as_mut() {
                 segment.reset();
@@ -769,7 +791,8 @@ impl Vision {
         // Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
         let moved = m.motion.moved(&small);
         let saving = self.power_saving();
-        if (moved && !saving) || m.small.is_none() || now - m.at >= MASK_STILL_EVERY_S {
+        let still_every = if which == Which::Cutout { CUTOUT_STILL_EVERY_S } else { MASK_STILL_EVERY_S };
+        if (moved && !saving) || m.small.is_none() || now - m.at >= still_every {
             let t0 = std::time::Instant::now();
             let ts = m.clock.next();
             let gap = m.small.is_some() && now - m.at > MASK_MAX_AGE_S;
@@ -806,7 +829,12 @@ impl Vision {
             m.motion.used();
             m.small = Some(mask);
             m.at = now;
+            m.ran = Some(seq);
             m.mask = None;
+        }
+        // Held over a picture that looks the same, the mask is as good as one just made: the cutout's rarer runs don't make it look behind
+        else if !moved {
+            m.seen = now;
         }
         let small = m.small.as_ref().unwrap();
         if !matches!(&m.mask, Some((mw, mh, _)) if (*mw, *mh) == (w, h)) {
@@ -832,10 +860,27 @@ impl Vision {
         !self.inner.people_wanted.lock().unwrap().is_empty()
     }
 
+    /// Whether feed_raw would look at a frame of this stream now, so the caller only makes the frame's pixels when it would. Asking also starts the model when it isn't up.
+    pub fn people_due(&self, key: &str) -> bool {
+        if !self.wants_people() {
+            return false;
+        }
+        if self.ready().is_none() {
+            self.load();
+            return false;
+        }
+        let sv = self.stream(key);
+        let p = sv.people.lock().unwrap();
+        let every = if self.power_saving() { SAVING_PEOPLE_EVERY_S } else { PEOPLE_EVERY_S };
+        let now = monotonic();
+        now - p.at >= every && now - p.probed >= every
+    }
+
     /// A stream's frame before the view; one every PEOPLE_EVERY_S goes to its people thread while something moves, one every
-    /// PEOPLE_STILL_EVERY_S while nothing does, and the rest are skipped. upright turns the small copy for the model (on that
-    /// thread) and takes its points to the picture as shown at zoom 1.
-    pub fn feed_raw(&self, key: &str, picture: &mut dyn FnMut() -> Option<Rgb>, upright: Upright) {
+    /// PEOPLE_STILL_EVERY_S while nothing does, and the rest are skipped. A frame is only looked at (look: a tiny grey copy, cheap) once
+    /// every PEOPLE_EVERY_S and the small colour picture for the model (picture) is only made when it goes on. upright turns the small copy
+    /// for the model (on that thread) and takes its points to the picture as shown at zoom 1.
+    pub fn feed_raw(&self, key: &str, look: &mut dyn FnMut() -> Option<Vec<u8>>, picture: &mut dyn FnMut() -> Option<Rgb>, upright: Upright) {
         if !self.wants_people() {
             return;
         }
@@ -848,13 +893,15 @@ impl Vision {
         let mut p = sv.people.lock().unwrap();
         p.fed = now;
         let (every, still_every) = if self.power_saving() { (SAVING_PEOPLE_EVERY_S, SAVING_PEOPLE_STILL_EVERY_S) } else { (PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S) };
-        if now - p.at < every {
+        if now - p.at < every || now - p.probed < every {
+            return;
+        }
+        p.probed = now;
+        let Some(grey) = look() else { return };
+        if !p.motion.moved_grey(grey) && now - p.at < still_every {
             return;
         }
         let Some(frame) = picture() else { return };
-        if !p.motion.moved(&frame) && now - p.at < still_every {
-            return;
-        }
         p.motion.used();
         p.at = now;
         let (w, h) = people_size(frame.w, frame.h, PEOPLE_WIDTH);
@@ -922,7 +969,7 @@ impl Vision {
                 p.thread = None;
                 p.frame = None;
                 p.motion = Motion::default();
-                p.at = 0.0;
+                (p.at, p.probed) = (0.0, 0.0);
                 drop(p);
                 sv.woken.notify_all();
             }
@@ -1178,21 +1225,23 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
                 }
             }
         };
-        let MaskJob { seq, size: (w, h), picture, at, epoch, geometry, space } = job;
+        let MaskJob { seq, size: (w, h), picture, epoch, geometry, space, unsure } = job;
         let mut picture = Some(picture);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
-        m.geometry(geometry, space);
+        m.geometry(geometry, space, unsure);
         let mask = vision.mask(&mut m, &*backend, which, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
         if sv.stopping.load(Ordering::SeqCst) {
             m.segment = None;
         }
+        // What the model last ran on, and when: a mask got again without a run is no newer than that
+        let (at, seq) = (m.at.max(m.seen), m.ran.unwrap_or(seq));
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;
         // Without one the last stays until it's too old: a failed frame now and then doesn't show. One of a picture from before a turn of the view is dropped, whenever the turn came.
         if let Some(mask) = mask {
-            let made = MadeMask { w, h, mask, at, sizes: Vec::new(), generation: n.done, epoch, geometry, space };
+            let made = MadeMask { w, h, mask, at, seq, sizes: Vec::new(), generation: n.done, epoch, geometry, space };
             if geometry.is_some() {
                 n.background = Some(made.clone());
             }

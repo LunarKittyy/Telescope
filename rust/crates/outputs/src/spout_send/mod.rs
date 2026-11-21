@@ -45,15 +45,26 @@ pub trait Backend: Send + Sync {
     }
 }
 
+/// What Sender::resize did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Resized {
+    /// The sender takes the new size where it is.
+    Yes,
+    /// It can't: it has to be made again.
+    Remake,
+    /// A reader holds it just now: try again soon.
+    Busy,
+}
+
 /// One open sender, gone when dropped.
 pub trait Sender: Send {
     /// Whether to pack and send the next picture.
     fn wants_frame(&self) -> bool {
         true
     }
-    /// Changes the size the sender takes where it is, so whoever reads it stays connected. Ok(false) when it can't and has to be made again.
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<bool, String> {
-        Ok(false)
+    /// Changes the size the sender takes where it is, so whoever reads it stays connected. Remake when it can't and has to be made again, Busy when a reader holds it just now and it can be asked again a moment later (the sender stays as it is).
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<Resized, String> {
+        Ok(Resized::Remake)
     }
     /// The next picture, B, G, R, A per pixel, top row first, at the size the sender was opened with.
     fn send(&mut self, bgra: &[u8]) -> Result<(), String>;

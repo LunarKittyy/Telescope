@@ -49,6 +49,8 @@ class MainActivity : LookActivity() {
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var cardUpdate: View
     private lateinit var cardPortBusy: View
+    private lateinit var cardOldComputer: View
+    private lateinit var tvOldComputer: TextView
     private lateinit var cardComputerVersion: View
     private lateinit var tvComputerVersion: TextView
     private lateinit var tvUpdateTitle: TextView
@@ -72,6 +74,7 @@ class MainActivity : LookActivity() {
             adoptRemoteStart()
             updateStatusText()
             renderComputerVersion()
+            renderOldComputer()
             uiHandler.postDelayed(this, 1000)
         }
     }
@@ -175,6 +178,8 @@ class MainActivity : LookActivity() {
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBlackScreen, getString(R.string.black_screen_description))
         cardUpdate    = findViewById(R.id.cardUpdate)
         cardPortBusy  = findViewById(R.id.cardPortBusy)
+        cardOldComputer = findViewById(R.id.cardOldComputer)
+        tvOldComputer = findViewById(R.id.tvOldComputer)
         cardComputerVersion = findViewById(R.id.cardComputerVersion)
         tvComputerVersion = findViewById(R.id.tvComputerVersion)
         tvUpdateTitle = findViewById<CardHeader>(R.id.headerUpdate).title
@@ -182,6 +187,15 @@ class MainActivity : LookActivity() {
         btnUpdate     = findViewById(R.id.btnUpdate)
         btnUpdate.setOnClickListener { startUpdate() }
         checkPermissions()
+    }
+
+    // An older Telescope on a computer keeps trying the old ports: say so, with its name when this phone knows it
+    private fun renderOldComputer() {
+        val name = SessionEndpoint.oldComputer.current()
+        cardOldComputer.visibility = if (name == null) View.GONE else View.VISIBLE
+        if (name != null) {
+            tvOldComputer.text = if (name.isBlank()) getString(R.string.old_computer_text_unnamed) else getString(R.string.old_computer_text, name)
+        }
     }
 
     override fun onResume() {
@@ -285,7 +299,18 @@ class MainActivity : LookActivity() {
                     R.string.scan_other_version,
                     Toast.LENGTH_LONG,
                 ).show()
-            is PairingParse.Ok -> startPairing(parsed.offer)
+            is PairingParse.Ok ->
+                // Pairing with it would save a token it can't use and say "Paired"
+                if (parsed.offer.fromOlderComputer) {
+                    val name = parsed.offer.computerName
+                    Toast.makeText(
+                        this,
+                        if (name.isBlank()) getString(R.string.old_computer_text_unnamed) else getString(R.string.old_computer_text, name),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                } else {
+                    startPairing(parsed.offer)
+                }
         }
     }
 
@@ -361,7 +386,7 @@ class MainActivity : LookActivity() {
     ): String? {
         var conn: java.net.HttpURLConnection? = null
         return try {
-            val url = java.net.URL("http://${candidate.ip}:${offer.port}/pair/${offer.nonce}")
+            val url = java.net.URL("http://${candidate.ip}:${offer.connectPort}/pair/${offer.nonce}")
             // Pin to Wi-Fi network if available; default otherwise.
             val opened = network?.openConnection(url) ?: url.openConnection()
             conn = (opened as java.net.HttpURLConnection).apply {
@@ -413,7 +438,6 @@ class MainActivity : LookActivity() {
     private fun renderComputerVersion() {
         val lines = PairedComputers.list(this).computers.mapNotNull { computer ->
             when (desktopVersionNotice(computer.desktopVersion, BuildConfig.VERSION_NAME, PairedComputers.heardThisRun(computer.id))) {
-                DesktopVersionNotice.Legacy -> getString(R.string.computer_version_legacy, computer.name)
                 DesktopVersionNotice.Different -> getString(R.string.computer_version_different, computer.name, displayAppVersion(computer.desktopVersion.orEmpty()), displayAppVersion(BuildConfig.VERSION_NAME))
                 null -> null
             }

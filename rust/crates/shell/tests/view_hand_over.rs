@@ -59,6 +59,12 @@ struct Sample {
     zoom_off: f64,
     /// How far its centre is from the asked one, in windows.
     centre_off: f64,
+    /// The zoom the frame's crop label says the phone sent over the zoom it really sent.
+    label_off: f64,
+    /// How far the label's centre is from the real one, in windows of the real one.
+    label_centre_off: f64,
+    /// The frame says its label is a guess.
+    unsure: bool,
 }
 
 struct Run {
@@ -86,6 +92,7 @@ fn run(r: &Run, seconds: f64, framing: &impl Fn(f64) -> (f32, f32, f32)) -> Vec<
     let mut gliding: Option<(f64, PhoneZoom, PhoneZoom)> = None;
     let mut target = actual;
     let mut in_place = vc.frame_view(&view);
+    let mut label = vc.frame_window();
     let mut samples = Vec::new();
     let mut warmed = false;
     for k in 0..(seconds * FPS) as usize {
@@ -122,9 +129,11 @@ fn run(r: &Run, seconds: f64, framing: &impl Fn(f64) -> (f32, f32, f32)) -> Vec<
         let frame = from_phone(&actual, r.amp, k);
         if restep {
             in_place = vc.frame_view(&view);
+            label = vc.frame_window();
         }
-        if let Some(v) = gate.for_frame("p1", &frame, now, restep) {
-            in_place = v;
+        let (changed, unsure) = gate.for_frame_labelled("p1", &frame, now, restep);
+        if let Some((v, crop)) = changed {
+            (in_place, label) = (v, crop);
         }
         // The window the output shows, in the full view of the main lens
         let (pz, ppx, ppy) = phone_window(Some(&actual));
@@ -135,7 +144,9 @@ fn run(r: &Run, seconds: f64, framing: &impl Fn(f64) -> (f32, f32, f32)) -> Vec<
         let (wz, wx, wy) = (view.zoom as f64, view.pan_x as f64, view.pan_y as f64);
         let want = (window_centre(wz, wx), window_centre(wz, wy));
         let centre_off = ((eff.0 - want.0).abs().max((eff.1 - want.1).abs())) * wz;
-        samples.push(Sample { t, zoom_off: eff_zoom / wz, centre_off });
+        let ((lx, _), (ly, _)) = (window(label.0, label.1), window(label.0, label.2));
+        let label_centre_off = ((lx + 0.5 / label.0 - (pw_x + 0.5 * pw_w)).abs().max((ly + 0.5 / label.0 - (pw_y + 0.5 * pw_h)).abs())) / pw_w;
+        samples.push(Sample { t, zoom_off: eff_zoom / wz, centre_off, label_off: label.0 / pz, label_centre_off, unsure });
     }
     samples
 }
@@ -149,6 +160,9 @@ fn report(name: &str, s: &[Sample]) {
     let bad: Vec<f64> = s.iter().filter(|s| s.zoom_off.ln().abs() > 0.08).map(|s| s.t).collect();
     let centre = s.iter().map(|s| s.centre_off).fold(0.0, f64::max);
     let span = bad.last().zip(bad.first()).map_or(0.0, |(l, f)| l - f);
+    let label = s.iter().map(|s| s.label_off.ln().abs()).fold(0.0, f64::max).exp();
+    let label_centre = s.iter().map(|s| s.label_centre_off).fold(0.0, f64::max);
+    eprintln!("{name}: label zoom worst x{label:.3}, centre {label_centre:.3}");
     eprintln!("{name}: zoom off x{min_off:.2}..x{max_off:.2} (worst x{worst:.2}), biggest frame step x{step:.2}, centre off {centre:.2} windows, {} frames off, first {:?} span {span:.1}s", bad.len(), bad.first());
 }
 
@@ -230,4 +244,36 @@ fn zooming_in_on_a_person_doesnt_make_the_picture_jump() {
 #[test]
 fn a_swaying_head_doesnt_make_the_picture_jump() {
     assert_steady(steps_in("head sways", swaying(5.0), 30.0));
+}
+
+/// What the crop labels of a run's frames say about the phone's real crop: the worst error among the frames that don't call their label a guess (the zoom they
+/// name over the zoom the phone really sent, always 1 or more), and the worst among all.
+fn label_errors(name: &str, f: impl Fn(f64) -> (f32, f32, f32), seconds: f64) -> Vec<(String, f64, f64)> {
+    let mut worst = Vec::new();
+    for (scene, amp, noise) in [("textured", 1.0, 0.0), ("busy", 0.3, 1.0), ("dull", 0.1, 1.0)] {
+        for (delay, glide) in [(0.2, 0.0), (0.4, 0.5), (0.5, 1.0)] {
+            let r = Run { delay, amp, lens: Some(2.1), crop_max: 4.0, glide, noise };
+            let samples = run(&r, seconds, &f);
+            let label = format!("{name}, {scene}, phone {delay}s late gliding {glide}s");
+            report(&label, &samples);
+            let off = |s: &Sample| s.label_off.ln().abs();
+            let settled: Vec<&Sample> = samples.iter().filter(|s| s.t > 3.0).collect();
+            let sure = settled.iter().filter(|s| !s.unsure).map(|s| off(s)).fold(0.0, f64::max).exp();
+            let all = settled.iter().map(|s| off(s)).fold(0.0, f64::max).exp();
+            eprintln!("{label}: label zoom worst x{sure:.3} when sure, x{all:.3} in all, {} of {} frames a guess", settled.iter().filter(|s| s.unsure).count(), settled.len());
+            worst.push((label, sure, all));
+        }
+    }
+    worst
+}
+
+#[test]
+fn a_phone_that_glides_its_zoom_is_labelled_with_the_crop_it_sent() {
+    type Framing = Box<dyn Fn(f64) -> (f32, f32, f32)>;
+    let scenes: [(&str, Framing, f64); 3] = [("person leans away", Box::new(closer(3.5, 10.0, 4.0)), 20.0), ("head sways", Box::new(swaying(5.0)), 30.0),
+                                             ("person steps aside", Box::new(aside(10.0, 0.2, 5.0, 1.0, 5.0)), 14.0)];
+    for (name, framing, seconds) in scenes {
+        let wrong: Vec<_> = label_errors(name, framing, seconds).into_iter().filter(|(_, sure, _)| *sure > 1.10).collect();
+        assert!(wrong.is_empty(), "a label that isn't called a guess is more than 10% off: {wrong:?}");
+    }
 }
