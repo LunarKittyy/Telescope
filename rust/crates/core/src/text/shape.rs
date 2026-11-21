@@ -1,14 +1,14 @@
 //! A font that can both draw glyphs (ab_glyph) and shape text (harfrust): the same bytes serve both, so a glyph id from one
 //! means the same glyph to the other.
 
-use ab_glyph::{FontVec, VariableFont};
+use ab_glyph::{FontRef as OutlineRef, VariableFont};
 use harfrust::{BufferFlags, Direction, Feature, FontRef, Shaper, ShaperData, ShaperInstance, Tag, UnicodeBuffer, Variation};
 use std::ops::{Deref, Range};
 use std::sync::Arc;
 
 struct Loaded {
     outlines: ab_glyph::FontArc,
-    bytes: Box<[u8]>,
+    bytes: &'static [u8],
     /// Which font of a collection (.ttc) this is.
     index: u32,
     shaper: ShaperData,
@@ -40,13 +40,15 @@ impl FontArc {
 
     /// The font at this index of a collection (.ttc), else the font itself; a variable one is set to this weight.
     pub fn from_bytes_at(bytes: Vec<u8>, index: u32, weight: f32) -> Option<FontArc> {
-        let mut outlines = FontVec::try_from_vec_and_index(bytes.clone(), index).ok()?;
+        // Fonts live for the whole process, so the bytes are leaked once and shared by the outlines, the shaper and the colour glyphs
+        let bytes: &'static [u8] = Box::leak(bytes.into_boxed_slice());
+        let mut outlines = OutlineRef::try_from_slice_and_index(bytes, index).ok()?;
         outlines.set_variation(b"wght", weight);
-        let font = FontRef::from_index(&bytes, index).ok()?;
+        let font = FontRef::from_index(bytes, index).ok()?;
         let shaper = ShaperData::new(&font);
         let instance = ShaperInstance::from_variations(&font, [Variation { tag: Tag::new(b"wght"), value: weight }]);
-        let colour = skrifa::FontRef::from_index(&bytes, index).is_ok_and(|f| super::colour::has_colour(&f));
-        Some(FontArc(Arc::new(Loaded { outlines: ab_glyph::FontArc::new(outlines), bytes: bytes.into_boxed_slice(), index, shaper, instance, colour })))
+        let colour = skrifa::FontRef::from_index(bytes, index).is_ok_and(|f| super::colour::has_colour(&f));
+        Some(FontArc(Arc::new(Loaded { outlines: ab_glyph::FontArc::new(outlines), bytes, index, shaper, instance, colour })))
     }
 
     /// Whether it has colour glyphs (an emoji font).
@@ -59,7 +61,7 @@ impl FontArc {
         if !self.0.colour {
             return None;
         }
-        super::colour::tile(&skrifa::FontRef::from_index(&self.0.bytes, self.0.index).ok()?, glyph, px, ink)
+        super::colour::tile(&skrifa::FontRef::from_index(self.0.bytes, self.0.index).ok()?, glyph, px, ink)
     }
 
     /// Whether both are the same loaded font.
@@ -70,7 +72,7 @@ impl FontArc {
     /// Shapes `text[range]` as one run in one direction; clusters are offsets into `text`. Ligatures are off when `plain` is set
     /// (Qt does the same once letters are spaced apart).
     pub fn shape(&self, text: &str, range: Range<usize>, rtl: bool, plain: bool) -> Vec<Shaped> {
-        let Ok(font) = FontRef::from_index(&self.0.bytes, self.0.index) else { return Vec::new() };
+        let Ok(font) = FontRef::from_index(self.0.bytes, self.0.index) else { return Vec::new() };
         let shaper: Shaper = self.0.shaper.shaper(&font).instance(Some(&self.0.instance)).build();
         let mut buffer = UnicodeBuffer::new();
         for (i, ch) in text[range.clone()].char_indices() {
