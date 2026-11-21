@@ -63,7 +63,7 @@ pollster = "1"
 qrcode = { version = "0.14", default-features = false }
 # Reading QR codes off the picture (QR codes), without the image crate it can use for files
 rqrr = { version = "0.11", default-features = false }
-slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "renderer-software", "accessibility"] }
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "accessibility"] }
 # Plugins people add: Lua 5.4 built from source, .zip packages, update checks over HTTPS, WGSL checks without a GPU
 mlua = { version = "0.12", features = ["lua54", "vendored", "send", "serialize"] }
 zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
@@ -86,7 +86,7 @@ image = { version = "0.25", default-features = false }
 winresource = "0.1"
 cpal = "0.18"
 naga = { version = "30", default-features = false, features = ["wgsl-in"] }
-slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "renderer-software", "accessibility"] }
+slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "accessibility"] }
 
 # femtovg 0.27 (the version Slint 1.18 takes) drops every pipeline a flush didn't use and compiles it again on the next one, which was most of a frame's cost: see vendor/femtovg/PATCH.txt
 [patch.crates-io]
