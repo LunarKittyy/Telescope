@@ -21,7 +21,6 @@ Most of what they need underneath got built as host services along with the plug
 An early version is out in [5.1.3](5.1.md#513-16-november-2026) as a Lab plugin. Two phones go out side by side or red/cyan on the Telescope camera, paired by when each frame was taken, with Fine tune sliders to line them up by hand and Match for exposure and colour. What's left of the plan:
 
 - **Lining up with a printed sheet.** A ChArUco board (a chessboard with codes in the squares that OpenCV finds out of the box). Hold it up, both phones find the same corners and the plugin works out how the phones sit compared to each other. It then shows how to turn or tilt one of them until they're close and straightens the rest with a warp on each stream, which would replace most of Fine tune. The warp turns the whole picture to rectify it (Desk mode's only flattens the sheet) but it can go through the same warp code. Grey and colour patches on the same sheet could make Match more exact
-- **Headsets.** The Browser camera server could serve a WebXR page that shows each half to one eye on a Quest or similar, with nothing to install on the headset
 - **YouTube.** An upload plays as real 3D once the file has stereo metadata, so a recording from Telescope could carry it
 - **Checking the timing.** Paper can't show time but the desktop screen can. A fast changing code on the monitor filmed by both phones shows the real offset between them, a good test of the clock sync
 

@@ -3,6 +3,7 @@
 The next release follows 5.1.4. Ticked here means merged and not released yet. Everything ticked is in the nightly builds.
 
 - [ ] [Stargazer photos, cleaner frames and Night focus](#stargazer-photos-cleaner-frames-and-night-focus)
+- [ ] [3D in a headset](#3d-in-a-headset)
 - [ ] [Stills as raw YUV](#stills-as-raw-yuv)
 - [ ] [Hardware decoding on Windows without a trip through memory](#hardware-decoding-on-windows-without-a-trip-through-memory)
 - [ ] [Bug hunts, speed and a smaller app](#bug-hunts-speed-and-a-smaller-app)
@@ -29,6 +30,10 @@ The next release follows 5.1.4. Ticked here means merged and not released yet. E
 ## Stargazer photos, cleaner frames and Night focus
 
 Three more pieces of Stargazer. Frames from photos lets Live stack and Star trails take their frames from photos instead of video, one request per shot. It's written and in review. Lucky imaging is video only since it wants hundreds of frames. Cleaner frames asks the phone for higher quality video during a run, with a gap of a second or two at the start while the phone reconnects. Night focus lets the Night row set a focus instead of using the camera's own. It needs a phone release, since the phone app has to take the focus.
+
+## 3D in a headset
+
+A Headset switch on the 3D card serves a page that shows each half of the 3D picture to one eye in a Quest's browser (WebXR), with nothing to install on the headset. It's written and not merged yet. The page has VR controls (leave with B, Y or a grip, bring the picture back with A or X) and Depth, Height and a tilt for each eye are sliders on the card. The link has a secret in it and stays the same until you press New link.
 
 ## Stills as raw YUV
 
