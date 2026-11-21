@@ -469,6 +469,11 @@ fn quitting_while_the_off_request_is_still_going_out_waits_for_it() {
     *rig.now.lock().unwrap() += 30.0;
     rig.plugin.on_event(&mut rig.host, &Event::TimerFired { owner: NAME.into(), token: "settle".into() });
     assert!(!rig.plugin.on());
+    // The off request has to be on its way before quitting, or the quit one would only replace it while it waits for the thread
+    let waited = Instant::now();
+    while rig.sent.lock().unwrap().is_empty() && waited.elapsed() < Duration::from_secs(5) {
+        std::thread::sleep(Duration::from_millis(5));
+    }
     let release = rig.hold.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(300));
