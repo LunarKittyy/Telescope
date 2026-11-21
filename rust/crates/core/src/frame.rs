@@ -565,6 +565,11 @@ pub trait CpuStep: Send {
     fn pixels_only(&self) -> bool {
         false
     }
+    /// Whether this step keeps a picture of its own from one frame to the next (denoising over time). The pipeline then runs the
+    /// `pixels_only` steps before it even on a covered frame, so what it keeps is the same as without the cover.
+    fn keeps_pictures(&self) -> bool {
+        false
+    }
     /// Asked right before process. Only a step that's certain may answer less than Changes.
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         Touch::Changes

@@ -276,6 +276,10 @@ impl CpuStep for Pixels {
         self.forget.is_none() && !self.wants_mask
     }
 
+    fn keeps_pictures(&self) -> bool {
+        self.forget.is_some()
+    }
+
     fn forget_history(&mut self, source: &str) {
         if let Some(forget) = &self.forget {
             forget(source);

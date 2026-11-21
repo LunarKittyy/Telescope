@@ -127,6 +127,15 @@ impl Entry {
         }
     }
 
+    /// Whether this step keeps the pictures it is given from one frame to the next (a shader that blends from its last frame, denoising over time).
+    fn keeps_pictures(&self) -> bool {
+        !self.skipped() && match &self.kind {
+            Kind::Cpu(step) => step.keeps_pictures(),
+            Kind::Shader(slot) => slot.keeps_history(),
+            Kind::Either(slot, step) => slot.keeps_history() || step.keeps_pictures(),
+        }
+    }
+
     fn failed(&mut self, why: &str) {
         self.fails += 1;
         let (hides, owner) = (self.hides(), &self.owner);
@@ -303,6 +312,8 @@ impl Pipeline {
         chain.timing = timing;
         // A step that covers the whole picture makes what pixel-only steps before it did on this frame pointless; the cover itself always runs
         let covered_by = self.steps.iter().position(Entry::covers);
+        // Steps before the last one that keeps pictures still run, or what it keeps would lack their work when the cover comes off
+        let keeper = covered_by.and_then(|c| self.steps[..c].iter().rposition(Entry::keeps_pictures));
         for i in 0..self.steps.len() {
             if ctx.stopped() {
                 // Stop is waiting for this worker: nothing more is done, and what's left goes out dark in case it is published after all
@@ -324,7 +335,7 @@ impl Pipeline {
             if chain.withheld && self.restores_pixels(i) {
                 continue;
             }
-            if covered_by.is_some_and(|c| i < c) && self.steps[i].pixels_only() {
+            if covered_by.is_some_and(|c| i < c) && keeper.is_none_or(|k| i > k) && self.steps[i].pixels_only() {
                 continue;
             }
             let geometry = frame.geometry.clone();
@@ -3079,6 +3090,90 @@ pub(crate) mod tests {
         fn covers(&self) -> bool {
             true
         }
+    }
+
+    /// Retains a picture between frames, like denoising over time.
+    struct Retains;
+
+    impl CpuStep for Retains {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn keeps_pictures(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn a_covered_frame_still_runs_the_pixel_only_steps_a_step_that_keeps_pictures_follows() {
+        let (before, after_keeper) = (Arc::new(std::sync::Mutex::new(0)), Arc::new(std::sync::Mutex::new(0)));
+        after(vec![step("filters", FrameStage::Effects, Tints(before.clone(), true)), step("smooth", FrameStage::Colour, Retains), step("tone", FrameStage::Colour, Tints(after_keeper.clone(), true)), step("wait", FrameStage::Cover, Covers)]);
+        assert_eq!((*before.lock().unwrap(), *after_keeper.lock().unwrap()), (1, 0), "the one a keeper follows runs, the one after the last keeper is skipped");
+    }
+
+    /// Adds 40 to the first byte, like a grade.
+    struct Grades;
+
+    impl CpuStep for Grades {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            frame.data_mut()[0] = frame.data[0].saturating_add(40);
+        }
+        fn pixels_only(&self) -> bool {
+            true
+        }
+    }
+
+    /// Blends each frame half and half with the last one it kept, as a smoothing step does.
+    struct Smooths(Option<u8>);
+
+    impl CpuStep for Smooths {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let now = frame.data[0];
+            let out = self.0.map_or(now, |last| ((now as u16 + last as u16) / 2) as u8);
+            self.0 = Some(out);
+            frame.data_mut()[0] = out;
+        }
+        fn keeps_pictures(&self) -> bool {
+            true
+        }
+    }
+
+    /// Covers only while the flag is up.
+    struct Wait(Arc<std::sync::atomic::AtomicBool>);
+
+    impl CpuStep for Wait {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            if self.0.load(Ordering::SeqCst) {
+                frame.data_mut().fill(5);
+            }
+        }
+        fn covers(&self) -> bool {
+            self.0.load(Ordering::SeqCst)
+        }
+    }
+
+    #[test]
+    fn the_first_frame_after_a_cover_comes_off_is_as_bright_as_the_ones_before_it() {
+        let up = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("grade", FrameStage::Effects, Grades), step("smooth", FrameStage::Colour, Smooths(None)), step("wait", FrameStage::Cover, Wait(up.clone()))]);
+        let mut out = Vec::new();
+        for n in 0..12 {
+            up.store((4..8).contains(&n), Ordering::SeqCst);
+            out.push(p.process(grey(4, 2, 100), &NoContext).data[0]);
+        }
+        let steady = out[3];
+        assert_eq!(out[8], steady, "no jump when the cover comes off: {out:?}");
+        assert!(out[4..8].iter().all(|&b| b == 5), "{out:?}");
+    }
+
+    #[test]
+    fn a_covered_frame_still_runs_the_pixel_only_steps_a_history_shader_follows() {
+        let count = Arc::new(std::sync::Mutex::new(0));
+        let trail = ShaderStep { keeps_geometry: false, wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return previous(uv); }".into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let mut steps = vec![step("grade", FrameStage::Effects, Tints(count.clone(), true))];
+        steps.push(StagedStep { owner: "trail".into(), stage: FrameStage::Colour, step: FrameStep::Shader(trail) });
+        steps.push(step("wait", FrameStage::Cover, Covers));
+        after(steps);
+        assert_eq!(*count.lock().unwrap(), 1, "the grade the trail blends from isn't skipped under the cover");
     }
 
     #[test]
