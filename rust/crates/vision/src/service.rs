@@ -38,6 +38,8 @@ pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 pub const MASK_MAX_AGE_S: f64 = 0.5;
 /// How far apart two sizes' shapes can be for a mask of one to stand in for the other, as a share.
 const MASK_SHAPE_SLACK: f64 = 0.02;
+/// A crop that moves no more than this share of the picture between two masks keeps the model's memory and the last mask's carry.
+const CARRY_JUMP: f64 = 0.15;
 /// A failed cutout run this many times in a row (with no good one between) marks the cutout failed, so frames stop asking for it.
 pub const CUTOUT_MAX_FAILS: u32 = 5;
 /// Without a pack, how often asking looks for one again (a download may have finished).
@@ -152,15 +154,41 @@ pub(crate) struct MaskState {
 
 impl MaskState {
     fn geometry(&mut self, geometry: Option<Geometry>, space: MaskSpace) {
-        if self.geometry != geometry || self.space != space {
-            self.geometry = geometry;
-            self.space = space;
-            (self.seq, self.mask, self.small, self.motion) = (None, None, None, Motion::default());
-            if let Some(segment) = self.segment.as_mut() {
-                segment.reset();
+        if self.geometry == geometry && self.space == space {
+            return;
+        }
+        // A small move of the crop keeps what the model remembers, moved with it: dropping it on every step of a moving crop leaves every mask unsteadied
+        let carried = match (self.geometry, geometry) {
+            (Some(old), Some(new)) if self.space == space && compatible_geometry(Some(old), Some(new)) && crop_jump(&old, &new) <= CARRY_JUMP => Some((old, new)),
+            _ => None,
+        };
+        self.geometry = geometry;
+        self.space = space;
+        (self.seq, self.mask) = (None, None);
+        match (carried, self.small.take()) {
+            (Some((old, new)), Some(small)) => {
+                let data = remap_mask(&small.data, small.w, small.h, small.w, small.h, &old, &new);
+                self.small = Some(Gray { w: small.w, h: small.h, data });
+            }
+            _ => {
+                (self.small, self.motion) = (None, Motion::default());
+                if let Some(segment) = self.segment.as_mut() {
+                    segment.reset();
+                }
             }
         }
     }
+}
+
+/// How far, as a share of the picture, the corners and middle of a frame shown with `new` are from where `old` had them.
+fn crop_jump(old: &Geometry, new: &Geometry) -> f64 {
+    let mut worst: f64 = 0.0;
+    for (u, v) in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0), (0.5, 0.5)] {
+        let (x, y) = shown_to_view(u, v, new);
+        let (u2, v2) = view_to_shown(x, y, old);
+        worst = worst.max((u2 - u).abs()).max((v2 - v).abs());
+    }
+    worst
 }
 
 #[derive(Clone, Copy, Default)]
@@ -1120,10 +1148,8 @@ fn remap_mask(src: &[u8], w: usize, h: usize, out_w: usize, out_h: usize, old: &
                 continue;
             }
             let (u, v) = shown_to_view(u, v, new);
+            // What the held mask never saw takes the value of its nearest edge, so a person its crop cut off goes on past the cut instead of being blurred
             let (u, v) = view_to_shown(u, v, old);
-            if !(0.0..=1.0).contains(&u) || !(0.0..=1.0).contains(&v) {
-                continue;
-            }
             let (sx, sy) = ((u * w as f64 - 0.5).clamp(0.0, (w - 1) as f64), (v * h as f64 - 0.5).clamp(0.0, (h - 1) as f64));
             let (x0, y0) = (sx.floor() as usize, sy.floor() as usize);
             let (x1, y1) = ((x0 + 1).min(w - 1), (y0 + 1).min(h - 1));

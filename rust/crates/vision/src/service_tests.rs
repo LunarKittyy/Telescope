@@ -1111,3 +1111,184 @@ fn shrinking_a_stretched_axis_keeps_the_new_padding_empty() {
         }
     }
 }
+
+/// A segmenter that says where the bright block in the frame is, and only finishes a picture when the test lets it.
+struct Held {
+    started: Mutex<mpsc::Sender<()>>,
+    permit: Mutex<Option<mpsc::Receiver<()>>>,
+}
+
+struct HeldSeg {
+    started: mpsc::Sender<()>,
+    permit: mpsc::Receiver<()>,
+}
+
+impl Segmenter for HeldSeg {
+    fn segment(&mut self, frame: &Rgb, _ts: i64) -> Result<Gray, VisionError> {
+        self.started.send(()).unwrap();
+        self.permit.recv_timeout(Duration::from_secs(5)).unwrap();
+        Ok(Gray { w: frame.w, h: frame.h, data: frame.data.as_chunks::<3>().0.iter().map(|p| if p[0] > 128 { 255 } else { 0 }).collect() })
+    }
+}
+
+impl Backend for Held {
+    fn version(&self) -> String {
+        "held".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        let permit = self.permit.lock().unwrap().take().unwrap();
+        Ok(Box::new(HeldSeg { started: self.started.lock().unwrap().clone(), permit }))
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        Err(VisionError::new("Nope", "no pose here"))
+    }
+}
+
+/// The bright block of a frame's red channel as (left, top, right, bottom), or None when there is none.
+fn block_of(data: impl Iterator<Item = u8>, w: usize) -> Option<(usize, usize, usize, usize)> {
+    let mut found: Option<(usize, usize, usize, usize)> = None;
+    for (i, v) in data.enumerate() {
+        if v > 128 {
+            let (x, y) = (i % w, i / w);
+            found = Some(found.map_or((x, y, x, y), |(l, t, r, b)| (l.min(x), t.min(y), r.max(x), b.max(y))));
+        }
+    }
+    found
+}
+
+/// A person (a bright block) in a 256 x 144 source, and what the frame steps of a view make of it, with the geometry they record.
+fn framed(source: &telescope_core::frame::Frame, view: &telescope_core::host::View, crop: (f64, f64, f64)) -> telescope_core::frame::Frame {
+    use telescope_core::frame::{Frame, FrameContext, FrameStep};
+    struct Context;
+    impl FrameContext for Context {
+        fn source_id(&self) -> &str { "a" }
+        fn person_mask(&self, _: &Frame) -> Option<Arc<Vec<u8>>> { None }
+        fn colour_preview(&self, frame: &Frame) -> Frame { frame.clone() }
+    }
+    let run = |steps: Vec<FrameStep>, mut frame: Frame| {
+        for step in steps {
+            let FrameStep::Cpu(mut step) = step else { panic!("view steps run on the CPU") };
+            step.process(&mut frame, &Context);
+        }
+        frame
+    };
+    // What the phone sends: the source cropped by its share, with no record of where it came from
+    let phone = if crop == (1.0, 0.0, 0.0) {
+        source.clone()
+    } else {
+        run(telescope_core::view_step::steps(&telescope_core::host::View { zoom: crop.0 as f32, pan_x: crop.1 as f32, pan_y: crop.2 as f32, ..Default::default() }), source.clone())
+    };
+    let mut phone = phone;
+    phone.geometry = None;
+    run(telescope_core::view_step::steps_in(view, crop), phone)
+}
+
+fn person_in(x: usize, y: usize, w: usize, h: usize) -> telescope_core::frame::Frame {
+    use telescope_core::frame::{Frame, PixelFormat};
+    let mut data = vec![0u8; 256 * 144 * 4];
+    for px in data.as_chunks_mut::<4>().0 {
+        px[3] = 255;
+    }
+    for row in y..y + h {
+        for col in x..x + w {
+            data[(row * 256 + col) * 4..][..3].fill(255);
+        }
+    }
+    Frame::new(256, 144, PixelFormat::Rgba, data)
+}
+
+/// Frames of a still person cut from a crop that moves every frame, and masks that finish `late` frames after their picture: whatever mask
+/// Background has for a frame has to cover the person in that frame.
+fn held_masks_follow_the_person(person: (usize, usize, usize, usize), exact: bool, crops: &[((f64, f64, f64), telescope_core::host::View)], late: usize) -> Vec<String> {
+    let source = person_in(person.0, person.1, person.2, person.3);
+    let (started, seen) = mpsc::channel();
+    let (permit, receive) = mpsc::channel();
+    let backend: Arc<dyn Backend> = Arc::new(Held { started: Mutex::new(started), permit: Mutex::new(Some(receive)) });
+    let (v, _, _) = make(Box::new(move || Ok(backend.clone())));
+    v.load();
+    wait(|| v.state() == READY);
+    let (mut inflight, mut pending) = (None::<usize>, false);
+    let mut faults = Vec::new();
+    for (i, (crop, view)) in crops.iter().enumerate() {
+        if inflight.is_some_and(|s| i >= s + late) {
+            let before = v.stream("a").newest.lock().unwrap().done;
+            permit.send(()).unwrap();
+            wait(|| v.stream("a").newest.lock().unwrap().done > before);
+            inflight = None;
+            if std::mem::take(&mut pending) {
+                seen.recv_timeout(Duration::from_secs(5)).unwrap();
+                inflight = Some(i);
+            }
+        }
+        let frame = framed(&source, view, *crop);
+        let rgb = Rgb::new(256, 144, frame.data.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect());
+        let geometry = frame.geometry.as_deref().copied().unwrap_or_default();
+        let mask_view = MaskView { geometry: Some(geometry), keep_late: true, ..Default::default() };
+        let held = v.newest_normal_for("a", false, i as u64 + 1, 256, 144, Box::new(move || Some(rgb)), v.view_epoch(), mask_view);
+        if inflight.is_none() && !pending {
+            seen.recv_timeout(Duration::from_secs(5)).unwrap();
+            inflight = Some(i);
+        } else if inflight != Some(i) {
+            pending = true;
+        }
+        let Some(held) = held else { continue };
+        let ideal = block_of(frame.data.as_chunks::<4>().0.iter().map(|p| p[0]), 256).expect("the person is in every frame");
+        // No backdrop anywhere over the person, bar the soft rim of their edge
+        let covered = (ideal.1 + 2..=ideal.3.saturating_sub(2)).all(|y| (ideal.0 + 2..=ideal.2.saturating_sub(2)).all(|x| held[y * 256 + x] > 128));
+        let got = block_of(held.iter().copied(), 256);
+        let aligned = got.is_some_and(|got| [got.0.abs_diff(ideal.0), got.1.abs_diff(ideal.1), got.2.abs_diff(ideal.2), got.3.abs_diff(ideal.3)].iter().all(|&d| d <= 2));
+        if !covered || (exact && !aligned) {
+            faults.push(format!("frame {i}: person at {ideal:?}, held mask at {got:?}, covered {covered}"));
+        }
+    }
+    permit.send(()).ok();
+    v.drop_stream("a");
+    faults
+}
+
+#[test]
+fn a_held_mask_covers_the_person_while_the_desktop_crop_moves() {
+    use telescope_core::host::View;
+    let crops: Vec<_> = (0..14).map(|i| ((1.0, 0.0, 0.0), View { zoom: 2.0, pan_x: -0.5 + i as f32 * 0.06, pan_y: 0.1 - i as f32 * 0.02, ..Default::default() })).collect();
+    let faults = held_masks_follow_the_person((110, 60, 30, 24), true, &crops, 3);
+    assert!(faults.is_empty(), "{faults:#?}");
+}
+
+#[test]
+fn a_held_mask_covers_the_person_while_the_phone_crop_moves() {
+    use telescope_core::host::View;
+    let crops: Vec<_> = (0..14).map(|i| ((2.0, -0.2 + i as f64 * 0.02, 0.0), View { zoom: 2.0, pan_x: 0.1 - i as f32 * 0.01, ..Default::default() })).collect();
+    let faults = held_masks_follow_the_person((110, 60, 30, 24), true, &crops, 3);
+    assert!(faults.is_empty(), "{faults:#?}");
+}
+
+#[test]
+fn a_held_mask_keeps_covering_a_person_the_old_crop_cut_off() {
+    use telescope_core::host::View;
+    // The crop swings across to follow a person who is wider than the part of them the first masks were made on
+    let crops: Vec<_> = (0..12).map(|i| ((1.0, 0.0, 0.0), View { zoom: 2.0, pan_x: -0.7 + i as f32 * 0.07, ..Default::default() })).collect();
+    let faults = held_masks_follow_the_person((100, 60, 60, 24), false, &crops, 3);
+    assert!(faults.is_empty(), "{faults:#?}");
+}
+
+#[test]
+fn a_crop_that_moves_a_little_keeps_the_masks_steadying_carry() {
+    let (v, _, _) = make({
+        let backend = Fake::new();
+        backend.values.lock().unwrap().extend([255, 0]);
+        Box::new(move || Ok(backend.clone() as Arc<dyn Backend>))
+    });
+    v.load();
+    wait(|| v.state() == READY);
+    v.wait_for_masks();
+    let ask = |seq: u64, zoom: f64| {
+        let view = MaskView { geometry: Some(Geometry { zoom, ..Default::default() }), keep_late: true, ..Default::default() };
+        v.newest_normal_for("a", false, seq, 256, 144, Box::new(move || Some(Rgb::filled(256, 144, seq as u8 * 60))), v.view_epoch(), view).unwrap()
+    };
+    let first = ask(1, 1.0);
+    assert_eq!(first[72 * 256 + 128], 255);
+    let steadied = ask(2, 1.05);
+    assert!(steadied[72 * 256 + 128] > 0 && steadied[72 * 256 + 128] < 200, "the second mask is blended with the first, moved with the crop");
+    let jumped = ask(3, 3.0);
+    assert!(jumped[72 * 256 + 128] >= 200, "a crop that jumps starts the mask afresh, with nothing of the old one in it");
+}
