@@ -484,6 +484,8 @@ pub trait VideoWorker: Send + Sync {
     fn set_colour(&self, steps: Vec<FrameStep>);
     /// The view turned and this stream keeps its steps (it's behind the panels).
     fn follow_view_epoch(&self) {}
+    /// Steps it already has began hiding something (Blur now on the shown stream): they run on the last frame it made, which goes out in its place.
+    fn hide_behind(&self) {}
     /// One plugin's steps swapped from the next frame on, the others kept (a plugin that stopped, on a stream behind the panels).
     fn replace_owner_steps(&self, _owner: &str, _stage: telescope_core::frame::FrameStage, _steps: Vec<FrameStep>) {}
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>);
@@ -522,6 +524,9 @@ impl VideoWorker for StreamWorker {
     }
     fn follow_view_epoch(&self) {
         StreamWorker::follow_view_epoch(self);
+    }
+    fn hide_behind(&self) {
+        StreamWorker::hide_behind(self);
     }
     fn replace_owner_steps(&self, owner: &str, stage: telescope_core::frame::FrameStage, steps: Vec<FrameStep>) {
         StreamWorker::replace_owner_steps(self, owner, stage, steps);
@@ -661,6 +666,11 @@ impl StreamWorker {
     pub fn follow_view_epoch(&self) {
         let epoch = self.shared.vision.as_ref().map_or(0, |f| f.service.view_epoch());
         self.shared.view_epoch.store(epoch, Ordering::SeqCst);
+    }
+
+    /// The steps this stream has began hiding something: the last frame it made goes out hidden in its place.
+    pub fn hide_behind(&self) {
+        self.shared.hide_behind();
     }
 
     /// Swap one plugin's steps from the next frame on, the others left as they are (a plugin that stopped, on a stream behind the panels).
@@ -958,21 +968,36 @@ impl Shared {
     /// stalled, a long exposure). So the moment steps are handed over they go in now, and the steps that hide things (Blur now, the wait screen) run on
     /// that last frame, which goes out in its place: nothing clear is sent while it waits for a frame to hide.
     fn hide_cached(self: &Arc<Self>) {
+        self.hide_latest(true);
+    }
+
+    /// The steps this stream already has start hiding something without being handed over (Blur now on the shown stream, which a stream behind the panels follows): they run on the last frame it made, which goes out in its place, as in `hide_cached`.
+    pub(crate) fn hide_behind(self: &Arc<Self>) {
+        self.hide_latest(false);
+    }
+
+    /// `hide_cached` for steps just handed over (`install`), or for the ones the pipeline has.
+    fn hide_latest(self: &Arc<Self>, install: bool) {
         // A replay of the last hand-over that still holds the pipeline is told at once (its wait on the card ends and what it makes is dropped), so this isn't kept waiting for it; the dark frame it stands in for is out meanwhile
-        if self.next_steps.lock().unwrap().is_some() {
+        if install && self.next_steps.lock().unwrap().is_some() {
             self.handed.fetch_add(1, Ordering::SeqCst);
         }
         let mut publish = self.publish.lock().unwrap();
         // Read under the lock frames are published under, so a newer frame can't be taken for the one that was there
         let Some((latest, _)) = self.slot.latest_picture() else { return };
-        let Some((steps, epoch)) = self.next_steps.lock().unwrap().take() else { return };
-        self.steps_replaced.store(true, Ordering::SeqCst);
-        self.view_epoch.store(epoch, Ordering::SeqCst);
-        // what the history holds went out under the old steps: a plugin pairing frames must not get one that was clear before a Blur came on
-        self.slot.forget_history();
+        let epoch = if install {
+            let Some((steps, epoch)) = self.next_steps.lock().unwrap().take() else { return };
+            self.steps_replaced.store(true, Ordering::SeqCst);
+            self.view_epoch.store(epoch, Ordering::SeqCst);
+            // what the history holds went out under the old steps: a plugin pairing frames must not get one that was clear before a Blur came on
+            self.slot.forget_history();
+            publish.0.as_mut().set_steps(steps);
+            epoch
+        } else {
+            self.view_epoch.load(Ordering::SeqCst)
+        };
         let pipeline = publish.0.as_mut();
-        pipeline.set_steps(steps);
-        let entered = self.slot.epoch();
+        let mut entered = self.slot.epoch();
         // The frame that was out before a dark one took its place, while its hiding is still to be run for real
         let pending = self.replay.lock().unwrap().take();
         let cached = pending.clone().unwrap_or(latest);
@@ -992,6 +1017,12 @@ impl Shared {
             (None, Some(before)) => (before, false),
             (None, None) => return,
         };
+        if !install {
+            // Only now that there is something to hide: a stream with nothing to hide keeps the history a plugin pairing frames reads, and a replay still running isn't cut short for nothing
+            self.handed.fetch_add(1, Ordering::SeqCst);
+            self.slot.forget_history();
+            entered = self.slot.epoch();
+        }
         {
             let mut published = self.published.lock().unwrap();
             // Counted under the lock the camera reads frames with, so a frame it already has queued is known to be from before
@@ -1159,6 +1190,7 @@ impl Shared {
         if self.slot.latest_picture().is_some() && self.paused() {
             if !self.was_paused.swap(true, Ordering::SeqCst) {
                 log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
+                (crate::window::app_hooks().release_memory_soon)();
             }
             return true;
         }
@@ -1555,6 +1587,7 @@ impl Shared {
         let mut queued: std::collections::VecDeque<(Frame, u64)> = std::collections::VecDeque::new();
         // How many times the steps that hide things had been run on the frame already out when the queue was last looked at
         let mut hidings = self.hidings.load(Ordering::SeqCst);
+        let mut urgent = false;
         let mut shown: Option<Frame> = None;
         // How many frames had been published when the last one was sent, to count the ones skipped since
         let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or_else(|| *self.published.lock().unwrap());
@@ -1583,7 +1616,8 @@ impl Shared {
             // The camera reads pixels, so the stream lands what it makes before it goes out; a picture that came before this was asked is landed here, with no lock held
             self.slot.want_ram();
             let latest = latest.filter(|(_, count)| *count != seen).map(|(picture, count)| (picture.land_until(&|| self.stopped()), count));
-            forget_before_hiding(&mut queued, &mut hidings, hid);
+            // The next frame sent is the hidden one: a camera that thins frames to its reader's rate must not drop it
+            urgent |= forget_before_hiding(&mut queued, &mut hidings, hid);
             if let Some((src, count)) = latest.filter(|(_, count)| *count != seen) {
                 seen = count;
                 match queued.back_mut() {
@@ -1639,7 +1673,7 @@ impl Shared {
                 if self.hidings.load(Ordering::SeqCst) != hidings {
                     continue;
                 }
-                let sent = cam.send(fitted.as_ref().unwrap());
+                let sent = if urgent { cam.send_now(fitted.as_ref().unwrap()) } else { cam.send(fitted.as_ref().unwrap()) };
                 drop(published);
                 if let Err(e) = sent {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
@@ -1655,6 +1689,7 @@ impl Shared {
                     ok = false;
                     break;
                 }
+                urgent = false;
                 telescope_core::time::span("camera", began);
                 if let Some(published_at) = fresh_at {
                     // Frames made since the last one sent that this one passed over: a burst thinned to what the queue can keep
@@ -1729,11 +1764,13 @@ impl Shared {
 }
 
 /// The steps that hide things were run on the frame already out since the queue was last looked at (`hid` times against `seen`): what's queued was made before, with the room in it, and never goes out.
-fn forget_before_hiding(queued: &mut std::collections::VecDeque<(Frame, u64)>, seen: &mut u64, hid: u64) {
-    if hid != *seen {
+fn forget_before_hiding(queued: &mut std::collections::VecDeque<(Frame, u64)>, seen: &mut u64, hid: u64) -> bool {
+    let hid_since = hid != *seen;
+    if hid_since {
         *seen = hid;
         queued.clear();
     }
+    hid_since
 }
 
 /// What the camera loop does next.
@@ -2242,11 +2279,17 @@ mod tests {
         timeline: Mutex<Vec<(Instant, u64, f64)>>,
         /// Run once the next time the camera loop asks what size to fit to, which is after it took a frame and before it sends it.
         fit_hook: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+        /// The first byte of every frame sent with send_now.
+        urgent: Mutex<Vec<u8>>,
     }
 
     struct Cam(Arc<Cams>, (u32, u32));
 
     impl VideoOutput for Cam {
+        fn send_now(&mut self, frame: &Frame) -> Result<(), String> {
+            self.0.urgent.lock().unwrap().push(frame.data[0]);
+            self.send(frame)
+        }
         fn send(&mut self, frame: &Frame) -> Result<(), String> {
             if self.0.fail_next_send.swap(false, Ordering::SeqCst) {
                 return Err("gone".into());
@@ -3051,6 +3094,72 @@ mod tests {
         w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
         wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
         assert!(asked.load(Ordering::SeqCst));
+        w.stop();
+    }
+
+    /// Passes frames through, and hides (a dark frame) only while its cue is on, as steps that follow another stream's Blur now do.
+    struct HidesOnCue(Arc<AtomicBool>);
+
+    impl FramePipeline for HidesOnCue {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            if self.0.load(Ordering::SeqCst) { grey(frame.width, frame.height, 7) } else { frame }
+        }
+        fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
+            self.0.load(Ordering::SeqCst).then(|| grey(frame.width, frame.height, 7))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn a_stalled_stream_behind_the_panels_hides_its_last_frame_when_its_steps_start_hiding() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let cue = Arc::new(AtomicBool::new(false));
+        let media = WithPipeline(Box::new({
+            let cue = cue.clone();
+            move || Box::new(HidesOnCue(cue.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        // Blur now on the shown stream: this one's steps are the same and no new steps are handed over
+        cue.store(true, Ordering::SeqCst);
+        w.hide_behind();
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
+        w.stop();
+    }
+
+    #[test]
+    fn the_first_frame_after_a_hiding_goes_out_with_send_now_and_the_ones_after_it_do_not() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let asked = Arc::new(AtomicBool::new(false));
+        let media = WithPipeline(Box::new({
+            let asked = asked.clone();
+            move || Box::new(HidesWhenAsked(asked.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        assert!(cams.urgent.lock().unwrap().is_empty(), "a frame nothing hid is sent as usual");
+        w.set_steps(privacy_step());
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
+        assert_eq!(*cams.urgent.lock().unwrap(), [7], "the hidden frame is not thinned out, and only that one");
+        w.stop();
+    }
+
+    #[test]
+    fn a_stream_behind_the_panels_with_nothing_to_hide_is_left_alone() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let media = WithPipeline(Box::new(|| Box::new(HidesOnCue(Arc::new(AtomicBool::new(false))))));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        let (hidings, epoch) = (w.shared.hidings.load(Ordering::SeqCst), w.shared.slot.epoch());
+        w.hide_behind();
+        assert_eq!(w.shared.hidings.load(Ordering::SeqCst), hidings, "nothing was published in its place");
+        assert_eq!(w.shared.slot.epoch(), epoch, "the history a plugin pairing frames reads is kept");
         w.stop();
     }
 

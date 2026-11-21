@@ -170,14 +170,20 @@ impl MfCamera {
         self.view.is_some()
     }
 
+    #[cfg(test)]
     fn send_at(&mut self, frame: &Frame, now: Instant) -> Result<(), String> {
+        self.write_at(frame, now, false)
+    }
+
+    /// `urgent` skips the rate limit: the frame has to reach the reader, whatever came just before it.
+    fn write_at(&mut self, frame: &Frame, now: Instant, urgent: bool) -> Result<(), String> {
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Rgba) {
             return Err(format!("The Windows 11 camera takes I420 or RGBA frames, not {:?}", frame.format));
         }
         // No converting for a picture no app is there to see
         let Some(header) = self.reader().map(SharedView::header) else { return Ok(()) };
         let Some((w, h)) = header.reader_size() else { return Ok(()) };
-        if let Some((at, width, height)) = self.last_write {
+        if let Some((at, width, height)) = self.last_write.filter(|_| !urgent) {
             if (w, h) == (width, height) && header.consumer_fps != 0 {
                 // A frame that comes a little early still counts, so jitter never drops a frame at the consumer's own rate.
                 let period = Duration::from_secs_f64(0.75 / header.consumer_fps.clamp(1, 240) as f64);
@@ -198,7 +204,11 @@ impl MfCamera {
 
 impl VideoOutput for MfCamera {
     fn send(&mut self, frame: &Frame) -> Result<(), String> {
-        self.send_at(frame, Instant::now())
+        self.write_at(frame, Instant::now(), false)
+    }
+
+    fn send_now(&mut self, frame: &Frame) -> Result<(), String> {
+        self.write_at(frame, Instant::now(), true)
     }
 
     fn size(&self) -> (u32, u32) {
@@ -353,6 +363,21 @@ pub(crate) mod tests {
             c.send_at(&frame, now + elapsed).unwrap();
             assert_eq!(o.header().counter, 2 * (i / 2 + 1), "frame {i}");
         }
+    }
+
+    #[test]
+    fn an_urgent_frame_is_written_though_the_last_one_just_went() {
+        let o = Opener::new(Some(reading(8, 4)));
+        let mut c = cam(&o, 8, 4);
+        let now = Instant::now();
+        c.write_at(&grey(8, 4, 235), now, false).unwrap();
+        c.write_at(&grey(8, 4, 16), now + Duration::from_millis(5), false).unwrap();
+        assert_eq!(o.header().counter, 2, "thinned as usual");
+        c.write_at(&grey(8, 4, 16), now + Duration::from_millis(5), true).unwrap();
+        assert_eq!(o.header().counter, 4, "the hidden frame reaches the reader");
+        assert_eq!(o.buf.lock().unwrap().clone().unwrap()[64], 16);
+        c.write_at(&grey(8, 4, 235), now + Duration::from_millis(6), false).unwrap();
+        assert_eq!(o.header().counter, 4, "the limit counts from the urgent one");
     }
 
     #[test]

@@ -544,6 +544,7 @@ fn main() {
         build: version::display_version,
         commit: version::commit,
         release_memory: memory::release_freed_memory,
+        release_memory_soon: memory::release_freed_memory_soon,
         relaunch: update_guard::launch,
     });
     // Before the decoder and the stream start their threads, which would each get a pool of their own

@@ -852,12 +852,12 @@ impl Pipeline {
         }
     }
 
-    /// Looks at what the View stage's steps do to the picture's geometry: when that is not what it was, the next frame makes every step
+    /// Looks at what the View and Geometry stages' steps do to the picture's geometry (the window's own turn, Desk mode's sheet): when that is not what it was, the next frame makes every step
     /// that keeps pictures of its own forget them. A rebuilt step that does the same (a filter's slider, another plugin's refresh) doesn't.
     fn note_geometry(&mut self) {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        for entry in self.steps.iter().filter(|e| e.stage == FrameStage::View) {
+        for entry in self.steps.iter().filter(|e| matches!(e.stage, FrameStage::View | FrameStage::Geometry)) {
             match &entry.kind {
                 Kind::Cpu(step) | Kind::Either(_, step) => step.geometry_key().hash(&mut hasher),
                 Kind::Shader(slot) => slot.geometry_key().hash(&mut hasher),
@@ -1224,6 +1224,22 @@ pub(crate) mod tests {
         p.replace_steps("view", FrameStage::View, Vec::new());
         p.process(grey(4, 2, 0), &NoContext);
         assert_eq!(forgot.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn steps_that_keep_pictures_start_again_when_a_geometry_step_moves_the_picture_to_the_same_size() {
+        let forgot = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("desk", FrameStage::Geometry, Moves(1)), step("filters", FrameStage::Effects, Keeps(forgot.clone()))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        p.set_steps(vec![step("desk", FrameStage::Geometry, Moves(1)), step("filters", FrameStage::Effects, Keeps(forgot.clone()))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        assert!(forgot.lock().unwrap().is_empty(), "the same sheet again moves nothing");
+        // The corners of the sheet moved: same size out, other pixels in
+        p.replace_steps("desk", FrameStage::Geometry, vec![FrameStep::Cpu(Box::new(Moves(2)))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        p.process(grey(4, 2, 0), &NoContext);
+        assert_eq!(*forgot.lock().unwrap(), [""], "once, on the first frame after");
     }
 
     /// What number the frame has when it gets here.

@@ -35,6 +35,9 @@ struct Rows {
     out: Vec<u8>,
     u: Vec<u8>,
     v: Vec<u8>,
+    /// The chroma cells themselves, one value for each pair of pixels
+    cell_u: Vec<u8>,
+    cell_v: Vec<u8>,
     packed: Vec<u8>,
 }
 
@@ -194,14 +197,20 @@ fn strip(rows: &mut Rows, y: &mut [u8], (u, v): (&mut [u8], &mut [u8]), trail: &
     rows.out.resize(2 * n * 3, 0);
     rows.u.resize(n, 0);
     rows.v.resize(n, 0);
-    // Each chroma cell is given to its two pixels
+    rows.cell_u.resize(cells, 0);
+    rows.cell_v.resize(cells, 0);
     for i in 0..cells {
-        let (a, b) = if nv12 { (u[(c0 + i) * 2], u[(c0 + i) * 2 + 1]) } else { (u[c0 + i], v[c0 + i]) };
-        rows.u[i * 2..i * 2 + 2].fill(a);
-        rows.v[i * 2..i * 2 + 2].fill(b);
+        (rows.cell_u[i], rows.cell_v[i]) = if nv12 { (u[(c0 + i) * 2], u[(c0 + i) * 2 + 1]) } else { (u[c0 + i], v[c0 + i]) };
     }
     for r in 0..2 {
-        to_rgb(&y[r * w + x0..r * w + x1], &rows.u, &rows.v, &mut rows.frame[r * n * 3..(r + 1) * n * 3]);
+        let (luma, line) = (&y[r * w + x0..r * w + x1], &mut rows.frame[r * n * 3..(r + 1) * n * 3]);
+        // Whole blocks of 32 pixels on the vector path, then the rest the plain way with each cell given to its two pixels
+        let done = telescope_core::yuv::row::<{ telescope_core::yuv::RGB }>(luma, &rows.cell_u, &rows.cell_v, false, line);
+        for i in done / 2..cells {
+            rows.u[i * 2..i * 2 + 2].fill(rows.cell_u[i]);
+            rows.v[i * 2..i * 2 + 2].fill(rows.cell_v[i]);
+        }
+        to_rgb(&luma[done..], &rows.u[done..], &rows.v[done..], &mut line[done * 3..]);
     }
     let mut now: Option<Span> = None;
     for r in 0..2 {
