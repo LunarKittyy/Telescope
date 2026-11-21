@@ -30,15 +30,19 @@ class TlsIdentity(val privateKey: PrivateKey, val certificate: X509Certificate) 
     // Lowercase hex SHA-256 of the certificate's DER: what the desktop stores and checks on every connection.
     val fingerprint: String = sha256Hex(certificate.encoded)
 
-    fun serverSocketFactory(): ServerSocketFactory {
+    // Built once per identity: the key store, key manager and SSL context cost several milliseconds on a fast machine, and the session
+    // responder and the stream server both ask for it on every stream start.
+    private val socketFactory: ServerSocketFactory by lazy {
         val keyStore = KeyStore.getInstance("PKCS12").apply {
             load(null, null)
             setKeyEntry(ALIAS, privateKey, PASSWORD, arrayOf(certificate))
         }
         val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply { init(keyStore, PASSWORD) }
         val context = SSLContext.getInstance("TLS").apply { init(kmf.keyManagers, null, SecureRandom()) }
-        return ModernTlsServerSocketFactory(context.serverSocketFactory)
+        ModernTlsServerSocketFactory(context.serverSocketFactory)
     }
+
+    fun serverSocketFactory(): ServerSocketFactory = socketFactory
 
     fun toPkcs12(): ByteArray {
         val keyStore = KeyStore.getInstance("PKCS12").apply {
