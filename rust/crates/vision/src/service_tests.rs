@@ -472,6 +472,13 @@ fn test_frames_for_people_are_spaced_out_and_made_small() {
     assert_eq!(sizes, [(640, 360)]);
 }
 
+// like the mask's, the people clock is pushed ahead so a slow machine's time between frames isn't a cadence
+fn hold_people_clock(v: &Vision) {
+    let s = sv(v, "a");
+    let mut p = s.people.lock().unwrap();
+    (p.at, p.probed) = (p.at + HELD, p.probed + HELD);
+}
+
 #[test]
 fn test_a_still_scene_is_looked_at_by_a_grey_copy_once_a_cadence_and_made_into_colour_only_when_sent() {
     let r = ready();
@@ -480,8 +487,11 @@ fn test_a_still_scene_is_looked_at_by_a_grey_copy_once_a_cadence_and_made_into_c
     let still = Rgb::filled(1280, 720, 80);
     let (looks, pictures) = (std::cell::Cell::new(0), std::cell::Cell::new(0));
     let feed_counted = || r.v.feed_raw("a", &mut || { looks.set(looks.get() + 1); Some(crate::ops::thumb(&still)) }, &mut || { pictures.set(pictures.get() + 1); Some(still.clone()) }, Upright::default());
+    // debug builds on a busy machine can take longer than a cadence over these frames, so the stream's clock is held still between them
+    let hold = || hold_people_clock(&r.v);
     // the first frame has nothing to be compared with, so it goes
     feed_counted();
+    hold();
     assert_eq!((looks.get(), pictures.get()), (1, 1));
     // frames of a still scene straight after it are not even looked at
     for _ in 0..20 {
@@ -492,11 +502,12 @@ fn test_a_still_scene_is_looked_at_by_a_grey_copy_once_a_cadence_and_made_into_c
     let rewind = |s: f64| {
         let sv = sv(&r.v, "a");
         let mut p = sv.people.lock().unwrap();
-        (p.at, p.probed) = (p.at - s, p.probed - s);
+        (p.at, p.probed) = (monotonic() - s, monotonic() - s);
     };
     rewind(PEOPLE_EVERY_S + TICK);
     feed_counted();
     assert_eq!((looks.get(), pictures.get()), (2, 1));
+    hold();
     // and then not again until the next
     feed_counted();
     assert_eq!((looks.get(), pictures.get()), (2, 1));
@@ -514,10 +525,11 @@ fn test_people_due_follows_the_cadence_so_a_caller_can_skip_making_the_frame() {
     r.v.inner.hold_people.store(true, Ordering::SeqCst);
     assert!(r.v.people_due("a"));
     feed(&r.v, "a", &Rgb::filled(1280, 720, 0));
+    hold_people_clock(&r.v);
     assert!(!r.v.people_due("a"), "just fed");
     let sv = sv(&r.v, "a");
     let mut p = sv.people.lock().unwrap();
-    (p.at, p.probed) = (p.at - PEOPLE_EVERY_S - TICK, p.probed - PEOPLE_EVERY_S - TICK);
+    (p.at, p.probed) = (monotonic() - PEOPLE_EVERY_S - TICK, monotonic() - PEOPLE_EVERY_S - TICK);
     drop(p);
     assert!(r.v.people_due("a"));
 }
