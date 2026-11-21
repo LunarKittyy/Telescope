@@ -373,9 +373,6 @@ pub struct FakeWorker {
     pub after_the_others: bool,
     /// stop() waits here until it's false, as a stalled read does.
     pub hang_stop: AtomicBool,
-    /// hide_behind() waits here until it's false, as a stream whose frame lock is busy does; `hiding` is set while it waits.
-    pub hang_hide: AtomicBool,
-    pub hiding: AtomicBool,
 }
 
 impl FakeWorker {
@@ -432,13 +429,6 @@ impl VideoWorker for FakeWorker {
     }
     fn settle(&self) {
         self.settled.fetch_add(1, Ordering::SeqCst);
-    }
-    fn hide_behind(&self) {
-        self.hiding.store(true, Ordering::SeqCst);
-        while self.hang_hide.load(Ordering::SeqCst) {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        note(&self.log, "hide_behind");
     }
     fn hold_for_photo(&self, seconds: f32) {
         note(&self.log, format!("hold_for_photo {seconds}"));
@@ -684,8 +674,6 @@ pub fn worker_maker(made: Arc<Mutex<Vec<Arc<FakeWorker>>>>) -> WorkerMaker {
             steps: Mutex::default(), first_steps: setup.steps.iter().map(|s| s.owner.clone()).collect(), staged: Mutex::new(setup.steps), size: Mutex::new(None),
             refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), handed: Mutex::new(None), packets: telescope_media::packets::Tap::new(), after_the_others,
             hang_stop: AtomicBool::new(false),
-            hang_hide: AtomicBool::new(false),
-            hiding: AtomicBool::new(false),
         });
         made.lock().unwrap().push(worker.clone());
         worker

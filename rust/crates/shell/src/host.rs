@@ -438,11 +438,6 @@ impl HostUi for Ctx<'_> {
     }
     fn refresh_frame_step(&mut self) {
         self.state.effects.push(Effect::FrameStep(self.me.clone()));
-        // The shown stream takes the new steps (and hides) first: the streams behind the panels can be busy, and the window waits on them
-        if let Some(at) = self.state.effects.iter().position(|e| *e == Effect::HideBehind) {
-            let hide = self.state.effects.remove(at);
-            self.state.effects.push(hide);
-        }
     }
     fn set_ui_image(&mut self, ui: &str, prop: &str, frame: &Frame) {
         self.state.effects.push(Effect::Image { plugin: self.me.clone(), ui: ui.into(), prop: prop.into(), picture: Picture(frame.clone()) });
@@ -724,7 +719,7 @@ impl HostStills for Ctx<'_> {
     }
     fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
         self.state.set_hiding(owner, source_id, on);
-        // The streams behind the panels hide right after the shown one's steps are handed over (refresh_frame_step keeps them in that order)
+        // The streams behind the panels hide first, so what another stream combines from them is never clear
         if on && !self.state.effects.contains(&Effect::HideBehind) {
             self.state.effects.push(Effect::HideBehind);
         }
