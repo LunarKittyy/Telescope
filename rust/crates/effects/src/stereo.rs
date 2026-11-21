@@ -1,4 +1,4 @@
-//! The pixel work and the pairing of the 3D plugin: two eyes packed side by side or as red/cyan, the depth, height, size and tilt of the right eye,
+//! The pixel work and the pairing of the 3D plugin: two eyes packed side by side or as red/cyan, the depth, height and size of the right eye, the tilt of each eye,
 //! the colour curves that match it to the left, which two frames go together and how well they line up. Nothing here knows about plugins, so each piece can be tested on its own.
 
 use crate::cpu::Rgb;
@@ -13,8 +13,8 @@ pub const HISTORY_FRAMES: usize = 6;
 /// The most frames of each stream the pairing ever asks the host to keep.
 const MAX_HISTORY: usize = 64;
 /// What the Depth and Height sliders reach, in percent of the width and of the height.
-pub const SHIFT_LIMIT: f64 = 5.0;
-/// What the Tilt slider reaches, in degrees.
+pub const SHIFT_LIMIT: f64 = 15.0;
+/// What each Tilt slider reaches, in degrees.
 pub const TILT_LIMIT: f64 = 5.0;
 /// What the Timing slider reaches, in milliseconds either way.
 pub const TIMING_LIMIT_MS: f64 = 200.0;
@@ -198,15 +198,16 @@ pub struct Tune {
     pub height: f64,
     /// The right eye's size against the left's in percent, 100 for as they are: over 100 the right eye is zoomed in, under it the left one is.
     pub size: f64,
-    /// The right eye's roll in degrees, positive turns it clockwise.
-    pub tilt: f64,
+    /// The left and the right eye's roll in degrees, positive turns it clockwise.
+    pub tilt_left: f64,
+    pub tilt_right: f64,
     /// The colour curves that make the right eye look like the left (Match).
     pub lut: Option<Arc<Lut>>,
 }
 
 impl Default for Tune {
     fn default() -> Tune {
-        Tune { depth: 0.0, height: 0.0, size: 100.0, tilt: 0.0, lut: None }
+        Tune { depth: 0.0, height: 0.0, size: 100.0, tilt_left: 0.0, tilt_right: 0.0, lut: None }
     }
 }
 
@@ -245,8 +246,7 @@ impl Place {
 /// need so that no black shows at an edge or corner, so the two stay the same size as each other.
 fn places(tune: &Tune, boxes: [(usize, usize); 2], offsets: [(i64, i64); 2], squeeze: [f64; 2]) -> [Place; 2] {
     let size = tune.size.clamp(SIZE_MIN, SIZE_MAX) / 100.0;
-    let tilt = tune.tilt.clamp(-TILT_LIMIT, TILT_LIMIT);
-    let tilts = [0.0, tilt];
+    let tilts = [tune.tilt_left, tune.tilt_right].map(|t| t.clamp(-TILT_LIMIT, TILT_LIMIT));
     let need = (0..2).map(|i| Place::cover(boxes[i].0 as f64, boxes[i].1 as f64, (offsets[i].0 as f64, offsets[i].1 as f64), tilts[i], squeeze[i])).fold(1.0, f64::max);
     let sizes = [(1.0 / size).max(1.0), size.max(1.0)];
     std::array::from_fn(|i| Place { zoom: sizes[i] * need, dx: offsets[i].0 as f64, dy: offsets[i].1 as f64, tilt: tilts[i], squeeze: squeeze[i] })

@@ -36,7 +36,7 @@ fn time(name: &str, look: Look, tune: &Tune, format: PixelFormat) {
 #[ignore]
 fn pack_speed() {
     let plain = Tune::default();
-    let everything = Tune { depth: 1.0, height: 0.5, size: 92.3, tilt: 1.2, lut: Some(lut()) };
+    let everything = Tune { depth: 1.0, height: 0.5, size: 92.3, tilt_left: -0.8, tilt_right: 1.2, lut: Some(lut()) };
     let sized = Tune { size: 92.3, lut: Some(lut()), ..Tune::default() };
     for format in [PixelFormat::I420, PixelFormat::Rgba] {
         time("side by side, plain", Look::SideBySide, &plain, format);

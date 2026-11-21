@@ -478,8 +478,8 @@ fn stereo_shots() {
     shoot(&dir, "stereo-on-fine-tune-open", &card, 406.0, &[on.clone(), sync.clone(), json!({"fine-open": true})], &nothing);
     // Fine tune open with every slider moved, and again shut (the icon shows that something is set)
     let moved = json!({
-        "depth": 1.5, "depth-text": "+1.5%", "height-shift": -0.8, "height-text": "-0.8%", "size-percent": 108.3, "size-text": "108.3%", "tilt": 1.2,
-        "tilt-text": "+1.2°", "timing": 45.0, "timing-text": "+45 ms", "reset-shown": true,
+        "depth": 1.5, "depth-text": "+1.5%", "height-shift": -0.8, "height-text": "-0.8%", "size-percent": 108.3, "size-text": "108.3%", "tilt-left": -0.8,
+        "tilt-left-text": "-0.8°", "tilt-right": 1.2, "tilt-right-text": "+1.2°", "timing": 45.0, "timing-text": "+45 ms", "reset-shown": true,
     });
     shoot(&dir, "stereo-on-fine-tune-open-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone(), json!({"fine-open": true})], &nothing);
     shoot(&dir, "stereo-on-fine-tune-shut-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone()], &nothing);
@@ -493,8 +493,17 @@ fn stereo_shots() {
     let partly = json!({"reset-enabled": true, "reset-shown": true, "badge": "Partly matched", "badge-kind": "status_warn", "badge-detail": "x"});
     shoot(&dir, "stereo-match-partly", &card, 406.0, &[on.clone(), partly], &nothing);
     let failed = json!({"badge": "Match failed", "badge-kind": "status_warn", "badge-detail": "x"});
-    shoot(&dir, "stereo-match-failed", &card, 406.0, &[on, failed], &nothing);
+    shoot(&dir, "stereo-match-failed", &card, 406.0, &[on.clone(), failed], &nothing);
     // red/cyan, swapped, rough sync
     shoot(&dir, "stereo-on-rough-red-cyan-swapped", &card, 406.0, &[json!({"on": true, "match-enabled": true, "look-current": 1, "swap": true, "badge": "Rough sync", "badge-kind": "status_warn", "badge-detail": "x"})], &nothing);
     shoot(&dir, "stereo-on-one-stream", &card, 406.0, &[json!({"on": true, "badge": "Needs two streams", "badge-kind": "status_dim", "badge-detail": "x"})], &nothing);
+    // the headset: off, on with its link, with two addresses to pick from, and one that couldn't start
+    shoot(&dir, "stereo-headset-off", &card, 406.0, &[on.clone()], &nothing);
+    let url = "https://192.168.1.23:8769/#q7Xk2mP9aRt4VbN8cLw3YdZe";
+    let (cells, size) = telescope_core::qr::encode(url);
+    let link = json!({"headset": true, "headset-url-shown": true, "headset-url-text": url, "headset-qr-cells": cells, "headset-qr-size": size});
+    shoot(&dir, "stereo-headset-on", &card, 406.0, &[on.clone(), sync.clone(), link.clone()], &nothing);
+    let addresses = json!({"headset-address-shown": true, "headset-addresses": ["192.168.1.23", "10.0.0.5"], "headset-address-current": 0});
+    shoot(&dir, "stereo-headset-on-addresses", &card, 406.0, &[on.clone(), sync.clone(), link, addresses], &nothing);
+    shoot(&dir, "stereo-headset-failed", &card, 406.0, &[on, sync, json!({"headset": true, "headset-problem": "Couldn't start: address already in use"})], &nothing);
 }

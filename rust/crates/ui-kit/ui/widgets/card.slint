@@ -253,7 +253,7 @@ export component Card inherits Rectangle {
             }
             if tag != "": Rectangle {
                 width: header-tag.width;
-                header-tag := Tag { y: (parent.height - self.height) / 2; text: root.tag; detail: root.tag-detail; tint: root.tag-tint; }
+                header-tag := Tag { y: (parent.height - self.height) / 2; text: root.tag; detail: root.tag-detail; tint: root.tag-tint; lift: 0phx; }
             }
             Rectangle {
                 horizontal-stretch: 1;

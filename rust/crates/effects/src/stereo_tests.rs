@@ -103,9 +103,9 @@ fn the_frame_time_follows_the_gaps_between_frames_and_ignores_stalls() {
 fn shifts_are_percent_of_the_extent_held_to_the_slider() {
     assert_eq!(shift_px(0.0, 1000), 0);
     assert_eq!(shift_px(5.0, 1000), 50);
-    assert_eq!(shift_px(-5.0, 1000), -50);
-    assert_eq!(shift_px(40.0, 1000), 50, "held to 5 %");
-    assert_eq!(shift_px(-40.0, 200), -10);
+    assert_eq!(shift_px(-15.0, 1000), -150);
+    assert_eq!(shift_px(40.0, 1000), 150, "held to 15 %");
+    assert_eq!(shift_px(-40.0, 200), -30);
 }
 
 #[test]
@@ -205,15 +205,16 @@ fn looks_outside(p: &Place, w: usize, h: usize) -> bool {
 
 #[test]
 fn nothing_the_sliders_do_leaves_black_at_an_edge_or_corner() {
-    let sliders = [(5.0, 5.0, 100.0, 0.0), (-5.0, -5.0, 100.0, 0.0), (0.0, 0.0, 80.0, 0.0), (0.0, 0.0, 125.0, 0.0), (0.0, 0.0, 100.0, 5.0), (0.0, 0.0, 100.0, -5.0), (5.0, -5.0, 85.0, 5.0), (-5.0, 5.0, 120.0, -5.0), (3.3, 1.7, 92.3, -1.2)];
-    for (depth, height, size, tilt) in sliders {
-        let tune = Tune { depth, height, size, tilt, lut: None };
+    let sliders = [(15.0, 15.0, 100.0, 0.0, 0.0), (-15.0, -15.0, 100.0, 0.0, 0.0), (0.0, 0.0, 80.0, 0.0, 0.0), (0.0, 0.0, 125.0, 0.0, 0.0), (0.0, 0.0, 100.0, 5.0, -5.0), (0.0, 0.0, 100.0, -5.0, 5.0), (15.0, -15.0, 85.0, 5.0, 5.0), (-15.0, 15.0, 120.0, -5.0, -5.0), (3.3, 1.7, 92.3, -1.2, 4.0)];
+    for (depth, height, size, tilt_left, tilt_right) in sliders {
+        let tilt = (tilt_left, tilt_right);
+        let tune = Tune { depth, height, size, tilt_left, tilt_right, lut: None };
         // side by side on 16:9 (each eye squeezed to half), on a 32:9 canvas and as a square half, then the same fitted for red/cyan
         for (w, h, squeeze) in [(960usize, 1080usize, 0.5), (1920, 1080, 1.0), (500, 500, 1.0 / 1.0)] {
             let (a, b) = eye_offsets(shift_px(depth, w), shift_px(height, h));
             let placed = places(&tune, [(w, h), (w, h)], [a, b], [squeeze, squeeze]);
             for (i, p) in placed.iter().enumerate() {
-                assert!(!looks_outside(p, w, h), "eye {i} at depth {depth} height {height} size {size} tilt {tilt} in {w}x{h}: {p:?}");
+                assert!(!looks_outside(p, w, h), "eye {i} at depth {depth} height {height} size {size} tilt {tilt:?} in {w}x{h}: {p:?}");
             }
         }
     }
@@ -222,7 +223,7 @@ fn nothing_the_sliders_do_leaves_black_at_an_edge_or_corner() {
 #[test]
 fn both_eyes_keep_the_same_size_as_each_other_whatever_the_shifts_and_the_roll() {
     // the only difference in zoom between the eyes is the size, in whichever eye the wider view is
-    let tune = Tune { depth: 4.0, height: -3.0, size: 92.0, tilt: 3.0, lut: None };
+    let tune = Tune { depth: 4.0, height: -3.0, size: 92.0, tilt_left: -2.0, tilt_right: 3.0, lut: None };
     let (a, b) = eye_offsets(shift_px(4.0, 960), shift_px(-3.0, 1080));
     let [l, r] = places(&tune, [(960, 1080); 2], [a, b], [0.5; 2]);
     assert!((l.zoom / r.zoom - 100.0 / 92.0).abs() < 1e-9, "{l:?} {r:?}");
@@ -484,7 +485,7 @@ fn size_zooms_the_eye_of_the_wider_view_and_is_held_to_the_slider() {
     assert!((l.0 - 5.0).abs() < 0.4 && (r.0 - 4.0).abs() < 0.3, "{l:?} {r:?}");
     // a size and a tilt of nothing is the plain picture
     let plain = side_by_side(&ramp(40, 20), &ramp(40, 20), 80, 20, &Tune::default());
-    assert_eq!(plain, side_by_side(&ramp(40, 20), &ramp(40, 20), 80, 20, &Tune { size: 100.0, tilt: 0.0, ..Tune::default() }));
+    assert_eq!(plain, side_by_side(&ramp(40, 20), &ramp(40, 20), 80, 20, &Tune { size: 100.0, tilt_left: 0.0, tilt_right: 0.0, ..Tune::default() }));
     // out-of-range values are held to the sliders
     let white = solid(40, 20, [255, 255, 255]);
     assert_eq!(side_by_side(&white, &white, 80, 20, &Tune { size: 10.0, ..Tune::default() }), side_by_side(&white, &white, 80, 20, &Tune { size: 80.0, ..Tune::default() }));
@@ -502,4 +503,13 @@ fn a_picture_can_be_measured_while_it_is_made() {
     let tune = Tune { lut: Some(Arc::new(Lut([[0; 256]; 3]))), ..Tune::default() };
     let curved = render_measured(&left, &right, Look::SideBySide, (64, 36), &tune, &left, true).unwrap();
     assert!((curved.stats.unwrap()[1].luma - 100.0).abs() < 3.0);
+}
+
+#[test]
+fn each_eye_is_turned_by_its_own_tilt() {
+    let tune = Tune { tilt_left: -4.0, tilt_right: 2.0, ..Tune::default() };
+    let [l, r] = places(&tune, [(100, 100); 2], [(0, 0); 2], [1.0; 2]);
+    assert_eq!((l.tilt, r.tilt), (-4.0, 2.0));
+    let [l, r] = places(&Tune { tilt_left: 30.0, tilt_right: -30.0, ..Tune::default() }, [(100, 100); 2], [(0, 0); 2], [1.0; 2]);
+    assert_eq!((l.tilt, r.tilt), (5.0, -5.0), "held to the slider");
 }
