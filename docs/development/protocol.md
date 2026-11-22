@@ -151,6 +151,7 @@ A real photo from the phone's camera at full quality, not a frame of the video. 
 | `exposureMinNs` | The fastest shutter of a lens with manual exposure. Left out by a phone that does not say, which the computer offers long exposures only for |
 | `bracketMax` | The most pictures of an exposure bracket, which come with up to 12 EV from the middle. Left out by a phone that does not say, which takes 9 and 6 EV |
 | `focusStepsMax` | The most steps of a focus bracket. Left out by a phone that does not say, which takes 30 |
+| `focusDistance` | True on a lens with manual focus that takes `focus_diopters` below. An older phone leaves it out and the computer then sends no focus with a photo |
 
 A lens of a multi-lens camera has no full resolution mode or maker modes (those belong to the camera as a whole) and its RAW needs Android 12. Because the phone reads all this once per lens when the stream starts, `stills` can be missing from the first state or two.
 
@@ -168,6 +169,7 @@ A lens of a multi-lens camera has no full resolution mode or maker modes (those 
 | `exposure_ns`, `iso` | A manual exposure, fitted to `exposureMaxNs` and the lens's ISO range. Either one alone takes the other from the stream (as set by hand, or what auto exposure picked) |
 | `bracket_ev` | Exposure steps in EV from that exposure, like `-2,0,2`: up to `bracketMax` (9 on a phone without it), each between -12 and 12 (-6 and 6 without it). The exposure time moves first and ISO only where the time runs out |
 | `focus_steps`, `focus_from`, `focus_to` | Focus bracketing: 2 to `focusStepsMax` (30 without it) pictures from `focus_from` to `focus_to` in diopters (the nearest focus to infinity when left out) |
+| `focus_diopters` | One focus distance in diopters for the photo instead of autofocus (0 is infinity), fitted to the lens's `minFocusDistance`. Needs `focusDistance` and can't go with `focus_steps` or `extension`. An older phone ignores it and uses the stream's focus |
 | `count` | A burst: everything above taken this many times |
 | `timer_s` | Wait 0-30 seconds before shooting |
 | `rotation` | 0, 90, 180 or 270, written into the JPEG and DNG orientation |

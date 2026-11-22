@@ -631,6 +631,7 @@ class StillCapture(
                 retry(r, index)
                 return
             }
+            if (focus != null) android.util.Log.i(TAG, "Photo ${r.id} focus asked $focus applied ${result.get(CaptureResult.LENS_FOCUS_DISTANCE)}")
             r.taken[index] = true
             jobs.shotTaken(r.id)
             r.results[ts] = result

@@ -88,7 +88,8 @@
                 "burstMax": 60,
                 "exposureMinNs": 125000,
                 "bracketMax": 15,
-                "focusStepsMax": 100
+                "focusStepsMax": 100,
+                "focusDistance": true
             }
         }
     ],

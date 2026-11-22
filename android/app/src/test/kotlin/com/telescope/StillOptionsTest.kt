@@ -160,6 +160,20 @@ class StillOptionsTest {
     }
 
     @Test
+    fun `one focus distance is kept to what the lens does`() {
+        assertEquals(listOf(0f), ok(mapOf("format" to "jpeg", "focus_diopters" to "0")).shots.map { it.focus })
+        assertEquals(listOf(10f), ok(mapOf("format" to "jpeg", "focus_diopters" to "40")).shots.map { it.focus })
+        val long = ok(mapOf("format" to "jpeg", "focus_diopters" to "2.5", "exposure_ns" to "10000000000", "iso" to "800")).shots.single()
+        assertEquals(StillShot(10_000_000_000L, 800, 2.5f), long)
+        assertEquals("unsupported", refused(mapOf("format" to "jpeg", "focus_diopters" to "1"), full.copy(manualFocus = false)))
+        assertEquals("bad_option", refused(mapOf("format" to "jpeg", "focus_diopters" to "-1")))
+        assertEquals("bad_option", refused(mapOf("format" to "jpeg", "focus_diopters" to "1", "focus_steps" to "3")))
+        assertEquals("unsupported", refused(mapOf("format" to "jpeg", "focus_diopters" to "1", "extension" to "night")))
+        assertTrue(full.capability().focusDistance)
+        assertFalse(plain.capability().focusDistance)
+    }
+
+    @Test
     fun `focus bracketing spreads the steps from near to far`() {
         val shots = ok(mapOf("format" to "jpeg", "focus_steps" to "5", "focus_from" to "8", "focus_to" to "0")).shots
         assertEquals(listOf(8f, 6f, 4f, 2f, 0f), shots.map { it.focus })
