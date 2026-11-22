@@ -249,10 +249,17 @@ pub struct Pipeline {
     pacing: gpu::Pacing,
     /// Whether the last frame ran its either-way steps off the card, so leaving the card releases cached textures once.
     was_off_card: bool,
+    /// The newest trial of the card still out, and the flag that calls it off.
+    trial: Option<(std::thread::JoinHandle<()>, Arc<AtomicBool>)>,
 }
 
 impl Drop for Pipeline {
     fn drop(&mut self) {
+        // A trial left running would still be using the card when the process closes it (an exit while it was mid-pass crashed the driver)
+        if let Some((handle, stop)) = self.trial.take() {
+            stop.store(true, Ordering::SeqCst);
+            let _ = handle.join();
+        }
         if self.on_card && ON_THE_CARD.fetch_sub(1, Ordering::SeqCst) == 1 {
             if let Some(gpu) = self.gpu.take().flatten() {
                 gpu.release_idle();
@@ -274,7 +281,7 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None }
     }
 
     /// How many times the newest frame went up to the card and came down, for this pipeline alone.
@@ -851,17 +858,22 @@ impl Pipeline {
             return;
         }
         let frame = frame.clone();
-        let done = Trial(self.balance.clone(), None);
+        let stop = Arc::new(AtomicBool::new(false));
+        let done = Trial(self.balance.clone(), None, stop.clone());
+        let called_off = stop.clone();
         let trial = move || {
             // Taken whole here: a closure would only capture the field it writes, and the rest would drop now
             let mut done = done;
-            match gpu.trial(&frame) {
+            match gpu.trial(&frame, &|| called_off.load(Ordering::SeqCst)) {
                 Ok(waited) => done.1 = Some(waited),
+                Err(why) if called_off.load(Ordering::SeqCst) => log::debug!("The graphics card trial was called off: {why}"),
                 Err(why) => log::warn!("Couldn't try the graphics card: {why}"),
             }
         };
-        if let Err(why) = std::thread::Builder::new().name("card-trial".into()).spawn(trial) {
-            log::warn!("Couldn't try the graphics card: {why}");
+        match std::thread::Builder::new().name("card-trial".into()).spawn(trial) {
+            // The last one has ended (a new one only starts after it did), so this only collects it
+            Ok(handle) => if let Some((old, _)) = self.trial.replace((handle, stop)) { let _ = old.join(); },
+            Err(why) => log::warn!("Couldn't try the graphics card: {why}"),
         }
     }
 
@@ -916,12 +928,15 @@ impl Pipeline {
 }
 
 
-/// A trial out on the card, however it ends: a panic or a thread that wouldn't start still lets the next one go.
-struct Trial(Arc<Balance>, Option<u64>);
+/// A trial out on the card, however it ends: a panic or a thread that wouldn't start still lets the next one go. The flag is set when the pipeline is going away.
+struct Trial(Arc<Balance>, Option<u64>, Arc<AtomicBool>);
 
 impl Drop for Trial {
     fn drop(&mut self) {
-        self.0.trial_done(self.1);
+        match self.1 {
+            None if self.2.load(Ordering::SeqCst) => self.0.trial_called_off(),
+            wait => self.0.trial_done(wait),
+        }
     }
 }
 

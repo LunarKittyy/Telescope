@@ -658,8 +658,8 @@ impl Gpu {
     }
 
     /// As download_timed, without reusing or keeping the staging buffer afterwards (for one-off latency trials).
-    fn download_unkept(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<u8>, u64), String> {
-        self.guarded("reading a picture back", || self.read_back(enc, textures, bpp, &|| false, false))
+    fn download_unkept(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool) -> Result<(Vec<u8>, u64), String> {
+        self.guarded("reading a picture back", || self.read_back(enc, textures, bpp, cancel, false))
     }
 
     /// As download_timed, giving up with an error as soon as cancel says so (a stop doesn't wait out a card that has stalled).
@@ -1179,8 +1179,8 @@ impl Gpu {
     }
 
     /// How long the card would make a frame wait right now, in ns: the frame up and a pass over it and back, as big as a real one, and
-    /// nothing kept. core::balance's way of looking at the card while frames stay off it.
-    pub fn trial(&self, frame: &Frame) -> Result<u64, String> {
+    /// nothing kept, giving up with an error as soon as cancel says so. core::balance's way of looking at the card while frames stay off it.
+    pub fn trial(&self, frame: &Frame, cancel: &dyn Fn() -> bool) -> Result<u64, String> {
         self.card_ok()?;
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
@@ -1190,7 +1190,7 @@ impl Gpu {
         let planes = self.upload(frame, &mut used);
         let target = self.texture(frame.width, frame.height, WORK);
         self.convert_pass(&mut enc, &planes.views, planes.mode, &target, 1, (planes.width, planes.height));
-        let (_, waited) = self.download_unkept(enc, &[&target], &[4])?;
+        let (_, waited) = self.download_unkept(enc, &[&target], &[4], cancel)?;
         drop(target);
         drop(used);
         let _ = self.device.poll(wgpu::PollType::Poll);
@@ -2534,7 +2534,7 @@ mod tests {
         gpu.lost.store(true, Ordering::SeqCst);
         // nothing is allocated, uploaded or drawn once it's lost
         let pooled = gpu.kept_bytes();
-        assert!(gpu.lift(&frame).is_err() && gpu.rgba(&frame, 4, 4).is_err() && gpu.paint(&frame, &target).is_err() && gpu.trial(&frame).is_err());
+        assert!(gpu.lift(&frame).is_err() && gpu.rgba(&frame, 4, 4).is_err() && gpu.paint(&frame, &target).is_err() && gpu.trial(&frame, &|| false).is_err());
         assert!(ShaderSlot::new(step(IDENTITY, json!({}))).prepare(&gpu).is_err());
         assert_eq!(gpu.kept_bytes(), pooled);
         let fresh = Gpu::shared().expect("a card again");
@@ -2616,7 +2616,7 @@ mod tests {
     #[test]
     fn a_trial_says_how_long_the_card_took() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
-        assert!(gpu.trial(&yuv_frame(64, 36, |_, _| 100, 128, 128)).unwrap() > 0);
+        assert!(gpu.trial(&yuv_frame(64, 36, |_, _| 100, 128, 128), &|| false).unwrap() > 0);
     }
 
     #[test]
