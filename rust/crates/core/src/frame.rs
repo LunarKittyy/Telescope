@@ -129,7 +129,7 @@ impl Bgr {
 static BGR_SPARES: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
 
 /// How many spare BGR buffers are kept.
-const KEPT_BGR: usize = 3;
+const KEPT_BGR: usize = 1;
 
 /// A buffer for a BGR picture: one that was given back, or an empty one.
 pub fn spare_bgr() -> Vec<u8> {

@@ -7,7 +7,7 @@
 use crate::convert::rgb_to_i420;
 use crate::held::{Gate, Held, Job, Nudge, Stop};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::{Duration, Instant};
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::i18n::tr;
@@ -511,6 +511,45 @@ pub struct ScreenJob {
     nudge: Nudge,
 }
 
+/// The production loader: loads custom images via `load_frames_as` and shares the default screen buffer across slots.
+pub fn default_loader() -> FrameLoader {
+    static LOADER: OnceLock<FrameLoader> = OnceLock::new();
+    LOADER
+        .get_or_init(|| Arc::new(|path, w, h, convert| Ok(load_frames_as(path, w, h, convert))))
+        .clone()
+}
+
+fn is_default_loader(loader: &FrameLoader) -> bool {
+    Arc::ptr_eq(loader, &default_loader())
+}
+
+type DefaultKey = (u32, u32, PixelFormat, bool, String);
+
+fn shared_default_frame(width: u32, height: u32, i420: bool, mirror: bool) -> Frame {
+    static CACHE: Mutex<Vec<(DefaultKey, Weak<Vec<u8>>)>> = Mutex::new(Vec::new());
+    let fmt = if i420 { PixelFormat::I420 } else { PixelFormat::Rgba };
+    let key = (width, height, fmt, mirror, tr("Waiting for camera"));
+    if let Ok(mut cache) = CACHE.lock() {
+        cache.retain(|(_, w)| w.strong_count() > 0);
+        if let Some(data) = cache.iter().find(|(k, _)| *k == key).and_then(|(_, w)| w.upgrade()) {
+            let mut frame = Frame::new(width, height, fmt, Vec::new());
+            frame.data = data;
+            return frame;
+        }
+    }
+    let rgb = default_screen(width, height);
+    let frame = if i420 {
+        rgb_to_i420(&rgb.data, rgb.width, rgb.height, 3, mirror)
+    } else {
+        Frame::new(rgb.width, rgb.height, PixelFormat::Rgba, rgba(&rgb, mirror))
+    };
+    if let Ok(mut cache) = CACHE.lock() {
+        cache.retain(|(k, w)| *k != key && w.strong_count() > 0);
+        cache.push((key, Arc::downgrade(&frame.data)));
+    }
+    frame
+}
+
 impl ScreenJob {
     fn prepare(&self, width: u32, height: u32) -> Result<(PixelFormat, Vec<(Frame, f64)>), String> {
         let (path, mirror) = {
@@ -518,6 +557,10 @@ impl ScreenJob {
             (s.1.clone(), s.2)
         };
         let i420 = self.deps.i420 && width.is_multiple_of(2) && height.is_multiple_of(2);
+        let fmt = if i420 { PixelFormat::I420 } else { PixelFormat::Rgba };
+        if path.is_none() && is_default_loader(&self.deps.loader) {
+            return Ok((fmt, vec![(shared_default_frame(width, height, i420, mirror), STILL_PERIOD)]));
+        }
         let convert = |rgb: Rgb| {
             if i420 {
                 rgb_to_i420(&rgb.data, rgb.width, rgb.height, 3, mirror)
@@ -526,7 +569,7 @@ impl ScreenJob {
             }
         };
         let frames = (self.deps.loader)(path.as_deref(), width, height, &convert)?;
-        Ok((if i420 { PixelFormat::I420 } else { PixelFormat::Rgba }, frames))
+        Ok((fmt, frames))
     }
 
     fn feed(&self, cam: &mut dyn VideoOutput, frames: &[(Frame, f64)], stop: &Stop) -> Result<(), String> {
