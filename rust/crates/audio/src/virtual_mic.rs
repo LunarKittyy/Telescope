@@ -44,6 +44,11 @@ pub fn run(cmd: &[String]) -> (bool, String) {
 
 /// subprocess.run with a limit.
 pub fn run_within(cmd: &[String], limit: Duration) -> (bool, String) {
+    run_until(cmd, limit, &|| false)
+}
+
+/// Like `run_within`, and also gives up as soon as `stop` says so.
+fn run_until(cmd: &[String], limit: Duration, stop: &dyn Fn() -> bool) -> (bool, String) {
     let Some((exe, args)) = cmd.split_first() else { return (false, String::new()) };
     let mut command = std::process::Command::new(exe);
     command.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
@@ -61,7 +66,7 @@ pub fn run_within(cmd: &[String], limit: Duration) -> (bool, String) {
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() < until => std::thread::sleep(Duration::from_millis(10)),
+            Ok(None) if Instant::now() < until && !stop() => std::thread::sleep(Duration::from_millis(10)),
             Ok(None) => {
                 stop_group(&mut child);
                 let _ = child.wait();
@@ -337,13 +342,15 @@ mod tests {
         let dir = scratch("timeout");
         let file = dir.join("pid");
         let script = format!("sleep 30 & echo $! > {}; wait", file.display());
+        // Time out only once the script has recorded its grandchild, however slowly a busy machine gets there
+        let recorded = || std::fs::read_to_string(&file).is_ok_and(|s| s.ends_with('\n'));
         let started = Instant::now();
-        let (ok, text) = run_within(&strings(&["sh", "-c", &script]), Duration::from_millis(300));
+        let (ok, text) = run_until(&strings(&["sh", "-c", &script]), Duration::from_secs(60), &recorded);
         assert!(!ok && text.contains("timed out"), "{text}");
-        assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
+        assert!(started.elapsed() < Duration::from_secs(30), "{:?}", started.elapsed());
         let pid = std::fs::read_to_string(&file).unwrap().trim().to_string();
         let mut waited = 0;
-        while !gone(&pid) && waited < 100 {
+        while !gone(&pid) && waited < 500 {
             std::thread::sleep(Duration::from_millis(20));
             waited += 1;
         }

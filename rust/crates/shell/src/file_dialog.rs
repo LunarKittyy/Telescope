@@ -343,9 +343,11 @@ mod tests {
         }
         let seen = portal.calls.clone();
         let answer = (answer.0, answer.1.to_string());
+        // Made before the thread starts: an iterator made inside it can come too late and miss the first call, which then never gets answered
+        let calls_in = MessageIterator::from(&conn);
         std::thread::spawn(move || {
             let c: Connection = conn;
-            for msg in MessageIterator::from(&c).flatten() {
+            for msg in calls_in.flatten() {
                 if msg.message_type() != zbus::message::Type::MethodCall {
                     continue;
                 }

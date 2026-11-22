@@ -114,6 +114,8 @@ pub struct StillCaps {
     pub focus_steps_max: i64,
     /// The nearest the lens focuses, in diopters (the lens's minFocusDistance); 0 without manual focus.
     pub focus_near_max: f64,
+    /// One focus distance for a photo (`focus_diopters`); false on an older phone.
+    pub focus_distance: bool,
     /// The ISO the lens takes, from the current camera entry; 0 when it didn't say.
     pub iso_min: i64,
     pub iso_max: i64,
@@ -160,7 +162,8 @@ impl StillCaps {
             bracket_max: if wide { number("bracketMax").clamp(2, 100) } else { 9 },
             ev_max: if wide { 12 } else { 6 },
             focus_steps_max: if raw.contains_key("focusStepsMax") { number("focusStepsMax").clamp(2, 100) } else { 30 },
-            focus_near_max: if flag("focusBracketing") { near.unwrap_or(0.0) } else { 0.0 },
+            focus_near_max: if flag("focusBracketing") || flag("focusDistance") { near.unwrap_or(0.0) } else { 0.0 },
+            focus_distance: flag("focusDistance") && near.is_some(),
             formats, size: size(raw, "width", "height"), max_res: size(raw, "maxResWidth", "maxResHeight"),
             max_res_raw: flag("maxResRaw"), extensions: words("extensions"), extension_sizes,
             exposure_max_ns: number("exposureMaxNs"), bracketing: flag("bracketing"), focus_bracketing: flag("focusBracketing"),
@@ -827,6 +830,18 @@ mod tests {
         odd["focusStepsMax"] = json!(0);
         let c = caps(odd).unwrap();
         assert_eq!((c.bracket_max, c.focus_steps_max), (100, 2));
+    }
+
+    #[test]
+    fn one_focus_for_a_photo_needs_the_phone_to_say_so() {
+        let mut state = state_with(full(), Some(1), true);
+        state["cameras"][1]["minFocusDistance"] = json!(10.0);
+        assert!(!StillCaps::from_state(Some(&state)).unwrap().focus_distance, "an older phone");
+        state["cameras"][1]["stills"]["focusDistance"] = json!(true);
+        let c = StillCaps::from_state(Some(&state)).unwrap();
+        assert!(c.focus_distance && c.focus_near_max == 10.0);
+        state["cameras"][1]["minFocusDistance"] = json!(0.0);
+        assert!(!StillCaps::from_state(Some(&state)).unwrap().focus_distance, "a fixed-focus lens");
     }
 
     #[test]

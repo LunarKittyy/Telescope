@@ -455,4 +455,95 @@ mod tests {
         assert_eq!(loads(r#""\ud83d\ude00 \u00e9 \/""#).unwrap(), json!("😀 é /"));
         assert_eq!(loads(r#""\ud800x""#).unwrap(), json!("\u{fffd}x"));
     }
+
+    /// A fixed-seed xorshift, so a failure can be replayed.
+    struct Rng(u64);
+
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            self.0
+        }
+
+        fn below(&mut self, n: usize) -> usize {
+            (self.next() % n as u64) as usize
+        }
+    }
+
+    fn random_string(rng: &mut Rng) -> String {
+        const PIECES: [&str; 14] = ["a", "Z", " ", "\"", "\\", "/", "\n", "\t", "\u{1}", "\u{7f}", "é", "日", "😀", "\u{fffd}"];
+        (0..rng.below(8)).map(|_| PIECES[rng.below(PIECES.len())]).collect()
+    }
+
+    fn random_value(rng: &mut Rng, depth: usize) -> Value {
+        match rng.below(if depth >= 4 { 6 } else { 8 }) {
+            0 => Value::Null,
+            1 => Value::Bool(rng.next() & 1 == 0),
+            2 => Value::Number((rng.next() as i64).into()),
+            3 => Value::Number(rng.next().into()),
+            4 => {
+                // Any finite bit pattern, which reaches the exponent forms and the shortest digits
+                let f = f64::from_bits(rng.next());
+                let f = if f.is_finite() { f } else { rng.below(1000) as f64 / 8.0 };
+                Value::Number(Number::from_f64(f).unwrap())
+            }
+            5 => Value::String(random_string(rng)),
+            6 => Value::Array((0..rng.below(4)).map(|_| random_value(rng, depth + 1)).collect()),
+            _ => Value::Object((0..rng.below(4)).map(|_| (random_string(rng), random_value(rng, depth + 1))).collect()),
+        }
+    }
+
+    /// Equal, except that serde_json (built without float_roundtrip) may read a float one digit off
+    fn same(a: &Value, b: &Value) -> bool {
+        match (a, b) {
+            (Value::Number(x), Value::Number(y)) if x.is_f64() && y.is_f64() => {
+                let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
+                (x - y).abs() <= x.abs().max(y.abs()) * 1e-15
+            }
+            (Value::Array(x), Value::Array(y)) => x.len() == y.len() && x.iter().zip(y).all(|(x, y)| same(x, y)),
+            (Value::Object(x), Value::Object(y)) => x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w))),
+            _ => a == b,
+        }
+    }
+
+    #[test]
+    fn what_dumps_writes_loads_reads_back() {
+        let mut rng = Rng(0x9e37_79b9_7f4a_7c15);
+        for _ in 0..3000 {
+            let value = random_value(&mut rng, 0);
+            for style in [Style::CONFIG, Style::FIXTURE, Style { indent: None, sort_keys: false, ensure_ascii: true }] {
+                let text = dumps(&value, style);
+                assert_eq!(loads(&text).as_ref(), Ok(&value), "{text}");
+                assert!(same(&serde_json::from_str::<Value>(&text).unwrap(), &value), "serde disagrees on {text}");
+            }
+        }
+    }
+
+    #[test]
+    fn broken_text_is_an_error_never_a_panic_and_serde_readable_text_reads() {
+        let mut rng = Rng(0x2545_f491_4f6c_dd1d);
+        for _ in 0..3000 {
+            let text = dumps(&random_value(&mut rng, 0), Style::CONFIG);
+            let mut chars: Vec<char> = text.chars().collect();
+            for _ in 0..1 + rng.below(3) {
+                let at = rng.below(chars.len() + 1);
+                match rng.below(3) {
+                    0 if at < chars.len() => {
+                        chars.remove(at);
+                    }
+                    1 => chars.insert(at, ['"', '\\', '{', '}', '[', ']', ',', ':', '-', '.', 'e', 'u', '0', '\u{e9}', '\u{0}'][rng.below(15)]),
+                    _ if at < chars.len() => chars[at] = ['"', '\\', 'n', '1', ' '][rng.below(5)],
+                    _ => chars.truncate(at),
+                }
+            }
+            let text: String = chars.into_iter().collect();
+            let ours = loads(&text);
+            // serde_json accepts a subset of what Python does, so whatever it reads must read the same here
+            if let Ok(theirs) = serde_json::from_str::<Value>(&text) {
+                assert!(ours.as_ref().is_ok_and(|ours| same(ours, &theirs)), "{text}");
+            }
+        }
+    }
 }

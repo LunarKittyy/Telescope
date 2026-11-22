@@ -68,6 +68,7 @@ data class StillCapability(
     val exposureMinNs: Long = 0L,  // the fastest shutter; 0 = not said
     val bracketMax: Int = 0,  // the most exposure bracket pictures, which come with up to 12 EV from the middle; 0 = not said
     val focusStepsMax: Int = 0,  // the most focus bracket steps; 0 = not said
+    val focusDistance: Boolean = false,  // takes focus_diopters, one focus for the photo; an older phone leaves it out
 )
 
 @Serializable

@@ -1327,11 +1327,13 @@ fn missing_caps_disable_controls_and_a_missing_shutter_has_its_reason() {
     let props = plugin.state_props(&host);
     assert_eq!(props["shot-summary"], "10 s · ISO 800 · focus ∞");
     assert_eq!(props["focus-readout"], "∞");
-    assert_eq!(props["focus-enabled"], false);
+    assert_eq!(props["focus-enabled"], true);
     assert_eq!(props["shutter-enabled"], true);
     assert_eq!(props["iso-enabled"], true);
     host.still_caps = Some(json!({"shot": {"iso": {"min": 50, "max": 3200}}}));
     let props = plugin.state_props(&host);
+    assert_eq!(props["focus-enabled"], false);
+    assert_eq!(props["focus-tip"], "This camera can't set the focus for a photo.");
     // The unsupported override stays clearable
     assert_eq!(props["shutter-enabled"], true);
     assert_eq!(props["shutter-tip"], "Use the camera's own shutter speed.");
@@ -1491,6 +1493,41 @@ fn the_dials_pick_their_own_values_and_lock_during_the_run() {
     let props = plugin.state_props(&host);
     assert_eq!(props["shutter-enabled"], false);
     assert_eq!(props["iso-enabled"], false);
+    plugin.shutdown(&mut host);
+}
+
+#[test]
+fn the_focus_slider_sets_the_photos_focus_where_the_camera_takes_one() {
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, live_photos());
+    assert_eq!(plugin.shot_props(&host)["focus-enabled"], true);
+    photo_ui(&mut plugin, &mut host, "focus-moved", json!(250.0));
+    assert_eq!(plugin.shot.focus_diopters, Some(2.5));
+    assert_eq!(plugin.shot_props(&host)["focus-value"], json!(250.0));
+    photo_ui(&mut plugin, &mut host, "focus-reset", Value::Null);
+    assert_eq!(plugin.shot.focus_diopters, None);
+    assert_eq!(plugin.shot_props(&host)["focus-readout"], "Camera");
+    photo_ui(&mut plugin, &mut host, "focus-moved", json!(0.0));
+    photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    assert_eq!(host.stills_taken.last().unwrap().0["shot"]["focus_diopters"], json!(0.0));
+    photo_ui(&mut plugin, &mut host, "focus-moved", json!(500.0));
+    assert_eq!(plugin.shot.focus_diopters, Some(0.0), "the focus is held during a run");
+    assert_eq!(plugin.shot_props(&host)["focus-enabled"], false);
+    plugin.shutdown(&mut host);
+}
+
+#[test]
+fn a_camera_without_a_focus_for_one_photo_keeps_its_own() {
+    let mut host = photo_host();
+    host.still_caps = Some(json!({"shot": {"shutter": {"min_ns": 250_000, "max_ns": 20_000_000_000i64}, "iso": {"min": 50, "max": 3200}}}));
+    let mut plugin = photo_plugin(&mut host, live_photos());
+    assert_eq!(plugin.shot.focus_diopters, Some(0.0), "the saved choice stays for a phone that takes it");
+    let props = plugin.shot_props(&host);
+    assert_eq!((props["focus-enabled"].clone(), props["focus-readout"].clone()), (json!(false), json!("Camera")));
+    photo_ui(&mut plugin, &mut host, "focus-moved", json!(500.0));
+    assert_eq!(plugin.shot.focus_diopters, Some(0.0));
+    photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    assert!(host.stills_taken.last().unwrap().0["shot"].get("focus_diopters").is_none(), "an older phone would refuse the photo");
     plugin.shutdown(&mut host);
 }
 

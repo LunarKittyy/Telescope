@@ -242,12 +242,12 @@ pub fn parse_cube(text: &str) -> Result<CubeLut, CubeError> {
             "LUT_1D_SIZE" => size1 = rest.parse().map_err(|_| bad())?,
             "LUT_3D_SIZE" => size3 = rest.parse().map_err(|_| bad())?,
             "DOMAIN_MIN" | "DOMAIN_MAX" => {
-                let v = floats(rest).filter(|v| v.len() == 3).ok_or_else(bad)?;
+                let v = floats(rest).filter(|v| v.len() == 3 && v.iter().all(|x| x.is_finite())).ok_or_else(bad)?;
                 let v = [v[0], v[1], v[2]];
                 if word == "DOMAIN_MIN" { dmin = v } else { dmax = v }
             }
             "LUT_1D_INPUT_RANGE" | "LUT_3D_INPUT_RANGE" => {
-                let v = floats(rest).filter(|v| v.len() == 2).ok_or_else(bad)?;
+                let v = floats(rest).filter(|v| v.len() == 2 && v.iter().all(|x| x.is_finite())).ok_or_else(bad)?;
                 if word == "LUT_1D_INPUT_RANGE" { range1 = Some((v[0], v[1])) } else { range3 = Some((v[0], v[1])) }
             }
             // other keywords before the data (LUT_IN_VIDEO_RANGE and the like) don't change the maths
@@ -394,6 +394,10 @@ mod tests {
             ("LUT_1D_SIZE 2\nDOMAIN_MIN 1 1 1\nDOMAIN_MAX 0 0 0\n0 0 0\n1 1 1\n", "DOMAIN_MAX"),
             ("LUT_1D_SIZE x\n", "Line 1"),
             ("LUT_1D_SIZE 2\n0 0 0\n1 nan 1\n", "Line 3"),
+            // A domain that isn't a number or isn't finite would turn every colour into nothing
+            ("LUT_1D_SIZE 2\nDOMAIN_MAX nan 1 1\n0 0 0\n1 1 1\n", "Line 2"),
+            ("LUT_1D_SIZE 2\nDOMAIN_MIN -inf 0 0\n0 0 0\n1 1 1\n", "Line 2"),
+            ("LUT_1D_SIZE 2\nLUT_1D_INPUT_RANGE 0 inf\n0 0 0\n1 1 1\n", "Line 2"),
         ] {
             let err = parse_cube(text).unwrap_err();
             assert!(err.english().contains(problem), "{text:?}: {err}");

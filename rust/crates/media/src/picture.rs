@@ -195,4 +195,34 @@ pub(crate) mod tests {
         assert!(decode(b"\x89PNG").is_err());
         assert!(decode(b"").is_err());
     }
+
+    #[test]
+    fn damaged_files_are_refused_or_read_but_never_panic() {
+        let mut state = 0x9e37_79b9_7f4a_7c15u64;
+        let mut pick = |n: usize| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as usize % n
+        };
+        let originals: Vec<&[u8]> = RECORDED.iter().map(|r| r.1).chain(ORIENTED.iter().map(|o| o.1)).collect();
+        for _ in 0..4000 {
+            let mut file = originals[pick(originals.len())].to_vec();
+            for _ in 0..1 + pick(4) {
+                let at = pick(file.len());
+                match pick(4) {
+                    0 => file[at] = pick(256) as u8,
+                    1 => file[at] ^= 1 << pick(8),
+                    2 => file.truncate(at.max(1)),
+                    _ => file.insert(at, pick(256) as u8),
+                }
+            }
+            let outcome = std::panic::catch_unwind(|| {
+                let _ = decode(&file);
+                let _ = exif_orientation(&file);
+                let _ = crate::jpeg_guard::jpeg_size(&file);
+            });
+            assert!(outcome.is_ok(), "panicked on {file:02x?}");
+        }
+    }
 }

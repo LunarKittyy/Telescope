@@ -100,26 +100,48 @@ fn people_rgb(frame: &Frame) -> Option<Rgb> {
     small_rgb(frame, pw, ph, true).map(|data| Rgb::new(pw, ph, data))
 }
 
-/// The tiny grey copy a frame is told to have moved by (ops::THUMB), from the luma plane alone when the frame is YUV.
+/// The tiny grey copy a frame is told to have moved by (ops::THUMB), followed by a coarse grid of each chroma plane (U, then V), so a change of colour at the same luma moves it too. A YUV frame gives its grey from the luma plane alone.
 fn people_look(frame: &Frame) -> Option<Vec<u8>> {
     let (w, h) = (frame.width as usize, frame.height as usize);
-    if w < ops::THUMB.0 || h < ops::THUMB.1 {
+    let (tw, th) = ops::THUMB;
+    if w < tw || h < th {
         return rgb(frame).map(|picture| ops::thumb(&picture));
     }
-    let mut look = small_grey(frame, ops::THUMB.0, ops::THUMB.1)?;
-    // A change of colour at the same luma moves the frame too, so a coarse grid of each chroma plane follows the grey
-    if frame.format == PixelFormat::I420 && frame.data.len() >= PixelFormat::I420.size(frame.width, frame.height) && frame.bgr().is_none() {
-        if let Some((_, u, v)) = frame.i420_planes() {
-            let cw = w.div_ceil(2);
-            look.extend(chroma_grid(u, cw, h.div_ceil(2)));
-            look.extend(chroma_grid(v, cw, h.div_ceil(2)));
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    if matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12) && frame.bgr().is_none() {
+        let mut look = small_grey(frame, tw, th)?;
+        if frame.format == PixelFormat::I420 && frame.data.len() >= PixelFormat::I420.size(frame.width, frame.height) {
+            if let Some((_, u, v)) = frame.i420_planes() {
+                look.extend(chroma_grid(u, cw, ch, 1, 0));
+                look.extend(chroma_grid(v, cw, ch, 1, 0));
+            }
+        } else if frame.format == PixelFormat::Nv12 && frame.data.len() >= w * h + 2 * cw * ch {
+            let uv = &frame.data[w * h..];
+            look.extend(chroma_grid(uv, cw, ch, 2, 0));
+            look.extend(chroma_grid(uv, cw, ch, 2, 1));
         }
+        return Some(look);
+    }
+    // A frame with colour of its own is shrunk once, and its grey and chroma both come from that
+    let small = small_rgb(frame, tw, th, true)?;
+    let [mut look, u, v] = telescope_core::image::rgb_planes(&small);
+    for (grey, p) in look.iter_mut().zip(small.as_chunks::<3>().0) {
+        *grey = telescope_core::image::grey_of(p[0], p[1], p[2]);
+    }
+    for plane in [u, v] {
+        look.extend(halved(&plane, tw, th));
     }
     Some(look)
 }
 
-/// A plane of one byte a pixel as a CHROMA_GRID of cells, each the mean of a few samples around its centre (a few thousand reads however big the frame).
-fn chroma_grid(plane: &[u8], w: usize, h: usize) -> Vec<u8> {
+/// A plane of w x h halved by the mean of each 2 x 2 block (ops::CHROMA_GRID cells when it is THUMB sized).
+fn halved(plane: &[u8], w: usize, h: usize) -> Vec<u8> {
+    let at = |x: usize, y: usize| plane[y * w + x] as u32;
+    (0..h / 2).flat_map(|y| (0..w / 2).map(move |x| (x, y))).map(|(x, y)| ((at(2 * x, 2 * y) + at(2 * x + 1, 2 * y) + at(2 * x, 2 * y + 1) + at(2 * x + 1, 2 * y + 1) + 2) / 4) as u8).collect()
+}
+
+/// A plane of w x h samples (`step` bytes apart, from byte `offset`) as a CHROMA_GRID of cells, each the mean of a few samples around its centre (a few thousand reads however big the frame).
+fn chroma_grid(plane: &[u8], w: usize, h: usize, step: usize, offset: usize) -> Vec<u8> {
     let (gw, gh) = ops::CHROMA_GRID;
     let mut out = Vec::with_capacity(gw * gh);
     for gy in 0..gh {
@@ -127,9 +149,9 @@ fn chroma_grid(plane: &[u8], w: usize, h: usize) -> Vec<u8> {
             let (cx, cy) = ((gx * 2 + 1) * w / (gw * 2), (gy * 2 + 1) * h / (gh * 2));
             let (mut sum, mut n) = (0u32, 0u32);
             for y in cy.saturating_sub(2)..(cy + 2).min(h) {
-                let row = &plane[y * w..(y + 1) * w];
-                for &p in &row[cx.saturating_sub(2)..(cx + 2).min(w)] {
-                    sum += p as u32;
+                let row = &plane[y * w * step..(y + 1) * w * step];
+                for x in cx.saturating_sub(2)..(cx + 2).min(w) {
+                    sum += row[x * step + offset] as u32;
                     n += 1;
                 }
             }
