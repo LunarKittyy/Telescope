@@ -22,7 +22,7 @@ The MCP tab has:
 - the entry to put in your AI app's MCP settings, with a copy button
 - the last 30 things the AI did, newest first, with refused ones marked. It lives in memory only and is gone when Telescope quits
 
-When the AI changes a setting whose control is on screen, that control gets an outline for a second and a half. It does the same when the AI reads a few named settings. Controls that are folded away or on another tab are skipped. Folded sections do not open and the view does not scroll.
+When the AI changes a setting whose control is on screen, that control gets an outline for a second and a half. It does the same when the AI reads a few named settings. Controls that are folded away or on another tab are skipped. Folded sections and other tabs aren't opened and the view doesn't scroll.
 
 ## Adding it to an AI app
 
@@ -50,13 +50,13 @@ These tools read from Telescope without changing it:
 These tools change settings or undo changes:
 
 - **set** changes several settings at once and the camera does not show a half-way step. Every value is checked first. When one is out of range or not a setting, no setting changes and the model gets told which ones were wrong
-- **revert** undoes what **set** and **run_action** changed, including settings that moved along with it and what an action switched that isn't a listed setting (Privacy blur's switch, the microphone's gain, the background), newest change first. Each AI app only undoes its own changes. Settings you or another AI app moved afterwards are left the way they are, even when you landed on the same value again. A setting that undoing the other one would have moved along is left too. Telescope stores the last 200 steps and they survive a restart. After a restart only the undo button reaches them since no AI app owns them any more
+- **revert** undoes what **set** and **run_action** changed, including settings that moved along with it and what an action switched that isn't a listed setting (Privacy blur's switch, the microphone's gain, the background), newest change first. Each AI app only undoes its own changes. Whatever you or another AI app moved afterwards is left the way it is, even when you landed on the same value again. A setting that undoing the other one would have moved along is left too. Telescope stores the last 200 steps and they survive a restart. After a restart only the undo button reaches them since no AI app owns them any more
 - A step for a camera that isn't shown, or a plugin that's switched off isn't lost. Undo notes that the step was stored and it is undone the next time you undo while that camera is shown or the plugin is on
 - **actions** and **run_action** run the same actions keyboard shortcuts run. The settings an action moves are undone by **revert** too. An action's answer shows when it moved none (so there is no step to undo). Actions that change something that isn't saved, like a mute or Blur now, can't be undone. **revert** names them in its answer (the undo button's line in the log counts them)
 
 The model is told to make small steps because changes show in the camera straight away. An AI app can have 4 calls running at once (12 across all of them) and up to 8 can be connected. Starting or stopping the stream, switching the phone's camera off and picking another phone are left to you because they can interrupt whatever is using the camera. `telescope --action` is there if you want them from a command. A message longer than 1 MiB is turned away.
 
-Settings are declared by plugins and most built-in plugins declare theirs. A plugin that's switched off doesn't show up in **describe**. Settings that guard your privacy or reach outside Telescope, like Privacy blur's switch, when the stream starts and the update channel, are left out.
+Settings are declared by plugins and most built-in plugins declare theirs. A plugin that's switched off doesn't show up in **describe**. Settings that guard your privacy or reach outside Telescope, like Privacy blur's switch, when the stream starts and the update channel, are left out by design.
 
 - **stats** gives the numbers the Stats panel shows (frame rates in and out, drops with their reasons, bitrate, decode and frame step times) over the last minute, each as min, average and max with the worst moments and how long ago they were. `level: nerd` adds the stage times, the balancer's moves and the app's CPU and memory
 - **watch** collects the same numbers for 5 to 120 seconds while you reproduce a problem, then answers

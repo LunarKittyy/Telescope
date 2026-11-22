@@ -43,7 +43,7 @@ The pictures are for looking at a card in every state it has, with real texts an
 
 ### Adding a card's scenes
 
-1. Add a `Scene::new("<id>", || Setup { ... })` to `all()` in `app/src/scenes.rs`. `Setup` holds the services (give `SceneLink` the answer the phone gives), `telescope_config.json` as the window finds it (`main_window_config(true)` is a paired Pixel 8), the width (`WIDTH_THREE_COL` for `picture()`), the starting height (700 for `picture()`, 900 for `grow(win, ..., 900)`), `Page::Settings(tab)` for a settings page and `then` for anything to do once the window has settled.
+1. Add a `Scene::new("<id>", || Setup { ... })` to `all()` in `app/src/scenes.rs`. `Setup` holds the services (give `SceneLink` the answer the phone gives), `telescope_config.json` as the window finds it (`main_window_config(true)` is a paired phone), the width (`WIDTH_THREE_COL` for `picture()`), the starting height (700 for `picture()`, 900 for `grow(win, ..., 900)`), `Page::Settings(tab)` for a settings page and `then` for what to do once the window has settled.
 2. If the plugin needs something only the app sees (another crate's stand-in), add it next to `SceneLink`.
 3. A single card (a plugin's panel 480 px wide with 16 px around it) uses `Page::Card { plugin }` with `CARD_WIDTH`. The window hides every other card and the card is cut out with its margin. `mic-off` is the example.
 4. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.

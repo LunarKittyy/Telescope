@@ -41,7 +41,7 @@ Shared plugins come as a `.zip` file.
 Good to know:
 
 - **Updating:** install the new `.zip` the same way. Telescope shows a prompt before it replaces the old version and the plugin's settings are left as they were. The new version starts out switched off like any plugin you add (you decide again whether to trust it)
-- **Changed files:** if something in a plugin's folder changes after you switched it on, Telescope won't run it until you switch it on again. Plugins do not update themselves behind your back
+- **Changed files:** if something in a plugin's folder changes after you switched it on, Telescope won't run it until you switch it on again. Plugins never update themselves behind your back
 - **Broken plugins:** if one fails to start, Telescope starts without it and shows a banner. Its tile on the Plugins tab shows what went wrong and **Copy diagnostics** lists it
 - **Vision pack zips:** Install also takes the vision pack (`Telescope-vision-<system>-<id>.zip`, or `Telescope-matting-<system>-<id>.zip` for Background's High quality). That isn't a plugin. Telescope checks it and installs it in the background and the download banner shows how it goes. If that pack is already downloading or installing, the file isn't used and you can try again once it's done
 - **The folder:** installed plugins live in `~/.config/telescope/plugins` on Linux and `%APPDATA%\Telescope\plugins` on Windows. **Open plugins folder** on the tab takes you there and copying a plugin's folder in yourself works too

@@ -35,8 +35,8 @@ Shaders, cards and `plugin.json` remain exactly as they are for Lua. A WASM plug
 
 While Lua is the only runtime these rules leave the WASM path open.
 
-- `guest.rs`, `GuestPlugin` and `HOST_API` don't mention Lua or take a Lua type. Arguments and answers are `serde_json::Value`.
-- A new host method goes into `HOST_API` with its arguments named and doesn't become a Lua-only global. Lua's `host` table is built from `HOST_API` at load and picks up the new method without a change.
+- `guest.rs`, `GuestPlugin` and `HOST_API` must not mention Lua or take a Lua type. Arguments and answers are `serde_json::Value`.
+- A new host method goes into `HOST_API` with its arguments named and must not become a Lua-only global. Lua's `host` table is built from `HOST_API` at load and picks up the new method without a change.
 - Plugin-local services (translations, the plugin's own files) live on `PluginContext`, which every runtime reaches through `HostCalls::context()`.
-- Hooks don't hand a guest a handle, a callback or any other thing it could hold on to. Requests that finish later arrive as `request_done` events.
+- Hooks must not hand a guest a handle, a callback or any other thing it could hold on to. Requests that finish later arrive as `request_done` events.
 - `tests/plugin_api.txt` freezes the hooks, host methods, events, permissions and shader names. A WASM host has to pass the same list.

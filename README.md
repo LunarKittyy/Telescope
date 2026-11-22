@@ -49,7 +49,7 @@ Plug the phone in or use Wi-Fi and run up to four phones at once, each as its ow
   </tr>
   <tr>
     <td valign="top"><img src="site/media/one-picture.avif" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Put the cameras you run side by side, in a grid or in your own layout, for apps that take only one camera.</td>
-    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straighten any flat thing the phone looks at, like a page or a drawing, to make it face the camera head-on.</td>
+    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straighten something flat the phone looks at, like a page or a drawing, to make it face the camera head-on.</td>
     <td valign="top"><img src="site/media/fun.avif" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Add clones, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
   </tr>
 </table>

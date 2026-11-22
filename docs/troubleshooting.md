@@ -98,7 +98,7 @@ Hover the status line of the Connection panel and its tooltip names the reason (
 Telescope isn't open on the phone, or the phone is on another network and not plugged in. Open Telescope on the phone and leave it on screen.
 
 **"Can't reach the phone" after reinstalling the phone app**
-A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. Telescope shows a prompt asking whether it's the same phone and, if you answer yes, applies the old settings and presets.
+A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. A banner asks whether it's the same phone and **Yes** moves the old settings and presets over to it.
 
 **"Can't reach <phone>" banner while streaming**
 The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If the stream is still running the picture returns without you doing anything. Otherwise click **Start streaming**.

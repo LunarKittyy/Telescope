@@ -21,11 +21,11 @@ How the desktop app in `rust/` is split up and the rules behind that split, for 
 | `shell` | The window, the Settings window, the stream flow, the Camera and Preview cards | `core`, `ui-kit` |
 | `app` | `telescope-rs` itself, which builds every crate's part and hands them to the shell as `core::services::Services` | everything |
 
-Crates only meet through traits in `core`. The shell doesn't name `link` or `media`. It gets a `dyn Link` and a `dyn Media` from the binary. `app/tests/architecture.rs` fails when a crate's `Cargo.toml` reaches past that. `core` only grows. A new event, host method or trait method gets added next to the old ones rather than changing them.
+Crates only meet through traits in `core`. The shell never names `link` or `media`. It gets a `dyn Link` and a `dyn Media` from the binary. `app/tests/architecture.rs` fails when a crate's `Cargo.toml` reaches past that. `core` only grows. A new event, host method or trait method gets added next to the old ones rather than changing them.
 
 ## The rules
 
-**Plugins don't know about each other.** Don't use another plugin's types or call its methods. To share something:
+**Plugins don't know about each other.** A plugin must not use another plugin's types or call its methods. To share something:
 
 - put an event on the bus (add an `Event` variant in `core::event` with a comment saying when it fires)
 - go through `Host` for what the window already has, like the canvas size
@@ -45,7 +45,7 @@ Crates only meet through traits in `core`. The shell doesn't name `link` or `med
 
 **A frame's path is written down.** Each plugin that changes frames names its `FrameStage` (view, geometry, reading, background, effects, colour, privacy, overlay, combine, cover, final) and frames go through the stages in that order. Pick the stage by what has to come before and after and ignore where a plugin sits in `shell::plugins::ORDER`, which only orders plugins within a stage. A plugin whose work belongs at two places in the path (Filters cleans up before the grade and finishes after it) names the second place through `Plugin::staged_frame_steps`, which hands out steps with a stage each. Frame steps run in the Colour stage after the colour pipeline's own, which is how a step can follow the grade.
 
-**Cards fold without plugins knowing.** The window folds cards from what the kit's widgets built. A plugin builds its card completely and doesn't list titles or call fold code.
+**Cards fold without plugins knowing.** The window folds cards from what the kit's widgets built. A plugin builds its card completely and must not list titles or call fold code.
 
 **Each hook means one thing.** `on_stream_start` and `on_stream_stop` are for a stream that really starts or ends. `on_focus_gained` and `on_focus_lost` are for the panels moving between streams that continue running. Events about a stream carry its source id. A card about the shown stream compares it with the focused one.
 
@@ -57,11 +57,11 @@ Crates only meet through traits in `core`. The shell doesn't name `link` or `med
 
 Built-in plugins are Rust but plugins people add are Lua scripts and a WASM module could be next. Neither can hold a Rust reference. Whatever a plugin and the host hand each other is data that could be written out as JSON:
 
-- Hooks get `&mut dyn Host` for the length of the call only. Host methods take strings, `serde_json::Value` and small serialisable structs from `core::host`.
+- Hooks get `&mut dyn Host` for the length of the call and no handle to hold on to. Host methods take strings, `serde_json::Value` and small serialisable structs from `core::host`.
 - Requests that finish later give a `RequestId` and an `Event::RequestDone`. Picks on the preview arrive as `Event::PreviewPicked`.
 - A plugin gets the stream's source id and calls `host.phone_control()` to reach the phone.
 - A card or settings section is a `.slint` component plus its properties (`ui::UiSpec`). The plugin changes properties with `host.set_ui_props()` and hears its callbacks as `ui::UiEvent`. A Lua plugin's card works exactly the same way.
-- Frame work is a `FrameStep` the plugin hands out and replaces when its settings change (`host.refresh_frame_step()`). Rust plugins give a `Cpu` step, Lua and WASM ones a `Shader` step (WGSL plus uniforms as data), and a change that can go either way gives an `Either` step, which `core::balance` moves off the card while a game keeps it busy. The stream thread doesn't call methods on a plugin or touch its state.
+- Frame work is a `FrameStep` the plugin hands out and replaces when its settings change (`host.refresh_frame_step()`). Rust plugins give a `Cpu` step, Lua and WASM ones a `Shader` step (WGSL plus uniforms as data), and a change that can go either way gives an `Either` step, which `core::balance` moves off the card while a game keeps it busy. The stream thread must not call methods on a plugin or touch its state.
 - A Rust step whose job is to hide something (Privacy blur, the wait screen) declares that with `CpuStep::hides`. A step that panics or ends up skipped makes the pipeline send a dark frame and withhold the clear one it was given. A pipeline can also run only those steps again on the frame already out (`FramePipeline::hide_again`) to stop a stalled stream showing it the moment one changes. Background is a comfort effect. Its `hides()` and `set_hiding` are both false. Settings changes leave the current picture showing. It doesn't block unattended photos. Its last good mask is mapped from the geometry it was made for onto each current frame while a fresh mask is computed.
 - A plugin that hides also tells the host whether it's hiding at the moment, with `Host::set_hiding`, each time that changes (a device-local plugin's report without a stream belongs to the shown camera only and is sent again whenever the shown camera changes, while a plugin that isn't device-local speaks for every stream). Photos come straight off the phone and skip the frame steps. A plugin that takes them unattended asks `picture_hidden` and sets `"skip_if_hidden": true` on the request. The host checks again right before the request leaves. A plugin with hiding steps that hasn't reported counts as hiding.
 - Events serialise as `{"event": "<name>", ...}`. `plugin-host` shows the full shape. Its `GuestPlugin` turns any runtime that speaks JSON into a `Plugin` and `call_host` is that runtime's only way back in.

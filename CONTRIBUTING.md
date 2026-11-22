@@ -59,14 +59,14 @@ Fill in the [template](.github/pull_request_template.md). The comments in it exp
 
 New texts go through `strings.xml` on the phone and `tr()` on the desktop so they can be translated ([Translating](docs/development/translating.md) has the details). Write them the way the rest of the app does:
 
-- Tooltips and descriptions describe what you can do with a control, in the imperative ("Set the gain back to default"), and not what the control does.
+- Tooltips and descriptions describe what you can do with a control, in the imperative ("Set the gain back to default", not "Puts the gain back").
 - Statuses state what's true or what's needed ("Restart required", not "Waits for a restart").
 - One sentence is usually enough. Explanations and edge cases go in `docs/`.
 - British spelling (colour, centre).
 
 ### Using AI tools
 
-You can use whatever tools you like but you're responsible for what you submit. Read it, test it and make it as short and clear as if you'd written it by hand. You need to be able to answer questions about your change yourself. Pull requests that are clearly generated with no effort behind them get closed. (And if you can, please don't use Gemini for coding, it causes more harm than good.)
+You can use whatever tools you like but you're responsible for what you submit. Read it, test it and make it as short and clear as if you'd written it by hand. You should be able to answer questions about your change yourself. Pull requests that are clearly generated with no effort behind them get closed. (And if you can, please don't use Gemini for coding, it causes more harm than good.)
 
 ## Keeping docs fresh
 

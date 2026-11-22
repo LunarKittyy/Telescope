@@ -17,7 +17,7 @@ System integration, keyboard shortcuts, the MCP server and plugins.
 <details>
 <summary><b>Folding cards</b></summary>
 
-Click a card's title to fold it down to its header and click again to open it. Section titles inside a card work the same way. Folds are remembered after a restart and saved once for the app and not for each phone. Shortcuts still work on folded controls. Tab reaches the titles and Space or Enter folds them.
+Click a card's title to fold it down to its header and click again to open it. Section titles inside a card work the same way. Folds are remembered after a restart and are the same for every phone. Shortcuts still work on folded controls. Tab reaches the titles and Space or Enter folds them.
 
 The **Look** section of General in Settings picks the window's look (**Dark**, **Classic**, **OLED** or **Light**) and the **Card colours**. **Monochrome** puts every card in the app's purple rather than its own colour.
 

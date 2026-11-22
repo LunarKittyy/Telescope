@@ -72,7 +72,7 @@ Windows 11 added `MFCreateVirtualCamera`, which registers a camera backed by a m
 
 ## The phone app
 
-On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, each with its reason and an Allow button (plus Microphone once a desktop asks for it). No request is made unprompted.
+On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, each with its reason and an Allow button (plus Microphone once a desktop asks for it). The app doesn't ask for any of them unprompted.
 
 ### Servers
 
@@ -96,7 +96,7 @@ The app also enumerates the **physical sub-cameras** of logical multi-camera gro
 
 ### Copy diagnostics
 
-Copies the app version, device info, current stream state, recent transitions and errors, what each camera supports and the last 3 streams' reports (stored in a small file). It doesn't include the pairing token, a URL or raw config.
+Copies the app version, device info, current stream state, recent transitions and errors, what each camera supports and the last 3 streams' reports (stored in a small file). It never includes the pairing token, a URL or raw config.
 
 Tapping the version line five times in phone Settings reveals a developer **Camera probe** action beside **Copy diagnostics**. It opens a standalone screen that measures Camera2 limits, output frame durations, repeating long-exposure behaviour, full-size burst rates, vendor keys, processing modes and session combinations across every lens (main lens first, about 10 to 15 minutes on a stand). It shares an exclusive camera owner (`CameraOwnership`) with stream startup, refuses or stops if the phone gets hot, and persists only its cached report (`camera2_probe.txt`) for manual copying.
 
@@ -133,7 +133,7 @@ Tapping the version line five times in phone Settings reveals a developer **Came
 
 ### How it works
 
-- **Plugins.** The window is a thin host. Whatever has a card is a `Plugin` and plugins don't call each other. They use the event bus and the host. The rules are in [rust/ARCHITECTURE.md](../../rust/ARCHITECTURE.md)
+- **Plugins.** The window is a thin host. Each part with a card is a `Plugin`. Plugins never call each other. They use the event bus and the host. The rules are in [rust/ARCHITECTURE.md](../../rust/ARCHITECTURE.md)
 - **Layout.** A plugin names a column (left, right or center) and the window picks where it lands. Wide windows get three columns, below about 1300 px the rails merge and below about 900 px all of it stacks
 - **Frame pipeline.** Each frame runs through every plugin's frame step, in the order of the stages, on the stream's own thread, each on the graphics card or the processor as the step needs. The last step letterboxes it to the canvas. A plugin hands out a new step when its settings change. Every stream (shown or not) runs the settings it had when the step was made
 - **Several streams.** Each streaming source has its own session and `StreamWorker`, feeding one of up to four virtual cameras. One is focused (the panels show it). `Sessions` holds the bookkeeping and the stream flow does the starting, stopping and focus changes
@@ -142,7 +142,7 @@ Tapping the version line five times in phone Settings reveals a developer **Came
 - **Reconnecting.** A dropped stream retries every second and re-resolves the route every 3 seconds, falling back to Wi-Fi when a cable is pulled. The virtual camera remains open meanwhile and every setting is resent after reconnecting
 - **Control client.** One background thread posts commands to `/v1/control` in order. Queued requests for the same action collapse to the latest value, except camera switches. Failed requests retry for up to 15 seconds
 - **Config.** One versioned JSON file with a debounced save. Camera, output, transform and monitoring settings are stored per phone id, connection settings and the canvas are global. A config from the previous major version carries over its global settings and drops pairings. An unreadable config is backed up as `telescope_config.json.invalid-<timestamp>`
-- **Linux root commands.** Every v4l2loopback operation is one `pkexec sh -c "..."` call so there's one password prompt. Without pkexec or an agent `sudo -n` is tried, and otherwise a command to paste is handed back. `sudo` doesn't run where it could wait for a password
+- **Linux root commands.** Every v4l2loopback operation is one `pkexec sh -c "..."` call so there's one password prompt. Without pkexec or an agent `sudo -n` is tried, and otherwise a command to paste is handed back. `sudo` never runs where it could wait for a password
 - **Single instance.** A local lock (a Unix socket on Linux, port 47823 on Windows). A second launch raises the first window
 - **Bitrate.** Auto is about 8 Mbps at 1080p30 scaled by size and fps and capped at 30 Mbps. Dynamic goes up to about 2.5 times that and follows the link. An encoder that fails mid-stream falls back to Heavy
 - **Phone address discovery.** `pairing_addresses()` in `link/src/net.rs` lists the machine's real network adapters instead of asking the routing table, since under a VPN the default route belongs to the VPN. Containers and VM adapters are dropped, the rest are ranked LAN first then Tailscale, and the QR code contains at most 8

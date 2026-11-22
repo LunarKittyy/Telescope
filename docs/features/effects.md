@@ -11,7 +11,7 @@ Optional, off until you switch it on under **Extras** in the Plugins tab. Its ca
 - **Invisibility cloak** fills in the empty room wherever you are. Take the empty room, step back in and you're gone. A plain wall behind you works better than one the same colour as your clothes. Edges are cleaner with the vision download
 - **Light painting** leaves trails behind bright objects. Wave a torch or a phone screen around in a dark room. **Trails** sets how long they hang around and **Brightness** how bright a light has to be to paint
 - **Slit-scan** shows each band of the picture a little later than the one before, which stretches and bends whatever moves. **Spread** is how many frames the picture spans from one end to the other
-- **Stick figure** draws you as a stick figure on the empty room, or on paper if you haven't taken one. Crossed legs no longer swap sides and in a close-up the head is sized to your shoulders and no part of it is drawn below the picture. It needs the vision download
+- **Stick figure** draws you as a stick figure on the empty room, or on paper if you haven't taken one. Crossed legs no longer swap sides and in a close-up the head is sized to your shoulders and no part of the figure is drawn below the picture. It needs the vision download
 - **Game Boy**, **1998 webcam**, **VHS**, **CRT** and **ASCII** are retro looks with no settings. The 1998 webcam works on a picture 320 pixels wide and costs little processor even at 4K
 - **Datamosh** drops keyframes from the video before it's decoded. The motion in the frames after them then smears over the old picture rather than refreshing it. **Smear** plays each frame's motion up to three extra times and **Clean up** lets one keyframe through to get a clear picture back. It only works on Light (Heavy sends complete pictures with no keyframes to drop) and not with Browser camera. Phones that refresh the picture gradually rather than sending keyframes heal a mosh within about a second and the effect is more of a flicker there
 
@@ -19,7 +19,7 @@ The empty room isn't saved and needs taking again after the phone moves. Switchi
 
 ## Cinema tools
 
-Optional, for judging focus and exposure while you set ISO, shutter and focus manually. It also has framing guides and a level for getting the horizon straight. Switch it on under **Preview tools** in the Plugins tab of Settings. What it draws is only on the preview and apps using the virtual camera do not get any of it.
+Optional, for judging focus and exposure while you set ISO, shutter and focus manually. It also has framing guides and a level for getting the horizon straight. Switch it on under **Preview tools** in the Plugins tab of Settings. What it draws is only on the preview and apps using the virtual camera never get any of it.
 
 - **Focus peaking** outlines what's sharp in red (or green, blue or white). Turn the focus until the outline sits on the thing you care about
 - **Zebras** stripe the parts of the picture that are about to clip to white. They start at 95% brightness and **Zebras from** under Video in Settings moves that between 70 and 100%

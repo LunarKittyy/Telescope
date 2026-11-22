@@ -48,7 +48,7 @@ Optional, for people with a green or blue screen. It swaps the screen behind you
 - **Screen** is **Green**, **Blue** or **Picked**. **Picked** asks you to click the screen on the preview and keys whatever colour is there, which helps with a screen that isn't exactly the usual green or with uneven light
 - **Tolerance** sets how many shades of the screen go (raise it for creases and shadows, lower it if bits of you vanish). **Edges** softens the outline and **Spill** takes the green or blue glow off your edges and skin without touching colours far from the screen's
 - **Behind you** is a **Colour** you pick or a **Picture** (PNG, JPEG, WebP or BMP) scaled to cover the frame
-- If the graphics card fails while Chroma key is on, the picture goes dark until the card works again. It does not send the plain picture with the room showing
+- If the graphics card fails while Chroma key is on, the picture goes dark until the card works again. It never sends the plain picture with the room showing
 - Presets save it like the other picture settings
 
 ## Desk and document mode

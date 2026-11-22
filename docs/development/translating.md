@@ -92,7 +92,7 @@ python tools/i18n.py todo sv      # the untranslated entries, ready to paste in
 python tools/i18n.py status       # how far along each language is
 ```
 
-Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line and VB-Audio's two license lines remain in English by design. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)). They're translated there.
+Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line and VB-Audio's two licence lines remain in English by design. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)). They're translated there.
 
 ## Checking that texts fit
 
