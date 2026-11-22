@@ -404,6 +404,7 @@ pub(crate) mod tests {
     #[derive(Clone, Default)]
     pub struct Sink {
         pub data: Arc<Mutex<Vec<i16>>>,
+        pub opened: Arc<AtomicBool>,
         pub closed: Arc<AtomicBool>,
     }
 
@@ -428,7 +429,10 @@ pub(crate) mod tests {
 
     pub fn sink_opener(sink: &Sink) -> OpenSink {
         let sink = sink.clone();
-        Arc::new(move || Ok(Box::new(SinkHandle(sink.clone(), false)) as Box<dyn MicSink>))
+        Arc::new(move || {
+            sink.opened.store(true, Ordering::SeqCst);
+            Ok(Box::new(SinkHandle(sink.clone(), false)) as Box<dyn MicSink>)
+        })
     }
 
     type Statuses = Arc<Mutex<Vec<(String, String)>>>;
@@ -702,7 +706,8 @@ pub(crate) mod tests {
             Ok(Box::new(f2.clone()) as Box<dyn AudioFeed>)
         }), sink_opener(&sink));
         w.start();
-        assert!(until(|| opening.load(Ordering::SeqCst), 3.0));
+        // The write thread starts on its own schedule: the mic is only held once it has opened it
+        assert!(until(|| opening.load(Ordering::SeqCst) && sink.opened.load(Ordering::SeqCst), 3.0));
         let started = Instant::now();
         w.stop();
         assert!(started.elapsed() < Duration::from_millis(500), "stop waited {:?} for the open", started.elapsed());
@@ -710,5 +715,21 @@ pub(crate) mod tests {
         // The connection the open gives back later is let go of without being read
         std::thread::sleep(Duration::from_millis(2200));
         assert!(!feed.reading.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn stopping_never_leaves_the_virtual_mic_held() {
+        // Stopped before the write thread got going, mid-way, or after: opened means closed once stop returns
+        for lag_ms in [0u64, 1, 5, 20] {
+            let sink = Sink::default();
+            let (mut w, _) = worker("https://phone/v1/audio", Arc::new(|| Ok(Box::new(Silent::default()) as Box<dyn AudioFeed>)),
+                                   sink_opener(&sink));
+            w.start();
+            std::thread::sleep(Duration::from_millis(lag_ms));
+            w.stop();
+            assert!(!sink.opened.load(Ordering::SeqCst) || sink.closed.load(Ordering::SeqCst), "held after a stop at {lag_ms} ms");
+            std::thread::sleep(Duration::from_millis(50));
+            assert!(!sink.opened.load(Ordering::SeqCst) || sink.closed.load(Ordering::SeqCst), "opened after a stop at {lag_ms} ms");
+        }
     }
 }
