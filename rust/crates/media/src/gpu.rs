@@ -20,6 +20,7 @@ use wgpu::naga;
 /// Set on the convert shader's mode to read YUV chroma by index, a sample for its 2 x 2 block, as the CPU does (taps stay 1).
 const BLOCK_CHROMA: u32 = 8;
 /// Set on the convert shader's mode so ToY/ToU/ToV read directly from NV12 planes instead of an RGBA texture.
+#[cfg(all(target_os = "linux", ffmpeg))]
 const FROM_NV12: u32 = 64;
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
 const BLUR: &str = include_str!("shaders/blur.wgsl");
