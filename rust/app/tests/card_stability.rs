@@ -82,7 +82,7 @@ fn the_photos_card_keeps_its_height_when_streaming_starts() {
 fn the_photos_card_keeps_its_rows_when_the_lens_brings_its_choices_and_a_way_to_shoot_is_picked() {
     let before = json!({"take-enabled": false});
     let lens = json!({"take-enabled": true, "mode-enabled": true, "format-enabled": true, "mode-options": ["Normal", "Night"], "format-options": ["JPEG", "RAW"],
-                      "shots-offered": [true, true, true, true], "distortion-enabled": true, "second-key": "exposure_s", "second-options": ["Like the video", "1 s"], "best-enabled": true});
+                      "shots-offered": [true, true, true, true], "distortion-enabled": true, "second-key": "exposure_s", "second-options": ["Video", "1 s"], "best-enabled": true});
     let seen = steps(&mut PhotosPlugin::new(), before, lens.clone(), "Save in");
     assert!((seen[0] - *seen.last().unwrap()).abs() < 0.5, "the lens's choices moved the card's rows: {seen:?}");
     let seen = steps(&mut PhotosPlugin::new(), lens, json!({"shots-index": 1, "slot-key": "burst", "slot-label": "How many", "slot-options": ["2", "3", "4"]}), "Save in");
