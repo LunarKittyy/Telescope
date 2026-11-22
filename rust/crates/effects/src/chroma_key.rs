@@ -240,6 +240,8 @@ pub struct ChromaKeyPlugin {
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     cached: Option<(TablesKey, Arc<Tables>)>,
+    /// The cached tables as the shader's picture: the same one each time the step is made, so the pipeline sees the same step (a new one there makes a dark frame)
+    keys: Option<(Arc<Tables>, Frame)>,
     /// The streams whose cut-out is wanted (Event::CutOutWantedBy), which the step that makes it reads
     wanted: Wanted,
     /// What the host was last told with set_hiding: None until it has been.
@@ -289,6 +291,7 @@ impl ChromaKeyPlugin {
             asked: None,
             pending: true,
             cached: None,
+            keys: None,
             wanted: Wanted::default(),
             told_hiding: None,
             retell_hiding: false,
@@ -591,6 +594,19 @@ impl ChromaKeyPlugin {
         self.cached = Some((id, tables.clone()));
         tables
     }
+
+    /// The tables for key as the shader's picture, made once for each set of tables.
+    fn keys_texture(&mut self, key: [u8; 3]) -> Frame {
+        let tables = self.tables(key);
+        if let Some((made_from, texture)) = &self.keys {
+            if Arc::ptr_eq(made_from, &tables) {
+                return texture.clone();
+            }
+        }
+        let texture = tables.texture();
+        self.keys = Some((tables, texture.clone()));
+        texture
+    }
 }
 
 fn file_name(path: &str) -> String {
@@ -806,10 +822,12 @@ impl Plugin for ChromaKeyPlugin {
         }
         let key = self.key_colour()?;
         self.settle_picture();
-        let keys = self.tables(key).texture();
+        let keys = self.keys_texture(key);
+        // One stand-in for every step, for the same reason as the keys
+        static NO_PICTURE: std::sync::LazyLock<Frame> = std::sync::LazyLock::new(|| Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]));
         let (picture, size, use_picture) = match (&self.picture, self.background) {
             (Some(p), "picture") => (p.clone(), [p.width as f32, p.height as f32], 1.0),
-            _ => (Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]), [1.0, 1.0], 0.0),
+            _ => (NO_PICTURE.clone(), [1.0, 1.0], 0.0),
         };
         let [b, g, r] = self.colour;
         Some(FrameStep::Shader(ShaderStep {

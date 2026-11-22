@@ -971,3 +971,14 @@ fn chroma_cut_out_survives_one_consumers_release() {
     rig.event(Event::CutOutWantedBy { owner: "spout_send".into(), source_id: "phone".into(), on: false });
     assert_eq!(step.touch(&Stream("phone")), Touch::Nothing);
 }
+
+#[test]
+fn the_key_made_again_with_the_same_settings_is_the_same_step() {
+    // The pipeline tells steps apart by their textures: a key made again for another plugin's change mustn't look new, or the camera gets a dark frame
+    let mut p = ChromaKeyPlugin::new();
+    p.set_config(&json!({"on": true, "screen": "green"})).unwrap();
+    let (a, b) = (shader(&mut p), shader(&mut p));
+    for ((name, x), (_, y)) in a.textures.iter().zip(&b.textures) {
+        assert!(Arc::ptr_eq(&x.data, &y.data), "{name} was made again");
+    }
+}
