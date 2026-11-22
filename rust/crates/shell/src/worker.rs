@@ -978,11 +978,6 @@ impl Shared {
 
     /// `hide_cached` for steps just handed over (`install`), or for the ones the pipeline has.
     fn hide_latest(self: &Arc<Self>, install: bool) {
-        // A picture still on the card is read back first, holding no lock, so the steps run on the real picture and not on a dark stand-in that would flash on the camera
-        let on_the_card = [self.slot.latest_picture().map(|(picture, _)| picture), self.replay.lock().unwrap().clone()];
-        for picture in on_the_card.into_iter().flatten().filter(|p| p.landed().is_none()) {
-            picture.land_until(&|| self.stopped());
-        }
         // A replay of the last hand-over that still holds the pipeline is told at once (its wait on the card ends and what it makes is dropped), so this isn't kept waiting for it; the dark frame it stands in for is out meanwhile
         if install && self.next_steps.lock().unwrap().is_some() {
             self.handed.fetch_add(1, Ordering::SeqCst);
@@ -1006,8 +1001,14 @@ impl Shared {
         // The frame that was out before a dark one took its place, while its hiding is still to be run for real
         let pending = self.replay.lock().unwrap().take();
         let cached = pending.clone().unwrap_or(latest);
-        // This is the window's thread, which can't wait for the graphics card: a step that needs it makes the frame dark here, and a picture still on the card is stood in for by a dark one; the worker's thread does the real run
-        let in_hand = cached.landed_or_dark();
+        // This is the window's thread, which can't wait for the graphics card, and a dark stand-in would flash on the camera: a picture still on the card is left as it is out, and the worker's thread lands it and does the real run
+        let Some(in_hand) = cached.landed() else {
+            *self.replay.lock().unwrap() = Some(cached);
+            self.handed.fetch_add(1, Ordering::SeqCst);
+            self.slot.forget_history();
+            self.start_replay();
+            return;
+        };
         let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered, hurried: true, superseded: None };
         let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(in_hand.clone(), &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
@@ -1037,17 +1038,22 @@ impl Shared {
         }
         if changed {
             *self.replay.lock().unwrap() = Some(cached);
-            let (shared, handed) = (self.clone(), self.handed.load(Ordering::SeqCst));
-            // Listed under the lock Stop takes them by, so one started after Stop is either seen by it or not started
-            let mut replays = self.replays.lock().unwrap();
-            replays.retain(|t| !t.is_finished());
-            if self.stopped() {
-                return;
-            }
-            match std::thread::Builder::new().name("hide-replay".into()).spawn(move || shared.replay_hidden(handed)) {
-                Ok(thread) => replays.push(thread),
-                Err(e) => log::error!("Couldn't start the thread that hides the frame on the camera ({e}); it stays dark until the next frame"),
-            }
+            self.start_replay();
+        }
+    }
+
+    /// Runs the real hiding on the frame in `replay` on its own thread.
+    fn start_replay(self: &Arc<Self>) {
+        let (shared, handed) = (self.clone(), self.handed.load(Ordering::SeqCst));
+        // Listed under the lock Stop takes them by, so one started after Stop is either seen by it or not started
+        let mut replays = self.replays.lock().unwrap();
+        replays.retain(|t| !t.is_finished());
+        if self.stopped() {
+            return;
+        }
+        match std::thread::Builder::new().name("hide-replay".into()).spawn(move || shared.replay_hidden(handed)) {
+            Ok(thread) => replays.push(thread),
+            Err(e) => log::error!("Couldn't start the thread that hides the frame on the camera ({e}); it stays as it is until the next frame"),
         }
     }
 
@@ -3507,6 +3513,69 @@ mod tests {
         w.stop();
         let seen = seen.lock().unwrap().clone();
         assert!(seen.iter().all(|luma| *luma == 255 || *luma >= 100), "a dark frame went out in place of the blurred picture: {seen:?}");
+    }
+
+    /// A picture on the card that doesn't land on any thread until the gate opens (a backed-up card).
+    struct StuckOnTheCard(Frame, std::sync::OnceLock<Frame>, Arc<AtomicBool>);
+
+    impl telescope_core::media::CardPicture for StuckOnTheCard {
+        fn land(&self) -> Frame {
+            while !self.2.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            self.1.get_or_init(|| self.0.clone()).clone()
+        }
+        fn landed(&self) -> Option<Frame> {
+            self.1.get().cloned()
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    /// `HalvesOnTheCard` with pictures that stay on the card until the gate opens.
+    struct HalvesOnAStuckCard(Arc<AtomicBool>);
+
+    impl FramePipeline for HalvesOnAStuckCard {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
+            let pixels = frame.clone();
+            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(StuckOnTheCard(pixels, std::sync::OnceLock::new(), self.0.clone()))))
+        }
+        fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
+            Some(grey(frame.width, frame.height, frame.data[0] / 2))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn blur_now_doesnt_hold_the_window_thread_while_the_card_is_backed_up() {
+        let (cams, _log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::<WorkerEvent>::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let gate = Arc::new(AtomicBool::new(false));
+        let _opens_gate = OpensOnDrop(gate.clone());
+        let media = WithPipeline(Box::new({
+            let gate = gate.clone();
+            move || Box::new(HalvesOnAStuckCard(gate.clone()))
+        }));
+        let (state, seen) = (Arc::new(Mutex::new(None)), Arc::new(Mutex::new(Vec::new())));
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(state.clone(), seen.clone()));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(setup(opener), Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| !seen.lock().unwrap().is_empty());
+        let began = Instant::now();
+        w.set_steps(privacy_step());
+        w.hide_behind();
+        assert!(began.elapsed() < Duration::from_secs(2), "the window's thread waited for the card");
+        assert!(seen.lock().unwrap().iter().all(|luma| *luma == 255), "something was put out before the picture landed");
+        gate.store(true, Ordering::SeqCst);
+        wait_for(|| seen.lock().unwrap().contains(&100));
+        w.stop();
     }
 
     /// Makes every picture on the card.
