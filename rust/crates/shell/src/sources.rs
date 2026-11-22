@@ -52,8 +52,8 @@ pub enum Report {
     VersionChecked { source_id: String, session_id: u64, phone: PairedPhone, version: String },
     /// recovery moved the stream to a new route: its session there.
     Moved { source_id: String, session_id: u64, generation: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
-    /// A hand-over with the camera off opened its session on url (None: it couldn't).
-    HandedOver { source_id: String, session_id: u64, url: String, session: Option<Arc<dyn PhoneSession>> },
+    /// A hand-over with the camera off opened its session on url (the slot stays empty when it couldn't).
+    HandedOver { source_id: String, session_id: u64, url: String, opened: HandoverSlot },
     /// The regular heat check's answer.
     Heat { source_id: String, session_id: u64, state: Option<Value> },
     /// How fast the phone's camera goes, for frames arriving slowly (0: it doesn't say).
@@ -403,12 +403,15 @@ struct PhoneInner {
     rate_check_busy: bool,
 }
 
+/// Where a hand-over keeps the session it opened, until the stream takes it or it goes.
+pub type HandoverSlot = Arc<Mutex<Option<Arc<dyn PhoneSession>>>>;
+
 /// A hand-over under way: the session it's for, the route and URL it tries, and the session it opened there.
 struct Handover {
     session_id: u64,
     route: RouteSpec,
     url: String,
-    opened: Arc<Mutex<Option<Arc<dyn PhoneSession>>>>,
+    opened: HandoverSlot,
 }
 
 /// The window's hooks the timers call, with what fired and the source id.
@@ -570,7 +573,7 @@ impl PhoneKind {
     pub fn begin_hand_over(&self, session_id: u64, route: RouteSpec, url: String, camera_off: bool) -> Option<Opener> {
         let phone = self.phone()?;
         let controls = self.session().and_then(|s| s.controls());
-        let opened: Arc<Mutex<Option<Arc<dyn PhoneSession>>>> = Arc::default();
+        let opened: HandoverSlot = Arc::default();
         self.inner.borrow_mut().handover = Some(Handover { session_id, route: route.clone(), url: url.clone(), opened: opened.clone() });
         let link = self.link.clone();
         let held = opened.clone();
@@ -584,10 +587,13 @@ impl PhoneKind {
             Ok(session)
         };
         if camera_off {
-            let (post, sid, url) = (self.post.clone(), self.sid(), self.inner.borrow().handover.as_ref().map(|h| h.url.clone()).unwrap_or_default());
+            let (post, sid, slot) = (self.post.clone(), self.sid(), held.clone());
+            let url = self.inner.borrow().handover.as_ref().map(|h| h.url.clone()).unwrap_or_default();
             std::thread::spawn(move || {
-                let session = open().map_err(|e| log::info!("Moving the stream failed: {e}")).ok();
-                post(Report::HandedOver { source_id: sid, session_id, url, session });
+                if let Err(e) = open() {
+                    log::info!("Moving the stream failed: {e}");
+                }
+                post(Report::HandedOver { source_id: sid, session_id, url, opened: slot });
             });
             return None;
         }
@@ -639,6 +645,24 @@ impl PhoneKind {
 
     pub fn handing_over(&self) -> bool {
         self.inner.borrow().handover.is_some()
+    }
+
+    /// A camera-off hand-over for session_id came back with what it opened, while current is the stream's session: true
+    /// when the stream moves over now (moved_over follows). One that isn't the hand-over under way (stopped or called off
+    /// meanwhile, maybe with a newer one to the same route begun since) only lets go of what it opened.
+    pub fn handed_over(&self, current: Option<u64>, session_id: u64, url: &str, opened: &HandoverSlot) -> bool {
+        let ours = self.inner.borrow().handover.as_ref().is_some_and(|h| Arc::ptr_eq(&h.opened, opened));
+        if !ours {
+            if let Some(s) = opened.lock().unwrap().take() {
+                std::thread::spawn(move || s.release());
+            }
+            return false;
+        }
+        if current == Some(session_id) && opened.lock().unwrap().is_some() {
+            return true;
+        }
+        self.hand_over_failed(url, true);
+        false
     }
 
     /// Where this stream's phone takes photos: its stream base and the phone's pairing, once it streams.
@@ -1605,10 +1629,67 @@ mod tests {
         while posted.lock().unwrap().is_empty() && std::time::Instant::now() < until {
             std::thread::sleep(Duration::from_millis(10));
         }
-        let Some(Report::HandedOver { session_id: 1, url, session: Some(_), .. }) = posted.lock().unwrap().pop() else { panic!("no session") };
+        let Some(Report::HandedOver { session_id: 1, url, opened, .. }) = posted.lock().unwrap().pop() else { panic!("no report") };
+        assert!(phone.handed_over(Some(1), 1, &url, &opened));
         assert!(phone.moved_over(1, &url).is_some());
         assert_eq!(*link.committed.lock().unwrap(), ["p1"]);
         assert_eq!(phone.url(), "https://127.0.0.1:41000/v1/video#SER");
+    }
+
+    /// The next camera-off hand-over report the phone posts.
+    fn handed_over_report(posted: &Posted) -> (u64, String, HandoverSlot) {
+        let until = std::time::Instant::now() + Duration::from_secs(2);
+        loop {
+            if let Some(Report::HandedOver { session_id, url, opened, .. }) = posted.lock().unwrap().pop() {
+                return (session_id, url, opened);
+            }
+            assert!(std::time::Instant::now() < until, "no report");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    /// What the window does with a hand-over report while current is the stream's session.
+    fn deliver(phone: &PhoneKind, current: u64, (session_id, url, opened): &(u64, String, HandoverSlot)) {
+        if phone.handed_over(Some(current), *session_id, url, opened) {
+            phone.moved_over(current, url);
+        }
+    }
+
+    #[test]
+    fn a_hand_over_from_before_a_restart_leaves_the_new_one_to_the_same_route_alone() {
+        let (phone, link, _, posted) = wifi_phone();
+        assert!(phone.begin_hand_over(1, usb(), USB_URL.into(), true).is_none());
+        let stale = handed_over_report(&posted);
+        // The stream stopped before that session opened, and its next session hands over to the same route
+        drop(phone.inner.borrow_mut().handover.take());
+        assert!(phone.begin_hand_over(2, usb(), USB_URL.into(), true).is_none());
+        let newer = handed_over_report(&posted);
+        deliver(&phone, 2, &stale);
+        assert!(phone.handing_over(), "the new hand-over goes on");
+        assert!(link.dropped.lock().unwrap().is_empty(), "and its route isn't held back as failing");
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(link.opened.lock().unwrap()[0].released.load(Ordering::SeqCst), "the old hand-over's session goes");
+        deliver(&phone, 2, &newer);
+        assert_eq!(*link.committed.lock().unwrap(), ["p1"]);
+        assert_eq!(phone.url(), "https://127.0.0.1:41000/v1/video#SER");
+    }
+
+    #[test]
+    fn a_hand_over_called_off_and_begun_again_moves_once_onto_the_newer_session() {
+        let (phone, link, _, posted) = wifi_phone();
+        assert!(phone.begin_hand_over(1, usb(), USB_URL.into(), true).is_none());
+        let stale = handed_over_report(&posted);
+        // The camera came on and off again before the first one's report got to the window
+        drop(phone.inner.borrow_mut().handover.take());
+        assert!(phone.begin_hand_over(1, usb(), USB_URL.into(), true).is_none());
+        let newer = handed_over_report(&posted);
+        deliver(&phone, 1, &stale);
+        deliver(&phone, 1, &newer);
+        std::thread::sleep(Duration::from_millis(50));
+        let opened = link.opened.lock().unwrap();
+        assert_eq!(*link.committed.lock().unwrap(), ["p1"], "moved once");
+        assert!(!opened[1].released.load(Ordering::SeqCst), "the newer session the stream is on stays open");
+        assert!(opened[0].released.load(Ordering::SeqCst), "and the older one's goes");
     }
 
     // test_sources.py: what a phone decides, against a stand-in window
