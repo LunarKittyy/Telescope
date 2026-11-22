@@ -1536,6 +1536,50 @@ mod tests {
     }
 
     #[test]
+    fn odd_sizes_read_each_chroma_sample_for_its_own_pixels_and_write_it_from_them() {
+        let noise = |n: usize, seed: u32| -> Vec<u8> { let mut x = seed; (0..n).map(|_| { x = x.wrapping_mul(1_664_525).wrapping_add(1_013_904_223); (x >> 24) as u8 }).collect() };
+        for (w, h) in [(853usize, 479usize), (33, 17), (1, 1), (31, 3), (65, 2), (2, 65)] {
+            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+            let data = noise(w * h + 2 * cw * ch, (w * h) as u32);
+            for format in [PixelFormat::I420, PixelFormat::Nv12] {
+                let mut bytes = data.clone();
+                if format == PixelFormat::Nv12 {
+                    let (us, vs) = (&data[w * h..w * h + cw * ch], &data[w * h + cw * ch..]);
+                    for i in 0..cw * ch {
+                        bytes[w * h + i * 2] = us[i];
+                        bytes[w * h + i * 2 + 1] = vs[i];
+                    }
+                }
+                let got = frame_rgb(&Frame::new(w as u32, h as u32, format, bytes)).unwrap();
+                for y in 0..h {
+                    for x in 0..w {
+                        let (c, d, e) = ((data[y * w + x] as f32 - 16.0).max(0.0) * 1.164_383, data[w * h + (y / 2) * cw + x / 2] as f32 - 128.0, data[w * h + cw * ch + (y / 2) * cw + x / 2] as f32 - 128.0);
+                        let want = [byte(c + 1.596_027 * e), byte(c - 0.391_762 * d - 0.812_968 * e), byte(c + 2.017_232 * d)];
+                        for k in 0..3 {
+                            assert!(got[(y * w + x) * 3 + k].abs_diff(want[k]) <= 1, "{format:?} {w}x{h} at {x},{y}");
+                        }
+                    }
+                }
+            }
+            // The other way: each chroma sample is of the pixels it covers (an odd last column or row only of what's there)
+            let rgb = noise(w * h * 3, 5);
+            let mut planes = vec![0u8; w * h + 2 * cw * ch];
+            rgb_to_420(&rgb, w, h, &mut planes, false);
+            for cy in 0..ch {
+                for cx in 0..cw {
+                    let cell: Vec<usize> = [(0, 0), (1, 0), (0, 1), (1, 1)].iter().map(|(dx, dy)| ((cy * 2 + dy).min(h - 1), (cx * 2 + dx).min(w - 1))).map(|(y, x)| y * w + x).collect();
+                    let mean = |k: usize| cell.iter().map(|&i| rgb[i * 3 + k] as f32).sum::<f32>() / 4.0;
+                    let (r, g, b) = (mean(0), mean(1), mean(2));
+                    let u = 128.0 - 0.148_223 * r - 0.290_993 * g + 0.439_216 * b;
+                    let v = 128.0 + 0.439_216 * r - 0.367_788 * g - 0.071_427 * b;
+                    assert!(planes[w * h + cy * cw + cx].abs_diff(byte(u)) <= 1, "u at {cx},{cy} of {w}x{h}");
+                    assert!(planes[w * h + cw * ch + cy * cw + cx].abs_diff(byte(v)) <= 1, "v at {cx},{cy} of {w}x{h}");
+                }
+            }
+        }
+    }
+
+    #[test]
     fn a_small_picture_from_the_planes_is_the_shrunk_full_one_to_a_few_levels() {
         for format in [PixelFormat::I420, PixelFormat::Nv12] {
             // the most levels off each size measures, the sizes that don't divide a little further

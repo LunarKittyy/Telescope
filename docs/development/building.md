@@ -87,7 +87,7 @@ ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=30 -pix_fmt yuyv422 -f v4l2 /
 Some things are shared because there's only one of them:
 
 - Only one of the phone apps can be open at a time because they use the same ports. The one you open takes the ports over within a few seconds of the other closing
-- Only one desktop can stream at a time because both stream into the same virtual camera
+- Only one desktop can stream at a time because both stream into the same virtual camera. The dev desktop leaves that camera alone while nothing streams (no wait screen, no watching who reads it); pass `--device /dev/videoN` to give it a camera of its own
 - Settings actions that change the system (loading v4l2loopback, installing the Windows driver) affect both
 
 ## Versions

@@ -1432,3 +1432,18 @@ fn the_first_mask_after_a_cold_open_over_the_age_limit_is_still_fresh() {
     assert!(snap.at - asked >= 0.5, "the mask's own time went by the start, not the run");
     assert!(snap.frame_at - asked < 0.2, "its frame's time was taken after the open: {:.2}s", snap.frame_at - asked);
 }
+
+#[test]
+fn a_mask_after_the_view_turned_is_stamped_with_the_frame_it_was_run_for() {
+    for waiting in [true, false] {
+        let (v, _) = finder(Duration::from_millis(1));
+        if waiting { v.wait_for_masks(); }
+        let ask = |seq: u64| v.newest_normal_snapshot("a", true, seq, 256, 144, Box::new(|| Some(someone_at(50))), v.view_epoch(), MaskView::default()).unwrap();
+        assert_eq!(ask(1).seq, 1);
+        v.stream("a").mask.lock().unwrap().at = monotonic() + 100.0;
+        v.drop_masks();
+        // What was kept is gone, so this frame is run afresh and is the one the mask is of
+        assert_eq!(ask(7).seq, 7, "waiting {waiting}");
+        assert_eq!(ask(8).seq, 7, "waiting {waiting}");
+    }
+}
