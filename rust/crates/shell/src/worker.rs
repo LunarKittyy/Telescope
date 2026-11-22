@@ -852,7 +852,9 @@ impl Shared {
         let open = telescope_core::media::OpenStop::default();
         self.opening.lock().unwrap().push(open.clone());
         if self.stopped() {
-            open.stop();
+            // Not even begun: a hand-over's opener opens the phone's session on its route first, and nothing would release that one
+            self.opening.lock().unwrap().retain(|o| !o.is(&open));
+            return Err("stopped".into());
         }
         let opened = opener(&open);
         self.opening.lock().unwrap().retain(|o| !o.is(&open));
@@ -2689,6 +2691,17 @@ mod tests {
 
     fn moves(log: &Log) -> Vec<WorkerEvent> {
         log.lock().unwrap().iter().filter(|e| matches!(e, WorkerEvent::Moved(_) | WorkerEvent::MoveFailed(_))).cloned().collect()
+    }
+
+    #[test]
+    fn a_route_isnt_opened_for_a_stream_that_has_stopped() {
+        // A hand-over's opener opens the phone's session on the new route first, which only its own release lets go of
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let w = worker(Arc::default(), cams, log);
+        w.stop();
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(1)])]);
+        assert!(w.shared.open_cap_with(&opener).is_err());
+        assert_eq!(opens.calls(), 0);
     }
 
     #[test]
