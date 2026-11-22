@@ -23,16 +23,23 @@ use vtable::VRc;
 ///
 /// Each instance installs its bindings, handlers, models and function calls as closures that need an expression of their
 /// own, and the interpreter deep-copied the expression for each one, so every row a repeater created copied every binding
-/// of its component. The copies are keyed by the expression's address, which stays put while the unit lives, and are
-/// freed with the unit. Expressions don't change after the unit is built, except through the internal
+/// of its component. The shared copies are keyed by the expression's (or its slot's) address, which stays put while the
+/// unit lives, and are freed with the unit. An expression in a slot is moved out rather than copied, so it exists once. Expressions don't change after the unit is built, except through the internal
 /// `CompilationResult::compilation_unit` API; handing the unit out there switches the sharing off (`unshare`).
 pub struct Unit {
     unit: CompilationUnit,
     shared: std::cell::RefCell<
         std::collections::HashMap<usize, Rc<Expression>, std::hash::BuildHasherDefault<PtrHasher>>,
     >,
+    /// Expressions moved out of their slot (keyed by the slot's address); the slot holds `MOVED` meanwhile.
+    moved: std::cell::RefCell<
+        std::collections::HashMap<usize, Rc<Expression>, std::hash::BuildHasherDefault<PtrHasher>>,
+    >,
     unshared: std::cell::Cell<bool>,
 }
+
+/// What a slot holds once its expression lives in `Unit::moved`; nothing evaluates it, since every reader of such a slot goes through `Unit::shared_slot`.
+const MOVED: &str = "telescope: expression moved to Unit::shared_slot";
 
 #[derive(Default)]
 pub struct PtrHasher(u64);
@@ -56,7 +63,26 @@ impl std::hash::Hasher for PtrHasher {
 
 impl Unit {
     pub fn new(unit: CompilationUnit) -> Self {
-        Self { unit, shared: Default::default(), unshared: Default::default() }
+        Self { unit, shared: Default::default(), moved: Default::default(), unshared: Default::default() }
+    }
+
+    /// The shared copy of the expression in `slot`, which must be a slot of this unit read only through here. The first
+    /// call moves the expression out instead of copying it, so the unit holds it once.
+    pub fn shared_slot(&self, slot: &i_slint_compiler::llr::MutExpression) -> Rc<Expression> {
+        if self.unshared.get() {
+            return Rc::new(slot.borrow().clone());
+        }
+        let key = slot as *const i_slint_compiler::llr::MutExpression as usize;
+        let mut moved = self.moved.borrow_mut();
+        if let Some(e) = moved.get(&key) {
+            return e.clone();
+        }
+        let e = Rc::new(std::mem::replace(
+            &mut *slot.borrow_mut(),
+            Expression::StringLiteral(SmolStr::new_static(MOVED)),
+        ));
+        moved.insert(key, e.clone());
+        e
     }
 
     /// The shared copy of `e`, which must be an expression of this unit.
@@ -76,6 +102,11 @@ impl Unit {
     pub fn unshare(&self) -> &CompilationUnit {
         self.unshared.set(true);
         self.shared.borrow_mut().clear();
+        for (key, e) in self.moved.borrow_mut().drain() {
+            // SAFETY: the key is the address of a slot inside self.unit, which sits in an Rc and is never changed in shape
+            let slot = unsafe { &*(key as *const i_slint_compiler::llr::MutExpression) };
+            *slot.borrow_mut() = Rc::try_unwrap(e).unwrap_or_else(|e| (*e).clone());
+        }
         &self.unit
     }
 }
