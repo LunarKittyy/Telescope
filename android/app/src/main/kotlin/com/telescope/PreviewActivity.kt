@@ -344,7 +344,13 @@ class PreviewActivity : LookActivity() {
                     s.setRepeatingRequest(request, null, handler)
                 } catch (e: Exception) { lostCamera(e) }
             }
-            override fun onConfigureFailed(s: CameraCaptureSession) {}
+            override fun onConfigureFailed(s: CameraCaptureSession) {
+                s.close()
+                if (generation != standaloneGeneration) return
+                android.util.Log.w(TAG, "Preview session could not be configured")
+                // The lens buttons stay, so another lens can be tried
+                runOnUiThread { Toast.makeText(this@PreviewActivity, getString(R.string.preview_session_failed), Toast.LENGTH_SHORT).show() }
+            }
         }
         if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val outCfg = OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }

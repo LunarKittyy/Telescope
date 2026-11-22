@@ -239,6 +239,7 @@
     <string name="lens_auto">[auto]</string>
     <string name="preview_camera_permission">Camera permission required.</string>
     <string name="preview_stream_starting">The stream is starting. Try again in a moment.</string>
+    <string name="preview_session_failed">The preview couldn\'t start. Try another lens.</string>
     <string name="preview_no_cameras">No cameras found.</string>
     <string name="preview_may_stretch">Preview may look stretched - couldn\'t read camera info.</string>
 
