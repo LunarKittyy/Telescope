@@ -240,6 +240,8 @@ struct Scale {
     // What the context was made for: size, matrix and range
     made_for: Option<(i32, i32, Encoding)>,
     src: Padded,
+    // The luma with a column added, for the widths swscale's ARM code leaves a pixel of
+    luma: Vec<u8>,
 }
 
 impl Drop for Scale {
@@ -263,21 +265,35 @@ fn bgr_of(i420: &[u8], width: usize, height: usize, enc: Encoding) -> Option<Bgr
     }
     let (y, rest) = i420.split_at(width * height);
     let (u, v) = rest.split_at(cw * ch);
+    // swscale's ARM code skips the last pixel of each row when the width is odd and the height even, so it gets one more column
+    // (a copy of the last, whose chroma sample is the same one) and the extra pixel is left out of the rows read back
+    let wide = cfg!(target_arch = "aarch64") && width % 2 == 1 && height.is_multiple_of(2);
+    let sw = width + wide as usize;
     SCALE.with_borrow_mut(|scale| {
-        let (src, src_stride) = scale.src.load_i420(width, height, (y, u, v));
-        let stride = padded_stride(width * 3);
+        let y = if wide {
+            scale.luma.clear();
+            for row in y.chunks_exact(width) {
+                scale.luma.extend_from_slice(row);
+                scale.luma.push(row[width - 1]);
+            }
+            &scale.luma[..]
+        } else {
+            y
+        };
+        let (src, src_stride) = scale.src.load_i420(sw, height, (y, u, v));
+        let stride = padded_stride(sw * 3);
         let mut bgr = Bgr { data: spare_bgr(), start: 0, stride };
         bgr.start = aligned_start(&mut bgr.data, stride * height);
         // SAFETY: start and the tail behind it are inside data, as aligned_start says
         let out = unsafe { bgr.data.as_mut_ptr().add(bgr.start) };
         // SAFETY: src and out are padded as the strides say, and the context is made for exactly this size and encoding before it runs
         unsafe {
-            if scale.made_for != Some((width as i32, height as i32, enc)) {
+            if scale.made_for != Some((sw as i32, height as i32, enc)) {
                 if let Some(old) = scale.sws.take() {
                     ff::sws_freeContext(old);
                 }
                 scale.made_for = None;
-                let sws = ff::sws_getContext(width as i32, height as i32, ff::AVPixelFormat::AV_PIX_FMT_YUV420P, width as i32, height as i32,
+                let sws = ff::sws_getContext(sw as i32, height as i32, ff::AVPixelFormat::AV_PIX_FMT_YUV420P, sw as i32, height as i32,
                                              ff::AVPixelFormat::AV_PIX_FMT_BGR24, ff::SwsFlags::SWS_BILINEAR as i32,
                                              ptr::null_mut(), ptr::null_mut(), ptr::null());
                 if sws.is_null() {
@@ -290,7 +306,7 @@ fn bgr_of(i420: &[u8], width: usize, height: usize, enc: Encoding) -> Option<Bgr
                 if r < 0 {
                     return None;
                 }
-                scale.made_for = Some((width as i32, height as i32, enc));
+                scale.made_for = Some((sw as i32, height as i32, enc));
             }
             let dst = [out, ptr::null_mut(), ptr::null_mut(), ptr::null_mut()];
             let dst_stride = [stride as i32, 0, 0, 0];
