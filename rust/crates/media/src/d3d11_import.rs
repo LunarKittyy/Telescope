@@ -1,0 +1,641 @@
+//! D3D11VA surfaces retained across decode, a copy on the card into a texture both D3D11 and the pipeline's device can open, and a lazy RAM read.
+
+use ash::vk;
+use ffmpeg_sys_next as ff;
+use std::collections::HashSet;
+use std::ffi::c_void;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+use telescope_core::frame::{DecodedSurface, Frame, PixelFormat};
+use windows::core::{Interface, PCWSTR};
+use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0};
+use windows::Win32::Graphics::Direct3D11::*;
+use windows::Win32::Graphics::Direct3D12::{ID3D12Device, ID3D12Resource};
+use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_NV12, DXGI_SAMPLE_DESC};
+use windows::Win32::Graphics::Dxgi::{IDXGIDevice, IDXGIResource1};
+use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
+use wgpu::hal::api::{Dx12, Vulkan};
+
+/// Decoder pictures kept on the card at once, and shared textures in flight, per stream.
+pub(crate) const MAX_SURFACES: usize = 6;
+/// The decoder this module imports from.
+pub(crate) const HW: crate::ffmpeg::Hw = crate::ffmpeg::Hw::D3d11va;
+/// How long the copy into the shared texture may take before the picture goes through memory instead.
+const COPY_WAIT_MS: u32 = 250;
+/// GENERIC_READ for a DXGI shared handle: DXGI_SHARED_RESOURCE_READ
+const SHARED_READ: u32 = 0x8000_0000;
+
+#[derive(Default)]
+pub(crate) struct Capabilities {
+    approved: HashSet<(wgpu::Backend, [u8; 8])>,
+}
+
+impl Capabilities {
+    fn device(&mut self, key: (wgpu::Backend, [u8; 8]), query: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+        if !self.approved.contains(&key) {
+            query()?;
+            self.approved.insert(key);
+        }
+        Ok(())
+    }
+}
+
+/// libavutil/hwcontext_d3d11va.h's AVD3D11VADeviceContext.
+#[repr(C)]
+struct DeviceContext {
+    device: *mut c_void,
+    device_context: *mut c_void,
+    video_device: *mut c_void,
+    video_context: *mut c_void,
+    lock: Option<unsafe extern "C" fn(*mut c_void)>,
+    unlock: Option<unsafe extern "C" fn(*mut c_void)>,
+    lock_ctx: *mut c_void,
+}
+
+/// One shared texture: made by FFmpeg's D3D11 device, opened by the pipeline's device for every picture that uses it.
+struct Slot {
+    texture: ID3D11Texture2D,
+    handle: HANDLE,
+    size: (u32, u32),
+    busy: Arc<AtomicBool>,
+}
+
+// SAFETY: the handle is a plain NT handle value and the texture is a free-threaded D3D11 object used under FFmpeg's device lock.
+unsafe impl Send for Slot {}
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        // SAFETY: the handle was made by CreateSharedHandle for this slot and is closed once.
+        unsafe { let _ = CloseHandle(self.handle); }
+    }
+}
+
+struct Fence {
+    fence: ID3D11Fence,
+    event: HANDLE,
+    value: AtomicU64,
+}
+
+// SAFETY: the fence is free-threaded; the event handle is used by one waiter at a time, under the stream's lock.
+unsafe impl Send for Fence {}
+unsafe impl Sync for Fence {}
+
+impl Drop for Fence {
+    fn drop(&mut self) {
+        // SAFETY: the event was made in Fence::new and is closed once.
+        unsafe { let _ = CloseHandle(self.event); }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct Stream {
+    disabled: AtomicBool,
+    live: AtomicUsize,
+    download: Mutex<Option<crate::ffmpeg::Codec>>,
+    slots: Mutex<Vec<Slot>>,
+    fence: Mutex<Option<Arc<Fence>>>,
+    #[cfg(test)]
+    forced: Mutex<Option<&'static str>>,
+}
+
+impl Stream {
+    pub(crate) fn enabled(&self) -> bool {
+        !self.disabled.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn disable(&self, why: &str) {
+        if !self.disabled.swap(true, Ordering::AcqRel) {
+            #[cfg(test)]
+            eprintln!("sharing disabled: {why}");
+            log::warn!("D3D11 surface sharing failed ({why}); copying decoded pictures through RAM for the rest of this stream");
+        }
+    }
+
+    /// Sharing is off for this stream for a known reason, not a failure: the pictures go through memory, said once at info level.
+    fn decline(&self, why: &str) {
+        if !self.disabled.swap(true, Ordering::AcqRel) {
+            log::info!("D3D11 surface sharing is off ({why}); copying decoded pictures through RAM");
+        }
+    }
+
+    fn attempt<T>(&self, work: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+        if !self.enabled() {
+            return Err("surface sharing is disabled for this stream".into());
+        }
+        if std::env::var_os("TELESCOPE_NO_SURFACE_IMPORT").is_some() {
+            self.disable("TELESCOPE_NO_SURFACE_IMPORT is set");
+            return Err("TELESCOPE_NO_SURFACE_IMPORT is set".into());
+        }
+        #[cfg(test)]
+        if let Some(why) = *self.forced.lock().unwrap() {
+            self.disable(why);
+            return Err(why.into());
+        }
+        work().inspect_err(|why| self.disable(why))
+    }
+}
+
+struct AvFrame(*mut ff::AVFrame);
+
+// SAFETY: each reference owns an AVFrame; access is serialised and FFmpeg's buffer references are thread safe.
+unsafe impl Send for AvFrame {}
+
+impl Drop for AvFrame {
+    fn drop(&mut self) {
+        // SAFETY: this frame was allocated or cloned by FFmpeg and is freed exactly once.
+        unsafe { ff::av_frame_free(&mut self.0) }
+    }
+}
+
+pub(crate) struct Surface {
+    frame: Mutex<AvFrame>,
+    ram: OnceLock<Frame>,
+    stream: Arc<Stream>,
+    size: (u32, u32),
+    colour: u32,
+}
+
+impl std::fmt::Debug for Surface {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("D3d11Surface").field("size", &self.size).field("landed", &self.ram.get().is_some()).finish()
+    }
+}
+
+/// A picture copied into a shared texture and opened by the pipeline's device; the slot is free again when this is dropped.
+pub(crate) struct Imported {
+    pub(crate) texture: wgpu::Texture,
+    pub(crate) backend: wgpu::Backend,
+    _slot: SlotGuard,
+}
+
+struct SlotGuard(Arc<AtomicBool>);
+
+impl Drop for SlotGuard {
+    fn drop(&mut self) { self.0.store(false, Ordering::Release); }
+}
+
+impl Surface {
+    /// Retain the decoder's reference without copying or downloading its pixels.
+    pub(crate) unsafe fn capture(frame: *const ff::AVFrame, stream: Arc<Stream>, _node: Option<String>) -> Result<Option<Arc<Self>>, String> {
+        // SAFETY: the caller owns a live D3D11 frame for this call; only metadata and a new FFmpeg reference are taken.
+        let (size, colour, copy) = unsafe {
+            if (*frame).width <= 0 || (*frame).height <= 0 || (*frame).hw_frames_ctx.is_null() || (*frame).data[0].is_null() {
+                return Err("empty D3D11 surface".into());
+            }
+            let ctx = &*((*(*frame).hw_frames_ctx).data as *const ff::AVHWFramesContext);
+            if ctx.sw_format != ff::AVPixelFormat::AV_PIX_FMT_NV12 || (*frame).width % 2 != 0 || (*frame).height % 2 != 0 {
+                return Err("surface sharing needs even-sized NV12".into());
+            }
+            let matrix = (*frame).colorspace as i32;
+            let coefficients = std::slice::from_raw_parts(ff::sws_getCoefficients(matrix), 4);
+            let bt601 = std::slice::from_raw_parts(ff::sws_getCoefficients(5), 4);
+            let bt709 = std::slice::from_raw_parts(ff::sws_getCoefficients(1), 4);
+            let colour = if coefficients == bt601 { 0 } else if coefficients == bt709 { 16 } else { return Err("unsupported surface colour matrix".into()) }
+                | if (*frame).color_range == ff::AVColorRange::AVCOL_RANGE_JPEG { 32 } else { 0 };
+            if stream.live.try_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < MAX_SURFACES).then_some(n + 1)).is_err() {
+                return Ok(None);
+            }
+            (((*frame).width as u32, (*frame).height as u32), colour, ff::av_frame_clone(frame))
+        };
+        if copy.is_null() {
+            stream.live.fetch_sub(1, Ordering::AcqRel);
+            return Err("couldn't retain a D3D11 surface".into());
+        }
+        Ok(Some(Arc::new(Self { frame: Mutex::new(AvFrame(copy)), ram: OnceLock::new(), stream, size, colour })))
+    }
+
+    pub(crate) fn disable(&self, why: &str) { self.stream.disable(why); }
+
+    pub(crate) fn colour(&self) -> u32 {
+        self.colour
+    }
+
+    /// Copy this picture into one of the stream's shared textures, wait for the copy, and open the texture on the pipeline's device.
+    /// None: every shared texture is in use, so this picture goes through memory (the stream keeps sharing).
+    pub(crate) fn import(&self, device: &wgpu::Device, capabilities: &Mutex<Capabilities>) -> Result<Option<Imported>, String> {
+        self.stream.attempt(|| {
+            let backend = device.adapter_info().backend;
+            // Vulkan imports of D3D11 NV12 textures lose the device on the drivers tried so far (a 2019 and a 2025 NVIDIA driver), so they stay off until that is understood
+            if backend == wgpu::Backend::Vulkan && std::env::var_os("TELESCOPE_VULKAN_SURFACE_IMPORT").is_none() {
+                self.stream.decline("sharing with Vulkan isn't switched on yet");
+                return Err("sharing with Vulkan isn't switched on yet".into());
+            }
+            if !device.features().contains(wgpu::Features::TEXTURE_FORMAT_NV12) {
+                return Err("the pipeline device has no NV12 textures".into());
+            }
+            let source = self.frame.lock().unwrap_or_else(|e| e.into_inner());
+            // SAFETY: the frame is a live D3D11 frame; its device context and texture stay valid while the reference is held.
+            let (d3d, texture, index) = unsafe { frame_parts(source.0)? };
+            // SAFETY: the pointers come from the retained frame above.
+            let d3d_device: ID3D11Device = unsafe { ID3D11Device::from_raw_borrowed(&d3d.device) }.ok_or("no D3D11 device")?.clone();
+            let luid = adapter_luid(&d3d_device)?;
+            capabilities.lock().unwrap_or_else(|e| e.into_inner()).device((backend, luid), || match backend {
+                wgpu::Backend::Vulkan => same_vulkan_device(device, luid),
+                wgpu::Backend::Dx12 => same_dx12_device(device, luid),
+                other => Err(format!("the pipeline uses the {other:?} backend")),
+            })?;
+            let Some((handle, busy)) = self.stream.slot(&d3d_device, self.size)? else { return Ok(None) };
+            let guard = SlotGuard(busy);
+            // SAFETY: texture and index belong to the retained frame; the slot's texture is this stream's and idle; the context is locked.
+            unsafe { self.copy_and_wait(d3d, &d3d_device, texture, index, handle.0)? };
+            drop(source);
+            let texture = match backend {
+                wgpu::Backend::Vulkan => import_vulkan(device, handle.1, self.size)?,
+                _ => import_dx12(device, handle.1, self.size)?,
+            };
+            Ok(Some(Imported { texture, backend, _slot: guard }))
+        })
+    }
+
+    /// Enqueue the copy of this picture's array slice into the shared texture, signal a fence and wait for it without reading any pixels.
+    unsafe fn copy_and_wait(&self, d3d: &DeviceContext, device: &ID3D11Device, source: *mut c_void, index: u32, dest: *mut c_void) -> Result<(), String> {
+        // SAFETY: see the caller; the lock functions are FFmpeg's own for this device.
+        unsafe {
+            let source = ID3D11Resource::from_raw_borrowed(&source).ok_or("no decoder texture")?;
+            let dest = ID3D11Resource::from_raw_borrowed(&dest).ok_or("no shared texture")?;
+            let context = ID3D11DeviceContext::from_raw_borrowed(&d3d.device_context).ok_or("no D3D11 context")?;
+            let fence = self.stream.fence(device)?;
+            let value = fence.value.fetch_add(1, Ordering::AcqRel) + 1;
+            let region = D3D11_BOX { left: 0, top: 0, front: 0, right: self.size.0, bottom: self.size.1, back: 1 };
+            if let Some(lock) = d3d.lock { lock(d3d.lock_ctx) }
+            let queued = (|| -> Result<(), String> {
+                context.CopySubresourceRegion(dest, 0, 0, 0, 0, source, index, Some(&region));
+                let context4 = context.cast::<ID3D11DeviceContext4>().map_err(|e| e.to_string())?;
+                context4.Signal(&fence.fence, value).map_err(|e| e.to_string())?;
+                context.Flush();
+                Ok(())
+            })();
+            if let Some(unlock) = d3d.unlock { unlock(d3d.lock_ctx) }
+            queued?;
+            fence.fence.SetEventOnCompletion(value, fence.event).map_err(|e| e.to_string())?;
+            if WaitForSingleObject(fence.event, COPY_WAIT_MS) != WAIT_OBJECT_0 {
+                return Err("the copy into the shared texture didn't finish in time".into());
+            }
+            Ok(())
+        }
+    }
+
+    /// Acquire or release external queue ownership of the shared image on Vulkan.
+    /// A new import starts UNDEFINED and goes to the GENERAL layout wgpu tracks it in; after the convert pass wgpu has left it SHADER_READ_ONLY_OPTIMAL.
+    pub(crate) fn ownership(device: &wgpu::Device, enc: &mut wgpu::CommandEncoder, texture: &wgpu::Texture, acquire: bool) -> Result<(), String> {
+        // SAFETY: all handles remain borrowed for the call; this encoder exclusively records the barrier outside any render pass.
+        unsafe {
+            let hal = device.as_hal::<Vulkan>().ok_or("no Vulkan device")?;
+            let image = texture.as_hal::<Vulkan>().ok_or("no Vulkan texture")?;
+            let barrier = vk::ImageMemoryBarrier::default()
+                .image(image.raw_handle())
+                .subresource_range(vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::PLANE_0 | vk::ImageAspectFlags::PLANE_1).level_count(1).layer_count(1))
+                .old_layout(if acquire { vk::ImageLayout::UNDEFINED } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL })
+                .new_layout(vk::ImageLayout::GENERAL)
+                .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .src_access_mask(if acquire { vk::AccessFlags::empty() } else { vk::AccessFlags::SHADER_READ })
+                .dst_access_mask(if acquire { vk::AccessFlags::SHADER_READ } else { vk::AccessFlags::empty() });
+            enc.as_hal_mut::<Vulkan, _, _>(|encoder| {
+                let encoder = encoder.ok_or("no Vulkan command encoder")?;
+                hal.raw_device().cmd_pipeline_barrier(encoder.raw_handle(),
+                    if acquire { vk::PipelineStageFlags::TOP_OF_PIPE } else { vk::PipelineStageFlags::FRAGMENT_SHADER },
+                    if acquire { vk::PipelineStageFlags::FRAGMENT_SHADER } else { vk::PipelineStageFlags::BOTTOM_OF_PIPE },
+                    vk::DependencyFlags::empty(), &[], &[], &[barrier]);
+                Ok(())
+            })
+        }
+    }
+}
+
+impl Stream {
+    /// A free shared texture of this size and its handle values (the D3D11 texture pointer, the NT handle), made when the stream has fewer than MAX_SURFACES.
+    /// None when all of them are in use.
+    fn slot(&self, device: &ID3D11Device, size: (u32, u32)) -> Result<Option<((*mut c_void, HANDLE), Arc<AtomicBool>)>, String> {
+        let mut slots = self.slots.lock().unwrap_or_else(|e| e.into_inner());
+        // A resolution change retires the idle slots of the old size
+        slots.retain(|s| s.size == size || s.busy.load(Ordering::Acquire));
+        for slot in slots.iter().filter(|s| s.size == size) {
+            if slot.busy.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+                return Ok(Some(((slot.texture.as_raw(), slot.handle), slot.busy.clone())));
+            }
+        }
+        if slots.len() >= MAX_SURFACES {
+            return Ok(None);
+        }
+        let desc = D3D11_TEXTURE2D_DESC {
+            Width: size.0, Height: size.1, MipLevels: 1, ArraySize: 1, Format: DXGI_FORMAT_NV12,
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            Usage: D3D11_USAGE_DEFAULT, BindFlags: D3D11_BIND_SHADER_RESOURCE.0 as u32, CPUAccessFlags: 0,
+            MiscFlags: (D3D11_RESOURCE_MISC_SHARED | D3D11_RESOURCE_MISC_SHARED_NTHANDLE).0 as u32,
+        };
+        let mut texture = None;
+        // SAFETY: plain D3D11 calls on FFmpeg's device with an owned descriptor; the texture and its handle are released with the slot.
+        let handle = unsafe {
+            device.CreateTexture2D(&desc, None, Some(&mut texture)).map_err(|e| format!("couldn't make a shared NV12 texture: {e}"))?;
+            let texture: &ID3D11Texture2D = texture.as_ref().ok_or("no shared texture")?;
+            texture.cast::<IDXGIResource1>().and_then(|r| r.CreateSharedHandle(None, SHARED_READ, PCWSTR::null())).map_err(|e| format!("couldn't share the texture: {e}"))?
+        };
+        let texture = texture.ok_or("no shared texture")?;
+        let busy = Arc::new(AtomicBool::new(true));
+        let raw = texture.as_raw();
+        slots.push(Slot { texture, handle, size, busy: busy.clone() });
+        Ok(Some(((raw, handle), busy)))
+    }
+
+    fn fence(&self, device: &ID3D11Device) -> Result<Arc<Fence>, String> {
+        let mut kept = self.fence.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(fence) = kept.as_ref() {
+            return Ok(fence.clone());
+        }
+        // SAFETY: plain D3D11 calls; the fence and event are owned by the Fence and closed with it.
+        let made = unsafe {
+            let device5 = device.cast::<ID3D11Device5>().map_err(|e| format!("no D3D11 fences: {e}"))?;
+            let mut made_fence: Option<ID3D11Fence> = None;
+            device5.CreateFence(0, D3D11_FENCE_FLAG_NONE, &mut made_fence).map_err(|e| format!("no D3D11 fences: {e}"))?;
+            let fence = made_fence.ok_or("no D3D11 fence")?;
+            let event = CreateEventW(None, false, false, PCWSTR::null()).map_err(|e| e.to_string())?;
+            Arc::new(Fence { fence, event, value: AtomicU64::new(0) })
+        };
+        *kept = Some(made.clone());
+        Ok(made)
+    }
+}
+
+/// The device context, texture and array slice of a D3D11 frame (data[0] is the texture, data[1] the slice index).
+unsafe fn frame_parts(frame: *const ff::AVFrame) -> Result<(&'static DeviceContext, *mut c_void, u32), String> {
+    // SAFETY: the caller holds the frame; hwctx of a D3D11VA device context is an AVD3D11VADeviceContext.
+    unsafe {
+        let frames = &*((*(*frame).hw_frames_ctx).data as *const ff::AVHWFramesContext);
+        if frames.device_ctx.is_null() || (*frames.device_ctx).hwctx.is_null() {
+            return Err("no D3D11 device context".into());
+        }
+        let d3d = &*((*frames.device_ctx).hwctx as *const DeviceContext);
+        if d3d.device.is_null() || d3d.device_context.is_null() {
+            return Err("no D3D11 device".into());
+        }
+        Ok((d3d, (*frame).data[0] as *mut c_void, (*frame).data[1] as usize as u32))
+    }
+}
+
+fn adapter_luid(device: &ID3D11Device) -> Result<[u8; 8], String> {
+    // SAFETY: plain DXGI queries on a live device.
+    let luid = unsafe {
+        let adapter = device.cast::<IDXGIDevice>().and_then(|d| d.GetAdapter()).map_err(|e| e.to_string())?;
+        adapter.GetDesc().map_err(|e| e.to_string())?.AdapterLuid
+    };
+    Ok(luid_bytes(luid.LowPart, luid.HighPart))
+}
+
+fn luid_bytes(low: u32, high: i32) -> [u8; 8] {
+    let mut bytes = [0u8; 8];
+    bytes[..4].copy_from_slice(&low.to_le_bytes());
+    bytes[4..].copy_from_slice(&high.to_le_bytes());
+    bytes
+}
+
+fn same_dx12_device(device: &wgpu::Device, luid: [u8; 8]) -> Result<(), String> {
+    // SAFETY: the guard only borrows wgpu's DX12 device for this query.
+    let hal = unsafe { device.as_hal::<Dx12>() }.ok_or("no DX12 device")?;
+    // SAFETY: a plain query on a live device.
+    let own = unsafe { hal.raw_device().GetAdapterLuid() };
+    if luid_bytes(own.LowPart, own.HighPart) == luid { Ok(()) } else { Err("the decoder and pipeline use different cards".into()) }
+}
+
+fn same_vulkan_device(device: &wgpu::Device, luid: [u8; 8]) -> Result<(), String> {
+    if !device.features().contains(wgpu::Features::VULKAN_EXTERNAL_MEMORY_WIN32) {
+        return Err("Vulkan's Win32 external memory is unavailable on the pipeline device".into());
+    }
+    // SAFETY: the guard only borrows wgpu's Vulkan device for these queries.
+    let hal = unsafe { device.as_hal::<Vulkan>() }.ok_or("no Vulkan device")?;
+    let instance = hal.shared_instance().raw_instance();
+    // SAFETY: the physical device belongs to this live instance; only its properties are queried and the output structs outlive each call.
+    unsafe {
+        let mut id = vk::PhysicalDeviceIDProperties::default();
+        let mut properties = vk::PhysicalDeviceProperties2::default().push_next(&mut id);
+        instance.get_physical_device_properties2(hal.raw_physical_device(), &mut properties);
+        if id.device_luid_valid == 0 || id.device_luid != luid {
+            return Err(format!("the decoder and pipeline use different cards (Vulkan LUID {:?}, valid {}, the decoder's {luid:?})", id.device_luid, id.device_luid_valid));
+        }
+        let mut external = vk::PhysicalDeviceExternalImageFormatInfo::default().handle_type(vk::ExternalMemoryHandleTypeFlags::D3D11_TEXTURE);
+        let info = vk::PhysicalDeviceImageFormatInfo2::default().format(vk::Format::G8_B8R8_2PLANE_420_UNORM).ty(vk::ImageType::TYPE_2D)
+            .tiling(vk::ImageTiling::OPTIMAL).usage(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_SRC)
+            .flags(vk::ImageCreateFlags::MUTABLE_FORMAT | vk::ImageCreateFlags::EXTENDED_USAGE).push_next(&mut external);
+        let mut out = vk::ExternalImageFormatProperties::default();
+        let mut properties = vk::ImageFormatProperties2::default().push_next(&mut out);
+        instance.get_physical_device_image_format_properties2(hal.raw_physical_device(), &info, &mut properties).map_err(|e| format!("Vulkan can't share NV12 with D3D11: {e}"))?;
+        if !out.external_memory_properties.external_memory_features.contains(vk::ExternalMemoryFeatureFlags::IMPORTABLE) {
+            return Err("Vulkan can't import D3D11 NV12 textures".into());
+        }
+    }
+    Ok(())
+}
+
+fn nv12_descriptor(size: (u32, u32)) -> wgpu::TextureDescriptor<'static> {
+    wgpu::TextureDescriptor {
+        label: Some("D3D11 decoded picture"),
+        size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
+        mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2, format: wgpu::TextureFormat::NV12,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC, view_formats: &[],
+    }
+}
+
+fn import_vulkan(device: &wgpu::Device, handle: HANDLE, size: (u32, u32)) -> Result<wgpu::Texture, String> {
+    let desc = nv12_descriptor(size);
+    // SAFETY: the guard only borrows wgpu's Vulkan device; no wgpu calls are made until it is dropped.
+    let hal = unsafe { device.as_hal::<Vulkan>() }.ok_or("no Vulkan device")?;
+    let hal_desc = wgpu::hal::TextureDescriptor {
+        label: desc.label, size: desc.size, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2, format: desc.format,
+        usage: wgpu::TextureUses::RESOURCE | wgpu::TextureUses::COPY_SRC, memory_flags: wgpu::hal::MemoryFlags::empty(), view_formats: Vec::new(),
+    };
+    // SAFETY: the handle is a live NT handle of an NV12 texture of exactly this size, kept open by its slot.
+    let imported = unsafe { hal.texture_from_d3d11_shared_handle(handle, &hal_desc) }.map_err(|e| e.to_string())?;
+    drop(hal);
+    // SAFETY: the image belongs to this device and matches desc; shared contents use GENERAL, acquired before sampling.
+    Ok(unsafe { device.create_texture_from_hal::<Vulkan>(imported, &desc, wgpu::TextureUses::RESOURCE | wgpu::TextureUses::COPY_SRC) })
+}
+
+fn import_dx12(device: &wgpu::Device, handle: HANDLE, size: (u32, u32)) -> Result<wgpu::Texture, String> {
+    let desc = nv12_descriptor(size);
+    // SAFETY: the guard only borrows wgpu's DX12 device; no wgpu calls are made until it is dropped.
+    let hal = unsafe { device.as_hal::<Dx12>() }.ok_or("no DX12 device")?;
+    let d12: ID3D12Device = hal.raw_device().clone();
+    drop(hal);
+    let mut resource: Option<ID3D12Resource> = None;
+    // SAFETY: the handle is a live NT handle of a texture made on the same adapter (checked by LUID), kept open by its slot.
+    unsafe { d12.OpenSharedHandle(handle, &mut resource) }.map_err(|e| format!("DX12 couldn't open the shared texture: {e}"))?;
+    let resource = resource.ok_or("no DX12 resource")?;
+    // SAFETY: the resource is an NV12 texture of this size; D3D12 promotes a COMMON resource to a read state on first use.
+    unsafe {
+        let hal_texture = wgpu::hal::dx12::Device::texture_from_raw(resource, desc.format, desc.dimension, desc.size, 1, 1);
+        Ok(device.create_texture_from_hal::<Dx12>(hal_texture, &desc, wgpu::TextureUses::RESOURCE))
+    }
+}
+
+impl DecodedSurface for Surface {
+    fn ram(&self) -> &Frame {
+        self.ram.get_or_init(|| {
+            let source = self.frame.lock().unwrap_or_else(|e| e.into_inner());
+            let mut download = self.stream.download.lock().unwrap_or_else(|e| e.into_inner());
+            let mut failed = String::new();
+            // A second try with a fresh download decoder before the picture is given up on
+            for _ in 0..2 {
+                let tried = (|| {
+                    if download.is_none() {
+                        *download = Some(crate::ffmpeg::Codec::h264(None).map_err(|e| format!("{e:?}"))?);
+                    }
+                    download.as_mut().unwrap().download_surface(source.0).map_err(|e| format!("{e:?}"))
+                })();
+                match tried {
+                    Ok(frame) => return frame,
+                    Err(why) => {
+                        *download = None;
+                        failed = why;
+                    }
+                }
+            }
+            self.stream.disable(&failed);
+            let (w, h) = self.size;
+            Frame::dark(w, h, PixelFormat::I420)
+        })
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any { self }
+}
+
+impl Drop for Surface {
+    fn drop(&mut self) { self.stream.live.fetch_sub(1, Ordering::AcqRel); }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ffmpeg::{Codec, Hw};
+    use crate::gpu::Gpu;
+    use crate::testenc;
+
+    #[test]
+    fn luids_compare_as_the_vulkan_and_dxgi_bytes() {
+        assert_eq!(luid_bytes(0x0102_0304, -1), [4, 3, 2, 1, 255, 255, 255, 255]);
+    }
+
+    #[test]
+    fn failures_disable_only_that_stream_and_are_not_retried() {
+        let stream = Stream::default();
+        assert!(stream.attempt(|| Err::<(), _>("boom".into())).is_err());
+        assert!(!stream.enabled());
+        let mut ran = false;
+        assert!(stream.attempt(|| { ran = true; Ok(()) }).is_err());
+        assert!(!ran, "a disabled stream doesn't try again");
+        assert!(Stream::default().enabled());
+    }
+
+    /// TS_CARD=<vendor>:<device> (like 10de:1c20) picks the card the way Settings would; WGPU_BACKEND picks Vulkan or DX12.
+    fn card() -> Option<std::sync::Arc<Gpu>> {
+        struct Stderr;
+        impl log::Log for Stderr {
+            fn enabled(&self, m: &log::Metadata) -> bool { m.level() <= log::Level::Warn }
+            fn log(&self, r: &log::Record) { if self.enabled(r.metadata()) { eprintln!("[{}] {}: {}", r.level(), r.target(), r.args()); } }
+            fn flush(&self) {}
+        }
+        let _ = log::set_logger(&Stderr).map(|()| log::set_max_level(log::LevelFilter::Warn));
+        if let Ok(id) = std::env::var("TS_CARD") {
+            telescope_core::gpu_pick::set_choice(&id);
+        }
+        let gpu = Gpu::shared();
+        if let Some(gpu) = &gpu {
+            println!("pipeline card: {}", gpu.adapter_name);
+        }
+        gpu
+    }
+
+    fn decode_surface(codec: &mut Codec, packets: &[Vec<u8>]) -> Option<Frame> {
+        let mut frame = None;
+        for packet in packets {
+            codec.parse(packet, |codec, unit| {
+                codec.decode_newest(unit).unwrap();
+                if let Some(newest) = codec.take_newest().unwrap() { frame = Some(newest); }
+            });
+        }
+        frame
+    }
+
+    #[test]
+    fn a_shared_d3d11_picture_matches_the_transfer_path() {
+        let Some(gpu) = card() else { return eprintln!("no graphics card; skipped") };
+        if gpu.adapter_name.contains("Vulkan") && std::env::var_os("TELESCOPE_VULKAN_SURFACE_IMPORT").is_none() {
+            return eprintln!("sharing with Vulkan is off; skipped");
+        }
+        let Ok(mut codec) = Codec::h264(Some(Hw::D3d11va)) else { return eprintln!("no D3D11VA device; skipped") };
+        codec.surfaces(true);
+        for (w, h) in [(256, 144), (1920, 1080)] {
+            for (y, u, v, matrix, range) in [(70, 112, 145, "smpte170m", "tv"), (170, 150, 110, "bt709", "tv"), (110, 100, 152, "bt709", "pc")] {
+                let Some(packets) = testenc::h264_yuv(y, u, v, w, h, matrix, range) else { return eprintln!("no H.264 encoder; skipped") };
+                let frame = decode_surface(&mut codec, &packets).expect("a decoded frame");
+                assert!(frame.data.is_empty(), "decode downloaded pixels before a RAM reader");
+                let surface = frame.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap();
+                let mut shared = gpu.lift_with(&frame, true).unwrap();
+                assert!(shared.was_imported(), "D3D11VA decoded but sharing fell back (disabled: {})", !surface.stream.enabled());
+                let shared_pixels = gpu.land(&mut shared).unwrap();
+                gpu.put_down(shared);
+                assert!(surface.ram.get().is_none(), "sharing used the transfer path");
+                let transfer = frame.materialise();
+                let mut uploaded = gpu.lift_with(&transfer, true).unwrap();
+                let transferred_pixels = gpu.land(&mut uploaded).unwrap();
+                gpu.put_down(uploaded);
+                let worst = shared_pixels.data.iter().zip(transferred_pixels.data.iter()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                let mean = shared_pixels.data.iter().zip(transferred_pixels.data.iter()).map(|(a, b)| a.abs_diff(*b) as u64).sum::<u64>() as f64 / shared_pixels.data.len() as f64;
+                println!("{w}x{h} {matrix}/{range}: shared against transferred, worst {worst} levels, mean {mean:.4}");
+                assert!(worst <= 3, "{w}x{h} {matrix}/{range}: shared and transferred pixels differ by {worst} levels");
+            }
+        }
+    }
+
+    #[test]
+    fn a_failed_share_still_gives_this_and_following_pictures_without_a_dark_frame() {
+        let Some(gpu) = card() else { return eprintln!("no graphics card; skipped") };
+        let Ok(mut codec) = Codec::h264(Some(Hw::D3d11va)) else { return eprintln!("no D3D11VA device; skipped") };
+        codec.surfaces(true);
+        let Some(packets) = testenc::h264(&[70, 120, 180], 256, 144, 1) else { return eprintln!("no H.264 encoder; skipped") };
+        let first = decode_surface(&mut codec, &packets[..1]).expect("a frame");
+        let surface = first.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap();
+        *surface.stream.forced.lock().unwrap() = Some("forced share failure");
+        let mut held = gpu.lift_with(&first, true).unwrap();
+        assert!(!held.was_imported());
+        let out = gpu.land(&mut held).unwrap();
+        gpu.put_down(held);
+        // the encoder gets greys in limited range, so luma 70 is 76 and 180 is 171
+        assert!(out.data[0].abs_diff(76) <= 3, "fallback lost the original pixels");
+        assert!(!surface.stream.enabled());
+        let next = decode_surface(&mut codec, &packets[1..]).expect("another frame");
+        assert!(next.surface().is_none(), "the decoder kept offering surfaces after fallback");
+        assert!(next.data[0].abs_diff(171) <= 3);
+    }
+
+    /// A long stream with the pictures shared: surfaces and shared textures stay within their bounds and the frames never go dark.
+    /// BENCH_SECONDS sets the length (default 20); watch the card's memory meanwhile.
+    #[test]
+    #[ignore = "a soak run, needs a graphics card with D3D11VA"]
+    fn sharing_for_a_long_stream_keeps_its_resources_bounded() {
+        let Some(gpu) = card() else { return eprintln!("no graphics card; skipped") };
+        let Ok(mut codec) = Codec::h264(Some(Hw::D3d11va)) else { return eprintln!("no D3D11VA device; skipped") };
+        codec.surfaces(true);
+        let Some(packets) = testenc::h264(&[60, 100, 140, 180, 140, 100], 1920, 1080, 1) else { return eprintln!("no H.264 encoder; skipped") };
+        let seconds: u64 = std::env::var("BENCH_SECONDS").ok().and_then(|v| v.parse().ok()).unwrap_or(20);
+        let began = std::time::Instant::now();
+        let (mut shown, mut round, mut dark) = (0u64, 0usize, 0u64);
+        let mut stream = None;
+        while began.elapsed().as_secs() < seconds {
+            let packet = &packets[round % packets.len()];
+            round += 1;
+            let Some(frame) = decode_surface(&mut codec, std::slice::from_ref(packet)) else { continue };
+            stream = frame.surface().and_then(|s| s.as_any().downcast_ref::<Surface>()).map(|s| s.stream.clone()).or(stream);
+            let mut held = gpu.lift_with(&frame, true).unwrap();
+            let out = gpu.land(&mut held).unwrap();
+            gpu.put_down(held);
+            dark += u64::from(out.data[0] < 20);
+            shown += 1;
+            if let Some(stream) = &stream {
+                assert!(stream.live.load(Ordering::Acquire) <= MAX_SURFACES + 2, "decoder surfaces are piling up");
+                assert!(stream.slots.lock().unwrap().len() <= MAX_SURFACES, "shared textures are piling up");
+            }
+        }
+        println!("{shown} pictures in {seconds} s, {dark} dark, shared textures {}", stream.map_or(0, |s| s.slots.lock().unwrap().len()));
+        assert_eq!(dark, 0);
+    }
+}

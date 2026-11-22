@@ -8,6 +8,12 @@ use crate::yuv;
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::time::{monotonic_ns, span};
 
+/// The decoder kind whose pictures can stay on the card, and the module that shares them with the frame steps' device.
+#[cfg(all(target_os = "linux", ffmpeg))]
+use crate::vaapi_import as import_mod;
+#[cfg(all(windows, ffmpeg))]
+use crate::d3d11_import as import_mod;
+
 /// A graphics card decoder FFmpeg can open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hw {
@@ -167,14 +173,14 @@ pub struct Codec {
     // Copies of the bytes handed to FFmpeg with the zeroed tail its bitstream readers may read into
     parse_buf: Vec<u8>,
     unit_buf: Vec<u8>,
-    #[cfg(target_os = "linux")]
+    #[cfg(surfaces)]
     defer_surfaces: bool,
     /// Whether the decoder's pool has room for pictures kept on the card (set before its first picture, see surfaces).
-    #[cfg(target_os = "linux")]
+    #[cfg(surfaces)]
     surface_room: bool,
-    #[cfg(target_os = "linux")]
-    import: std::sync::Arc<crate::vaapi_import::Stream>,
-    #[cfg(target_os = "linux")]
+    #[cfg(surfaces)]
+    import: std::sync::Arc<import_mod::Stream>,
+    #[cfg(surfaces)]
     import_node: Option<String>,
 }
 
@@ -196,13 +202,13 @@ impl Codec {
     }
 
     /// Whether the next pictures may stay on the card for import (VA-API only); the pool is sized at the first picture, so a decoder started without the wish copies to memory until it is opened again.
-    #[cfg(target_os = "linux")]
+    #[cfg(surfaces)]
     pub(crate) fn surfaces(&mut self, wish: bool) {
-        if wish && !self.surface_room && self.hw == Some(Hw::Vaapi) {
+        if wish && !self.surface_room && self.hw == Some(import_mod::HW) {
             // SAFETY: the context is live, and the pool isn't made yet while it holds no hardware frames context
             unsafe {
                 if (*self.ctx).hw_frames_ctx.is_null() {
-                    (*self.ctx).extra_hw_frames = 1 + crate::vaapi_import::MAX_SURFACES as i32;
+                    (*self.ctx).extra_hw_frames = 1 + import_mod::MAX_SURFACES as i32;
                     self.surface_room = true;
                 }
             }
@@ -258,13 +264,13 @@ impl Codec {
                 sws_out: Padded::default(),
                 parse_buf: Vec::new(),
                 unit_buf: Vec::new(),
-                #[cfg(target_os = "linux")]
+                #[cfg(surfaces)]
                 defer_surfaces: false,
-                #[cfg(target_os = "linux")]
+                #[cfg(surfaces)]
                 surface_room: false,
-                #[cfg(target_os = "linux")]
+                #[cfg(surfaces)]
                 import: std::sync::Arc::default(),
-                #[cfg(target_os = "linux")]
+                #[cfg(surfaces)]
                 import_node: None,
             };
             if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || c.held.is_null() || (parse && c.parser.is_null()) {
@@ -527,9 +533,9 @@ impl Codec {
     unsafe fn take_frame(&mut self) -> Result<(Frame, Option<i64>), Fault> {
         // Read off the decoder's own frame (on a card that's the surface, which the copy to memory leaves be)
         let pts = Some((*self.frame).pts).filter(|&p| p != ff::AV_NOPTS_VALUE);
-        #[cfg(target_os = "linux")]
-        if self.defer_surfaces && self.forced.is_none() && (*self.frame).format == ff::AVPixelFormat::AV_PIX_FMT_VAAPI as i32 && self.import.enabled() {
-            match crate::vaapi_import::Surface::capture(self.frame, self.import.clone(), self.import_node.clone()) {
+        #[cfg(surfaces)]
+        if self.defer_surfaces && self.forced.is_none() && (*self.frame).format == import_mod::HW.pixel_format() as i32 && self.import.enabled() {
+            match import_mod::Surface::capture(self.frame, self.import.clone(), self.import_node.clone()) {
                 Ok(Some(surface)) => {
                     let frame = Frame::from_surface((*self.frame).width as u32, (*self.frame).height as u32, PixelFormat::I420, surface);
                     ff::av_frame_unref(self.frame);
@@ -626,7 +632,7 @@ impl Codec {
         }, pts))
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(surfaces)]
     pub(crate) fn download_surface(&mut self, surface: *const ff::AVFrame) -> Result<Frame, Fault> {
         // SAFETY: the caller keeps surface alive under its mutex; this codec is a separate, serialised download context.
         unsafe {
@@ -1188,7 +1194,7 @@ pub(crate) mod decode_bench {
             return eprintln!("no graphics card for the frame step; skipped");
         }
         let run = |codec: &mut Codec, packets: &[Vec<u8>], preview_only: bool, import: bool| -> Result<Vec<Costs>, Fault> {
-            #[cfg(target_os = "linux")]
+            #[cfg(surfaces)]
             {
                 codec.surfaces(import);
             }

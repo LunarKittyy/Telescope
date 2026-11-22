@@ -165,6 +165,19 @@ pub fn use_gpu_painter(factory: GpuPainterFactory) {
     let _ = GPU_PAINTER.set(factory);
 }
 
+/// The device features that let the stream's decoded pictures stay on the card (the same as media's `surface_features`, since the window's device is the one the streams use).
+fn surface_features(adapter: &wgpu::Adapter) -> wgpu::Features {
+    let have = adapter.features();
+    if cfg!(target_os = "linux") {
+        have & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF
+    } else if cfg!(windows) {
+        let wanted = if adapter.get_info().backend == wgpu::Backend::Vulkan { wgpu::Features::TEXTURE_FORMAT_NV12 | wgpu::Features::VULKAN_EXTERNAL_MEMORY_WIN32 } else { wgpu::Features::TEXTURE_FORMAT_NV12 };
+        if have.contains(wanted) { wanted } else { wgpu::Features::empty() }
+    } else {
+        wgpu::Features::empty()
+    }
+}
+
 /// The adapter as the crash marker and the skip list name it: the driver version is part of it (borrowed from the same card on another API
 /// when its own driver says none), so an updated driver is tried again.
 fn card_of(info: &wgpu::AdapterInfo, all: &[gpu_pick::Info]) -> Card {
@@ -263,7 +276,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
                 gpu_marker::mark(&card);
                 let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                     label: Some("telescope window"),
-            required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
+            required_features: surface_features(&adapter),
                     required_limits: adapter.limits(),
                     ..Default::default()
                 })).map_err(|e| e.to_string())?;
@@ -294,7 +307,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
         gpu_marker::mark(&card);
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope window"),
-                    required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
+                    required_features: surface_features(&adapter),
             required_limits: adapter.limits(),
             ..Default::default()
         })).map_err(|e| e.to_string())?;

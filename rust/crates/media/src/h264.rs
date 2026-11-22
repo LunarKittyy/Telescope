@@ -188,7 +188,7 @@ pub struct H264 {
     /// When the card gave up, until software has a picture.
     swapped_at: Option<std::time::Instant>,
     /// Whether the stream's frame steps start on the graphics card, which is what lets a decoded picture stay there (none: always in memory).
-    #[cfg(target_os = "linux")]
+    #[cfg(surfaces)]
     surface_wish: Option<Arc<AtomicBool>>,
     /// Tests: the next feed fails as a broken driver would.
     #[cfg(test)]
@@ -262,7 +262,7 @@ impl H264 {
             ask_keyframe: None,
             clock: None,
             swapped_at: None,
-            #[cfg(target_os = "linux")]
+            #[cfg(surfaces)]
             surface_wish: None,
             #[cfg(test)]
             break_next: false,
@@ -550,7 +550,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
 
 impl Decoder for H264 {
     fn decode(&mut self, packet: &Packet) -> Decoded {
-        #[cfg(target_os = "linux")]
+        #[cfg(surfaces)]
         self.codec.surfaces(self.surface_wish.as_ref().is_some_and(|w| w.load(Ordering::Relaxed)));
         let (mut newest, count) = self.feed(&packet.data);
         if let Some(f) = newest.as_mut() {
@@ -568,9 +568,9 @@ impl Decoder for H264 {
     }
 
     fn set_surface_wish(&mut self, wish: Arc<AtomicBool>) {
-        #[cfg(target_os = "linux")]
+        #[cfg(surfaces)]
         { self.surface_wish = Some(wish); }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(surfaces))]
         let _ = wish;
     }
 

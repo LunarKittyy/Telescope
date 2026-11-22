@@ -12,6 +12,8 @@ use wgpu::hal::api::Vulkan;
 use wgpu::hal::Device as _;
 
 pub(crate) const MAX_SURFACES: usize = 6;
+/// The decoder this module imports from.
+pub(crate) const HW: crate::ffmpeg::Hw = crate::ffmpeg::Hw::Vaapi;
 const R8: u32 = u32::from_le_bytes(*b"R8  ");
 const GR88: u32 = u32::from_le_bytes(*b"GR88");
 const INVALID_MODIFIER: u64 = (1u64 << 56) - 1;
