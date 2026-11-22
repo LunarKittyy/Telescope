@@ -902,7 +902,13 @@ class CameraSessionController(
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         val e = RuntimeException("Camera2 error code $error")
-                        if (takenBy(error)) cameraTaken("openCamera.onError", e) else fail("openCamera.onError", e)
+                        if (takenBy(error)) { cameraTaken("openCamera.onError", e); return }
+                        if (codec == H264Stream.CODEC_H264 && error == CameraDevice.StateCallback.ERROR_CAMERA_DEVICE) {
+                            // Same as a reopen: a size or rate the camera can't feed the encoder is MJPEG, not the end
+                            encoderFailed(e, CodecFailure.CAMERA_STOPPED, reopenTries = REOPEN_TRIES)
+                            return
+                        }
+                        fail("openCamera.onError", e)
                     }
                 }
             }, handler)
