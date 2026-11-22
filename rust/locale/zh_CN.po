@@ -763,7 +763,7 @@ msgstr "从预览中拾取的颜色。点击可重新拾取。"
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "在预览中点击身后的幕布。按 Esc 键取消。"
 
-#: rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/chroma_key.rs:483 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:344 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:597 rust/crates/outputs/src/webcam.rs:1014 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:243 rust/crates/shell/src/stream_flow.rs:258 rust/crates/shell/src/streams.rs:768 rust/crates/shell/src/streams.rs:1900 rust/crates/shell/src/streams.rs:1922 rust/crates/shell/src/window.rs:2009 rust/crates/shell/src/worker.rs:631 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/chroma_key.rs:483 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:344 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:597 rust/crates/outputs/src/webcam.rs:1014 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:243 rust/crates/shell/src/stream_flow.rs:258 rust/crates/shell/src/streams.rs:787 rust/crates/shell/src/streams.rs:1927 rust/crates/shell/src/streams.rs:1949 rust/crates/shell/src/window.rs:2009 rust/crates/shell/src/worker.rs:631 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "未串流"
 
@@ -2680,7 +2680,7 @@ msgstr "JPEG 质量由相机决定"
 msgid "RAW photos have no quality setting"
 msgstr "RAW 照片没有质量设置"
 
-#: rust/crates/effects/src/photos.rs:65 rust/crates/shell/src/streams.rs:933
+#: rust/crates/effects/src/photos.rs:65 rust/crates/shell/src/streams.rs:960
 msgid "The camera is already taking a photo."
 msgstr "相机正在拍照中。"
 
@@ -3225,7 +3225,7 @@ msgstr ""
 msgid "Lucky"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1228 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1198
+#: rust/crates/effects/src/stargazer.rs:1228 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1225
 msgid "Live"
 msgstr "实时"
 
@@ -3443,7 +3443,7 @@ msgstr "新链接"
 msgid "Start a second stream to get the 3D picture."
 msgstr "开启第二个串流以获取 3D 画面。"
 
-#: rust/crates/effects/src/stereo_plugin.rs:976 rust/crates/shell/src/streams.rs:1213
+#: rust/crates/effects/src/stereo_plugin.rs:976 rust/crates/shell/src/streams.rs:1240
 msgid "Waiting"
 msgstr "等待中"
 
@@ -5160,7 +5160,7 @@ msgstr "无法跟上"
 msgid "Browser"
 msgstr "浏览器"
 
-#: rust/crates/link/src/browser/plugin.rs:936 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:422 rust/crates/link/src/plugin.rs:458 rust/crates/link/src/plugin.rs:484 rust/crates/link/src/plugin.rs:819 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:245 rust/crates/shell/src/streams.rs:1880 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:936 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:422 rust/crates/link/src/plugin.rs:458 rust/crates/link/src/plugin.rs:484 rust/crates/link/src/plugin.rs:819 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:245 rust/crates/shell/src/streams.rs:1907 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "重试"
 
@@ -5647,7 +5647,7 @@ msgstr "正在等待 {source}"
 msgid "{source}, no pairing needed"
 msgstr "{source}，无需配对"
 
-#: rust/crates/link/src/plugin.rs:1203 rust/crates/shell/src/streams.rs:1196
+#: rust/crates/link/src/plugin.rs:1203 rust/crates/shell/src/streams.rs:1223
 msgid "Reconnecting"
 msgstr "正在重新连接"
 
@@ -5659,7 +5659,7 @@ msgstr "通过 USB 串流"
 msgid "Streaming over Wi-Fi"
 msgstr "通过 Wi-Fi 串流"
 
-#: rust/crates/link/src/plugin.rs:1211 rust/crates/shell/src/streams.rs:1200
+#: rust/crates/link/src/plugin.rs:1211 rust/crates/shell/src/streams.rs:1227
 msgid "Connecting"
 msgstr "正在连接"
 
@@ -5672,7 +5672,7 @@ msgstr "正在通过 USB 更新手机应用…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} 上的 Telescope 应用比此应用旧。"
 
-#: rust/crates/link/src/plugin.rs:1306 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:170 rust/crates/shell/src/streams.rs:771 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1306 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:170 rust/crates/shell/src/streams.rs:790 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "复制命令"
 
@@ -6570,7 +6570,7 @@ msgstr "拍照中断，因为相机停止运行。"
 msgid "The camera took too long to take the photo. The photo is saved and you get a notification if it still arrives."
 msgstr "相机拍照耗时过长。如果照片后续送达，将会保存并通知你。"
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:288 rust/crates/shell/src/streams.rs:852
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:288 rust/crates/shell/src/streams.rs:879
 msgid "No photo was taken while part of the picture is hidden."
 msgstr ""
 
@@ -7243,7 +7243,7 @@ msgstr "正在重新加载 loopback..."
 msgid "Restarting stream..."
 msgstr "正在重启串流..."
 
-#: rust/crates/setup/src/setup.rs:911 rust/crates/shell/src/streams.rs:772
+#: rust/crates/setup/src/setup.rs:911 rust/crates/shell/src/streams.rs:791
 msgid "Resize the virtual camera"
 msgstr "调整虚拟相机大小"
 
@@ -9397,7 +9397,7 @@ msgstr "以 {size} 串流，直到手机降温。"
 msgid "Open Telescope on it."
 msgstr "请在上面打开 Telescope。"
 
-#: rust/crates/shell/src/sources.rs:894 rust/crates/shell/src/streams.rs:1800
+#: rust/crates/shell/src/sources.rs:894 rust/crates/shell/src/streams.rs:1827
 msgid "the device"
 msgstr "设备"
 
@@ -9453,116 +9453,126 @@ msgstr "正在开启手机相机…"
 msgid "Streaming the mic, camera off"
 msgstr "仅串流麦克风，相机已关闭"
 
-#: rust/crates/shell/src/streams.rs:717
+#: rust/crates/shell/src/streams.rs:226
+#, python-brace-format
+msgid "Couldn't change the camera size: {message}"
+msgstr ""
+
+#: rust/crates/shell/src/streams.rs:722
 msgid "Stop all but one camera first, then apply again"
 msgstr "请先停止其余相机，只留一个，然后再次应用"
 
-#: rust/crates/shell/src/streams.rs:731
+#: rust/crates/shell/src/streams.rs:736
 msgid "Reloading v4l2loopback…"
 msgstr "正在重新加载 v4l2loopback…"
 
-#: rust/crates/shell/src/streams.rs:731
+#: rust/crates/shell/src/streams.rs:736
 msgid "Restarting stream…"
 msgstr "正在重启串流…"
 
-#: rust/crates/shell/src/streams.rs:761
+#: rust/crates/shell/src/streams.rs:776
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "已重新加载 loopback：{message}"
 
-#: rust/crates/shell/src/streams.rs:761
+#: rust/crates/shell/src/streams.rs:776
 msgid "Canvas updated"
 msgstr "画布已更新"
 
-#: rust/crates/shell/src/streams.rs:766
+#: rust/crates/shell/src/streams.rs:783
+#, python-brace-format
+msgid "Couldn't change the camera size and the virtual camera is gone. Stream stopped: {message}"
+msgstr ""
+
+#: rust/crates/shell/src/streams.rs:785
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "重新加载失败：{message}"
 
-#: rust/crates/shell/src/streams.rs:787
+#: rust/crates/shell/src/streams.rs:814
 msgid "Stop the streams going to them first"
 msgstr "请先停止输出到它们的串流"
 
-#: rust/crates/shell/src/streams.rs:787
+#: rust/crates/shell/src/streams.rs:814
 msgid "There are none to remove"
 msgstr "没有可移除的项"
 
-#: rust/crates/shell/src/streams.rs:848
+#: rust/crates/shell/src/streams.rs:875
 msgid "The photo was interrupted."
 msgstr ""
 
-#: rust/crates/shell/src/streams.rs:864 rust/crates/shell/src/streams.rs:865
+#: rust/crates/shell/src/streams.rs:891 rust/crates/shell/src/streams.rs:892
 msgid "The phone couldn't take the photo."
 msgstr "手机未能拍摄照片。"
 
-#: rust/crates/shell/src/streams.rs:935
+#: rust/crates/shell/src/streams.rs:962
 msgid "The phone is already taking a photo."
 msgstr "手机正在拍照。"
 
-#: rust/crates/shell/src/streams.rs:987
+#: rust/crates/shell/src/streams.rs:1014
 msgid "Virtual camera problem"
 msgstr ""
 
-#: rust/crates/shell/src/streams.rs:1090
+#: rust/crates/shell/src/streams.rs:1117
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "来自 {name} 的串流意外停止"
 
-#: rust/crates/shell/src/streams.rs:1092
+#: rust/crates/shell/src/streams.rs:1119
 msgid "The stream stopped unexpectedly"
 msgstr "串流意外停止"
 
-#: rust/crates/shell/src/streams.rs:1094
+#: rust/crates/shell/src/streams.rs:1121
 msgid "Copy diagnostics has the details."
 msgstr "复制诊断信息可查看详情。"
 
-#: rust/crates/shell/src/streams.rs:1119
+#: rust/crates/shell/src/streams.rs:1146
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "手机发热，已将帧率降至 {fps} fps。"
 
-#: rust/crates/shell/src/streams.rs:1121
+#: rust/crates/shell/src/streams.rs:1148
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "动态模式已将帧率降至 {fps} fps，以适应较慢的连接。"
 
-#: rust/crates/shell/src/streams.rs:1123
+#: rust/crates/shell/src/streams.rs:1150
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "相机生成的帧数少于请求值。光线昏暗会降低帧率。"
 
-#: rust/crates/shell/src/streams.rs:1125
+#: rust/crates/shell/src/streams.rs:1152
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "手机相机生成的帧数少于请求值。光线昏暗会降低帧率。"
 
-#: rust/crates/shell/src/streams.rs:1210
+#: rust/crates/shell/src/streams.rs:1237
 msgid "Starting"
 msgstr "正在启动"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1224
+#: rust/crates/shell/src/streams.rs:1251
 #, python-brace-format
 msgid "to {output}"
 msgstr "至 {output}"
 
-#: rust/crates/shell/src/streams.rs:1225
+#: rust/crates/shell/src/streams.rs:1252
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "停止串流 {name}"
 
-#: rust/crates/shell/src/streams.rs:1617
+#: rust/crates/shell/src/streams.rs:1644
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "手机发送了此版本无法读取的数据。请将两端的应用更新到同一版本。"
 
-#: rust/crates/shell/src/streams.rs:1699
+#: rust/crates/shell/src/streams.rs:1726
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "无法连接到 {name}"
 
-#: rust/crates/shell/src/streams.rs:1787
+#: rust/crates/shell/src/streams.rs:1814
 msgid "Lost the phone - reconnecting"
 msgstr "与手机断开连接 - 正在重新连接"
 
-#: rust/crates/shell/src/streams.rs:1982
+#: rust/crates/shell/src/streams.rs:2009
 msgid "Couldn't reach the device."
 msgstr "无法连接到设备。"
 

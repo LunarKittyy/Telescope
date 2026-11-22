@@ -1362,7 +1362,8 @@ fn photos_keep_requested_overrides_for_validation_and_never_focus() {
     ] {
         let mut host = photo_host();
         host.still_caps = Some(caps);
-        let mut plugin = photo_plugin(&mut host, live_photos());
+        // A shot saved earlier is a pick by hand, so the camera is asked for it and may refuse
+        let mut plugin = photo_plugin(&mut host, json!({"mode": "live", "input": "photos", "shot": {"shutter_s": 10.0, "iso": 800}}));
         photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
         assert_eq!(host.stills_taken[0].0["shot"], json!({"shutter_s": 10.0, "iso": 800}));
         assert!(host.stills_taken[0].0["shot"].get("focus_diopters").is_none());
@@ -1775,4 +1776,29 @@ fn a_stream_that_stops_ends_cleaner_video_with_the_run() {
     assert!(clean_calls(&rig.host).last().unwrap().ends_with(r#"{"action":"clean_video","value":0}"#));
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(clean_calls(&rig.host).len(), 2, "nothing more to give back");
+}
+
+#[test]
+fn the_first_photos_default_gives_way_to_camera_on_a_dial_the_camera_cant_set() {
+    for (caps, shutter, iso) in [
+        (json!({}), None, None),
+        (json!({"shot": {"iso": {"min": 50, "max": 3200}}}), None, Some(800)),
+        (json!({"shot": {"shutter": {"min_ns": 250_000, "max_ns": 20_000_000_000i64}}}), Some(10.0), None),
+    ] {
+        let mut host = photo_host();
+        host.still_caps = Some(caps);
+        let mut plugin = photo_plugin(&mut host, json!({"mode": "live"}));
+        photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
+        assert_eq!((plugin.shot.shutter_s, plugin.shot.iso), (shutter, iso));
+        photo_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+        assert_eq!(plugin.phase, Phase::Collecting);
+        let options = &host.stills_taken[0].0;
+        assert_eq!(options["shot"].get("shutter_s").and_then(Value::as_f64), shutter);
+        assert_eq!(options["shot"].get("iso").and_then(Value::as_i64), iso);
+    }
+    // A camera that can set both keeps the long exposure
+    let mut host = photo_host();
+    let mut plugin = photo_plugin(&mut host, json!({"mode": "live"}));
+    photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
+    assert_eq!((plugin.shot.shutter_s, plugin.shot.iso), (Some(10.0), Some(800)));
 }

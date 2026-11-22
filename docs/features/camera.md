@@ -37,7 +37,7 @@ The **Presets** button saves your camera, output and transform settings (lens in
 
 - The resolution list comes from what the current lens really supports
 - One **FPS** setting (15 to 60) drives both the phone and the virtual camera. Rates the lens can't do are greyed out
-- **Canvas size** under Video in Settings sets the virtual camera's size apart from the phone's. Pick 720p, 1080p or 4K in landscape or portrait, a 4:3 size or a custom one (custom sizes have to be even). On Linux changing it reloads the driver, which asks for your password once (close OBS first)
+- **Canvas size** under Video in Settings sets the virtual camera's size apart from the phone's. Pick 720p, 1080p or 4K in landscape or portrait, a 4:3 size or a custom one (custom sizes have to be even). On Linux changing it reloads the driver, which asks for your password once (close OBS first). If the driver can't be reloaded, the size stays as it was and a stream that was running carries on at the old size
 
 ## Format and bandwidth
 

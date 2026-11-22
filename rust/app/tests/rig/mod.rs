@@ -16,7 +16,7 @@ use telescope_core::frame::{Frame, FrameStep, PixelFormat};
 use telescope_core::host::Host;
 use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSensors, PhoneSession, PhoneStatus, PhoneStills, Resolution, RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable};
 use telescope_core::media::{Codec, FeedEnd, FeedStopper, FrameSlot, Packet, PacketTap, StagedStep, VideoFeed};
-use telescope_core::output::{Outputs, SetupAction, SetupResult, Slot, VideoOutput};
+use telescope_core::output::{Outputs, SetupAction, SetupResult, SetupStatus, Slot, VideoOutput};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::services::Services;
 use telescope_core::system::{Notifier, Tray, TrayItem};
@@ -576,9 +576,14 @@ pub struct Cameras {
     pub held: AtomicBool,
     /// Setting up falls over.
     pub panics: AtomicBool,
+    /// The camera is gone once setting up has failed.
+    pub gone: AtomicBool,
 }
 
 impl Outputs for Cameras {
+    fn setup_status(&self) -> SetupStatus {
+        SetupStatus { ready: !self.gone.load(Ordering::SeqCst), ..SetupStatus::default() }
+    }
     fn slots(&self) -> Vec<Slot> {
         (0..=self.extras.load(Ordering::SeqCst)).map(|slot| Slot { slot, name: format!("Telescope {slot}"), device: String::new() }).collect()
     }
