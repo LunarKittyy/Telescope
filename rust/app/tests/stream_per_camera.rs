@@ -300,8 +300,10 @@ fn coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing() {
 #[test]
 fn coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure() {
     let r = exposed("back-route");
-    r.source("pixel").kind.as_phone().unwrap().move_to(r.session_id("pixel"), telescope_core::source::RouteSpec::Network { address: "192.168.1.20".into() });
+    // recovery has begun before the move opens, so the move can't land first and be taken for a late one
     r.worker(0).says("reconnecting", "Connection lost");
+    r.pump();
+    r.source("pixel").kind.as_phone().unwrap().move_to(r.session_id("pixel"), telescope_core::source::RouteSpec::Network { address: "192.168.1.20".into() });
     r.until("it moved", |r| r.source("pixel").session().unwrap().url.contains("192.168.1.20"));
     forget_sent(&r, "pixel");
     on(&r, "pixel");
