@@ -123,26 +123,33 @@ impl Light {
 /// The luma at and below which no chroma can bring a pixel's brightness above `level`. Chroma that clips a channel can raise the
 /// brightness over what the luma says (Y 151 with saturated green is over 160), so this is worked out for every luma against every chroma.
 fn luma_floor(level: u8) -> u8 {
-    static MOST: OnceLock<[u8; 256]> = OnceLock::new();
-    let most = MOST.get_or_init(|| {
-        let mut most = [0u8; 256];
-        for (y, m) in most.iter_mut().enumerate() {
-            let c = (y as f32 - 16.0) * 1.164_383;
-            for u in 0..=255u32 {
-                let d = u as f32 - 128.0;
-                let (b, g0) = (byte(c + 2.017_232 * d), c - 0.391_762 * d);
-                for v in 0..=255u32 {
-                    let e = v as f32 - 128.0;
-                    let (r, g) = (byte(c + 1.596_027 * e), byte(g0 - 0.812_968 * e));
-                    let grey = ((r as u32 * 9798 + g as u32 * 19235 + b as u32 * 3735 + (1 << 14)) >> 15) as u8;
-                    *m = (*m).max(grey);
-                }
-            }
+    // A brighter luma is never dimmer, so halving the lumas finds the answer and only about 8 of them are ever worked out
+    static MOST: [OnceLock<u8>; 256] = [const { OnceLock::new() }; 256];
+    let most = |y: usize| *MOST[y].get_or_init(|| brightest_for_luma(y as u8));
+    // The highest luma under the level, one level of room so a rounding step in the real path never leaves a lit pixel out
+    let (mut low, mut high) = (0usize, 255usize);
+    while low + 1 < high {
+        let mid = (low + high) / 2;
+        if (most(mid) as u32) < level as u32 { low = mid } else { high = mid }
+    }
+    if low == 0 && (most(0) as u32) >= level as u32 { 0 } else { low as u8 }
+}
+
+/// The brightest grey (as light_row measures it) a pixel of this luma can have, over every U and V.
+fn brightest_for_luma(y: u8) -> u8 {
+    let c = (y as f32 - 16.0) * 1.164_383;
+    let mut most = 0u8;
+    for u in 0..=255u32 {
+        let d = u as f32 - 128.0;
+        let (b, g0) = (byte(c + 2.017_232 * d), c - 0.391_762 * d);
+        for v in 0..=255u32 {
+            let e = v as f32 - 128.0;
+            let (r, g) = (byte(c + 1.596_027 * e), byte(g0 - 0.812_968 * e));
+            let grey = ((r as u32 * 9798 + g as u32 * 19235 + b as u32 * 3735 + (1 << 14)) >> 15) as u8;
+            most = most.max(grey);
         }
-        most
-    });
-    // One level of room, so a rounding step in the real path never leaves a lit pixel out
-    (0..255usize).rev().find(|&y| (most[y] as u32) < level as u32).unwrap_or(0) as u8
+    }
+    most
 }
 
 fn per_band(strips: usize) -> usize {

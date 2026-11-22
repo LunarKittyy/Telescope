@@ -235,21 +235,60 @@ fn cube_row_wide(cube: &Cube, r: &mut [u8], g: &mut [u8], b: &mut [u8]) {
     }
 }
 
+/// Two chroma rows as one value a luma pixel, sixteen times the size: 3:1 from the nearer row, 3:1 from the nearer sample, what a
+/// linear sampler gives at the middle of a luma pixel. `side` is room for the row between.
+fn spread(near: &[u8], far: &[u8], side: &mut [u16], out: &mut [u16]) {
+    between(near, far, side);
+    let last = side.len() - 1;
+    out[0] = 4 * side[0];
+    let done = interleave(side, &mut out[1..], last);
+    for (i, o) in out[1 + done * 2..].as_chunks_mut::<2>().0.iter_mut().enumerate().take(last - done) {
+        let i = i + done;
+        o[0] = 3 * side[i] + side[i + 1];
+        o[1] = 3 * side[i + 1] + side[i];
+    }
+    if out.len().is_multiple_of(2) {
+        out[last * 2 + 1] = 4 * side[last];
+    }
+}
+
 crate::avx2_too! {
-    /// Two chroma rows as one value a luma pixel, sixteen times the size: 3:1 from the nearer row, 3:1 from the nearer sample, what a
-    /// linear sampler gives at the middle of a luma pixel. `side` is room for the row between.
-    fn spread(near: &[u8], far: &[u8], side: &mut [u16], out: &mut [u16]) {
+    /// The row between two chroma rows, 3:1.
+    fn between(near: &[u8], far: &[u8], side: &mut [u16]) {
         for (s, (n, f)) in side.iter_mut().zip(near.iter().zip(far)) {
             *s = 3 * *n as u16 + *f as u16;
         }
-        let last = side.len() - 1;
-        out[0] = 4 * side[0];
-        for (i, o) in out[1..].as_chunks_mut::<2>().0.iter_mut().enumerate().take(last) {
-            o[0] = 3 * side[i] + side[i + 1];
-            o[1] = 3 * side[i + 1] + side[i];
-        }
-        if out.len().is_multiple_of(2) {
-            out[last * 2 + 1] = 4 * side[last];
+    }
+}
+
+/// For the first `count` neighbours in `side`, as many as the vector way takes in whole blocks of 16: 3 * side[i] + side[i + 1] then 3 * side[i + 1] + side[i], side by side in out. Returns how many it did.
+fn interleave(side: &[u16], out: &mut [u16], count: usize) -> usize {
+    #[cfg(target_arch = "x86_64")]
+    if crate::image::avx2_wanted() {
+        let blocks = count.min(out.len() / 2) / 16;
+        // SAFETY: the processor was just asked whether it has AVX2, and every block reads side[i..i + 17] and writes out[i * 2..i * 2 + 32] with i + 16 <= count < side.len() and i * 2 + 32 <= out.len()
+        unsafe { interleave_wide(side, out, blocks) };
+        return blocks * 16;
+    }
+    let _ = (side, out, count);
+    0
+}
+
+/// `blocks` blocks of 16 neighbours at a time.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+fn interleave_wide(side: &[u16], out: &mut [u16], blocks: usize) {
+    use std::arch::x86_64::*;
+    let three = _mm256_set1_epi16(3);
+    for k in 0..blocks {
+        let i = k * 16;
+        // SAFETY: the caller keeps 17 values from i inside side and 32 from i * 2 inside out
+        unsafe {
+            let (a, b) = (_mm256_loadu_si256(side.as_ptr().add(i).cast()), _mm256_loadu_si256(side.as_ptr().add(i + 1).cast()));
+            let (low, high) = (_mm256_add_epi16(_mm256_mullo_epi16(a, three), b), _mm256_add_epi16(_mm256_mullo_epi16(b, three), a));
+            let (first, second) = (_mm256_unpacklo_epi16(low, high), _mm256_unpackhi_epi16(low, high));
+            _mm256_storeu_si256(out.as_mut_ptr().add(i * 2).cast(), _mm256_permute2x128_si256::<0x20>(first, second));
+            _mm256_storeu_si256(out.as_mut_ptr().add(i * 2 + 16).cast(), _mm256_permute2x128_si256::<0x31>(first, second));
         }
     }
 }
@@ -454,5 +493,55 @@ mod tests {
         graded.process(&mut bgra, &Nothing);
         assert_eq!(rgba.data[..3], [100, 50, 25]);
         assert_eq!(bgra.data[..], [25, 50, 100, 255]);
+    }
+
+    /// What spread did before it had a vector way.
+    fn spread_plain(near: &[u8], far: &[u8]) -> Vec<u16> {
+        let side: Vec<u16> = near.iter().zip(far).map(|(n, f)| 3 * *n as u16 + *f as u16).collect();
+        let mut out = vec![0u16; 2 * side.len()];
+        out[0] = 4 * side[0];
+        for i in 0..side.len() - 1 {
+            out[1 + 2 * i] = 3 * side[i] + side[i + 1];
+            out[2 + 2 * i] = 3 * side[i + 1] + side[i];
+        }
+        out[2 * side.len() - 1] = 4 * side[side.len() - 1];
+        out
+    }
+
+    #[test]
+    fn spreading_a_row_gives_what_the_plain_loop_did_at_every_length() {
+        for width in [1usize, 2, 3, 15, 16, 17, 31, 32, 33, 34, 63, 64, 65, 127, 853, 1919, 1920, 3840] {
+            let (near, far) = (noise(width.div_ceil(2) + 3), noise(width.div_ceil(2) + 9));
+            let cw = width.div_ceil(2);
+            let want = spread_plain(&near[..cw], &far[..cw]);
+            let mut out = vec![0u16; width];
+            spread(&near[..cw], &far[..cw], &mut vec![0u16; cw], &mut out);
+            assert_eq!(out[..], want[..width], "width {width}");
+        }
+    }
+
+    #[test]
+    #[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+    fn bench_spread_and_grade() {
+        let (near, far) = (noise(1920), noise(1920));
+        let (mut side, mut out) = (vec![0u16; 1920], vec![0u16; 3840]);
+        let t = std::time::Instant::now();
+        for _ in 0..2000 {
+            spread(&near, &far, &mut side, &mut out);
+            std::hint::black_box(&out);
+        }
+        println!("spread of a 4K row: {:.2} us", t.elapsed().as_secs_f64() * 1e6 / 2000.0);
+        let lut = cube(|v| v.sqrt(), false);
+        let mut graded = Graded::new(&lut);
+        let (w, h) = (3840usize, 2160usize);
+        let source = Frame::new(w as u32, h as u32, PixelFormat::I420, noise(w * h * 3 / 2));
+        let best = (0..12).map(|_| {
+            let mut f = Frame::new(w as u32, h as u32, PixelFormat::I420, source.data.to_vec());
+            let t = std::time::Instant::now();
+            graded.process(&mut f, &Nothing);
+            std::hint::black_box(&f);
+            t.elapsed().as_secs_f64() * 1000.0
+        }).fold(f64::MAX, f64::min);
+        println!("4K I420 grade: {best:.2} ms");
     }
 }
