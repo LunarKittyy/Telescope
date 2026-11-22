@@ -380,6 +380,50 @@ fn hub_replying(replies: Vec<Vec<u8>>) -> (u16, Arc<Mutex<Vec<String>>>) {
     (port, seen)
 }
 
+/// A hub that closes after each reply without saying so, a moment later, like small real receivers do.
+fn quiet_closing_hub(replies: Vec<Vec<u8>>) -> (u16, Arc<Mutex<Vec<String>>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let log = seen.clone();
+    std::thread::spawn(move || {
+        for reply in replies.into_iter().cycle() {
+            let Ok((mut conn, _)) = listener.accept() else { return };
+            let mut reader = BufReader::new(conn.try_clone().unwrap());
+            let (mut first, mut length) = (String::new(), 0usize);
+            let _ = reader.read_line(&mut first);
+            loop {
+                let mut line = String::new();
+                if reader.read_line(&mut line).unwrap_or(0) == 0 || line.trim().is_empty() {
+                    break;
+                }
+                if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = v.trim().parse().unwrap_or(0);
+                }
+            }
+            let _ = reader.read_exact(&mut vec![0; length]);
+            log.lock().unwrap().push(first);
+            let _ = conn.write_all(&reply);
+            std::thread::sleep(Duration::from_millis(300));
+            let _ = conn.shutdown(std::net::Shutdown::Both);
+        }
+    });
+    (port, seen)
+}
+
+/// A hub that closes without `Connection: close` must not leave a dead connection for the redirect or the next webhook.
+#[test]
+fn a_hub_closing_without_saying_so_still_gets_the_redirect_and_the_next_webhook() {
+    let ok = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n".to_vec();
+    let (port, seen) = quiet_closing_hub(vec![b"HTTP/1.1 302 Found\r\nLocation: /next\r\nContent-Length: 0\r\n\r\n".to_vec(), ok.clone(), ok]);
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(sent_to(port), "");
+    assert_eq!(sent_to(port), "");
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 3, "{seen:?}");
+    assert!(seen[1].starts_with("GET /next "), "{}", seen[1]);
+}
+
 type Bodies = Arc<Mutex<Vec<String>>>;
 type Results = Arc<Mutex<Vec<(String, String)>>>;
 
