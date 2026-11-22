@@ -1,4 +1,4 @@
-<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: 400cb0586 -->
+<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: 277bbbf1a -->
 # Packaging and CI
 
 How the desktop app is packaged and what each workflow does. [Building](building.md) covers building and trying a change.
@@ -70,7 +70,7 @@ Before publishing, `.github/check_release.py` checks the files it's about to upl
 
 ### The workflows for pull requests
 
-These run on pull requests without publishing. `release.yml` calls them for the real thing. The checks called `android`, `windows` and `linux` have to pass before `master` takes a pull request (the maintainer can push past it). `build-apk.yml` and `rust.yml` each have a small `changes` job that skips the check when nothing it covers changed, which GitHub counts as passing. A docs-only pull request then doesn't wait on a check that isn't running. A new push cancels checks still running.
+These run on pull requests without publishing. `release.yml` calls them for the real thing. The checks called `android`, `windows` and `linux` have to pass before `master` takes a pull request (the maintainer can push past it). `build-apk.yml` and `rust.yml` each have a small `changes` job that skips the check when nothing it covers changed, which GitHub counts as passing. A docs-only pull request then doesn't wait on a check that isn't running. A new push to a ready pull request cancels checks still running. Every push to a draft runs to the end.
 
 | Workflow | Runs for | What it does |
 |---|---|---|
