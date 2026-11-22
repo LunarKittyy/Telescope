@@ -67,6 +67,8 @@ pub fn slot_label(slot: u32) -> String {
 #[derive(Default)]
 pub struct VirtualCameras {
     pub device: Option<String>,
+    /// Leave the camera alone while nothing streams to it: no wait screen and no watch of who reads it (a dev copy next to the real app).
+    pub hands_off_when_idle: bool,
     /// Whether the watch's last answer can be trusted to mean nobody reads (watch::WatchDeps::reliable).
     watch_reliable: Arc<std::sync::atomic::AtomicBool>,
 }
@@ -248,6 +250,9 @@ impl Outputs for VirtualCameras {
     }
 
     fn watch_slot(&self, slot: u32, on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn telescope_core::output::Held>> {
+        if self.hands_off_when_idle {
+            return None;
+        }
         #[cfg(target_os = "linux")]
         let device: Arc<dyn Fn() -> String + Send + Sync> = {
             // An extra camera that isn't set up has nothing to watch
@@ -303,6 +308,9 @@ impl Outputs for VirtualCameras {
     }
 
     fn wait_screen(&self, slot: u32) -> Option<Box<dyn telescope_core::output::WaitScreen>> {
+        if self.hands_off_when_idle {
+            return None;
+        }
         Some(Box::new(wait_screen::WaitScreen::new(self.screen_deps(slot), gate())))
     }
 

@@ -1492,3 +1492,18 @@ fn a_normal_worker_that_starts_late_on_an_older_frame_does_not_lead_a_newer_cuto
     let chosen = crate::preferred_mask(Some(hq), Some(normal), false).unwrap();
     assert_eq!(chosen.mask.len(), 160 * 90, "the cutout's newer outline stays, not the normal one of an older frame");
 }
+
+#[test]
+fn a_mask_after_the_view_turned_is_stamped_with_the_frame_it_was_run_for() {
+    for waiting in [true, false] {
+        let (v, _) = finder(Duration::from_millis(1));
+        if waiting { v.wait_for_masks(); }
+        let ask = |seq: u64| v.newest_normal_snapshot("a", true, seq, 256, 144, Box::new(|| Some(someone_at(50))), v.view_epoch(), MaskView::default()).unwrap();
+        assert_eq!(ask(1).seq, 1);
+        v.stream("a").mask.lock().unwrap().at = monotonic() + 100.0;
+        v.drop_masks();
+        // What was kept is gone, so this frame is run afresh and is the one the mask is of
+        assert_eq!(ask(7).seq, 7, "waiting {waiting}");
+        assert_eq!(ask(8).seq, 7, "waiting {waiting}");
+    }
+}
