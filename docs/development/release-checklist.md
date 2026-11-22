@@ -157,7 +157,7 @@ The QR code advertises desktop addresses and the phone sends LAN attempts on Wi-
 - [ ] With a plugin using the phone's sensors, tilting the phone shows on the desktop within a moment with the back and the front camera, held upright and in landscape both ways round. Switching to another phone's stream moves the sensors there and an older phone app is reported as one.
 - [ ] The phone's sensors stop once nothing uses them or the stream ends (the `sensors` thread goes away in `adb shell top -H -p $(adb shell pidof com.telescope)`), and the video doesn't stutter while they run.
 
-### Start and Stop settings and the camera button
+### Starting, stopping and the camera button
 
 <!-- due: android/app/src/main/kotlin/com/telescope/BlackScreen.kt android/app/src/main/kotlin/com/telescope/BlackScreenState.kt rust/crates/outputs/src/wait_screen*.rs rust/crates/outputs/ui/wait_screen.slint rust/crates/system/src/startup.rs rust/crates/system/ui/startup.slint rust/crates/system/src/single_instance.rs android/app/src/main/kotlin/com/telescope/CameraOwnership.kt -->
 
@@ -215,7 +215,7 @@ The QR code advertises desktop addresses and the phone sends LAN attempts on Wi-
 - [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner rather than one per change.
 - [ ] On Windows the firewall prompt (or a rule) lets port 7482 through. New link makes an open sign show that its link doesn't work any more.
 
-### Settings, keyboard, folding, devices and plugins
+### Settings, keyboard and folding
 
 <!-- due: rust/crates/system/src/shortcuts.rs rust/crates/system/ui/shortcuts.slint rust/crates/system/src/hotkeys*.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray*.rs rust/crates/system/src/icon.rs rust/crates/system/src/memory.rs rust/crates/system/src/lib.rs rust/crates/system/src/version.rs rust/crates/system/src/test_bus.rs rust/crates/setup/** -->
 
