@@ -602,6 +602,7 @@ mod tests {
     /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_conversion_costs
     #[test]
     #[ignore = "a measurement"]
+    #[cfg(target_arch = "x86_64")]
     fn what_the_conversion_costs() {
         use std::time::Instant;
         let med = |mut v: Vec<f64>| {
