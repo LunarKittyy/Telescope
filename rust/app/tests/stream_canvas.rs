@@ -110,7 +110,7 @@ fn a_loopback_reload_that_raises_still_reports_back() {
     r.cameras.panics.store(true, Ordering::SeqCst);
     resize(&r);
     assert!(wait_done(&r).starts_with("panel done false"));
-    assert!(r.text("status").starts_with("Reload failed"));
+    r.until("the stream's back", |r| r.workers_made() == 2);
 }
 
 #[test]
@@ -120,11 +120,44 @@ fn canvas_reload_failure_reports_error_and_clears_callback() {
     resize(&r);
     assert_eq!(wait_done(&r), "panel done false busy ");
     r.pump();
-    assert_eq!(r.text("status"), "Reload failed: busy");
-    assert_eq!(r.text("status-kind"), "status_err");
-    assert_eq!(r.link.logged("wake pixel"), 1, "not started again");
-    assert_eq!(r.workers_made(), 1);
+    r.until("the stream's back at the old size", |r| r.workers_made() == 2);
+    assert_eq!(r.streaming(), ["pixel"]);
+    assert_eq!(r.link.logged("stop pixel"), 0, "the phone stays up through it");
     assert_eq!(r.heard().iter().filter(|l| l.starts_with("panel done ")).count(), 1, "one answer");
+}
+
+#[test]
+fn a_blocked_resize_nobody_is_watching_says_why_in_a_banner() {
+    let r = on_air("canvas-blocked");
+    *r.cameras.fails.lock().unwrap() = Some(("busy".into(), String::new()));
+    r.w.restart_canvas("panel", RequestId(1), false);
+    r.until("the banner", |r| r.banner("vcam").is_some());
+    assert_eq!(r.banner("vcam").unwrap()["text"], "busy");
+    r.until("the stream's back", |r| r.workers_made() == 2);
+}
+
+#[test]
+fn a_failed_reload_that_leaves_no_camera_keeps_the_stream_stopped() {
+    let r = on_air("canvas-gone");
+    *r.cameras.fails.lock().unwrap() = Some(("modprobe failed".into(), String::new()));
+    r.cameras.gone.store(true, Ordering::SeqCst);
+    resize(&r);
+    assert_eq!(wait_done(&r), "panel done false modprobe failed ");
+    r.pump();
+    assert_eq!(r.text("status"), "Couldn't change the camera size and the virtual camera is gone. Stream stopped: modprobe failed");
+    assert_eq!(r.workers_made(), 1, "not started again");
+    assert!(r.streaming().is_empty());
+}
+
+#[test]
+fn a_stop_during_a_failed_reload_stays_stopped() {
+    let r = resizing("canvas-fail-stop");
+    r.start();
+    r.w.toggle_stream();
+    r.pump();
+    *r.cameras.fails.lock().unwrap() = Some(("busy".into(), String::new()));
+    finish(&r);
+    assert!(r.streaming().is_empty());
 }
 
 #[test]

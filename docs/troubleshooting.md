@@ -45,7 +45,7 @@ The module isn't loaded at boot. Starting a stream loads it again. Leave **Also 
 Another app (OBS's own virtual camera, for example) already loaded the module with different settings. Close that app, click **Unload** under Virtual camera & phone in Settings (or run `sudo modprobe -r v4l2loopback`) and click **Start streaming** again.
 
 **Canvas change fails with "module in use" on Linux**
-OBS or another app still holds the device. Close every app using the virtual camera and retry.
+OBS or another app still holds the device. Telescope keeps the old size and starts the stream again at it, with a message that the change was blocked. Close every app using the virtual camera and apply the size again.
 
 **The virtual camera won't open on Windows**
 The driver isn't registered. Open **Virtual camera & phone** in Settings and reinstall it.

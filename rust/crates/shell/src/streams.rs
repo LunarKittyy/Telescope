@@ -221,6 +221,11 @@ struct Host<'a> {
     w: &'a Rc<Window>,
 }
 
+/// What the status says when the camera size didn't change and the old camera carries on.
+fn blocked_text(message: &str) -> String {
+    tr("Couldn't change the camera size: {message}").field("message", message)
+}
+
 fn key(id: Option<&str>) -> String {
     id.unwrap_or("").to_string()
 }
@@ -734,18 +739,26 @@ impl Window {
         std::thread::spawn(move || {
             // A second stop waits for the one the flow started, so the camera is free after this
             old.iter().for_each(|worker| worker.stop());
+            let mut device_kept = true;
             let result = match outputs.filter(|_| linux) {
                 // Still reports back, so the stream it stopped isn't left waiting
-                Some(outputs) => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| outputs.set_up(telescope_core::output::SetupAction::Reload, &|_| {})))
-                    .unwrap_or_else(|_| telescope_core::output::SetupResult { ok: false, message: "the reload stopped unexpectedly".into(), command: None }),
+                Some(outputs) => {
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| outputs.set_up(telescope_core::output::SetupAction::Reload, &|_| {})))
+                        .unwrap_or_else(|_| telescope_core::output::SetupResult { ok: false, message: "the reload stopped unexpectedly".into(), command: None });
+                    // Busy, cancelled or stopped halfway: only a camera that is still there can take the stream again
+                    if !result.ok {
+                        device_kept = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| outputs.setup_status().ready)).unwrap_or(false);
+                    }
+                    result
+                }
                 None => telescope_core::output::SetupResult { ok: true, message: String::new(), command: None },
             };
-            let _ = slint::invoke_from_event_loop(move || crate::window::with_window(|w| w.canvas_reloaded(&plugin, request, shows_command, result, was_streaming)));
+            let _ = slint::invoke_from_event_loop(move || crate::window::with_window(|w| w.canvas_reloaded(&plugin, request, shows_command, result, was_streaming, device_kept)));
         });
     }
 
     /// _on_canvas_reload_done.
-    fn canvas_reloaded(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, shows_command: bool, result: telescope_core::output::SetupResult, restart_stream: bool) {
+    fn canvas_reloaded(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, shows_command: bool, result: telescope_core::output::SetupResult, restart_stream: bool, device_kept: bool) {
         let restart = {
             let mut flow = self.streams.flow.borrow_mut();
             // Not after a Stop since, or over a stream started while the reload ran
@@ -756,25 +769,39 @@ impl Window {
             restart
         };
         let command = result.command.clone().unwrap_or_default();
+        // The status line is soon taken over by the stream starting again, so a banner keeps the reason
+        let blocked_now = !result.ok && device_kept && restart;
         if result.ok {
             let linux = cfg!(target_os = "linux");
             self.set_status(&if linux { tr("Loopback reloaded: {message}").field("message", &result.message) } else { tr("Canvas updated") }, "ok");
             if restart {
                 self.with_flow(|flow, host| flow.start(host, true, None));
             }
+        } else if device_kept {
+            self.set_status(&blocked_text(&result.message), "err");
+        } else if restart_stream {
+            self.set_status(&tr("Couldn't change the camera size and the virtual camera is gone. Stream stopped: {message}").field("message", &result.message), "err");
         } else if command.is_empty() {
             self.set_status(&tr("Reload failed: {message}").field("message", &result.message), "err");
         } else {
             self.set_status(&tr("Not streaming"), "dim");
         }
-        if !shows_command && !command.is_empty() && !result.ok {
-            let actions = vec![IssueAction { label: tr("Copy command"), does: IssueDoes::OpenUrl { url: format!("copy:{command}") } }];
+        if !shows_command && !result.ok && (!command.is_empty() || blocked_now) {
+            let actions = if command.is_empty() { vec![] } else { vec![IssueAction { label: tr("Copy command"), does: IssueDoes::OpenUrl { url: format!("copy:{command}") } }] };
             let issue = Issue { title: tr("Resize the virtual camera"), text: result.message.clone(), actions, kind: "warn".into(), details: command.clone(), tell_dismiss: false };
             self.state.borrow_mut().banners.show("vcam", issue);
             self.show_banners();
         }
         let data = serde_json::json!({"command": command});
+        let blocked = blocked_now;
+        let message = result.message.clone();
         self.state.borrow_mut().deliver_to(plugin, &Event::RequestDone { request, ok: result.ok, message: result.message, data });
+        // After the answer, so a plugin that asked has put the old size back before the stream reads it
+        if blocked {
+            self.with_flow(|flow, host| flow.start(host, true, None));
+            // The start wrote its own status over the reason
+            self.set_status(&blocked_text(&message), "err");
+        }
         self.process();
     }
 
