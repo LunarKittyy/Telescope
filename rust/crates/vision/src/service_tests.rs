@@ -1432,3 +1432,63 @@ fn the_first_mask_after_a_cold_open_over_the_age_limit_is_still_fresh() {
     assert!(snap.at - asked >= 0.5, "the mask's own time went by the start, not the run");
     assert!(snap.frame_at - asked < 0.2, "its frame's time was taken after the open: {:.2}s", snap.frame_at - asked);
 }
+
+/// A backend whose 256 wide frames wait at the model until the gate opens, to hold one worker back.
+struct GatedOnce(Arc<Fake>, Arc<(Mutex<bool>, Condvar)>);
+
+struct GatedSeg(Box<dyn Segmenter>, Arc<(Mutex<bool>, Condvar)>);
+
+impl Segmenter for GatedSeg {
+    fn segment(&mut self, frame: &Rgb, ts_ms: i64) -> Result<Gray, VisionError> {
+        if frame.w == 256 {
+            let (open, changed) = &*self.1;
+            let _held = changed.wait_while(open.lock().unwrap(), |open| !*open).unwrap();
+        }
+        self.0.segment(frame, ts_ms)
+    }
+}
+
+impl Backend for GatedOnce {
+    fn version(&self) -> String {
+        "gated".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        Ok(Box::new(GatedSeg(self.0.segmenter()?, self.1.clone())))
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        self.0.pose()
+    }
+}
+
+#[test]
+fn a_normal_worker_that_starts_late_on_an_older_frame_does_not_lead_a_newer_cutout() {
+    let gate = Arc::new((Mutex::new(false), Condvar::new()));
+    let backend: Arc<dyn Backend> = Arc::new(GatedOnce(Fake::new(), gate.clone()));
+    let b = backend.clone();
+    let (v, _, _) = make(Box::new(move || Ok(b.clone())));
+    v.load();
+    wait(|| v.state() == READY);
+    let (epoch, view) = (v.view_epoch(), MaskView::default());
+    let ask = |key: &str, which, seq, w: usize, h: usize| {
+        v.newest_from(key, backend.clone(), which, false, seq, w, h, None, Box::new(move || Some(Rgb::filled(w, h, 200))), epoch, view)
+    };
+    // The normal worker takes frame 1 and stays in the model; frame 2 waits behind it
+    ask("a", Which::Normal, 1, 256, 144);
+    wait(|| v.stream("a").newest.lock().unwrap().job.is_none());
+    ask("a", Which::Normal, 2, 256, 144);
+    // The cutout's worker takes frames 3 and 4, newer than both, at once
+    ask(&cutout_key("a"), Which::Cutout, 3, 160, 90);
+    ask(&cutout_key("a"), Which::Cutout, 4, 160, 90);
+    wait(|| ask(&cutout_key("a"), Which::Cutout, 4, 160, 90).is_some());
+    // The normal worker gets to frame 2 well over the cutout's lead later
+    std::thread::sleep(Duration::from_millis(250));
+    *gate.0.lock().unwrap() = true;
+    gate.1.notify_all();
+    wait(|| v.stream("a").newest.lock().unwrap().done >= 2);
+    let normal = ask("a", Which::Normal, 2, 256, 144).unwrap();
+    let hq = ask(&cutout_key("a"), Which::Cutout, 4, 160, 90).unwrap();
+    assert!(normal.seq < hq.seq, "the normal mask is of the older frame");
+    assert!(normal.fresh() && hq.fresh());
+    let chosen = crate::preferred_mask(Some(hq), Some(normal), false).unwrap();
+    assert_eq!(chosen.mask.len(), 160 * 90, "the cutout's newer outline stays, not the normal one of an older frame");
+}
