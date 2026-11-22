@@ -2108,8 +2108,9 @@ pub(crate) mod tests {
         assert_eq!(p.process(frame(0), &NoContext).data[0], 51);
         assert_eq!(p.process(frame(1), &NoContext).data[0], 102);
         // new settings (and any other plugin's slider does this too): the same step again, and it counts on
-        p.set_steps(vec![staged("filters", 0.1)]);
-        assert_eq!(p.process(frame(2), &NoContext).data[0], 128);
+        // 0.4 + 0.15 is 140.25 levels, not on a halfway point that cards round differently
+        p.set_steps(vec![staged("filters", 0.15)]);
+        assert_eq!(p.process(frame(2), &NoContext).data[0], 140);
         // another owner's step, or another shader, starts from nothing
         p.set_steps(vec![staged("other", 0.1)]);
         assert_eq!(p.process(frame(3), &NoContext).data[0], 51);
