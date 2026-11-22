@@ -545,7 +545,7 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, wanted: Wanted::default(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default(), card_mask: None }
+    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, wanted: Wanted::default(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default(), card_mask: None, card_room: None }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {

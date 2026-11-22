@@ -285,13 +285,137 @@ fn the_blur_on_the_card_still_gives_a_stream_its_cut_out() {
     assert!(both(&mut p, &frame, &ctx).0.alpha().is_none());
 }
 
+/// A picture with bands, a gradient and a size of its own (not the frame's), as a chosen file would be.
+fn backdrop_picture() -> Arc<Rgb> {
+    let (w, h) = (900, 700);
+    let mut data = Vec::with_capacity(w * h * 3);
+    for y in 0..h {
+        for x in 0..w {
+            let band = if (x / 90) % 2 == 0 { 40.0 } else { 0.0 };
+            data.extend([(x * 255 / w) as f32 + band, (y * 255 / h) as f32, 200.0 - (x * 120 / w) as f32 + band].map(|v| v.clamp(0.0, 255.0) as u8));
+        }
+    }
+    Arc::new(Rgb { w, h, data })
+}
+
+fn picture_plugin(edges: i64) -> BackgroundPlugin {
+    let mut p = BackgroundPlugin::new();
+    p.set_config(&json!({"mode": "picture", "edges": edges})).unwrap();
+    p.picture = Some(backdrop_picture());
+    p
+}
+
 #[test]
-fn picture_mode_stays_on_the_cpu() {
+fn picture_mode_runs_either_way_when_it_has_a_picture_and_stays_on_the_cpu_when_it_has_none() {
     let mut p = BackgroundPlugin::new();
     p.set_config(&json!({"mode": "picture", "blur": 6})).unwrap();
-    assert!(matches!(p.frame_step(), Some(FrameStep::Cpu(_))));
+    assert!(matches!(p.frame_step(), Some(FrameStep::Cpu(_))), "no picture, nothing for the card to lay over");
+    p.picture = Some(backdrop_picture());
+    assert!(matches!(p.frame_step(), Some(FrameStep::Either(..))));
     p.set_config(&json!({"mode": "blur", "blur": 6})).unwrap();
     assert!(matches!(p.frame_step(), Some(FrameStep::Either(..))));
+}
+
+#[test]
+fn the_card_gives_the_picture_the_cpu_does_in_picture_mode() {
+    if !real_card() {
+        return;
+    }
+    let (w, h) = (1280, 720);
+    let mask = person(w, h);
+    let frame = room(w, h, &mask);
+    let ctx = Ctx::new(Some(mask.clone()));
+    for edges in [0, 3] {
+        let (card, cpu) = both(&mut picture_plugin(edges), &frame, &ctx);
+        let (max, mean, far) = gap(&card, &cpu, &mask, 24);
+        eprintln!("picture, edges {edges}: card vs CPU max {max} levels, {far} away from the mask's edge, mean {mean:.3}");
+        assert!(far <= 4 && mean <= 1.0 && max <= 6, "picture edges {edges}: max {max}, far {far}, mean {mean:.3}");
+        let mut worst_person = 0;
+        for y in (40..h - 40).step_by(3) {
+            for x in (40..w - 40).step_by(3) {
+                let near_edge = (y.saturating_sub(24)..(y + 24).min(h)).step_by(8).any(|ny| (x.saturating_sub(24)..(x + 24).min(w)).step_by(8).any(|nx| mask[ny * w + nx] != 255));
+                if mask[y * w + x] == 255 && !near_edge {
+                    worst_person = worst_person.max((card.data[y * w + x] as i32 - frame.data[y * w + x] as i32).abs());
+                }
+            }
+        }
+        assert!(worst_person <= 2, "picture edges {edges}: the person's luma moved by {worst_person}");
+    }
+}
+
+#[test]
+fn a_frame_with_no_mask_is_all_picture_on_the_card_as_on_the_cpu() {
+    if !real_card() {
+        return;
+    }
+    let (w, h) = (1280, 720);
+    let frame = room(w, h, &person(w, h));
+    let (card, cpu) = both(&mut picture_plugin(3), &frame, &Ctx::new(None));
+    let (max, mean, _) = gap(&card, &cpu, &vec![0; w * h], 24);
+    eprintln!("picture, no mask: card vs CPU max {max} levels, mean {mean:.3}");
+    assert!(max <= 4 && mean <= 1.0, "no mask: max {max}, mean {mean:.3}");
+    assert!(card.data.iter().step_by(11).any(|&v| v != 0), "not a dark frame");
+}
+
+#[test]
+fn picture_mode_on_rgba_and_odd_sized_frames_matches_the_cpu() {
+    if !real_card() {
+        return;
+    }
+    for (w, h) in [(1280usize, 720usize), (1281, 721)] {
+        let mask = person(w, h);
+        let mut rgba = Frame::new(w as u32, h as u32, PixelFormat::Rgba, vec![255; w * h * 4]);
+        for (o, p) in rgba.data_mut().as_chunks_mut::<4>().0.iter_mut().zip(room_rgb(w, h, &mask).as_chunks::<3>().0) {
+            o[..3].copy_from_slice(p);
+        }
+        let ctx = Ctx::new(Some(mask.clone()));
+        let (card, cpu) = both(&mut picture_plugin(3), &rgba, &ctx);
+        let worst = card.data.iter().zip(cpu.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap();
+        let mean = card.data.iter().zip(cpu.data.iter()).map(|(a, b)| (*a as i64 - *b as i64).abs()).sum::<i64>() as f64 / card.data.len() as f64;
+        eprintln!("picture rgba {w}x{h}: max {worst}, mean {mean:.3}");
+        assert!(worst <= 12 && mean <= 1.0, "{w}x{h}: max {worst}, mean {mean:.3}");
+    }
+}
+
+/// The mean of the luma plane, which a dark frame would pull down.
+fn mean_luma(f: &Frame) -> f64 {
+    let n = (f.width * f.height) as usize;
+    f.data[..n].iter().step_by(5).map(|&v| v as f64).sum::<f64>() / n.div_ceil(5) as f64
+}
+
+#[test]
+fn picture_mode_never_flashes_dark_through_masks_settings_and_the_balance_moving_it() {
+    if !real_card() {
+        return;
+    }
+    let (w, h) = (640, 360);
+    let mask = person(w, h);
+    let shifted: Vec<u8> = (0..w * h).map(|i| mask[(i + 37) % (w * h)]).collect();
+    let frame = room(w, h, &mask);
+    let balance = Arc::new(Balance::free());
+    let mut pipeline = Pipeline::with_balance(balance.clone());
+    let step_for = |edges: i64| {
+        let mut p = picture_plugin(edges);
+        p.frame_step().unwrap()
+    };
+    pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step: step_for(3) }]);
+    let mut means = Vec::new();
+    let mut run = |pipeline: &mut Pipeline, ctx: &Ctx, n: usize| (0..n).for_each(|_| means.push(mean_luma(&pipeline.process(frame.clone(), ctx))));
+    // nobody found yet, a person appears, they move (a new mask every frame), the edge setting changes, the card gets busy and the step moves to the CPU
+    run(&mut pipeline, &Ctx::new(None), 3);
+    run(&mut pipeline, &Ctx::new(Some(mask.clone())), 3);
+    run(&mut pipeline, &Ctx::new(Some(shifted.clone())), 3);
+    run(&mut pipeline, &Ctx::new(Some(mask.clone())), 2);
+    pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step: step_for(8) }]);
+    run(&mut pipeline, &Ctx::new(Some(mask.clone())), 3);
+    (0..8).for_each(|_| balance.note_wait(50_000_000));
+    assert_eq!(balance.place(), Place::Cpu);
+    run(&mut pipeline, &Ctx::new(Some(mask.clone())), 3);
+    run(&mut pipeline, &Ctx::new(None), 2);
+    let (lo, hi) = means.iter().fold((f64::MAX, 0.0f64), |(l, h), &m| (l.min(m), h.max(m)));
+    eprintln!("picture mode luma across the run: {lo:.1} to {hi:.1}, steps between frames at most {:.1}", means.windows(2).map(|p| (p[0] - p[1]).abs()).fold(0.0, f64::max));
+    assert!(lo > 0.7 * hi && lo > 30.0, "a frame went dark: {means:?}");
+    assert!(means.windows(2).all(|p| (p[0] - p[1]).abs() < 0.2 * hi), "the picture jumped between two frames: {means:?}");
 }
 
 /// Changes the picture after the others, as a step on the CPU does.
