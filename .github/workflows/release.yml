@@ -211,6 +211,11 @@ jobs:
             echo
             cat .github/NIGHTLY_NOTES.md
           } > notes.md
+          # Older nightlies ask for the pack named in their own vision_pack.json, so the last few stay on the release
+          # Never fatal: on any failure the nightly gets only its own packs, as before
+          mkdir old-packs
+          gh release download nightly --dir old-packs --pattern 'Telescope-vision-*' --pattern 'Telescope-matting-*' --pattern pack-history.json || echo "::warning::Couldn't fetch the old packs, publishing without them"
+          python3 .github/carry_packs.py --old old-packs --out out || echo "::warning::Couldn't carry the old packs over"
           gh release delete nightly --yes --cleanup-tag || true
           gh release create nightly out/* --prerelease --latest=false \
             --title "Nightly" --notes-file notes.md --target "$GITHUB_SHA"
