@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use telescope_core::bus::BusSender;
 use telescope_core::event::Event;
-use telescope_core::frame::{Frame, MaskSpace};
+use telescope_core::frame::{Frame, MaskSpace, PixelFormat};
 use telescope_core::image::{frame_rgb, small_grey, small_rgb};
 use telescope_core::people::PeopleTracking;
 use telescope_core::vision::{turned, PackZip, Turn, Upright, VisionPack, VisionService};
@@ -106,7 +106,37 @@ fn people_look(frame: &Frame) -> Option<Vec<u8>> {
     if w < ops::THUMB.0 || h < ops::THUMB.1 {
         return rgb(frame).map(|picture| ops::thumb(&picture));
     }
-    small_grey(frame, ops::THUMB.0, ops::THUMB.1)
+    let mut look = small_grey(frame, ops::THUMB.0, ops::THUMB.1)?;
+    // A change of colour at the same luma moves the frame too, so a coarse grid of each chroma plane follows the grey
+    if frame.format == PixelFormat::I420 && frame.data.len() >= PixelFormat::I420.size(frame.width, frame.height) && frame.bgr().is_none() {
+        if let Some((_, u, v)) = frame.i420_planes() {
+            let cw = w.div_ceil(2);
+            look.extend(chroma_grid(u, cw, h.div_ceil(2)));
+            look.extend(chroma_grid(v, cw, h.div_ceil(2)));
+        }
+    }
+    Some(look)
+}
+
+/// A plane of one byte a pixel as a CHROMA_GRID of cells, each the mean of a few samples around its centre (a few thousand reads however big the frame).
+fn chroma_grid(plane: &[u8], w: usize, h: usize) -> Vec<u8> {
+    let (gw, gh) = ops::CHROMA_GRID;
+    let mut out = Vec::with_capacity(gw * gh);
+    for gy in 0..gh {
+        for gx in 0..gw {
+            let (cx, cy) = ((gx * 2 + 1) * w / (gw * 2), (gy * 2 + 1) * h / (gh * 2));
+            let (mut sum, mut n) = (0u32, 0u32);
+            for y in cy.saturating_sub(2)..(cy + 2).min(h) {
+                let row = &plane[y * w..(y + 1) * w];
+                for &p in &row[cx.saturating_sub(2)..(cx + 2).min(w)] {
+                    sum += p as u32;
+                    n += 1;
+                }
+            }
+            out.push((sum / n.max(1)) as u8);
+        }
+    }
+    out
 }
 
 /// The pack's backend from `load`: the marker only says the files matched once, and the library is native code that runs as the user.

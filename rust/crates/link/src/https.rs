@@ -82,7 +82,7 @@ impl ServerCertVerifier for Pin {
     fn verify_server_cert(&self, end_entity: &CertificateDer<'_>, _intermediates: &[CertificateDer<'_>],
                           _server_name: &ServerName<'_>, _ocsp: &[u8], _now: UnixTime) -> Result<ServerCertVerified, rustls::Error> {
         // No CA or hostname checks: the phone's certificate is self-signed and the pin replaces both
-        if crate::util::same(&fingerprint(end_entity.as_ref()), &self.sha256) {
+        if self.sha256.is_empty() || crate::util::same(&fingerprint(end_entity.as_ref()), &self.sha256) {
             Ok(ServerCertVerified::assertion())
         } else {
             Err(rustls::Error::InvalidCertificate(rustls::CertificateError::ApplicationVerificationFailure))
@@ -118,6 +118,12 @@ fn tls_config(pin: &str) -> Arc<rustls::ClientConfig> {
     }
     configs.push((pin.to_string(), config.clone()));
     config
+}
+
+/// The config that takes any certificate: for looking at who answers, never for sending anything private.
+fn any_cert_config() -> Arc<rustls::ClientConfig> {
+    static CONFIG: std::sync::OnceLock<Arc<rustls::ClientConfig>> = std::sync::OnceLock::new();
+    CONFIG.get_or_init(|| new_tls_config("")).clone()
 }
 
 fn new_tls_config(pin: &str) -> Arc<rustls::ClientConfig> {
@@ -463,8 +469,24 @@ impl PhoneAuth {
 
     /// Like open, but an answer with any status comes back, so an error's body can be read (urllib's HTTPError).
     pub fn open_any(&self, req: Request<'_>) -> Result<Response, Error> {
+        self.open_with(req, false)
+    }
+
+    /// A tokenless GET over TLS that takes any certificate, only to see who answers where the pin said no.
+    pub fn look_unpinned(url: &str, timeout: Duration) -> Result<Response, Error> {
+        let resp = PhoneAuth::default().open_with(Request::get(url, timeout).without_token(), true)?;
+        if !(200..300).contains(&resp.status) {
+            return Err(Error::Http(resp.status));
+        }
+        Ok(resp)
+    }
+
+    fn open_with(&self, req: Request<'_>, any_cert: bool) -> Result<Response, Error> {
         let url = Url::parse(req.url)?;
-        if url.tls && !is_fingerprint(&self.pin) {
+        if any_cert && (!url.tls || req.token) {
+            return Err(Error::Refused);
+        }
+        if url.tls && !any_cert && !is_fingerprint(&self.pin) {
             return Err(Error::PinMismatch);
         }
         if !url.tls && !self.pin.is_empty() {
@@ -485,7 +507,7 @@ impl PhoneAuth {
         }
         let mut stream: Box<dyn Stream> = if url.tls {
             let name = ServerName::try_from(url.host.clone()).map_err(|e| Error::Bad(e.to_string()))?;
-            let mut conn = ClientConnection::new(tls_config(&self.pin), name).map_err(|e| Error::HandshakeFailed(e.to_string()))?;
+            let mut conn = ClientConnection::new(if any_cert { any_cert_config() } else { tls_config(&self.pin) }, name).map_err(|e| Error::HandshakeFailed(e.to_string()))?;
             while conn.is_handshaking() {
                 if let Err(e) = conn.complete_io(&mut socket) {
                     let _ = shared.shutdown(Shutdown::Both);

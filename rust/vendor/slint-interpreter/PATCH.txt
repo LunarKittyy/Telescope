@@ -1,4 +1,4 @@
-slint-interpreter 1.18.1 from crates.io with seven changes (the second and fourth need vendor/i-slint-core), the first two in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
+slint-interpreter 1.18.1 from crates.io with eight changes (the second and fourth need vendor/i-slint-core), the first two in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
 the item's geometry expression and no longer builds a Struct from it.
 
 Why: Slint asks every item for its geometry on every walk of the item tree (rendering, hit testing, dirty tracking). The interpreter answered by cloning the
@@ -108,3 +108,12 @@ Seventh change, in component.rs (search for "Telescope patch"): build_from_docum
 Why: every definition and instance held the whole compiled document (all documents, the passes' object trees) for as long as it lived, for highlighting and the language server only. Nothing here reads it. A Settings window kept about 300 MB of it, the main window about as much.
 
 What it does now: without internal-highlight the definition carries empty TypeLoaders, so the compiler's trees are freed when the compile ends. root_component() (internal) then has nothing to return, and nothing here calls it.
+
+Eighth change, in component.rs, bindings.rs, eval.rs and public_api.rs (search for shared_slot): the shared expressions of the sixth change are moved out of the compilation unit instead of copied.
+
+Why: the sixth change kept one copy of each installed binding, handler, model, init code and function body next to the original in the unit, so every expression the window used was held twice for as long as the window lived.
+
+What it does now: Unit::shared_slot takes the expression out of its MutExpression slot on first use and leaves a static string literal in its place, so the unit holds it once. Every reader of those slots goes through shared_slot (property_init bindings, change callbacks, repeater models, init code and function bodies); the slots read directly (geometries, layout info, accessibility, timers, popup positions, the grid helpers) are never moved. Animation expressions are plain Expressions, not slots, and are still copied. unshare() (the internal compilation_unit API) puts every moved expression back before handing the unit out.
+
+Measured (release without LTO, idle main window with every built-in plugin at 35 s, headless nested KWin, dev profile, no phone; other builds were running): heap in use from malloc_stats 130.5 -> 120.1 MB (medians of 5 runs each, every patched run below every base run), RSS 295 -> 287 MB (medians of 8 runs each, spread about 10 MB). Peak and first paint within noise.
+Pixels: the appearance_render pictures (main window with every card and each Settings tab, every appearance option, the longest languages) are byte for byte the same.

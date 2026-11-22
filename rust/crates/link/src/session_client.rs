@@ -158,7 +158,7 @@ impl SessionClient {
             // The session server answers 404 for routes it doesn't know: an app from before /v1/hello
             Err(Error::Http(404)) => return Hello::status(HelloStatus::Missing),
             Err(Error::Http(403)) => return Hello::status(HelloStatus::UsbOnly),
-            Err(e) if https::pin_rejected(&e) => return Hello::status(HelloStatus::OtherCert),
+            Err(e) if https::pin_rejected(&e) => return self.who_answered(timeout),
             // A paired phone speaks TLS with its pin, so a plain HTTP listener here is something else (a recycled address, say), never proof of an old app
             Err(e) if https::handshake_failed(&e) && plain_look(timeout) => return Hello::status(HelloStatus::NotTelescope),
             Err(_) => return Hello::status(HelloStatus::None),
@@ -170,6 +170,14 @@ impl SessionClient {
         let int = |key: &str| body.get(key).and_then(Value::as_i64).unwrap_or(0);
         Hello { status: HelloStatus::Ok, phone_id: phone_id.to_string(), phone_name: clean_name(&text("phoneName")),
                 protocol: int("protocol"), app_version: text("appVersion"), build: int("build") }
+    }
+
+    /// The pin said no: OtherCert only if a Telescope app answers with its own identity, else just another program.
+    fn who_answered(&self, timeout: Duration) -> Hello {
+        let url = format!("{}/v1/hello", self.base);
+        let telescope = https::PhoneAuth::look_unpinned(&url, timeout).and_then(|mut r| r.json()).ok()
+            .is_some_and(|body| body.get("phoneId").and_then(Value::as_str).is_some_and(|id| !id.is_empty()));
+        Hello::status(if telescope { HelloStatus::OtherCert } else { HelloStatus::NotTelescope })
     }
 
     /// Whether something answers here over plain HTTP, with nothing that matters sent.
@@ -475,6 +483,16 @@ mod tests {
         let server = serve(Some("impostor"), Arc::new(|_req| (200, "application/json".into(), br#"{"phoneId": "p1"}"#.to_vec())));
         let client = SessionClient::new(&server.base(true), PhoneAuth::new("tok", &pin_of("phone")));
         assert_eq!(client.hello(REQUEST_TIMEOUT).status, HelloStatus::OtherCert);
+    }
+
+    #[test]
+    fn an_unrelated_https_server_is_not_another_telescope() {
+        for (status, body) in [(200, &br#"{"hello": "world"}"#[..]), (404, b""), (200, b"<html>")] {
+            let server = serve(Some("impostor"), Arc::new(move |_req| (status, "application/json".into(), body.to_vec())));
+            let client = SessionClient::new(&server.base(true), PhoneAuth::new("tok", &pin_of("phone")));
+            assert_eq!(client.hello(REQUEST_TIMEOUT).status, HelloStatus::NotTelescope, "{status}");
+            assert!(server.seen.lock().unwrap().iter().all(|s| s.auth.is_none()), "no token sent");
+        }
     }
 
     #[test]
