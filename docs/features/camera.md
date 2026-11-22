@@ -10,7 +10,7 @@ Lenses, exposure, the picture format and how much bandwidth it uses.
 - **Brightness** (exposure compensation), usually ±8 EV
 - **White balance** in Kelvin (2000-10000 K) with a green-magenta tint
 - **Focus** is **Auto**, **Tap a point** (click the preview to focus and meter exposure there) or **Manual**
-- **Stabilization**, noise reduction, sharpening, black level lock and the torch, on lenses that have them
+- **Stabilisation**, noise reduction, sharpening, black level lock and the torch, on lenses that have them
 - **Low light** lets auto exposure slow the camera down (usually to 10 fps at the lowest) so each frame catches more light. It only does that when it has to
 - Anything the current lens can't do is greyed out. Hover **Full manual control** or **Limited manual control** to see what it supports
 

@@ -85,6 +85,16 @@ An update follows what the app can write to. In its default folder or one someon
 
 Uninstalling closes a running Telescope and deletes the log, the downloaded adb and the vision download. It asks before deleting settings and pairings. It offers to remove the camera driver and firewall rules, with one UAC prompt or none when the uninstaller already runs as admin. Leave the `AppId` unchanged because Windows finds an existing install by it. The mode dialog's all-users text is overridden for English only (`[Messages]`). Other installer languages use Inno's text until the next translation pass.
 
+### The workflows that run after merges or on a schedule
+
+None of these publish anything or block a pull request.
+
+| Workflow | Runs | What it does |
+|---|---|---|
+| `rust-arm64.yml` | On pushes to `master` that touch `rust/**`, or by hand | Builds the workspace and runs its tests on GitHub's ARM64 runners for Linux (in an Ubuntu 26.04 container, since the code needs FFmpeg 8) and Windows 11. A failure doesn't turn the commit red. See the [ARM64 item](../roadmap/next.md#arm64) for what still fails |
+| `rust-speed.yml` | On pushes to `master`, or by hand | Runs the release-mode test that checks four 1080p streams draw quickly |
+| `deny.yml` | Mondays, or by hand | Runs `cargo deny` on `rust/Cargo.lock` against `rust/deny.toml` (advisories, yanked crates, licences and sources) |
+
 ### `pages.yml`
 
 Publishes `site/`, the landing page, to GitHub Pages on pushes to `master` that touch `site/**`. There's no build step. The repository's Pages source has to be set to **GitHub Actions**. The page is served at `telescope.webcam`, set under Settings → Pages (not a `CNAME` file, which Actions deploys ignore), with DNS in Cloudflare as an unproxied CNAME to `lunarkittyy.github.io`.
