@@ -11,6 +11,8 @@ pub const MODEL_SIZE: (usize, usize) = (256, 144);
 pub const MOVED_SHARE: f64 = 0.005;
 pub const MOVED_LEVELS: u8 = 12;
 pub const THUMB: (usize, usize) = (64, 36);
+/// The cells of a chroma plane a frame's look has beside its grey one, for a change of colour that keeps the luma.
+pub const CHROMA_GRID: (usize, usize) = (32, 18);
 
 /// A picture as 8-bit R, G, B, row after row.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -103,9 +105,14 @@ impl Motion {
     pub fn moved_grey(&mut self, now: Vec<u8>) -> bool {
         let moved = match &self.used {
             None => true,
+            Some(used) if used.len() != now.len() => true,
             Some(used) => {
-                let changed = now.iter().zip(used).filter(|(a, b)| a.abs_diff(**b) > MOVED_LEVELS).count();
-                changed as f64 > MOVED_SHARE * now.len() as f64
+                // The grey cells and the chroma cells after them are each judged by their own share, so the chroma ones don't dilute a small moving patch
+                let grey = (THUMB.0 * THUMB.1).min(now.len());
+                let (now_grey, now_chroma) = now.split_at(grey);
+                let (used_grey, used_chroma) = used.split_at(grey);
+                let over = |a: &[u8], b: &[u8]| a.iter().zip(b).filter(|(a, b)| a.abs_diff(**b) > MOVED_LEVELS).count() as f64 > MOVED_SHARE * a.len() as f64;
+                over(now_grey, used_grey) || over(now_chroma, used_chroma)
             }
         };
         self.now = Some(now);

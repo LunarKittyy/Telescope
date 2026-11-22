@@ -150,6 +150,8 @@ pub(crate) struct MaskState {
     pub(crate) frame_at: f64,
     /// When a frame last looked the same as the one `small` is of, so the mask held over a still scene is no older than that.
     pub(crate) seen: f64,
+    /// `seen` as the camera frame's own time, so a worker that starts late on an old frame doesn't make it look newer.
+    pub(crate) seen_frame: f64,
     /// The frame the model last ran on, which `small` is of: a frame that got `small` again without a run is not it.
     pub(crate) ran: Option<u64>,
     pub(crate) motion: Motion,
@@ -247,6 +249,8 @@ struct MaskJob {
     /// The view's turns its picture was made under (Inner::turns when its step asked).
     epoch: u64,
     unsure: bool,
+    /// When the frame step asked, the frame's own time whichever worker gets to it when.
+    taken: f64,
 }
 
 /// The newest mask a frame step can get at once.
@@ -360,7 +364,7 @@ pub(crate) struct StreamVision {
 impl StreamVision {
     fn new() -> StreamVision {
         StreamVision {
-            mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0, frame_at: 0.0, seen: 0.0, ran: None,
+            mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0, frame_at: 0.0, seen: 0.0, seen_frame: 0.0, ran: None,
                                          motion: Motion::default(), asked: 0.0, turns: 0, fails: 0, geometry: None, space: MaskSpace::default(), unsure: false }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
@@ -647,7 +651,7 @@ impl Vision {
             let has_look = look.is_some();
             let mut look_fn = || look.take().and_then(|f| f());
             let look_arg = has_look.then_some(&mut look_fn as &mut dyn FnMut() -> Option<Vec<u8>>);
-            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), frame_at: m.frame_at.max(m.seen), seq: m.ran.unwrap_or(seq) });
+            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch, monotonic()).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), frame_at: m.frame_at.max(m.seen_frame), seq: m.ran.unwrap_or(seq) });
         }
         let Some(backend) = self.ready() else {
             self.load();
@@ -693,7 +697,7 @@ impl Vision {
             let has_look = look.is_some();
             let mut look_fn = || look.take().and_then(|f| f());
             let look_arg = has_look.then_some(&mut look_fn as &mut dyn FnMut() -> Option<Vec<u8>>);
-            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), frame_at: m.frame_at.max(m.seen), seq: m.ran.unwrap_or(seq) });
+            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch, monotonic()).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), frame_at: m.frame_at.max(m.seen_frame), seq: m.ran.unwrap_or(seq) });
         }
         self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, look, picture, epoch, view)
     }
@@ -709,7 +713,7 @@ impl Vision {
         }
         if n.asked != Some(seq) {
             n.asked = Some(seq);
-            n.job = Some(MaskJob { seq, size: (w, h), look, picture, epoch, geometry: view.geometry, space: view.space, unsure: view.unsure });
+            n.job = Some(MaskJob { taken: monotonic(), seq, size: (w, h), look, picture, epoch, geometry: view.geometry, space: view.space, unsure: view.unsure });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2, which)).is_ok();
@@ -777,11 +781,11 @@ impl Vision {
         let sv = self.stream(key);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
-        self.mask(&mut m, &*backend, Which::Normal, seq, w, h, None, picture, epoch)
+        self.mask(&mut m, &*backend, Which::Normal, seq, w, h, None, picture, epoch, monotonic())
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn mask(&self, m: &mut MaskState, backend: &dyn Backend, which: Which, seq: u64, w: usize, h: usize, look: Option<&mut dyn FnMut() -> Option<Vec<u8>>>, picture: &mut dyn FnMut() -> Option<Rgb>, epoch: u64)
+    fn mask(&self, m: &mut MaskState, backend: &dyn Backend, which: Which, seq: u64, w: usize, h: usize, look: Option<&mut dyn FnMut() -> Option<Vec<u8>>>, picture: &mut dyn FnMut() -> Option<Rgb>, epoch: u64, taken: f64)
             -> Option<Arc<Vec<u8>>> {
         // A picture from before a turn of the view leaves what's kept alone: it's of the old way round, and what it would blend into the next mask is too
         if self.view_epoch() != epoch {
@@ -789,7 +793,7 @@ impl Vision {
         }
         if m.turns != epoch {
             // The view turned since what was kept was made: it, and what the next mask would blend in, is of the old picture
-            (m.turns, m.seq, m.mask, m.small, m.motion, m.ran, m.seen) = (epoch, None, None, None, Motion::default(), None, 0.0);
+            (m.turns, m.seq, m.mask, m.small, m.motion, m.ran, m.seen, m.seen_frame) = (epoch, None, None, None, Motion::default(), None, 0.0, 0.0);
             // A model that keeps its own memory of the last frames (the cutout's) forgets them too
             if let Some(segment) = m.segment.as_mut() {
                 segment.reset();
@@ -800,9 +804,7 @@ impl Vision {
                 return Some(mask.clone());
             }
         }
-        // When this frame was taken up, before a slow first model open: only the order against the other model's masks goes by it, how old the mask is does not
-        let began = monotonic();
-        if m.segment.is_none() {
+                        if m.segment.is_none() {
             match backend.segmenter() {
                 Ok(s) => m.segment = Some(s),
                 Err(e) => {
@@ -827,6 +829,7 @@ impl Vision {
             } else {
                 if !moved {
                     m.seen = now;
+                    m.seen_frame = taken;
                 }
                 None
             }
@@ -840,6 +843,7 @@ impl Vision {
             } else {
                 if !moved {
                     m.seen = now;
+                    m.seen_frame = taken;
                 }
                 None
             }
@@ -881,7 +885,7 @@ impl Vision {
             m.motion.used();
             m.small = Some(mask);
             m.at = now;
-            m.frame_at = began;
+            m.frame_at = taken;
             m.ran = Some(seq);
             m.mask = None;
         }
@@ -1274,7 +1278,7 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
                 }
             }
         };
-        let MaskJob { seq, size: (w, h), look, picture, epoch, geometry, space, unsure } = job;
+        let MaskJob { seq, size: (w, h), look, picture, epoch, geometry, space, unsure, taken } = job;
         let (mut look, mut picture) = (look, Some(picture));
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
@@ -1282,12 +1286,12 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         let has_look = look.is_some();
         let mut look_fn = || look.take().and_then(|f| f());
         let look_arg = has_look.then_some(&mut look_fn as &mut dyn FnMut() -> Option<Vec<u8>>);
-        let mask = vision.mask(&mut m, &*backend, which, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch);
+        let mask = vision.mask(&mut m, &*backend, which, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch, taken);
         if sv.stopping.load(Ordering::SeqCst) {
             m.segment = None;
         }
         // What the model last ran on, and when: a mask got again without a run is no newer than that
-        let (at, frame_at, seq) = (m.at.max(m.seen), m.frame_at.max(m.seen), m.ran.unwrap_or(seq));
+        let (at, frame_at, seq) = (m.at.max(m.seen), m.frame_at.max(m.seen_frame), m.ran.unwrap_or(seq));
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;
