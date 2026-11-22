@@ -85,6 +85,11 @@ jobs:
         with:
           tool: cargo-nextest@0.9.150
 
+      # The stand-in phone that Photos and presence are tried against has its own tests, plain Python
+      - name: Fake phone
+        working-directory: .
+        run: python3 -m unittest discover -s rust/tools -p 'test_fake_*.py'
+
       # Lints switched off on purpose are in rust/Cargo.toml under [workspace.lints.clippy]
       - name: Clippy
         run: cargo clippy --workspace --locked --all-targets -- -D warnings

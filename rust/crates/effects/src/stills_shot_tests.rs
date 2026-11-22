@@ -71,7 +71,7 @@ fn summaries_show_own_values_in_order() {
     assert_eq!(choice.summary(shot_focus_text), "10 s · ISO 800 · focus ∞");
     assert_eq!(ShotChoice { iso: Some(1600), ..ShotChoice::default() }.summary(shot_focus_text), "ISO 1600");
     assert_eq!(ShotChoice::default().summary(shot_focus_text), "Like the camera");
-    assert_eq!(exposure_text(0.0), "Like the video");
+    assert_eq!(exposure_text(0.0), "Video");
     assert_eq!(exposure_text(1.0 / 250.0), "1/250 s");
     assert_eq!(exposure_text(10.0), "10 s");
     assert_eq!(shot_focus_text(0.5), "2 m");

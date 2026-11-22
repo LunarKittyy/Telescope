@@ -54,10 +54,10 @@ One piece is the window's weight and start time, from measuring the finished app
 
 Not decided. Releases are x86_64 only for now. ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope. Windows on ARM laptops run x64 programs through Windows' own emulation. The x64 build should work there, untested. The virtual camera is unlikely to work there because the Windows 11 camera runs in a native ARM64 system service that can't load the x64 DLL.
 
-The first step is done. A separate workflow (`rust-arm64.yml`) builds the workspace and runs the tests on GitHub's free ARM64 runners for Linux and Windows 11. A red run blocks nothing because the workflow is not a required check. Both build and nearly everything passes (6796 of 6802 tests on Linux and 6643 of 6645 on Windows). Most of the desktop works on ARM.
+The first step is done. A separate workflow (`rust-arm64.yml`) builds the workspace and runs the tests on GitHub's free ARM64 runners for Linux and Windows 11. It runs after merges to master and by hand, not on pull requests, and it isn't a required check. A red run doesn't hold up a merge. Both build and nearly everything passes (6796 of 6802 tests on Linux and 6643 of 6645 on Windows). Most of the desktop works on ARM.
 
 What's left:
-- The direct colour conversion in `yuv.rs` is checked against swscale and on ARM the two differ by far more than the three levels the tests allow. The two tests for it fail on both runners. It's probably swscale's ARM code rounding differently from its x86 code. The first thing to find out is whether the new conversion or the reference is the odd one out, with a pixel diff against x86_64.
+- The two `yuv.rs` colour tests that failed on ARM were comparing against a bad reference. On ARM, swscale leaves the last pixel of each row unwritten when a picture's width is odd and its height even, which put a black column in the reference. The conversion gives the same bytes on ARM as on x86_64. The BGR step now gives swscale an extra column on ARM and drops it again.
 - Linux needs FFmpeg 8 (the code doesn't build against 6.1) and Ubuntu 24.04 doesn't have it. The ARM Linux job runs in a 26.04 container for that reason.
 - On Windows the FFmpeg for the tests is BtbN's ARM64 build (GyanD's is x64 only). The packages would need an ARM64 build from `build_ffmpeg.sh` first.
 - The Windows camera DLL and the vision pack's libraries still need ARM64 builds. Nothing has been tried there. The people features are off without the pack.

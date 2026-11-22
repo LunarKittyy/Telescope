@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Przekaż darowiznę lub dowiedz się więcej</a>"
 msgid "No mic"
 msgstr "Brak mikrofonu"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:358
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:415
 msgid "Downloading…"
 msgstr "Pobieranie…"
 
@@ -180,7 +180,7 @@ msgstr "Pobierz VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Usuń odgłosy pisania, szum wentylatorów i pogłos pomieszczenia."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1520 rust/crates/link/src/plugin.rs:1527 rust/crates/outputs/src/stream_output.rs:974 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1528 rust/crates/link/src/plugin.rs:1535 rust/crates/outputs/src/stream_output.rs:974 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -194,12 +194,12 @@ msgid "unmuted"
 msgstr "dźwięk włączony"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:1022 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1299
+#: rust/crates/audio/src/plugin.rs:1022 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1315
 msgid "on"
 msgstr "włączone"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:1022 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1300
+#: rust/crates/audio/src/plugin.rs:1022 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1316
 msgid "off"
 msgstr "wyłączone"
 
@@ -223,7 +223,7 @@ msgstr "Wyłącz"
 msgid "Switch while held, back on release"
 msgstr "Przełącz przy przytrzymaniu, przywróć po zwolnieniu"
 
-#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1474 rust/crates/outputs/src/stream_output.rs:629 rust/crates/outputs/src/stream_output.rs:646 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1482 rust/crates/outputs/src/stream_output.rs:629 rust/crates/outputs/src/stream_output.rs:646 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "Działanie"
 
@@ -370,7 +370,7 @@ msgstr "Redukcja szumów"
 msgid "Noise reduction unavailable"
 msgstr "Redukcja szumów niedostępna"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:255 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:998 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:255 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:998 rust/crates/link/src/browser/plugin.rs:945 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -400,19 +400,19 @@ msgstr "Działki EV"
 msgid " stops"
 msgstr " działki EV"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:219 rust/crates/link/src/plugin.rs:1475 rust/crates/outputs/src/stream_output.rs:630 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:219 rust/crates/link/src/plugin.rs:1483 rust/crates/outputs/src/stream_output.rs:630 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "Następny"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:219 rust/crates/link/src/plugin.rs:1475 rust/crates/outputs/src/stream_output.rs:630 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:219 rust/crates/link/src/plugin.rs:1483 rust/crates/outputs/src/stream_output.rs:630 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "Poprzedni"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1475 rust/crates/outputs/src/stream_output.rs:630
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1483 rust/crates/outputs/src/stream_output.rs:630
 msgid "Pick"
 msgstr "Wybierz"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1476 rust/crates/outputs/src/stream_output.rs:631
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1484 rust/crates/outputs/src/stream_output.rs:631
 msgid "Option"
 msgstr "Opcja"
 
@@ -520,7 +520,7 @@ msgstr "Ogólne"
 msgid "Streaming"
 msgstr "Przesyłanie"
 
-#: rust/crates/core/src/plugin.rs:15 rust/crates/effects/src/stargazer.rs:1228 rust/crates/setup/ui/setup.slint:212
+#: rust/crates/core/src/plugin.rs:15 rust/crates/effects/src/stargazer.rs:1228 rust/crates/effects/src/stills.rs:123 rust/crates/setup/ui/setup.slint:212
 msgid "Video"
 msgstr "Wideo"
 
@@ -687,15 +687,15 @@ msgstr "Jak miękka jest krawędź wokół ciebie."
 msgid "Pull the cutout's border in towards you."
 msgstr "Przyciągnij krawędź wycięcia bliżej siebie."
 
-#: rust/crates/effects/src/background.rs:672 rust/crates/effects/src/chroma_key.rs:323
+#: rust/crates/effects/src/background.rs:672 rust/crates/effects/src/chroma_key.rs:326
 msgid "Pick the picture that goes behind you."
 msgstr "Wybierz obraz, który ma być widoczny za tobą."
 
-#: rust/crates/effects/src/background.rs:784 rust/crates/effects/src/chroma_key.rs:500
+#: rust/crates/effects/src/background.rs:784 rust/crates/effects/src/chroma_key.rs:503
 msgid "Choose a picture"
 msgstr "Wybierz obraz"
 
-#: rust/crates/effects/src/background.rs:794 rust/crates/effects/src/chroma_key.rs:518 rust/crates/effects/src/chroma_key.rs:557 rust/crates/effects/src/chroma_key.rs:576
+#: rust/crates/effects/src/background.rs:794 rust/crates/effects/src/chroma_key.rs:521 rust/crates/effects/src/chroma_key.rs:560 rust/crates/effects/src/chroma_key.rs:579
 msgid "Can't open that picture"
 msgstr "Nie można otworzyć tego obrazu"
 
@@ -739,67 +739,67 @@ msgstr "Wyższe wartości usuwają więcej odcieni koloru tła."
 msgid "Remove the screen's colour from your edges and skin."
 msgstr "Usuń poświatę koloru tła z krawędzi sylwetki i skóry."
 
-#: rust/crates/effects/src/chroma_key.rs:318 rust/crates/effects/src/chroma_key.rs:604 rust/crates/effects/src/chroma_key.rs:746 rust/crates/effects/src/chroma_key.rs:750 rust/crates/effects/src/chroma_key.rs:768 rust/crates/effects/ui/chroma_key.slint:59
+#: rust/crates/effects/src/chroma_key.rs:321 rust/crates/effects/src/chroma_key.rs:620 rust/crates/effects/src/chroma_key.rs:762 rust/crates/effects/src/chroma_key.rs:766 rust/crates/effects/src/chroma_key.rs:784 rust/crates/effects/ui/chroma_key.slint:59
 msgid "Chroma key"
 msgstr "Chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:319
+#: rust/crates/effects/src/chroma_key.rs:322
 msgid "Replace the green or blue screen behind you."
 msgstr "Zastąp zielone lub niebieskie tło za sobą."
 
-#: rust/crates/effects/src/chroma_key.rs:321
+#: rust/crates/effects/src/chroma_key.rs:324
 msgid "Pick the colour that goes behind you."
 msgstr "Wybierz kolor, który ma być widoczny za tobą."
 
-#: rust/crates/effects/src/chroma_key.rs:322 rust/crates/ui-kit/ui/widgets/colour.slint:392
+#: rust/crates/effects/src/chroma_key.rs:325 rust/crates/ui-kit/ui/widgets/colour.slint:392
 msgid "Pick from the preview"
 msgstr "Wybierz z podglądu"
 
-#: rust/crates/effects/src/chroma_key.rs:328
+#: rust/crates/effects/src/chroma_key.rs:331
 msgid "The colour picked from the preview. Click to pick again."
 msgstr "Kolor pobrany z podglądu. Kliknij, aby pobrać ponownie."
 
-#: rust/crates/effects/src/chroma_key.rs:443
+#: rust/crates/effects/src/chroma_key.rs:446
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Kliknij tło za sobą na podglądzie. Esc anuluje."
 
-#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:344 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:597 rust/crates/outputs/src/webcam.rs:1014 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:243 rust/crates/shell/src/stream_flow.rs:258 rust/crates/shell/src/streams.rs:768 rust/crates/shell/src/streams.rs:1900 rust/crates/shell/src/streams.rs:1922 rust/crates/shell/src/window.rs:2009 rust/crates/shell/src/worker.rs:631 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/chroma_key.rs:483 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:344 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:597 rust/crates/outputs/src/webcam.rs:1014 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:243 rust/crates/shell/src/stream_flow.rs:258 rust/crates/shell/src/streams.rs:768 rust/crates/shell/src/streams.rs:1900 rust/crates/shell/src/streams.rs:1922 rust/crates/shell/src/window.rs:2009 rust/crates/shell/src/worker.rs:631 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Nie przesyła"
 
-#: rust/crates/effects/src/chroma_key.rs:444
+#: rust/crates/effects/src/chroma_key.rs:447
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr "Rozpocznij strumieniowanie, aby pobrać kolor tła na podglądzie."
 
-#: rust/crates/effects/src/chroma_key.rs:462
+#: rust/crates/effects/src/chroma_key.rs:465
 msgid "No colour there"
 msgstr "Brak koloru"
 
-#: rust/crates/effects/src/chroma_key.rs:462
+#: rust/crates/effects/src/chroma_key.rs:465
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr "To miejsce prawie nie ma koloru. Kliknij samo tło."
 
-#: rust/crates/effects/src/chroma_key.rs:479
+#: rust/crates/effects/src/chroma_key.rs:482
 msgid "Click a colour on the preview. Esc cancels."
 msgstr "Kliknij kolor na podglądzie. Esc anuluje."
 
-#: rust/crates/effects/src/chroma_key.rs:480
+#: rust/crates/effects/src/chroma_key.rs:483
 msgid "Start streaming to pick a colour on the preview."
 msgstr "Rozpocznij strumieniowanie, aby wybrać kolor z podglądu."
 
-#: rust/crates/effects/src/chroma_key.rs:605
+#: rust/crates/effects/src/chroma_key.rs:621
 msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
 msgstr "Zamień zielone lub niebieskie tło za sobą na kolor lub obraz bez konieczności pobierania."
 
-#: rust/crates/effects/src/chroma_key.rs:606
+#: rust/crates/effects/src/chroma_key.rs:622
 msgid "Without the Chroma key plugin there's no Chroma key card and a green screen isn't replaced."
 msgstr "Bez wtyczki Chroma key nie ma karty Chroma key, a zielone tło nie jest zastępowane."
 
-#: rust/crates/effects/src/chroma_key.rs:748 rust/crates/effects/src/chroma_key.rs:783
+#: rust/crates/effects/src/chroma_key.rs:764 rust/crates/effects/src/chroma_key.rs:799
 msgid "Chroma key tolerance"
 msgstr "Tolerancja chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:751 rust/crates/effects/src/chroma_key.rs:777
+#: rust/crates/effects/src/chroma_key.rs:767 rust/crates/effects/src/chroma_key.rs:793
 msgid "Chroma key screen"
 msgstr "Ekran chroma key"
 
@@ -2470,11 +2470,11 @@ msgstr "Webhook On Air zgłosił błąd"
 msgid "The webhook returned: {error}"
 msgstr "Webhook zwrócił: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:272 rust/crates/shell/src/doc.rs:493 rust/crates/shell/src/doc.rs:494 rust/crates/shell/src/doc.rs:984
+#: rust/crates/effects/src/on_air_plugin.rs:272 rust/crates/shell/src/doc.rs:495 rust/crates/shell/src/doc.rs:496 rust/crates/shell/src/doc.rs:1011
 msgid "Settings"
 msgstr "Ustawienia"
 
-#: rust/crates/effects/src/on_air_plugin.rs:314 rust/crates/effects/src/stereo_plugin.rs:902 rust/crates/link/src/browser/plugin.rs:866 rust/crates/link/src/browser/plugin.rs:872
+#: rust/crates/effects/src/on_air_plugin.rs:314 rust/crates/effects/src/stereo_plugin.rs:902 rust/crates/link/src/browser/plugin.rs:872 rust/crates/link/src/browser/plugin.rs:878
 #, python-brace-format
 msgid "Couldn't start: {error}"
 msgstr "Nie udało się uruchomić: {error}"
@@ -3547,10 +3547,6 @@ msgstr ""
 msgid "Like the camera"
 msgstr ""
 
-#: rust/crates/effects/src/stills.rs:123
-msgid "Like the video"
-msgstr "Tak jak wideo"
-
 #: rust/crates/effects/src/stills.rs:125
 #, python-brace-format
 msgid "1/{n} s"
@@ -4278,11 +4274,11 @@ msgstr "Nazwa:"
 msgid "OK"
 msgstr "OK"
 
-#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:896 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:904 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "Nie"
 
-#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:895 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:903 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "Tak"
 
@@ -5149,7 +5145,7 @@ msgstr "Połączono"
 msgid "{n} connected"
 msgstr "Połączone: {n}"
 
-#: rust/crates/link/src/browser/plugin.rs:608 rust/crates/link/src/browser/plugin.rs:941
+#: rust/crates/link/src/browser/plugin.rs:608 rust/crates/link/src/browser/plugin.rs:947
 msgid "Waiting for a browser"
 msgstr "Oczekiwanie na przeglądarkę"
 
@@ -5174,23 +5170,23 @@ msgstr "Przeglądarka urządzenia nie może przesyłać danych szybciej."
 msgid "Can't keep up"
 msgstr "Nie nadąża"
 
-#: rust/crates/link/src/browser/plugin.rs:750
+#: rust/crates/link/src/browser/plugin.rs:756
 msgid "Browser"
 msgstr "Przeglądarka"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:414 rust/crates/link/src/plugin.rs:450 rust/crates/link/src/plugin.rs:476 rust/crates/link/src/plugin.rs:811 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:245 rust/crates/shell/src/streams.rs:1880 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:936 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:422 rust/crates/link/src/plugin.rs:458 rust/crates/link/src/plugin.rs:484 rust/crates/link/src/plugin.rs:819 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:245 rust/crates/shell/src/streams.rs:1880 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Spróbuj ponownie"
 
-#: rust/crates/link/src/browser/plugin.rs:931
+#: rust/crates/link/src/browser/plugin.rs:937
 msgid "Browser camera isn't available"
 msgstr "Kamera w przeglądarce nie jest dostępna"
 
-#: rust/crates/link/src/browser/plugin.rs:942
+#: rust/crates/link/src/browser/plugin.rs:948
 msgid "Scan the code on the Browser camera card with the device to use."
 msgstr "Zeskanuj kod z karty Kamera w przeglądarce urządzeniem, którego chcesz użyć."
 
-#: rust/crates/link/src/browser/plugin.rs:1071
+#: rust/crates/link/src/browser/plugin.rs:1077
 #, python-brace-format
 msgid "Browser, last connected {date}"
 msgstr "Przeglądarka, ostatnio połączono: {date}"
@@ -5199,7 +5195,7 @@ msgstr "Przeglądarka, ostatnio połączono: {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "Ten komputer nie mógł nawiązać połączenia wideo."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:427 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:435 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr "Dodaj urządzenie"
 
@@ -5330,12 +5326,12 @@ msgstr "telefon nie odpowiada przez USB"
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "Połączenie jest ustawione na Tylko USB: {why}. Przełącz na Automatycznie, aby zamiast tego używać Wi-Fi."
 
-#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:220
+#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:222
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "Aplikacja Telescope na {phone} jest starsza niż ta. Zaktualizuj ją na telefonie."
 
-#: rust/crates/link/src/connection.rs:857 rust/crates/link/src/plugin.rs:221
+#: rust/crates/link/src/connection.rs:857 rust/crates/link/src/plugin.rs:223
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "Aplikacja Telescope na {phone} jest nowsza niż ta. Zaktualizuj Telescope na tym komputerze."
@@ -5486,269 +5482,269 @@ msgstr "telefon podłączony przez USB to inny telefon"
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "telefon jest podłączony, ale Telescope nie jest na nim otwarty"
 
-#: rust/crates/link/src/plugin.rs:222
+#: rust/crates/link/src/plugin.rs:224
 #, python-brace-format
 msgid "Telescope on {phone} and this computer have different app versions."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:225
+#: rust/crates/link/src/plugin.rs:227
 msgid "Different app versions"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:315
+#: rust/crates/link/src/plugin.rs:323
 msgid "Network presence unavailable"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:316
+#: rust/crates/link/src/plugin.rs:324
 msgid "Phones will be checked over HTTPS instead."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:426 rust/crates/link/src/plugin.rs:1178 rust/crates/link/src/plugin.rs:1446 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
+#: rust/crates/link/src/plugin.rs:434 rust/crates/link/src/plugin.rs:1186 rust/crates/link/src/plugin.rs:1454 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
 msgid "No device yet"
 msgstr "Brak urządzeń"
 
-#: rust/crates/link/src/plugin.rs:426
+#: rust/crates/link/src/plugin.rs:434
 msgid "Add a phone to stream from."
 msgstr "Dodaj telefon, z którego chcesz strumieniować."
 
-#: rust/crates/link/src/plugin.rs:442 rust/crates/link/src/plugin.rs:448
+#: rust/crates/link/src/plugin.rs:450 rust/crates/link/src/plugin.rs:456
 msgid "Can't connect to the phone"
 msgstr "Nie można połączyć się z telefonem"
 
-#: rust/crates/link/src/plugin.rs:449 rust/crates/link/src/service.rs:150
+#: rust/crates/link/src/plugin.rs:457 rust/crates/link/src/service.rs:150
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb nie mogło nawiązać połączenia z telefonem. Odłącz go, podłącz ponownie i spróbuj jeszcze raz."
 
-#: rust/crates/link/src/plugin.rs:472 rust/crates/link/ui/connection.slint:476
+#: rust/crates/link/src/plugin.rs:480 rust/crates/link/ui/connection.slint:476
 msgid "Set up the virtual camera"
 msgstr "Skonfiguruj wirtualną kamerę"
 
-#: rust/crates/link/src/plugin.rs:478
+#: rust/crates/link/src/plugin.rs:486
 msgid "Couldn't set up the virtual camera"
 msgstr "Nie udało się skonfigurować wirtualnej kamery"
 
-#: rust/crates/link/src/plugin.rs:512
+#: rust/crates/link/src/plugin.rs:520
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "Nie udało się zaktualizować aplikacji na telefon: {error}"
 
-#: rust/crates/link/src/plugin.rs:607 rust/crates/link/src/plugin.rs:618
+#: rust/crates/link/src/plugin.rs:615 rust/crates/link/src/plugin.rs:626
 msgid "This computer isn't on a network right now. Pair over USB."
 msgstr "Ten komputer nie jest obecnie w sieci. Sparuj przez USB."
 
 #. "Scan pairing code" is a button in the phone app: use the phone app's translation of it
-#: rust/crates/link/src/plugin.rs:611
+#: rust/crates/link/src/plugin.rs:619
 msgid "On the phone, tap Scan pairing code and point it at this code."
 msgstr "Na telefonie dotknij Zeskanuj kod parowania i skieruj aparat na ten kod."
 
-#: rust/crates/link/src/plugin.rs:634 rust/crates/link/src/plugin.rs:755
+#: rust/crates/link/src/plugin.rs:642 rust/crates/link/src/plugin.rs:763
 msgid "Getting adb from Google…"
 msgstr "Pobieranie adb od Google…"
 
-#: rust/crates/link/src/plugin.rs:636 rust/crates/link/src/plugin.rs:700
+#: rust/crates/link/src/plugin.rs:644 rust/crates/link/src/plugin.rs:708
 msgid "Or plug the phone in over USB."
 msgstr "Możesz też podłączyć telefon przez USB."
 
-#: rust/crates/link/src/plugin.rs:642
+#: rust/crates/link/src/plugin.rs:650
 #, python-brace-format
 msgid "adb is required for USB and Telescope can <a href=\"{link}\">get it from Google</a>. Wi-Fi works without it."
 msgstr "adb jest wymagane w przypadku połączenia USB, a Telescope może <a href=\"{link}\">pobrać je od Google</a>. Połączenie przez Wi-Fi działa bez niego."
 
-#: rust/crates/link/src/plugin.rs:643
+#: rust/crates/link/src/plugin.rs:651
 msgid "Get adb from Google"
 msgstr "Pobierz adb od Google"
 
-#: rust/crates/link/src/plugin.rs:645
+#: rust/crates/link/src/plugin.rs:653
 msgid "adb is required for USB but isn't installed. Wi-Fi works without it."
 msgstr "adb jest wymagane w przypadku połączenia USB, ale nie jest zainstalowane. Połączenie przez Wi-Fi działa bez niego."
 
-#: rust/crates/link/src/plugin.rs:660
+#: rust/crates/link/src/plugin.rs:668
 #, python-brace-format
 msgid "Pair {phone}"
 msgstr "Sparuj {phone}"
 
-#: rust/crates/link/src/plugin.rs:665
+#: rust/crates/link/src/plugin.rs:673
 msgid "You can start streaming now."
 msgstr "Możesz teraz rozpocząć strumieniowanie."
 
-#: rust/crates/link/src/plugin.rs:665
+#: rust/crates/link/src/plugin.rs:673
 msgid "Open the app on the phone first."
 msgstr "Najpierw otwórz aplikację na telefonie."
 
-#: rust/crates/link/src/plugin.rs:673
+#: rust/crates/link/src/plugin.rs:681
 #, python-brace-format
 msgid "Paired with {name}"
 msgstr "Sparowano z {name}"
 
-#: rust/crates/link/src/plugin.rs:690
+#: rust/crates/link/src/plugin.rs:698
 #, python-brace-format
 msgid "Pairing {phone}. Keep the app open."
 msgstr "Parowanie z {phone}. Nie zamykaj aplikacji."
 
-#: rust/crates/link/src/plugin.rs:694
+#: rust/crates/link/src/plugin.rs:702
 msgid "Pick a phone to pair over USB."
 msgstr "Wybierz telefon do sparowania przez USB."
 
-#: rust/crates/link/src/plugin.rs:697
+#: rust/crates/link/src/plugin.rs:705
 msgid "Allow USB debugging on the phone."
 msgstr "Zezwól na debugowanie USB na telefonie."
 
-#: rust/crates/link/src/plugin.rs:738
+#: rust/crates/link/src/plugin.rs:746
 #, python-brace-format
 msgid "Telescope can download adb from Google (about {size}) and save it for your user. adb is Google's software and their Android SDK License applies (<a href=\"{url}\">read it here</a>).<br><br>Wi-Fi works without adb."
 msgstr "Telescope może pobrać adb od Google (około {size}) i zapisać je dla Twojego użytkownika. adb to oprogramowanie firmy Google objęte Umową licencyjną Android SDK (<a href=\"{url}\">przeczytaj ją tutaj</a>).<br><br>Połączenie przez Wi-Fi działa bez adb."
 
-#: rust/crates/link/src/plugin.rs:744
+#: rust/crates/link/src/plugin.rs:752
 msgid "USB needs adb, Google's tool for talking to Android phones."
 msgstr "Połączenie USB wymaga adb, narzędzia Google do komunikacji z telefonami z systemem Android."
 
-#: rust/crates/link/src/plugin.rs:747
+#: rust/crates/link/src/plugin.rs:755
 msgid "Agree and download"
 msgstr "Zaakceptuj i pobierz"
 
-#: rust/crates/link/src/plugin.rs:766
+#: rust/crates/link/src/plugin.rs:774
 msgid "Pick adb.exe or the platform-tools zip"
 msgstr "Wybierz plik adb.exe lub archiwum zip platform-tools"
 
-#: rust/crates/link/src/plugin.rs:767
+#: rust/crates/link/src/plugin.rs:775
 msgid "adb.exe or platform-tools zip (adb.exe *.zip)"
 msgstr "adb.exe lub archiwum platform-tools zip (adb.exe *.zip)"
 
-#: rust/crates/link/src/plugin.rs:773
+#: rust/crates/link/src/plugin.rs:781
 msgid "Copying adb…"
 msgstr "Kopiowanie adb…"
 
-#: rust/crates/link/src/plugin.rs:808
+#: rust/crates/link/src/plugin.rs:816
 #, python-brace-format
 msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
 msgstr "<a href=\"{get}\">Spróbuj ponownie</a> lub <a href=\"{pick}\">wybierz zainstalowane już adb</a>."
 
-#: rust/crates/link/src/plugin.rs:833
+#: rust/crates/link/src/plugin.rs:841
 msgid "Phone app is out of date"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:833
+#: rust/crates/link/src/plugin.rs:841
 #, python-brace-format
 msgid "Update the Telescope app on {phone} to connect"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:893
+#: rust/crates/link/src/plugin.rs:901
 msgid "Same phone?"
 msgstr "Ten sam telefon?"
 
-#: rust/crates/link/src/plugin.rs:894
+#: rust/crates/link/src/plugin.rs:902
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "Czy to znowu {name}?"
 
-#: rust/crates/link/src/plugin.rs:894
+#: rust/crates/link/src/plugin.rs:902
 #, python-brace-format
 msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
 msgstr "{name} sparowano jako nowy telefon. Zdarza się to po ponownym zainstalowaniu Telescope na telefonie lub wyczyszczeniu danych aplikacji. Wybranie Tak przeniesie ustawienia i profile telefonu {name} do nowego wpisu oraz usunie stary."
 
-#: rust/crates/link/src/plugin.rs:1102
+#: rust/crates/link/src/plugin.rs:1110
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "Aplikacja na telefon została zaktualizowana. Otwórz Telescope na telefonie."
 
-#: rust/crates/link/src/plugin.rs:1179 rust/crates/link/src/plugin.rs:1200
+#: rust/crates/link/src/plugin.rs:1187 rust/crates/link/src/plugin.rs:1208
 msgctxt "status"
 msgid "Streaming"
 msgstr "Przesyłanie"
 
-#: rust/crates/link/src/plugin.rs:1180
+#: rust/crates/link/src/plugin.rs:1188
 #, python-brace-format
 msgid "Waiting for {source}"
 msgstr "Oczekiwanie na {source}"
 
-#: rust/crates/link/src/plugin.rs:1181
+#: rust/crates/link/src/plugin.rs:1189
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr "{source}, nie wymaga parowania"
 
-#: rust/crates/link/src/plugin.rs:1195 rust/crates/shell/src/streams.rs:1196
+#: rust/crates/link/src/plugin.rs:1203 rust/crates/shell/src/streams.rs:1196
 msgid "Reconnecting"
 msgstr "Ponowne łączenie"
 
-#: rust/crates/link/src/plugin.rs:1198
+#: rust/crates/link/src/plugin.rs:1206
 msgid "Streaming over USB"
 msgstr "Strumieniuje przez USB"
 
-#: rust/crates/link/src/plugin.rs:1199
+#: rust/crates/link/src/plugin.rs:1207
 msgid "Streaming over Wi-Fi"
 msgstr "Strumieniuje przez Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1203 rust/crates/shell/src/streams.rs:1200
+#: rust/crates/link/src/plugin.rs:1211 rust/crates/shell/src/streams.rs:1200
 msgid "Connecting"
 msgstr "Łączenie"
 
-#: rust/crates/link/src/plugin.rs:1219
+#: rust/crates/link/src/plugin.rs:1227
 msgid "Updating the phone app over USB…"
 msgstr "Aktualizowanie aplikacji na telefon przez USB…"
 
-#: rust/crates/link/src/plugin.rs:1223
+#: rust/crates/link/src/plugin.rs:1231
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Aplikacja Telescope na {phone} jest starsza niż ta."
 
-#: rust/crates/link/src/plugin.rs:1298 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:170 rust/crates/shell/src/streams.rs:771 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1306 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:170 rust/crates/shell/src/streams.rs:771 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "Skopiuj polecenie"
 
-#: rust/crates/link/src/plugin.rs:1306 rust/crates/link/src/plugin.rs:1471 rust/crates/link/src/plugin.rs:1520 rust/crates/link/src/plugin.rs:1527 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
+#: rust/crates/link/src/plugin.rs:1314 rust/crates/link/src/plugin.rs:1479 rust/crates/link/src/plugin.rs:1528 rust/crates/link/src/plugin.rs:1535 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
 msgid "Phone"
 msgstr "Telefon"
 
-#: rust/crates/link/src/plugin.rs:1306
+#: rust/crates/link/src/plugin.rs:1314
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "Telefon · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1307
+#: rust/crates/link/src/plugin.rs:1315
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer and unpairs it on the phone too if Telescope can reach it."
 msgstr "Usunąć „{name}”? Spowoduje to usunięcie ustawień jego kamery na tym komputerze i rozparowanie go również w telefonie, jeśli Telescope może się z nim połączyć."
 
-#: rust/crates/link/src/plugin.rs:1310
+#: rust/crates/link/src/plugin.rs:1318
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "Zmień nazwę {name}"
 
-#: rust/crates/link/src/plugin.rs:1311 rust/crates/link/src/plugin.rs:1318
+#: rust/crates/link/src/plugin.rs:1319 rust/crates/link/src/plugin.rs:1326
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "Usuń {name}"
 
-#: rust/crates/link/src/plugin.rs:1312
+#: rust/crates/link/src/plugin.rs:1320
 msgid "Remove phone"
 msgstr "Usuń telefon"
 
-#: rust/crates/link/src/plugin.rs:1315
+#: rust/crates/link/src/plugin.rs:1323
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
 msgstr "Usunąć „{name}”? Spowoduje to usunięcie jego ustawień na tym komputerze. Przeglądarka nadal będzie mogła połączyć się za pomocą kodu i rozpocznie pracę z ustawieniami domyślnymi."
 
-#: rust/crates/link/src/plugin.rs:1319
+#: rust/crates/link/src/plugin.rs:1327
 msgid "Remove browser"
 msgstr "Usuń przeglądarkę"
 
-#: rust/crates/link/src/plugin.rs:1632
+#: rust/crates/link/src/plugin.rs:1640
 msgid "Virtual camera is set up differently"
 msgstr "Wirtualna kamera jest skonfigurowana inaczej"
 
-#: rust/crates/link/src/plugin.rs:1633
+#: rust/crates/link/src/plugin.rs:1641
 #, python-brace-format
 msgid "Another app loaded v4l2loopback with other settings and without {device}. Close that app and run this command to give Telescope control:"
 msgstr "Inna aplikacja załadowała v4l2loopback z innymi ustawieniami i bez {device}. Zamknij tę aplikację i uruchom to polecenie, aby przekazać kontrolę programowi Telescope:"
 
-#: rust/crates/link/src/plugin.rs:1643
+#: rust/crates/link/src/plugin.rs:1651
 msgid "The virtual camera is off"
 msgstr "Wirtualna kamera jest wyłączona"
 
-#: rust/crates/link/src/plugin.rs:1643
+#: rust/crates/link/src/plugin.rs:1651
 msgid "Your password is needed to switch on the virtual camera."
 msgstr "Do włączenia wirtualnej kamery wymagane jest Twoje hasło."
 
-#: rust/crates/link/src/plugin.rs:1644 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
+#: rust/crates/link/src/plugin.rs:1652 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
 msgid "Switch on"
 msgstr "Włącz"
 
@@ -8370,15 +8366,15 @@ msgstr "Strumieniowanie zatrzymuje się na czas ponownego uruchomienia Telescope
 msgid "Restart to apply changes."
 msgstr "Uruchom ponownie, aby zastosować zmiany."
 
-#: rust/crates/shell/src/doc.rs:503 rust/crates/shell/src/doc.rs:504
+#: rust/crates/shell/src/doc.rs:505 rust/crates/shell/src/doc.rs:506
 msgid "Add camera"
 msgstr "Dodaj kamerę"
 
-#: rust/crates/shell/src/doc.rs:505
+#: rust/crates/shell/src/doc.rs:507
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr "Przesyłaj strumieniowo z innej kamery jednocześnie na osobnej wirtualnej kamerze."
 
-#: rust/crates/shell/src/doc.rs:1022 rust/crates/shell/src/doc.rs:1023
+#: rust/crates/shell/src/doc.rs:1049 rust/crates/shell/src/doc.rs:1050
 msgid "Search settings"
 msgstr "Szukaj w ustawieniach"
 
@@ -8408,11 +8404,11 @@ msgstr "Konfigurowanie dodatkowych wirtualnych kamer…"
 msgid "Couldn't add more virtual cameras"
 msgstr "Nie udało się dodać więcej wirtualnych kamer"
 
-#: rust/crates/shell/src/host.rs:770
+#: rust/crates/shell/src/host.rs:771
 msgid "Phone stream required."
 msgstr "Wymagany strumień z telefonu."
 
-#: rust/crates/shell/src/host.rs:776
+#: rust/crates/shell/src/host.rs:777
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "Wymagany format Lekki. Format Ciężki przesyła pełne klatki bez klatek kluczowych, na których można pracować."
 
@@ -8647,7 +8643,7 @@ msgstr "Odległość ostrzenia"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Zainstaluj pakiet v4l2loopback. Fedora i Nobara: v4l2loopback (z RPM Fusion). Debian, Ubuntu i Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:365
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:422
 msgid "Checking…"
 msgstr "Sprawdzanie…"
 
@@ -8667,7 +8663,7 @@ msgstr "Zainstalowano."
 msgid "Check again"
 msgstr "Sprawdź ponownie"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:360
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:417
 msgid "Installing…"
 msgstr "Instalowanie…"
 
@@ -9638,19 +9634,19 @@ msgstr "Telescope: strumieniowanie mikrofonu, kamera wyłączona"
 msgid "Quit"
 msgstr "Zakończ"
 
-#: rust/crates/shell/src/tray.rs:260
+#: rust/crates/shell/src/tray.rs:265
 msgid "Streaming continues in the background."
 msgstr "Strumieniowanie jest kontynuowane w tle."
 
-#: rust/crates/shell/src/tray.rs:260
+#: rust/crates/shell/src/tray.rs:265
 msgid "Streaming starts automatically when needed."
 msgstr "Strumieniowanie rozpoczyna się automatycznie w razie potrzeby."
 
-#: rust/crates/shell/src/tray.rs:261
+#: rust/crates/shell/src/tray.rs:266
 msgid "Right-click the tray icon to quit."
 msgstr "Kliknij prawym przyciskiem myszy ikonę w zasobniku systemowym, aby zakończyć."
 
-#: rust/crates/shell/src/tray.rs:262
+#: rust/crates/shell/src/tray.rs:267
 msgid "Telescope is still running"
 msgstr "Telescope nadal działa"
 
@@ -10222,46 +10218,46 @@ msgstr "Skopiuj wpis do ustawień MCP aplikacji AI."
 msgid "Nothing yet"
 msgstr "Jeszcze nic"
 
-#: rust/crates/system/src/mcp.rs:1211
+#: rust/crates/system/src/mcp.rs:1227
 msgid "Undid what the AI changed"
 msgstr "Cofnięto zmiany wprowadzone przez AI"
 
-#: rust/crates/system/src/mcp.rs:1211
+#: rust/crates/system/src/mcp.rs:1227
 #, python-brace-format
 msgid "Undid what the AI changed, except {n} that couldn't be restored"
 msgstr "Cofnięto zmiany wprowadzone przez sztuczną inteligencję, z wyjątkiem {n}, których nie udało się przywrócić"
 
-#: rust/crates/system/src/mcp.rs:1212
+#: rust/crates/system/src/mcp.rs:1228
 msgid "You"
 msgstr "Ty"
 
-#: rust/crates/system/src/mcp.rs:1311
+#: rust/crates/system/src/mcp.rs:1327
 #, python-brace-format
 msgid "{list} and {n} more"
 msgstr "{list} i {n} więcej"
 
-#: rust/crates/system/src/mcp.rs:1493 rust/crates/system/ui/mcp.slint:31
+#: rust/crates/system/src/mcp.rs:1517 rust/crates/system/ui/mcp.slint:31
 msgid "MCP server"
 msgstr "Serwer MCP"
 
-#: rust/crates/system/src/mcp.rs:1494
+#: rust/crates/system/src/mcp.rs:1518
 msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
 msgstr "Pozwól aplikacji AI, takiej jak Claude Desktop, na odczytywanie i zmianę ustawień programu Telescope za pomocą polecenia, które nie otwiera żadnego portu sieciowego."
 
-#: rust/crates/system/src/mcp.rs:1495
+#: rust/crates/system/src/mcp.rs:1519
 msgid "Without the MCP server plugin AI apps can't connect to Telescope."
 msgstr "Bez wtyczki Serwer MCP aplikacje AI nie mogą łączyć się z programem Telescope."
 
-#: rust/crates/system/src/mcp.rs:1532 rust/crates/system/ui/mcp.slint:238
+#: rust/crates/system/src/mcp.rs:1556 rust/crates/system/ui/mcp.slint:238
 msgid "MCP"
 msgstr "MCP"
 
-#: rust/crates/system/src/mcp.rs:1533 rust/crates/system/ui/mcp.slint:33
+#: rust/crates/system/src/mcp.rs:1557 rust/crates/system/ui/mcp.slint:33
 msgctxt "search"
 msgid "mcp ai claude model assistant agent connect access read only"
 msgstr "mcp ai sztuczna inteligencja claude model asystent agent połącz dostęp tylko do odczytu connect access read only"
 
-#: rust/crates/system/src/mcp.rs:1584
+#: rust/crates/system/src/mcp.rs:1608
 msgid "An AI app is connected to Telescope through the MCP server."
 msgstr "Aplikacja AI jest połączona z Telescope przez serwer MCP."
 
@@ -10353,25 +10349,25 @@ msgstr "Brak działania o nazwie {action}. Polecenie telescope --list-actions wy
 msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "Nie można teraz użyć akcji {action} (brak urządzenia lub element sterujący jest wyłączony)."
 
-#: rust/crates/system/src/setup_move.rs:381
+#: rust/crates/system/src/setup_move.rs:398
 msgid "A newer Telescope is already installed. This copy is left unchanged. Open the installed Telescope from the Start menu."
 msgstr "Nowsza wersja Telescope jest już zainstalowana. Ta kopia pozostała bez zmian. Otwórz zainstalowany program Telescope z menu Start."
 
-#: rust/crates/system/src/setup_move.rs:389
+#: rust/crates/system/src/setup_move.rs:407
 msgid "The installer took too long. This copy of Telescope wasn't changed."
 msgstr "Instalator działał zbyt długo. Ta kopia programu Telescope nie została zmieniona."
 
-#: rust/crates/system/src/setup_move.rs:391
+#: rust/crates/system/src/setup_move.rs:409
 #, python-brace-format
 msgid "Couldn't start the installer: {error}"
 msgstr "Nie udało się uruchomić instalatora: {error}"
 
-#: rust/crates/system/src/setup_move.rs:395
+#: rust/crates/system/src/setup_move.rs:413
 #, python-brace-format
 msgid "The installer stopped (code {code}). This copy of Telescope wasn't changed."
 msgstr "Instalator zatrzymał się (kod {code}). Ta kopia programu Telescope nie została zmieniona."
 
-#: rust/crates/system/src/setup_move.rs:399
+#: rust/crates/system/src/setup_move.rs:417
 msgid "Telescope was installed but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope został zainstalowany, ale jego folder nie znajduje się w oczekiwanym miejscu. Otwórz go z menu Start."
 
@@ -10726,42 +10722,42 @@ msgstr "Nie udało się sprawdzić aktualizacji (HTTP {code})."
 msgid "The download failed. Check the internet connection and try again."
 msgstr "Pobieranie nie powiodło się. Sprawdź połączenie z internetem i spróbuj ponownie."
 
-#: rust/crates/system/src/updates.rs:344
+#: rust/crates/system/src/updates.rs:358
 msgid "This is a source checkout. Update it with git."
 msgstr "To jest kopia ze źródeł. Zaktualizuj ją za pomocą git."
 
-#: rust/crates/system/src/updates.rs:348
+#: rust/crates/system/src/updates.rs:362
 msgid "Telescope can't update itself because the folder holding this AppImage isn't writable."
 msgstr "Telescope nie może się zaktualizować, ponieważ folder z tym plikiem AppImage nie ma uprawnień do zapisu."
 
-#: rust/crates/system/src/updates.rs:350
+#: rust/crates/system/src/updates.rs:364
 msgid "Telescope can't update itself in a folder that isn't writable."
 msgstr "Telescope nie może zaktualizować się w folderze, do którego nie ma uprawnień zapisu."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:390
+#: rust/crates/system/src/updates.rs:396 rust/crates/vision/src/pack.rs:390
 msgid "The download couldn't be unpacked."
 msgstr "Nie udało się rozpakować pobranego pliku."
 
-#: rust/crates/system/src/updates.rs:449 rust/crates/system/src/updates.rs:456
+#: rust/crates/system/src/updates.rs:463 rust/crates/system/src/updates.rs:470
 #, python-brace-format
 msgid "Couldn't replace Telescope's files: {error}"
 msgstr "Nie udało się podmienić plików programu Telescope: {error}"
 
-#: rust/crates/system/src/updates.rs:524
+#: rust/crates/system/src/updates.rs:538
 #, python-brace-format
 msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr "Aktualizacja nie została zainstalowana, ponieważ plik {file} jest w użyciu. Spróbuj ponownie po ponownym uruchomieniu komputera."
 
-#: rust/crates/system/src/updates.rs:591
+#: rust/crates/system/src/updates.rs:605
 #, python-brace-format
 msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr "Telescope nie może zaktualizować się w bieżącej lokalizacji, ponieważ w tym folderze znajduje się już Twój element o nazwie {name}. Rozpakuj pobrany plik do osobnego folderu."
 
-#: rust/crates/system/src/updates.rs:656 rust/crates/system/src/updates_plugin.rs:142 rust/crates/system/src/updates_plugin.rs:612
+#: rust/crates/system/src/updates.rs:670 rust/crates/system/src/updates_plugin.rs:160 rust/crates/system/src/updates_plugin.rs:678
 msgid "The update failed."
 msgstr "Aktualizacja nie powiodła się."
 
-#: rust/crates/system/src/updates.rs:683
+#: rust/crates/system/src/updates.rs:697
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "Ta aktualizacja nie została zainstalowana, ponieważ nie można jej uruchomić na tym komputerze."
 
@@ -10773,16 +10769,16 @@ msgstr "Stabilny"
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:356
+#: rust/crates/system/src/updates_plugin.rs:413
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Pobieranie {percent} %…"
 
-#: rust/crates/system/src/updates_plugin.rs:361
+#: rust/crates/system/src/updates_plugin.rs:418
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Zaktualizowano. Telescope uruchomi się ponownie po zatrzymaniu strumieniowania."
 
-#: rust/crates/system/src/updates_plugin.rs:373
+#: rust/crates/system/src/updates_plugin.rs:430
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "Aktualizacja instaluje go także dla Twojego użytkownika ze skrótem w menu Start i usuwa tę rozpakowaną kopię. Ustawienia i sparowane telefony zostają zachowane."
 
@@ -10790,52 +10786,52 @@ msgstr "Aktualizacja instaluje go także dla Twojego użytkownika ze skrótem w 
 msgid "Updating needs admin permission because Telescope is installed for all users."
 msgstr ""
 
-#: rust/crates/system/src/updates_plugin.rs:379
+#: rust/crates/system/src/updates_plugin.rs:439
 msgid "Stop streaming to update."
 msgstr "Zatrzymaj strumieniowanie, aby zaktualizować."
 
-#: rust/crates/system/src/updates_plugin.rs:391
+#: rust/crates/system/src/updates_plugin.rs:451
 msgid "This is a source checkout. Update Telescope with git."
 msgstr "To jest kopia ze źródeł. Zaktualizuj Telescope za pomocą gita."
 
-#: rust/crates/system/src/updates_plugin.rs:399
+#: rust/crates/system/src/updates_plugin.rs:459
 msgid "There's no nightly release yet."
 msgstr "Nie ma jeszcze wydania nightly."
 
-#: rust/crates/system/src/updates_plugin.rs:399
+#: rust/crates/system/src/updates_plugin.rs:459
 msgid "There's no stable release yet."
 msgstr "Nie ma jeszcze wydania stabilnego."
 
-#: rust/crates/system/src/updates_plugin.rs:401
+#: rust/crates/system/src/updates_plugin.rs:461
 msgid "You have the latest version."
 msgstr "Masz najnowszą wersję."
 
-#: rust/crates/system/src/updates_plugin.rs:405
+#: rust/crates/system/src/updates_plugin.rs:465
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} jest dostępny"
 
-#: rust/crates/system/src/updates_plugin.rs:426
+#: rust/crates/system/src/updates_plugin.rs:486
 msgid "Open download page"
 msgstr "Otwórz stronę pobierania"
 
-#: rust/crates/system/src/updates_plugin.rs:426
+#: rust/crates/system/src/updates_plugin.rs:486
 msgid "Update and restart"
 msgstr "Zaktualizuj i uruchom ponownie"
 
-#: rust/crates/system/src/updates_plugin.rs:509
+#: rust/crates/system/src/updates_plugin.rs:571
 msgid "Couldn't check for updates."
 msgstr "Nie udało się sprawdzić aktualizacji."
 
-#: rust/crates/system/src/updates_plugin.rs:659
+#: rust/crates/system/src/updates_plugin.rs:731
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Zaktualizowano. Zamknij i otwórz ponownie Telescope, aby dokończyć."
 
-#: rust/crates/system/src/updates_plugin.rs:675
+#: rust/crates/system/src/updates_plugin.rs:747
 msgid "Updates"
 msgstr "Aktualizacje"
 
-#: rust/crates/system/src/updates_plugin.rs:676
+#: rust/crates/system/src/updates_plugin.rs:748
 msgid "Check for new versions of Telescope and install them."
 msgstr "Sprawdzaj dostępność nowych wersji programu Telescope i instaluj je."
 
@@ -11278,7 +11274,7 @@ msgstr "Folder musi mieć taką samą nazwę jak wtyczka i zawierać wyłącznie
 msgid "That isn't a folder in the plugins folder."
 msgstr "To nie jest folder wewnątrz folderu wtyczek."
 
-#: rust/crates/link/src/browser/plugin.rs:1212
+#: rust/crates/link/src/browser/plugin.rs:1218
 msgid "Streaming from any device's web browser, by scanning a code."
 msgstr "Strumieniowanie z przeglądarki internetowej dowolnego urządzenia po zeskanowaniu kodu."
 
@@ -11344,17 +11340,17 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "rozciągnij ściśnij proporcje wysoki pionowy stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:371
+#: rust/crates/system/src/updates_plugin.rs:428
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} jest dostępny."
 
-#: rust/crates/system/src/updates_plugin.rs:393
+#: rust/crates/system/src/updates_plugin.rs:453
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Najnowsza kompilacja nightly to {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:393
+#: rust/crates/system/src/updates_plugin.rs:453
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Najnowsza wersja stabilna to {version}."
@@ -11410,6 +11406,9 @@ msgstr "Zastąpiono"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Nie udało się uruchomić ponownie"
+
+#~ msgid "Like the video"
+#~ msgstr "Tak jak wideo"
 
 #~ msgid "Roll the right picture a little when one phone is tilted against the other."
 #~ msgstr "Lekko obróć prawy obraz, gdy jeden telefon jest przechylony względem drugiego."

@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Berdonasi atau baca selengkapnya</a>"
 msgid "No mic"
 msgstr "Tanpa mikrofon"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:358
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:415
 msgid "Downloading…"
 msgstr "Mengunduh…"
 
@@ -180,7 +180,7 @@ msgstr "Dapatkan VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Hilangkan suara ketikan, bising kipas, dan desis ruangan."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1520 rust/crates/link/src/plugin.rs:1527 rust/crates/outputs/src/stream_output.rs:974 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1528 rust/crates/link/src/plugin.rs:1535 rust/crates/outputs/src/stream_output.rs:974 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -194,12 +194,12 @@ msgid "unmuted"
 msgstr "suara aktif"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:1022 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1299
+#: rust/crates/audio/src/plugin.rs:1022 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1315
 msgid "on"
 msgstr "aktif"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:1022 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1300
+#: rust/crates/audio/src/plugin.rs:1022 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1316
 msgid "off"
 msgstr "nonaktif"
 
@@ -223,7 +223,7 @@ msgstr "Nonaktifkan"
 msgid "Switch while held, back on release"
 msgstr "Beralih saat ditahan, kembali saat dilepas"
 
-#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1474 rust/crates/outputs/src/stream_output.rs:629 rust/crates/outputs/src/stream_output.rs:646 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1482 rust/crates/outputs/src/stream_output.rs:629 rust/crates/outputs/src/stream_output.rs:646 rust/crates/shell/src/plugins/presets.rs:365 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "Tindakan"
 
@@ -370,7 +370,7 @@ msgstr "Pengurangan noise"
 msgid "Noise reduction unavailable"
 msgstr "Pengurangan noise tidak tersedia"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:255 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:998 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:255 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:998 rust/crates/link/src/browser/plugin.rs:945 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
 msgid "Cancel"
 msgstr "Batal"
 
@@ -400,19 +400,19 @@ msgstr "Stop"
 msgid " stops"
 msgstr " stop"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:219 rust/crates/link/src/plugin.rs:1475 rust/crates/outputs/src/stream_output.rs:630 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:219 rust/crates/link/src/plugin.rs:1483 rust/crates/outputs/src/stream_output.rs:630 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "Berikutnya"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:219 rust/crates/link/src/plugin.rs:1475 rust/crates/outputs/src/stream_output.rs:630 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:219 rust/crates/link/src/plugin.rs:1483 rust/crates/outputs/src/stream_output.rs:630 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "Sebelumnya"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1475 rust/crates/outputs/src/stream_output.rs:630
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1483 rust/crates/outputs/src/stream_output.rs:630
 msgid "Pick"
 msgstr "Pilih"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1476 rust/crates/outputs/src/stream_output.rs:631
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1484 rust/crates/outputs/src/stream_output.rs:631
 msgid "Option"
 msgstr "Opsi"
 
@@ -520,7 +520,7 @@ msgstr "Umum"
 msgid "Streaming"
 msgstr "Streaming"
 
-#: rust/crates/core/src/plugin.rs:15 rust/crates/effects/src/stargazer.rs:1228 rust/crates/setup/ui/setup.slint:212
+#: rust/crates/core/src/plugin.rs:15 rust/crates/effects/src/stargazer.rs:1228 rust/crates/effects/src/stills.rs:123 rust/crates/setup/ui/setup.slint:212
 msgid "Video"
 msgstr "Video"
 
@@ -687,15 +687,15 @@ msgstr "Seberapa halus tepi di sekitar Anda."
 msgid "Pull the cutout's border in towards you."
 msgstr "Tarik batas potongan ke arah Anda."
 
-#: rust/crates/effects/src/background.rs:672 rust/crates/effects/src/chroma_key.rs:323
+#: rust/crates/effects/src/background.rs:672 rust/crates/effects/src/chroma_key.rs:326
 msgid "Pick the picture that goes behind you."
 msgstr "Pilih gambar untuk latar belakang Anda."
 
-#: rust/crates/effects/src/background.rs:784 rust/crates/effects/src/chroma_key.rs:500
+#: rust/crates/effects/src/background.rs:784 rust/crates/effects/src/chroma_key.rs:503
 msgid "Choose a picture"
 msgstr "Pilih gambar"
 
-#: rust/crates/effects/src/background.rs:794 rust/crates/effects/src/chroma_key.rs:518 rust/crates/effects/src/chroma_key.rs:557 rust/crates/effects/src/chroma_key.rs:576
+#: rust/crates/effects/src/background.rs:794 rust/crates/effects/src/chroma_key.rs:521 rust/crates/effects/src/chroma_key.rs:560 rust/crates/effects/src/chroma_key.rs:579
 msgid "Can't open that picture"
 msgstr "Tidak dapat membuka gambar itu"
 
@@ -739,67 +739,67 @@ msgstr "Nilai lebih tinggi menghapus lebih banyak nuansa warna layar."
 msgid "Remove the screen's colour from your edges and skin."
 msgstr "Hapus bias warna layar dari tepi dan kulit Anda."
 
-#: rust/crates/effects/src/chroma_key.rs:318 rust/crates/effects/src/chroma_key.rs:604 rust/crates/effects/src/chroma_key.rs:746 rust/crates/effects/src/chroma_key.rs:750 rust/crates/effects/src/chroma_key.rs:768 rust/crates/effects/ui/chroma_key.slint:59
+#: rust/crates/effects/src/chroma_key.rs:321 rust/crates/effects/src/chroma_key.rs:620 rust/crates/effects/src/chroma_key.rs:762 rust/crates/effects/src/chroma_key.rs:766 rust/crates/effects/src/chroma_key.rs:784 rust/crates/effects/ui/chroma_key.slint:59
 msgid "Chroma key"
 msgstr "Chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:319
+#: rust/crates/effects/src/chroma_key.rs:322
 msgid "Replace the green or blue screen behind you."
 msgstr "Ganti layar hijau atau biru di belakang Anda."
 
-#: rust/crates/effects/src/chroma_key.rs:321
+#: rust/crates/effects/src/chroma_key.rs:324
 msgid "Pick the colour that goes behind you."
 msgstr "Pilih warna untuk latar belakang Anda."
 
-#: rust/crates/effects/src/chroma_key.rs:322 rust/crates/ui-kit/ui/widgets/colour.slint:392
+#: rust/crates/effects/src/chroma_key.rs:325 rust/crates/ui-kit/ui/widgets/colour.slint:392
 msgid "Pick from the preview"
 msgstr "Pilih dari pratinjau"
 
-#: rust/crates/effects/src/chroma_key.rs:328
+#: rust/crates/effects/src/chroma_key.rs:331
 msgid "The colour picked from the preview. Click to pick again."
 msgstr "Warna yang dipilih dari pratinjau. Klik untuk memilih lagi."
 
-#: rust/crates/effects/src/chroma_key.rs:443
+#: rust/crates/effects/src/chroma_key.rs:446
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Klik layar di belakang Anda pada pratinjau. Esc untuk membatalkan."
 
-#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:344 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:597 rust/crates/outputs/src/webcam.rs:1014 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:243 rust/crates/shell/src/stream_flow.rs:258 rust/crates/shell/src/streams.rs:768 rust/crates/shell/src/streams.rs:1900 rust/crates/shell/src/streams.rs:1922 rust/crates/shell/src/window.rs:2009 rust/crates/shell/src/worker.rs:631 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/chroma_key.rs:483 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:344 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:597 rust/crates/outputs/src/webcam.rs:1014 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:243 rust/crates/shell/src/stream_flow.rs:258 rust/crates/shell/src/streams.rs:768 rust/crates/shell/src/streams.rs:1900 rust/crates/shell/src/streams.rs:1922 rust/crates/shell/src/window.rs:2009 rust/crates/shell/src/worker.rs:631 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Tidak streaming"
 
-#: rust/crates/effects/src/chroma_key.rs:444
+#: rust/crates/effects/src/chroma_key.rs:447
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr "Mulai streaming untuk memilih warna layar pada pratinjau."
 
-#: rust/crates/effects/src/chroma_key.rs:462
+#: rust/crates/effects/src/chroma_key.rs:465
 msgid "No colour there"
 msgstr "Tidak ada warna di situ"
 
-#: rust/crates/effects/src/chroma_key.rs:462
+#: rust/crates/effects/src/chroma_key.rs:465
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr "Titik tersebut hampir tidak berwarna. Klik layar itu sendiri."
 
-#: rust/crates/effects/src/chroma_key.rs:479
+#: rust/crates/effects/src/chroma_key.rs:482
 msgid "Click a colour on the preview. Esc cancels."
 msgstr "Klik warna pada pratinjau. Esc untuk batal."
 
-#: rust/crates/effects/src/chroma_key.rs:480
+#: rust/crates/effects/src/chroma_key.rs:483
 msgid "Start streaming to pick a colour on the preview."
 msgstr "Mulai streaming untuk memilih warna pada pratinjau."
 
-#: rust/crates/effects/src/chroma_key.rs:605
+#: rust/crates/effects/src/chroma_key.rs:621
 msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
 msgstr "Ganti layar hijau atau biru di belakang Anda dengan warna atau gambar, tanpa perlu mengunduh."
 
-#: rust/crates/effects/src/chroma_key.rs:606
+#: rust/crates/effects/src/chroma_key.rs:622
 msgid "Without the Chroma key plugin there's no Chroma key card and a green screen isn't replaced."
 msgstr "Tanpa plugin Chroma key, tidak ada kartu Chroma key dan layar hijau tidak diganti."
 
-#: rust/crates/effects/src/chroma_key.rs:748 rust/crates/effects/src/chroma_key.rs:783
+#: rust/crates/effects/src/chroma_key.rs:764 rust/crates/effects/src/chroma_key.rs:799
 msgid "Chroma key tolerance"
 msgstr "Toleransi chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:751 rust/crates/effects/src/chroma_key.rs:777
+#: rust/crates/effects/src/chroma_key.rs:767 rust/crates/effects/src/chroma_key.rs:793
 msgid "Chroma key screen"
 msgstr "Layar chroma key"
 
@@ -2470,11 +2470,11 @@ msgstr "Webhook On Air gagal"
 msgid "The webhook returned: {error}"
 msgstr "Webhook mengembalikan: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:272 rust/crates/shell/src/doc.rs:493 rust/crates/shell/src/doc.rs:494 rust/crates/shell/src/doc.rs:984
+#: rust/crates/effects/src/on_air_plugin.rs:272 rust/crates/shell/src/doc.rs:495 rust/crates/shell/src/doc.rs:496 rust/crates/shell/src/doc.rs:1011
 msgid "Settings"
 msgstr "Pengaturan"
 
-#: rust/crates/effects/src/on_air_plugin.rs:314 rust/crates/effects/src/stereo_plugin.rs:902 rust/crates/link/src/browser/plugin.rs:866 rust/crates/link/src/browser/plugin.rs:872
+#: rust/crates/effects/src/on_air_plugin.rs:314 rust/crates/effects/src/stereo_plugin.rs:902 rust/crates/link/src/browser/plugin.rs:872 rust/crates/link/src/browser/plugin.rs:878
 #, python-brace-format
 msgid "Couldn't start: {error}"
 msgstr "Tidak dapat memulai: {error}"
@@ -3533,10 +3533,6 @@ msgstr ""
 msgid "Like the camera"
 msgstr ""
 
-#: rust/crates/effects/src/stills.rs:123
-msgid "Like the video"
-msgstr "Sama seperti video"
-
 #: rust/crates/effects/src/stills.rs:125
 #, python-brace-format
 msgid "1/{n} s"
@@ -4264,11 +4260,11 @@ msgstr "Nama:"
 msgid "OK"
 msgstr "Oke"
 
-#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:896 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:1008 rust/crates/link/src/plugin.rs:904 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "Tidak"
 
-#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:895 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:1009 rust/crates/link/src/plugin.rs:903 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "Ya"
 
@@ -5135,7 +5131,7 @@ msgstr "Terhubung"
 msgid "{n} connected"
 msgstr "{n} terhubung"
 
-#: rust/crates/link/src/browser/plugin.rs:608 rust/crates/link/src/browser/plugin.rs:941
+#: rust/crates/link/src/browser/plugin.rs:608 rust/crates/link/src/browser/plugin.rs:947
 msgid "Waiting for a browser"
 msgstr "Menunggu browser"
 
@@ -5160,23 +5156,23 @@ msgstr "Browser perangkat tidak dapat mengirim lebih cepat."
 msgid "Can't keep up"
 msgstr "Tidak dapat mengimbangi"
 
-#: rust/crates/link/src/browser/plugin.rs:750
+#: rust/crates/link/src/browser/plugin.rs:756
 msgid "Browser"
 msgstr "Browser"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:414 rust/crates/link/src/plugin.rs:450 rust/crates/link/src/plugin.rs:476 rust/crates/link/src/plugin.rs:811 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:245 rust/crates/shell/src/streams.rs:1880 rust/crates/system/ui/updates.slint:146
+#: rust/crates/link/src/browser/plugin.rs:936 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:422 rust/crates/link/src/plugin.rs:458 rust/crates/link/src/plugin.rs:484 rust/crates/link/src/plugin.rs:819 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:245 rust/crates/shell/src/streams.rs:1880 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Coba lagi"
 
-#: rust/crates/link/src/browser/plugin.rs:931
+#: rust/crates/link/src/browser/plugin.rs:937
 msgid "Browser camera isn't available"
 msgstr "Kamera browser tidak tersedia"
 
-#: rust/crates/link/src/browser/plugin.rs:942
+#: rust/crates/link/src/browser/plugin.rs:948
 msgid "Scan the code on the Browser camera card with the device to use."
 msgstr "Pindai kode pada kartu Kamera browser dengan perangkat yang akan digunakan."
 
-#: rust/crates/link/src/browser/plugin.rs:1071
+#: rust/crates/link/src/browser/plugin.rs:1077
 #, python-brace-format
 msgid "Browser, last connected {date}"
 msgstr "Browser, terakhir terhubung {date}"
@@ -5185,7 +5181,7 @@ msgstr "Browser, terakhir terhubung {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "Komputer ini tidak dapat menyiapkan koneksi video."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:427 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:435 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr "Tambah perangkat"
 
@@ -5316,12 +5312,12 @@ msgstr "ponsel tidak merespons melalui USB"
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "Koneksi diatur ke Hanya USB: {why}. Beralihlah ke Otomatis untuk menggunakan Wi-Fi."
 
-#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:220
+#: rust/crates/link/src/connection.rs:856 rust/crates/link/src/plugin.rs:222
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "Aplikasi Telescope di {phone} lebih lama daripada versi ini. Perbarui di ponsel."
 
-#: rust/crates/link/src/connection.rs:857 rust/crates/link/src/plugin.rs:221
+#: rust/crates/link/src/connection.rs:857 rust/crates/link/src/plugin.rs:223
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "Aplikasi Telescope di {phone} lebih baru daripada versi ini. Perbarui Telescope di komputer ini."
@@ -5472,269 +5468,269 @@ msgstr "ponsel yang terhubung melalui USB adalah ponsel yang berbeda"
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "ponsel terhubung tetapi Telescope tidak dibuka di ponsel"
 
-#: rust/crates/link/src/plugin.rs:222
+#: rust/crates/link/src/plugin.rs:224
 #, python-brace-format
 msgid "Telescope on {phone} and this computer have different app versions."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:225
+#: rust/crates/link/src/plugin.rs:227
 msgid "Different app versions"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:315
+#: rust/crates/link/src/plugin.rs:323
 msgid "Network presence unavailable"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:316
+#: rust/crates/link/src/plugin.rs:324
 msgid "Phones will be checked over HTTPS instead."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:426 rust/crates/link/src/plugin.rs:1178 rust/crates/link/src/plugin.rs:1446 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
+#: rust/crates/link/src/plugin.rs:434 rust/crates/link/src/plugin.rs:1186 rust/crates/link/src/plugin.rs:1454 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
 msgid "No device yet"
 msgstr "Belum ada perangkat"
 
-#: rust/crates/link/src/plugin.rs:426
+#: rust/crates/link/src/plugin.rs:434
 msgid "Add a phone to stream from."
 msgstr "Tambahkan ponsel untuk streaming."
 
-#: rust/crates/link/src/plugin.rs:442 rust/crates/link/src/plugin.rs:448
+#: rust/crates/link/src/plugin.rs:450 rust/crates/link/src/plugin.rs:456
 msgid "Can't connect to the phone"
 msgstr "Tidak dapat terhubung ke ponsel"
 
-#: rust/crates/link/src/plugin.rs:449 rust/crates/link/src/service.rs:150
+#: rust/crates/link/src/plugin.rs:457 rust/crates/link/src/service.rs:150
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb tidak dapat membuka koneksi ke ponsel. Cabut kabel, hubungkan kembali, lalu coba lagi."
 
-#: rust/crates/link/src/plugin.rs:472 rust/crates/link/ui/connection.slint:476
+#: rust/crates/link/src/plugin.rs:480 rust/crates/link/ui/connection.slint:476
 msgid "Set up the virtual camera"
 msgstr "Siapkan kamera virtual"
 
-#: rust/crates/link/src/plugin.rs:478
+#: rust/crates/link/src/plugin.rs:486
 msgid "Couldn't set up the virtual camera"
 msgstr "Gagal menyiapkan kamera virtual"
 
-#: rust/crates/link/src/plugin.rs:512
+#: rust/crates/link/src/plugin.rs:520
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "Gagal memperbarui aplikasi ponsel: {error}"
 
-#: rust/crates/link/src/plugin.rs:607 rust/crates/link/src/plugin.rs:618
+#: rust/crates/link/src/plugin.rs:615 rust/crates/link/src/plugin.rs:626
 msgid "This computer isn't on a network right now. Pair over USB."
 msgstr "Komputer ini tidak berada di jaringan saat ini. Sandingkan via USB."
 
 #. "Scan pairing code" is a button in the phone app: use the phone app's translation of it
-#: rust/crates/link/src/plugin.rs:611
+#: rust/crates/link/src/plugin.rs:619
 msgid "On the phone, tap Scan pairing code and point it at this code."
 msgstr "Di ponsel, ketuk Pindai kode penyandingan dan arahkan ke kode ini."
 
-#: rust/crates/link/src/plugin.rs:634 rust/crates/link/src/plugin.rs:755
+#: rust/crates/link/src/plugin.rs:642 rust/crates/link/src/plugin.rs:763
 msgid "Getting adb from Google…"
 msgstr "Mendapatkan adb dari Google…"
 
-#: rust/crates/link/src/plugin.rs:636 rust/crates/link/src/plugin.rs:700
+#: rust/crates/link/src/plugin.rs:644 rust/crates/link/src/plugin.rs:708
 msgid "Or plug the phone in over USB."
 msgstr "Atau hubungkan ponsel via USB."
 
-#: rust/crates/link/src/plugin.rs:642
+#: rust/crates/link/src/plugin.rs:650
 #, python-brace-format
 msgid "adb is required for USB and Telescope can <a href=\"{link}\">get it from Google</a>. Wi-Fi works without it."
 msgstr "adb diperlukan untuk USB dan Telescope dapat <a href=\"{link}\">mendapatkannya dari Google</a>. Wi-Fi dapat berfungsi tanpanya."
 
-#: rust/crates/link/src/plugin.rs:643
+#: rust/crates/link/src/plugin.rs:651
 msgid "Get adb from Google"
 msgstr "Dapatkan adb dari Google"
 
-#: rust/crates/link/src/plugin.rs:645
+#: rust/crates/link/src/plugin.rs:653
 msgid "adb is required for USB but isn't installed. Wi-Fi works without it."
 msgstr "adb diperlukan untuk USB tetapi belum diinstal. Wi-Fi dapat berfungsi tanpanya."
 
-#: rust/crates/link/src/plugin.rs:660
+#: rust/crates/link/src/plugin.rs:668
 #, python-brace-format
 msgid "Pair {phone}"
 msgstr "Sandingkan {phone}"
 
-#: rust/crates/link/src/plugin.rs:665
+#: rust/crates/link/src/plugin.rs:673
 msgid "You can start streaming now."
 msgstr "Anda dapat mulai streaming sekarang."
 
-#: rust/crates/link/src/plugin.rs:665
+#: rust/crates/link/src/plugin.rs:673
 msgid "Open the app on the phone first."
 msgstr "Buka aplikasi di ponsel terlebih dahulu."
 
-#: rust/crates/link/src/plugin.rs:673
+#: rust/crates/link/src/plugin.rs:681
 #, python-brace-format
 msgid "Paired with {name}"
 msgstr "Tersanding dengan {name}"
 
-#: rust/crates/link/src/plugin.rs:690
+#: rust/crates/link/src/plugin.rs:698
 #, python-brace-format
 msgid "Pairing {phone}. Keep the app open."
 msgstr "Menyandingkan {phone}. Biarkan aplikasi tetap terbuka."
 
-#: rust/crates/link/src/plugin.rs:694
+#: rust/crates/link/src/plugin.rs:702
 msgid "Pick a phone to pair over USB."
 msgstr "Pilih ponsel untuk disandingkan via USB."
 
-#: rust/crates/link/src/plugin.rs:697
+#: rust/crates/link/src/plugin.rs:705
 msgid "Allow USB debugging on the phone."
 msgstr "Izinkan debugging USB di ponsel."
 
-#: rust/crates/link/src/plugin.rs:738
+#: rust/crates/link/src/plugin.rs:746
 #, python-brace-format
 msgid "Telescope can download adb from Google (about {size}) and save it for your user. adb is Google's software and their Android SDK License applies (<a href=\"{url}\">read it here</a>).<br><br>Wi-Fi works without adb."
 msgstr "Telescope dapat mengunduh adb dari Google (sekitar {size}) dan menyimpannya untuk pengguna Anda. adb adalah software dari Google dan Lisensi Android SDK mereka berlaku (<a href=\"{url}\">baca di sini</a>).<br><br>Wi-Fi dapat berfungsi tanpa adb."
 
-#: rust/crates/link/src/plugin.rs:744
+#: rust/crates/link/src/plugin.rs:752
 msgid "USB needs adb, Google's tool for talking to Android phones."
 msgstr "USB memerlukan adb, alat dari Google untuk berkomunikasi dengan ponsel Android."
 
-#: rust/crates/link/src/plugin.rs:747
+#: rust/crates/link/src/plugin.rs:755
 msgid "Agree and download"
 msgstr "Setuju dan unduh"
 
-#: rust/crates/link/src/plugin.rs:766
+#: rust/crates/link/src/plugin.rs:774
 msgid "Pick adb.exe or the platform-tools zip"
 msgstr "Pilih adb.exe atau zip platform-tools"
 
-#: rust/crates/link/src/plugin.rs:767
+#: rust/crates/link/src/plugin.rs:775
 msgid "adb.exe or platform-tools zip (adb.exe *.zip)"
 msgstr "adb.exe atau zip platform-tools (adb.exe *.zip)"
 
-#: rust/crates/link/src/plugin.rs:773
+#: rust/crates/link/src/plugin.rs:781
 msgid "Copying adb…"
 msgstr "Menyalin adb…"
 
-#: rust/crates/link/src/plugin.rs:808
+#: rust/crates/link/src/plugin.rs:816
 #, python-brace-format
 msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
 msgstr "<a href=\"{get}\">Coba lagi</a> atau <a href=\"{pick}\">pilih adb yang sudah Anda miliki</a>."
 
-#: rust/crates/link/src/plugin.rs:833
+#: rust/crates/link/src/plugin.rs:841
 msgid "Phone app is out of date"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:833
+#: rust/crates/link/src/plugin.rs:841
 #, python-brace-format
 msgid "Update the Telescope app on {phone} to connect"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:893
+#: rust/crates/link/src/plugin.rs:901
 msgid "Same phone?"
 msgstr "Ponsel yang sama?"
 
-#: rust/crates/link/src/plugin.rs:894
+#: rust/crates/link/src/plugin.rs:902
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "Apakah ini {name} lagi?"
 
-#: rust/crates/link/src/plugin.rs:894
+#: rust/crates/link/src/plugin.rs:902
 #, python-brace-format
 msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
 msgstr "{name} tersanding sebagai ponsel baru. Ini terjadi setelah Telescope diinstal ulang di ponsel atau data aplikasi dihapus. Ya akan memindahkan pengaturan dan preset {name} ke entri baru serta menghapus entri lama."
 
-#: rust/crates/link/src/plugin.rs:1102
+#: rust/crates/link/src/plugin.rs:1110
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "Aplikasi ponsel telah diperbarui. Buka Telescope di ponsel."
 
-#: rust/crates/link/src/plugin.rs:1179 rust/crates/link/src/plugin.rs:1200
+#: rust/crates/link/src/plugin.rs:1187 rust/crates/link/src/plugin.rs:1208
 msgctxt "status"
 msgid "Streaming"
 msgstr "Streaming"
 
-#: rust/crates/link/src/plugin.rs:1180
+#: rust/crates/link/src/plugin.rs:1188
 #, python-brace-format
 msgid "Waiting for {source}"
 msgstr "Menunggu {source}"
 
-#: rust/crates/link/src/plugin.rs:1181
+#: rust/crates/link/src/plugin.rs:1189
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr "{source}, tidak perlu penyandingan"
 
-#: rust/crates/link/src/plugin.rs:1195 rust/crates/shell/src/streams.rs:1196
+#: rust/crates/link/src/plugin.rs:1203 rust/crates/shell/src/streams.rs:1196
 msgid "Reconnecting"
 msgstr "Menghubungkan ulang"
 
-#: rust/crates/link/src/plugin.rs:1198
+#: rust/crates/link/src/plugin.rs:1206
 msgid "Streaming over USB"
 msgstr "Streaming via USB"
 
-#: rust/crates/link/src/plugin.rs:1199
+#: rust/crates/link/src/plugin.rs:1207
 msgid "Streaming over Wi-Fi"
 msgstr "Streaming via Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1203 rust/crates/shell/src/streams.rs:1200
+#: rust/crates/link/src/plugin.rs:1211 rust/crates/shell/src/streams.rs:1200
 msgid "Connecting"
 msgstr "Menghubungkan"
 
-#: rust/crates/link/src/plugin.rs:1219
+#: rust/crates/link/src/plugin.rs:1227
 msgid "Updating the phone app over USB…"
 msgstr "Memperbarui aplikasi ponsel melalui USB…"
 
-#: rust/crates/link/src/plugin.rs:1223
+#: rust/crates/link/src/plugin.rs:1231
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Aplikasi Telescope di {phone} lebih lama daripada versi ini."
 
-#: rust/crates/link/src/plugin.rs:1298 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:170 rust/crates/shell/src/streams.rs:771 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1306 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:170 rust/crates/shell/src/streams.rs:771 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "Salin perintah"
 
-#: rust/crates/link/src/plugin.rs:1306 rust/crates/link/src/plugin.rs:1471 rust/crates/link/src/plugin.rs:1520 rust/crates/link/src/plugin.rs:1527 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
+#: rust/crates/link/src/plugin.rs:1314 rust/crates/link/src/plugin.rs:1479 rust/crates/link/src/plugin.rs:1528 rust/crates/link/src/plugin.rs:1535 rust/crates/setup/src/monitoring.rs:339 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:69
 msgid "Phone"
 msgstr "Ponsel"
 
-#: rust/crates/link/src/plugin.rs:1306
+#: rust/crates/link/src/plugin.rs:1314
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "Ponsel · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1307
+#: rust/crates/link/src/plugin.rs:1315
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer and unpairs it on the phone too if Telescope can reach it."
 msgstr "Ingin menghapus \"{name}\"? Tindakan ini akan menghapus pengaturan kameranya di komputer ini dan membatalkan penyandingan di ponsel juga jika Telescope dapat menjangkaunya."
 
-#: rust/crates/link/src/plugin.rs:1310
+#: rust/crates/link/src/plugin.rs:1318
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "Ganti nama {name}"
 
-#: rust/crates/link/src/plugin.rs:1311 rust/crates/link/src/plugin.rs:1318
+#: rust/crates/link/src/plugin.rs:1319 rust/crates/link/src/plugin.rs:1326
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "Hapus {name}"
 
-#: rust/crates/link/src/plugin.rs:1312
+#: rust/crates/link/src/plugin.rs:1320
 msgid "Remove phone"
 msgstr "Hapus ponsel"
 
-#: rust/crates/link/src/plugin.rs:1315
+#: rust/crates/link/src/plugin.rs:1323
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
 msgstr "Ingin menghapus \"{name}\"? Tindakan ini akan menghapus pengaturan yang dimilikinya di komputer ini. Browser tetap dapat terhubung dengan kode dan dimulai dengan pengaturan default."
 
-#: rust/crates/link/src/plugin.rs:1319
+#: rust/crates/link/src/plugin.rs:1327
 msgid "Remove browser"
 msgstr "Hapus browser"
 
-#: rust/crates/link/src/plugin.rs:1632
+#: rust/crates/link/src/plugin.rs:1640
 msgid "Virtual camera is set up differently"
 msgstr "Kamera virtual disiapkan secara berbeda"
 
-#: rust/crates/link/src/plugin.rs:1633
+#: rust/crates/link/src/plugin.rs:1641
 #, python-brace-format
 msgid "Another app loaded v4l2loopback with other settings and without {device}. Close that app and run this command to give Telescope control:"
 msgstr "Aplikasi lain memuat v4l2loopback dengan pengaturan lain dan tanpa {device}. Tutup aplikasi tersebut dan jalankan perintah ini untuk memberikan kontrol kepada Telescope:"
 
-#: rust/crates/link/src/plugin.rs:1643
+#: rust/crates/link/src/plugin.rs:1651
 msgid "The virtual camera is off"
 msgstr "Kamera virtual nonaktif"
 
-#: rust/crates/link/src/plugin.rs:1643
+#: rust/crates/link/src/plugin.rs:1651
 msgid "Your password is needed to switch on the virtual camera."
 msgstr "Kata sandi Anda diperlukan untuk mengaktifkan kamera virtual."
 
-#: rust/crates/link/src/plugin.rs:1644 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
+#: rust/crates/link/src/plugin.rs:1652 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
 msgid "Switch on"
 msgstr "Aktifkan"
 
@@ -8356,15 +8352,15 @@ msgstr "Streaming berhenti saat Telescope dimulai ulang. Memulai ulang memerluka
 msgid "Restart to apply changes."
 msgstr "Mulai ulang untuk menerapkan perubahan."
 
-#: rust/crates/shell/src/doc.rs:503 rust/crates/shell/src/doc.rs:504
+#: rust/crates/shell/src/doc.rs:505 rust/crates/shell/src/doc.rs:506
 msgid "Add camera"
 msgstr "Tambahkan kamera"
 
-#: rust/crates/shell/src/doc.rs:505
+#: rust/crates/shell/src/doc.rs:507
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr "Streaming kamera lain secara bersamaan di kamera virtual terpisah."
 
-#: rust/crates/shell/src/doc.rs:1022 rust/crates/shell/src/doc.rs:1023
+#: rust/crates/shell/src/doc.rs:1049 rust/crates/shell/src/doc.rs:1050
 msgid "Search settings"
 msgstr "Cari di pengaturan"
 
@@ -8394,11 +8390,11 @@ msgstr "Menyiapkan kamera virtual tambahan…"
 msgid "Couldn't add more virtual cameras"
 msgstr "Tidak dapat menambahkan kamera virtual tambahan"
 
-#: rust/crates/shell/src/host.rs:770
+#: rust/crates/shell/src/host.rs:771
 msgid "Phone stream required."
 msgstr "Stream ponsel diperlukan."
 
-#: rust/crates/shell/src/host.rs:776
+#: rust/crates/shell/src/host.rs:777
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "Format Ringan diperlukan. Format Berat mengirimkan seluruh gambar tanpa keyframe untuk diproses."
 
@@ -8633,7 +8629,7 @@ msgstr "Jarak fokus"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Instal paket v4l2loopback. Fedora dan Nobara: v4l2loopback (dari RPM Fusion). Debian, Ubuntu, dan Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:365
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:422
 msgid "Checking…"
 msgstr "Memeriksa…"
 
@@ -8653,7 +8649,7 @@ msgstr "Terinstal."
 msgid "Check again"
 msgstr "Periksa lagi"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:360
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:417
 msgid "Installing…"
 msgstr "Menginstal…"
 
@@ -9594,19 +9590,19 @@ msgstr "Telescope: streaming mikrofon, kamera nonaktif"
 msgid "Quit"
 msgstr "Keluar"
 
-#: rust/crates/shell/src/tray.rs:260
+#: rust/crates/shell/src/tray.rs:265
 msgid "Streaming continues in the background."
 msgstr "Streaming berlanjut di latar belakang."
 
-#: rust/crates/shell/src/tray.rs:260
+#: rust/crates/shell/src/tray.rs:265
 msgid "Streaming starts automatically when needed."
 msgstr "Streaming dimulai secara otomatis saat dibutuhkan."
 
-#: rust/crates/shell/src/tray.rs:261
+#: rust/crates/shell/src/tray.rs:266
 msgid "Right-click the tray icon to quit."
 msgstr "Klik kanan ikon baki sistem untuk keluar."
 
-#: rust/crates/shell/src/tray.rs:262
+#: rust/crates/shell/src/tray.rs:267
 msgid "Telescope is still running"
 msgstr "Telescope masih berjalan"
 
@@ -10178,46 +10174,46 @@ msgstr "Salin entri untuk pengaturan MCP aplikasi AI."
 msgid "Nothing yet"
 msgstr "Belum ada aktivitas"
 
-#: rust/crates/system/src/mcp.rs:1211
+#: rust/crates/system/src/mcp.rs:1227
 msgid "Undid what the AI changed"
 msgstr "Mengurungkan perubahan oleh AI"
 
-#: rust/crates/system/src/mcp.rs:1211
+#: rust/crates/system/src/mcp.rs:1227
 #, python-brace-format
 msgid "Undid what the AI changed, except {n} that couldn't be restored"
 msgstr "Perubahan oleh AI telah diurungkan, kecuali {n} perubahan yang tidak dapat dipulihkan"
 
-#: rust/crates/system/src/mcp.rs:1212
+#: rust/crates/system/src/mcp.rs:1228
 msgid "You"
 msgstr "Anda"
 
-#: rust/crates/system/src/mcp.rs:1311
+#: rust/crates/system/src/mcp.rs:1327
 #, python-brace-format
 msgid "{list} and {n} more"
 msgstr "{list} dan {n} lainnya"
 
-#: rust/crates/system/src/mcp.rs:1493 rust/crates/system/ui/mcp.slint:31
+#: rust/crates/system/src/mcp.rs:1517 rust/crates/system/ui/mcp.slint:31
 msgid "MCP server"
 msgstr "Server MCP"
 
-#: rust/crates/system/src/mcp.rs:1494
+#: rust/crates/system/src/mcp.rs:1518
 msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
 msgstr "Izinkan aplikasi AI seperti Claude Desktop membaca dan mengubah pengaturan Telescope, melalui perintah yang tidak membuka port jaringan."
 
-#: rust/crates/system/src/mcp.rs:1495
+#: rust/crates/system/src/mcp.rs:1519
 msgid "Without the MCP server plugin AI apps can't connect to Telescope."
 msgstr "Tanpa plugin server MCP, aplikasi AI tidak dapat terhubung ke Telescope."
 
-#: rust/crates/system/src/mcp.rs:1532 rust/crates/system/ui/mcp.slint:238
+#: rust/crates/system/src/mcp.rs:1556 rust/crates/system/ui/mcp.slint:238
 msgid "MCP"
 msgstr "MCP"
 
-#: rust/crates/system/src/mcp.rs:1533 rust/crates/system/ui/mcp.slint:33
+#: rust/crates/system/src/mcp.rs:1557 rust/crates/system/ui/mcp.slint:33
 msgctxt "search"
 msgid "mcp ai claude model assistant agent connect access read only"
 msgstr "mcp ai claude model asisten agen hubungkan akses hanya baca assistant agent connect access read only"
 
-#: rust/crates/system/src/mcp.rs:1584
+#: rust/crates/system/src/mcp.rs:1608
 msgid "An AI app is connected to Telescope through the MCP server."
 msgstr "Aplikasi AI terhubung ke Telescope melalui server MCP."
 
@@ -10309,25 +10305,25 @@ msgstr "Tidak ada tindakan bernama {action}. telescope --list-actions untuk meli
 msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "{action} tidak dapat digunakan saat ini (tidak ada perangkat, atau kontrol nonaktif)."
 
-#: rust/crates/system/src/setup_move.rs:381
+#: rust/crates/system/src/setup_move.rs:398
 msgid "A newer Telescope is already installed. This copy is left unchanged. Open the installed Telescope from the Start menu."
 msgstr "Versi Telescope yang lebih baru sudah terinstal. Salinan ini dibiarkan tidak berubah. Buka Telescope yang terinstal dari menu Mulai."
 
-#: rust/crates/system/src/setup_move.rs:389
+#: rust/crates/system/src/setup_move.rs:407
 msgid "The installer took too long. This copy of Telescope wasn't changed."
 msgstr "Penginstal membutuhkan waktu terlalu lama. Salinan Telescope ini tidak diubah."
 
-#: rust/crates/system/src/setup_move.rs:391
+#: rust/crates/system/src/setup_move.rs:409
 #, python-brace-format
 msgid "Couldn't start the installer: {error}"
 msgstr "Tidak dapat memulai penginstal: {error}"
 
-#: rust/crates/system/src/setup_move.rs:395
+#: rust/crates/system/src/setup_move.rs:413
 #, python-brace-format
 msgid "The installer stopped (code {code}). This copy of Telescope wasn't changed."
 msgstr "Penginstal berhenti (kode {code}). Salinan Telescope ini tidak diubah."
 
-#: rust/crates/system/src/setup_move.rs:399
+#: rust/crates/system/src/setup_move.rs:417
 msgid "Telescope was installed but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope telah diinstal tetapi foldernya tidak berada di lokasi yang diharapkan. Buka dari menu Mulai."
 
@@ -10678,42 +10674,42 @@ msgstr "Tidak dapat memeriksa pembaruan (HTTP {code})."
 msgid "The download failed. Check the internet connection and try again."
 msgstr "Unduhan gagal. Periksa koneksi internet dan coba lagi."
 
-#: rust/crates/system/src/updates.rs:344
+#: rust/crates/system/src/updates.rs:358
 msgid "This is a source checkout. Update it with git."
 msgstr "Ini adalah salinan kode sumber. Perbarui dengan git."
 
-#: rust/crates/system/src/updates.rs:348
+#: rust/crates/system/src/updates.rs:362
 msgid "Telescope can't update itself because the folder holding this AppImage isn't writable."
 msgstr "Telescope tidak dapat memperbarui dirinya karena folder tempat AppImage ini berada tidak dapat ditulisi."
 
-#: rust/crates/system/src/updates.rs:350
+#: rust/crates/system/src/updates.rs:364
 msgid "Telescope can't update itself in a folder that isn't writable."
 msgstr "Telescope tidak dapat memperbarui dirinya sendiri di folder yang tidak dapat ditulisi."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:390
+#: rust/crates/system/src/updates.rs:396 rust/crates/vision/src/pack.rs:390
 msgid "The download couldn't be unpacked."
 msgstr "Unduhan tidak dapat diekstrak."
 
-#: rust/crates/system/src/updates.rs:449 rust/crates/system/src/updates.rs:456
+#: rust/crates/system/src/updates.rs:463 rust/crates/system/src/updates.rs:470
 #, python-brace-format
 msgid "Couldn't replace Telescope's files: {error}"
 msgstr "Tidak dapat mengganti file Telescope: {error}"
 
-#: rust/crates/system/src/updates.rs:524
+#: rust/crates/system/src/updates.rs:538
 #, python-brace-format
 msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr "Pembaruan tidak diinstal saat {file} sedang digunakan. Coba lagi setelah mulai ulang."
 
-#: rust/crates/system/src/updates.rs:591
+#: rust/crates/system/src/updates.rs:605
 #, python-brace-format
 msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr "Telescope tidak dapat memperbarui dirinya sendiri secara langsung karena folder ini juga memuat item milik Anda yang bernama {name}. Ekstrak unduhan ke folder terpisah."
 
-#: rust/crates/system/src/updates.rs:656 rust/crates/system/src/updates_plugin.rs:142 rust/crates/system/src/updates_plugin.rs:612
+#: rust/crates/system/src/updates.rs:670 rust/crates/system/src/updates_plugin.rs:160 rust/crates/system/src/updates_plugin.rs:678
 msgid "The update failed."
 msgstr "Pembaruan gagal."
 
-#: rust/crates/system/src/updates.rs:683
+#: rust/crates/system/src/updates.rs:697
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "Pembaruan ini tidak diinstal karena tidak dapat dijalankan di komputer ini."
 
@@ -10725,16 +10721,16 @@ msgstr "Stabil"
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:356
+#: rust/crates/system/src/updates_plugin.rs:413
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Mengunduh {percent}%…"
 
-#: rust/crates/system/src/updates_plugin.rs:361
+#: rust/crates/system/src/updates_plugin.rs:418
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Diperbarui. Telescope dimulai ulang saat streaming dihentikan."
 
-#: rust/crates/system/src/updates_plugin.rs:373
+#: rust/crates/system/src/updates_plugin.rs:430
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "Memperbarui juga akan menginstalnya untuk pengguna Anda dengan entri menu Mulai dan menghapus salinan hasil ekstrak ini. Pengaturan dan ponsel tersanding tetap dipertahankan."
 
@@ -10742,52 +10738,52 @@ msgstr "Memperbarui juga akan menginstalnya untuk pengguna Anda dengan entri men
 msgid "Updating needs admin permission because Telescope is installed for all users."
 msgstr ""
 
-#: rust/crates/system/src/updates_plugin.rs:379
+#: rust/crates/system/src/updates_plugin.rs:439
 msgid "Stop streaming to update."
 msgstr "Hentikan streaming untuk memperbarui."
 
-#: rust/crates/system/src/updates_plugin.rs:391
+#: rust/crates/system/src/updates_plugin.rs:451
 msgid "This is a source checkout. Update Telescope with git."
 msgstr "Ini adalah checkout kode sumber. Perbarui Telescope menggunakan git."
 
-#: rust/crates/system/src/updates_plugin.rs:399
+#: rust/crates/system/src/updates_plugin.rs:459
 msgid "There's no nightly release yet."
 msgstr "Belum ada rilis nightly."
 
-#: rust/crates/system/src/updates_plugin.rs:399
+#: rust/crates/system/src/updates_plugin.rs:459
 msgid "There's no stable release yet."
 msgstr "Belum ada rilis stabil."
 
-#: rust/crates/system/src/updates_plugin.rs:401
+#: rust/crates/system/src/updates_plugin.rs:461
 msgid "You have the latest version."
 msgstr "Anda menggunakan versi terbaru."
 
-#: rust/crates/system/src/updates_plugin.rs:405
+#: rust/crates/system/src/updates_plugin.rs:465
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} tersedia"
 
-#: rust/crates/system/src/updates_plugin.rs:426
+#: rust/crates/system/src/updates_plugin.rs:486
 msgid "Open download page"
 msgstr "Buka halaman unduhan"
 
-#: rust/crates/system/src/updates_plugin.rs:426
+#: rust/crates/system/src/updates_plugin.rs:486
 msgid "Update and restart"
 msgstr "Perbarui dan mulai ulang"
 
-#: rust/crates/system/src/updates_plugin.rs:509
+#: rust/crates/system/src/updates_plugin.rs:571
 msgid "Couldn't check for updates."
 msgstr "Tidak dapat memeriksa pembaruan."
 
-#: rust/crates/system/src/updates_plugin.rs:659
+#: rust/crates/system/src/updates_plugin.rs:731
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Diperbarui. Tutup dan buka kembali Telescope untuk menyelesaikan."
 
-#: rust/crates/system/src/updates_plugin.rs:675
+#: rust/crates/system/src/updates_plugin.rs:747
 msgid "Updates"
 msgstr "Pembaruan"
 
-#: rust/crates/system/src/updates_plugin.rs:676
+#: rust/crates/system/src/updates_plugin.rs:748
 msgid "Check for new versions of Telescope and install them."
 msgstr "Periksa versi baru Telescope dan instal."
 
@@ -11230,7 +11226,7 @@ msgstr "Folder harus memiliki nama yang sama dengan plugin, hanya menggunakan hu
 msgid "That isn't a folder in the plugins folder."
 msgstr "Itu bukan folder di dalam folder plugin."
 
-#: rust/crates/link/src/browser/plugin.rs:1212
+#: rust/crates/link/src/browser/plugin.rs:1218
 msgid "Streaming from any device's web browser, by scanning a code."
 msgstr "Streaming dari browser web perangkat apa pun, dengan memindai kode."
 
@@ -11294,17 +11290,17 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "regang regangkan pipih pipihkan aspek tinggi vertikal stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:371
+#: rust/crates/system/src/updates_plugin.rs:428
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} tersedia."
 
-#: rust/crates/system/src/updates_plugin.rs:393
+#: rust/crates/system/src/updates_plugin.rs:453
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Build nightly terbaru adalah {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:393
+#: rust/crates/system/src/updates_plugin.rs:453
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Build stabil terbaru adalah {version}."
@@ -11360,6 +11356,9 @@ msgstr "Diganti"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Tidak dapat memulai ulang"
+
+#~ msgid "Like the video"
+#~ msgstr "Sama seperti video"
 
 #~ msgid "Roll the right picture a little when one phone is tilted against the other."
 #~ msgstr "Putar sedikit gambar kanan jika salah satu ponsel miring terhadap yang lain."
