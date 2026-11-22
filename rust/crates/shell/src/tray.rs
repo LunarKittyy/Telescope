@@ -205,6 +205,11 @@ impl Window {
                 self.report_shown();
             }
         } else {
+            if w.is_visible() && crate::input::on_wayland(w) {
+                // Wayland has no call to bring a minimized window back and turns down a raise nobody clicked for: a window put up
+                // again is a new one, which comes up in front, as from the tray
+                let _ = self.ui.hide();
+            }
             self.show_window();
         }
     }

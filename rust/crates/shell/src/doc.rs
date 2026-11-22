@@ -425,7 +425,9 @@ export component TelescopeWindow inherits Window {
     preferred-height: 900px;
     in property <length> least-width: 560px;
     in property <length> least-height: 520px;
-    min-width: least-width;
+    // Never narrower than the top bar, or the start button at its end goes off the edge (header buttons and larger text widen it)
+    out property <length> narrowest: max(least-width, bar-row.min-width);
+    min-width: narrowest;
     min-height: least-height;
     background: Theme.ground;
     default-font-family: Theme.font;
@@ -462,7 +464,7 @@ const HEADER: &str = r#"
         width: root.width;
         height: Theme.u(30);
         background: Theme.chrome;
-        HorizontalLayout {
+        bar-row := HorizontalLayout {
             padding-left: {margin_left}px;
             padding-right: Theme.pad;
             padding-top: Theme.u(4);
@@ -509,7 +511,7 @@ const HEADER: &str = r#"
             }
             VerticalLayout {
                 alignment: center;
-                StartButton {
+                start-button := StartButton {
                     text: root.mode == 2 ? start-short : start-text;
                     tip: start-tip;
                     tip-detail: start-tip-detail;
@@ -708,6 +710,31 @@ export component Hinted inherits Card {
         for (width, want) in [(1400.0, 0.0), (three, 0.0), (three - 1.0, 1.0), (two, 1.0), (two - 1.0, 2.0), (600.0, 2.0)] {
             assert_eq!(mode(width), Value::Number(want), "at {width}");
         }
+    }
+
+    const WIDE_BUTTON: &str = r#"
+export component Wide inherits Rectangle {
+    width: 420px;
+    height: 30px;
+}
+"#;
+
+    #[test]
+    fn the_window_never_gets_narrower_than_its_top_bar() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (p0, f0) = piece("p0", "plugins/a/header.slint", "Wide", WIDE_BUTTON);
+        let text = window(&[], &Panels::default(), &[HeaderPlace { piece: p0, right: true }]);
+        let def = crate::compile::compile("window.slint", &text, vec![f0], "TelescopeWindow").unwrap_or_else(|e| panic!("{e}\n{text}"));
+        let win = def.create().unwrap();
+        win.set_global_callback("Folds", "is-folded", |_| Value::Bool(false)).unwrap();
+        win.set_property("start-text", Value::String("Start streaming".into())).unwrap();
+        win.set_property("start-short", Value::String("Start".into())).unwrap();
+        let Value::Number(narrowest) = win.get_property("narrowest").unwrap() else { panic!("a length") };
+        assert!(narrowest > 560.0, "the wide header widens it: {narrowest}");
+        win.window().set_size(slint::LogicalSize::new(narrowest as f32, 800.0));
+        let start = i_slint_backend_testing::ElementHandle::find_by_element_id(&win, "TelescopeWindow::start-button").next().unwrap();
+        let right = start.absolute_position().x + start.size().width;
+        assert!(right <= narrowest as f32 + 0.5, "the start button ends at {right}, inside {narrowest}");
     }
 
     #[test]
