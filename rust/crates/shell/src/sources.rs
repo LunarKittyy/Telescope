@@ -1063,6 +1063,14 @@ impl SourceKind for PhoneKind {
         self.camera_on_timer.start(slint::TimerMode::SingleShot, CAMERA_ON_CHECK, move || cb("camera_on_check", &sid));
     }
 
+    fn video_ending(&self) {
+        // Begun while the video ran, so it's the worker's, which is stopped without saying how it went
+        let pending = self.inner.borrow_mut().handover.take();
+        if let Some(pending) = pending {
+            self.drop_hand_over(pending, false);
+        }
+    }
+
     fn as_phone(&self) -> Option<&PhoneKind> {
         Some(self)
     }

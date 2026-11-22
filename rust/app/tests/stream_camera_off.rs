@@ -323,6 +323,26 @@ fn mic_only_session_can_hand_over_to_usb() {
 }
 
 #[test]
+fn turning_the_camera_off_during_a_hand_over_leaves_the_stream_free_to_move_again() {
+    const USB: &str = "https://usb-SER:8080/v1/video";
+    let r = on_air("camera-off-mid-hand-over");
+    *r.link.prepared.lock().unwrap() = Some(USB.into());
+    let at = r.w.state.borrow().index("panel").unwrap();
+    let usb = RouteSpec::Usb { serial: "SER".into() };
+    assert!(r.w.state.borrow_mut().call(at, |_, host| host.hand_over_stream(&usb, Some("pixel"))).unwrap());
+    r.w.process();
+    r.pump();
+    assert!(r.worker(0).did(&format!("hand_over {USB}")));
+    // Its worker goes with the camera, so nothing says how the move went
+    r.w.set_camera_on(false, false);
+    r.pump();
+    assert!(r.worker(0).stops());
+    assert_eq!(r.link.logged("drop_route pixel false"), 1, "the route the move prepared is let go");
+    r.w.with_flow(|_, _| ());
+    assert!(r.w.state.borrow_mut().call(at, |_, host| host.hand_over_stream(&usb, Some("pixel"))).unwrap(), "a cable can still take the stream");
+}
+
+#[test]
 fn switching_the_mic_off_brings_the_camera_back() {
     let r = on_air("camera-mic-gone");
     r.w.set_camera_on(false, false);

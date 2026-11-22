@@ -241,6 +241,8 @@ pub trait SourceKind {
     fn stop_watching_alive(&self) {}
     /// The camera was turned on: a moment later, ask whether it came on.
     fn camera_turned_on(&self, _session_id: u64) {}
+    /// Its video worker goes while the stream carries on (the camera went off): a move it was trying won't report back.
+    fn video_ending(&self) {}
     fn as_phone(&self) -> Option<&crate::sources::PhoneKind> {
         None
     }
