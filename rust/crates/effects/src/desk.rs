@@ -16,13 +16,17 @@ use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{keep_bytes, with_spares};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::settings::{off_default, reset_config};
+use telescope_core::shader;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{view_to_shown, Geometry};
 
 pub const NAME: &str = "desk";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/desk.slint"));
 const T_WARP: &str = "warp";
-const DESK: &str = include_str!("desk.wgsl");
+const DESK: &str = concat!(include_str!("desk_warp.wgsl"), "\n", include_str!("desk.wgsl"));
+/// The cleanups on the card, in passes over the straightened sheet.
+const DESK_CONTRAST: &str = concat!(include_str!("desk_warp.wgsl"), "\n", include_str!("desk_contrast.wgsl"));
+const DESK_BW: &str = concat!(include_str!("desk_warp.wgsl"), "\n", include_str!("desk_bw.wgsl"));
 
 /// What "make the writing stand out" does to the sheet: nothing, more contrast, or black and white.
 pub const CLEANUPS: [(&str, &str); 3] = [("off", n_("Off")), ("contrast", n_("Contrast")), ("bw", n_("Black and white"))];
@@ -64,11 +68,34 @@ impl CpuStep for DeskStep {
         let size = (width as usize, height as usize);
         if size.0 < 2 || size.1 < 2 {
             // The CPU leaves such a frame alone: the identity warp over all of it does the same
-            return Some(card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, size.0, size.1)));
+            let mut params = card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, size.0, size.1));
+            params["untouched"] = json!(1);
+            params["small"] = json!([1, 1]);
+            return Some(params);
         }
         self.warp_for_size(size);
         let (_, warp, _) = self.made.as_ref().expect("made above");
-        Some(card_params(card_rows(warp), warp.rect))
+        let mut params = card_params(card_rows(warp), warp.rect);
+        let (_, _, rw, rh) = warp.rect;
+        match self.sheet.cleanup.as_str() {
+            "contrast" => {
+                let (sw, sh) = sheet::shade_size(rw, rh);
+                let k = sheet::shade_kernel();
+                let k = |i: usize| -> [u32; 4] { std::array::from_fn(|j| k.get(i * 4 + j).copied().unwrap_or(0)) };
+                params["small"] = json!([sw, sh]);
+                params["k0"] = json!(k(0));
+                params["k1"] = json!(k(1));
+                params["k2"] = json!(k(2));
+                params["k3"] = json!(k(3));
+                params[shader::PASS_SIZES] = json!([[rw, rh], [sw, sh], [sw, sh], [sw, sh]]);
+            }
+            "bw" => {
+                params["block"] = json!(sheet::bw_block(rw, rh));
+                params[shader::PASS_SIZES] = json!([[rw, rh], [rw, rh], [rw, rh]]);
+            }
+            _ => {}
+        }
+        Some(params)
     }
 
     fn card_block_chroma(&self) -> bool {
@@ -509,13 +536,15 @@ impl Plugin for DeskPlugin {
             return None;
         }
         let sheet = self.sheet()?;
-        // Cleaning the sheet up works on its pixels, so only the plain straightening can run on the card
-        let plain = !matches!(sheet.cleanup.as_str(), "contrast" | "bw");
+        // The cleanups run on the card in passes over the straightened sheet; the CPU half does it all the way it always has
+        let wgsl = match sheet.cleanup.as_str() {
+            "contrast" => DESK_CONTRAST,
+            "bw" => DESK_BW,
+            _ => DESK,
+        };
         let step = Box::new(DeskStep { sheet, made: None, poster: self.poster.clone(), spares: Vec::new() });
-        if plain {
-            return Some(FrameStep::Either(ShaderStep { keeps_geometry: false, wgsl: DESK.into(), uniforms: card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, 0, 0)), textures: Vec::new() }, step));
-        }
-        Some(FrameStep::Cpu(step))
+        let uniforms = card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, 0, 0));
+        Some(FrameStep::Either(ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms, textures: Vec::new() }, step))
     }
 
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {

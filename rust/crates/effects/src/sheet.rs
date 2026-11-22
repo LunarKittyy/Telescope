@@ -1,7 +1,7 @@
 //! Desk mode's maths (plugins/desk.py): four corners marked on the preview, the sheet's real shape worked out from them, the
 //! perspective warp that straightens it and the clean-up that makes the writing stand out. Pixels are RGB, 3 bytes each.
 
-use crate::imgops::{gauss_exact, grey_of, resize_area, resize_linear_fixed, Remap};
+use crate::imgops::{fixed_kernel, gauss_exact, grey_of, resize_area, resize_linear_fixed, Remap};
 use telescope_core::actions::round_half_even;
 use telescope_core::avx2_too;
 use telescope_core::image::{keep_bytes, over_rows, rint, spare_bytes};
@@ -315,13 +315,31 @@ avx2_too! {
     }
 }
 
+/// The sigma the paper's shading is blurred with at its small size.
+const SHADE_SIGMA: f64 = 2.0;
+
+/// The size whiten works the paper's shading out at for a w x h sheet.
+pub fn shade_size(w: usize, h: usize) -> (usize, usize) {
+    ((w / SHADE_SMALL).max(1), (h / SHADE_SMALL).max(1))
+}
+
+/// The weights (out of 256) whiten blurs the shading with, 13 of them.
+pub fn shade_kernel() -> Vec<u32> {
+    fixed_kernel(((SHADE_SIGMA * 3.0 * 2.0 + 1.0).round_ties_even() as usize) | 1, SHADE_SIGMA)
+}
+
+/// The window black_and_white compares each pixel of a w x h sheet with, in pixels across.
+pub fn bw_block(w: usize, h: usize) -> usize {
+    15usize.max((w.min(h) / 24) | 1)
+}
+
 /// The paper's uneven light divided out, so it goes white and the ink stays dark.
 pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
-    let (sw, sh) = ((w / SHADE_SMALL).max(1), (h / SHADE_SMALL).max(1));
+    let (sw, sh) = shade_size(w, h);
     let small = resize_area(sheet, w, h, 3, sw, sh);
     // Ink is thin: the max is paper
     let dilated = dilate_ellipse(&small, sw, sh, 3);
-    let paper = resize_linear_fixed(&gauss_exact(&dilated, sw, sh, 3, 2.0), sw, sh, 3, w, h);
+    let paper = resize_linear_fixed(&gauss_exact(&dilated, sw, sh, 3, SHADE_SIGMA), sw, sh, 3, w, h);
     let scale = (255.0 * INK) as f32;
     let mut out = spare_bytes(sheet.len());
     let rl = w * 3;
@@ -347,7 +365,7 @@ avx2_too! {
 /// Ink black, paper white: an adaptive threshold that follows the light across the sheet.
 pub fn black_and_white(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     let grey = grey_plane(sheet);
-    let block = 15usize.max((w.min(h) / 24) | 1);
+    let block = bw_block(w, h);
     let half = block / 2;
     let area = (block * block) as u32;
     let row_at = |y: isize| &grey[y.clamp(0, h as isize - 1) as usize * w..][..w];

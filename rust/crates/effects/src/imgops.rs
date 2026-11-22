@@ -321,7 +321,7 @@ fn gaussian_kernel(n: usize, sigma: f64) -> Vec<f64> {
 }
 
 /// The kernel OpenCV uses on 8-bit pictures: 8 fractional bits, each weight taking the last one's rounding error, the middle one whatever makes them add up to 256.
-fn fixed_kernel(n: usize, sigma: f64) -> Vec<u32> {
+pub(crate) fn fixed_kernel(n: usize, sigma: f64) -> Vec<u32> {
     let kernel = gaussian_kernel(n, sigma);
     let half = n / 2;
     let (mut err, mut sum) = (0.0f64, 0u32);

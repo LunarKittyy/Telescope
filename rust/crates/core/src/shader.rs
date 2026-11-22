@@ -14,6 +14,11 @@
 //! A shader that calls previous(uv) or has_previous() gets what this same step drew for the stream's last frame, which is how a step averages
 //! over time. has_previous() is false for the first frame, after the picture's size changed and when the last frame is too old to still be
 //! the same scene (HISTORY_MAX_AGE_NS), and previous() is 0 then. The card only keeps a copy for a shader that asks; see uses_history.
+//!
+//! A shader that needs pictures worked out first (a shrunk copy, a running sum) defines `fn pass_0(at: vec2<i32>) -> vec4<f32>` (or `-> f32`), then pass_1 and so on, up to MAX_PASSES.
+//! Each pass makes a picture of its own before effect() runs, at the size the step's uniform PASS_SIZES gives it (the picture's own when it gives none), `at` being the pixel it makes.
+//! A vec4 pass is kept in 8 bits a channel like the picture, an f32 pass as one exact float. Later passes and effect() read pass k with `passed_k(at)`, which repeats the edge
+//! pixel past the edges, and its size with `passed_size_k()`; see passes. An f32 pass's bits are kept in an 8-bit RGBA picture, as not every card can draw into a float one.
 
 use crate::frame::ShaderStep;
 use serde_json::Value;
@@ -106,6 +111,30 @@ pub const BLUR_CUTOUT: &str = "blur_cutout";
 pub const ROOM_PICTURE: &str = "room_picture";
 /// The step texture (one channel, red, at the blurred size) that weights blurred_weighted: 255 where the picture counts, 0 where it's left out.
 pub const BLUR_WEIGHTS: &str = "blur_weights";
+
+/// An f32 pass's bits spread over an 8-bit RGBA picture's four channels and read back, exactly on any card.
+const PACK_HELPERS: &str = "\
+fn telescope_pack(v: f32) -> vec4<f32> {
+    let b = bitcast<u32>(v);
+    return vec4<f32>(vec4<u32>(b & 255u, (b >> 8u) & 255u, (b >> 16u) & 255u, b >> 24u)) / 255.0;
+}
+fn telescope_unpack(c: vec4<f32>) -> f32 {
+    let b = vec4<u32>(round(c * 255.0));
+    return bitcast<f32>(b.x | (b.y << 8u) | (b.z << 16u) | (b.w << 24u));
+}
+";
+
+/// Most passes a shader can define before effect().
+pub const MAX_PASSES: usize = 8;
+/// The step's uniform with each pass's size, [[width, height], ...]: a pass left out works at the picture's size.
+pub const PASS_SIZES: &str = "pass_sizes";
+
+/// What a pass gives: four channels kept in 8 bits as the picture is, or one exact number (32-bit float, its bits kept in the four 8-bit channels).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PassKind {
+    Colour,
+    Number,
+}
 
 const ENTRY_POINTS: &str = "
 struct TelescopeVertex {
@@ -320,6 +349,38 @@ pub fn blur_bindings(step: &ShaderStep) -> Option<(u32, u32)> {
     uses_blurred(&step.wgsl).then_some((first, first + 1))
 }
 
+/// The passes a shader defines, fn pass_0 onwards with no gap, and what each gives (by its return type, f32 or vec4<f32>).
+pub fn passes(wgsl: &str) -> Vec<PassKind> {
+    let code = strip_comments(wgsl);
+    let mut out = Vec::new();
+    while out.len() < MAX_PASSES {
+        let name = format!("pass_{}", out.len());
+        if !defines_fn(&code, &name) {
+            break;
+        }
+        let at = find_word(&code, &format!("fn {name}"), '(').or_else(|| code.find(&format!("{name}("))).unwrap_or(0);
+        let ret = code[at..].split_once(')').and_then(|(_, r)| r.split_once('{')).map(|(r, _)| r.trim().trim_start_matches("->").trim().replace(' ', ""));
+        out.push(if ret.as_deref() == Some("f32") { PassKind::Number } else { PassKind::Colour });
+    }
+    out
+}
+
+/// The binding (group GROUP_STEP) of the first pass's picture, after the step's own textures and the blurred copies.
+pub fn pass_binding(step: &ShaderStep) -> u32 {
+    BINDING_FIRST_TEXTURE + step.textures.len() as u32 + if blur_bindings(step).is_some() { 2 } else { 0 }
+}
+
+/// The fragment entry point that runs pass k.
+pub fn pass_entry(k: usize) -> String {
+    format!("telescope_pass_{k}")
+}
+
+/// The size of pass k for a picture of w x h: what PASS_SIZES says, or the picture's own, and at least 1 x 1.
+pub fn pass_size(uniforms: &Value, k: usize, w: u32, h: u32) -> (u32, u32) {
+    let given = uniforms.get(PASS_SIZES).and_then(|s| s.get(k)).and_then(|s| Some((s.get(0)?.as_f64()?, s.get(1)?.as_f64()?)));
+    given.map_or((w.max(1), h.max(1)), |(pw, ph)| ((pw.max(1.0) as u32), (ph.max(1.0) as u32)))
+}
+
 /// The size the blur is worked out at for a picture of w x h shrunk by `shrink`.
 pub fn blur_size(w: u32, h: u32, shrink: u32) -> (u32, u32) {
     let shrink = shrink.max(1);
@@ -345,7 +406,15 @@ pub fn frame_uniform(width: u32, height: u32, time_s: f32, number: u64, has_mask
 
 /// The whole module to compile: PRELUDE, Params' binding, a binding per extra texture, the plugin's code and the entry points.
 pub fn assemble(step: &ShaderStep) -> Result<String, String> {
-    Ok(assemble_body(step)? + ENTRY_POINTS)
+    let mut out = assemble_body(step)? + ENTRY_POINTS;
+    for (k, kind) in passes(&step.wgsl).into_iter().enumerate() {
+        let value = match kind {
+            PassKind::Colour => format!("pass_{k}(at)"),
+            PassKind::Number => format!("telescope_pack(pass_{k}(at))"),
+        };
+        out += &format!("\n@fragment\nfn {}(v: TelescopeVertex) -> @location(0) vec4<f32> {{\n    let at = vec2<i32>(floor(v.position.xy));\n    return {value};\n}}\n", pass_entry(k));
+    }
+    Ok(out)
 }
 
 fn assemble_body(step: &ShaderStep) -> Result<String, String> {
@@ -376,6 +445,21 @@ fn assemble_body(step: &ShaderStep) -> Result<String, String> {
         if wants_helper(&code, "blurred_weighted") {
             out += BLURRED_WEIGHTED_HELPER;
         }
+    }
+    let first = pass_binding(step);
+    let kinds = passes(&step.wgsl);
+    if kinds.contains(&PassKind::Number) {
+        out += PACK_HELPERS;
+    }
+    for (k, kind) in kinds.into_iter().enumerate() {
+        let ty = match kind {
+            PassKind::Colour => "vec4<f32>",
+            PassKind::Number => "f32",
+        };
+        let (open, close) = if kind == PassKind::Number { ("telescope_unpack(", ")") } else { ("", "") };
+        out += &format!("@group({GROUP_STEP}) @binding({}) var telescope_passed_{k}: texture_2d<f32>;\n", first + k as u32);
+        out += &format!("fn passed_size_{k}() -> vec2<i32> {{\n    return vec2<i32>(textureDimensions(telescope_passed_{k}));\n}}\n");
+        out += &format!("fn passed_{k}(at: vec2<i32>) -> {ty} {{\n    return {open}textureLoad(telescope_passed_{k}, clamp(at, vec2<i32>(0), passed_size_{k}() - vec2<i32>(1)), 0){close};\n}}\n");
     }
     out += "\n";
     out += &step.wgsl;
@@ -468,6 +552,26 @@ mod tests {
         assert_eq!(blur_taps(3.5), 23);
         assert_eq!(blur_taps(6.5), 41);
         assert_eq!(blur_taps(1.1), 9);
+    }
+
+    #[test]
+    fn passes_are_counted_from_0_with_what_each_gives_and_get_their_pictures_after_the_rest() {
+        let wgsl = "fn pass_0(at: vec2<i32>) -> vec4<f32> { return sample(vec2<f32>(at)); }\n\
+            fn pass_1(at: vec2<i32>) -> f32 { return passed_0(at).r; }\n\
+            // fn pass_2(at: vec2<i32>) -> f32 { return 0.0; }\n\
+            fn pass_3(at: vec2<i32>) -> f32 { return 0.0; }\n\
+            fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(passed_1(vec2<i32>(0))); }";
+        // a commented-out pass_2 ends the list, so pass_3 is only a function
+        assert_eq!(passes(wgsl), [PassKind::Colour, PassKind::Number]);
+        assert!(passes("fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }").is_empty());
+        let step = ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: json!({}), textures: vec![("logo".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0; 4]))] };
+        assert_eq!(pass_binding(&step), 2);
+        let module = assemble(&step).unwrap();
+        assert!(module.contains("@binding(2) var telescope_passed_0:") && module.contains("@binding(3) var telescope_passed_1:"));
+        assert!(module.contains("fn passed_1(at: vec2<i32>) -> f32") && module.contains("fn telescope_pass_1(") && !module.contains("telescope_pass_2"));
+        assert_eq!(pass_size(&json!({"pass_sizes": [[40, 20]]}), 0, 1920, 1080), (40, 20));
+        assert_eq!(pass_size(&json!({"pass_sizes": [[40, 20]]}), 1, 1920, 1080), (1920, 1080));
+        assert_eq!(pass_size(&json!({"pass_sizes": [[0, 0]]}), 0, 1920, 1080), (1, 1));
     }
 
     #[test]
