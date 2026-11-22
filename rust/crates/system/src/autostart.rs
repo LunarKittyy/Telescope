@@ -42,7 +42,7 @@ fn plain_program(directory: &Path) -> String {
     let program = if !cfg!(windows) && start_sh.exists() {
         start_sh
     } else {
-        std::env::current_exe().map(|p| plain_path(p.canonicalize().unwrap_or(p))).unwrap_or_else(|_| directory.join("telescope-rs"))
+        telescope_core::system::current_exe().map(|p| plain_path(p.canonicalize().unwrap_or(p))).unwrap_or_else(|_| directory.join("telescope-rs"))
     };
     program.to_string_lossy().into_owned()
 }

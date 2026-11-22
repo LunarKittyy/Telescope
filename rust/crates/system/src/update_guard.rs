@@ -493,7 +493,7 @@ pub fn relaunch_command(directory: &Path, after_update: bool) -> Vec<String> {
     } else if directory.join("start.sh").exists() {
         directory.join("start.sh")
     } else {
-        std::env::current_exe().unwrap_or_else(|_| directory.join("telescope-rs"))
+        telescope_core::system::current_exe().unwrap_or_else(|_| directory.join("telescope-rs"))
     };
     let mut argv = telescope_core::system::appimage().map_or_else(|| vec![start.to_string_lossy().to_string()], |image| image.command());
     if after_update {
