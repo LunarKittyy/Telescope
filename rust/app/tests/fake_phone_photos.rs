@@ -12,6 +12,9 @@ use telescope_effects::stargazer_photos;
 use telescope_link::https::{PhoneAuth, Request};
 use telescope_link::stills::{StillCaps, Stills};
 
+/// How long to wait on the fake phone: a loaded CI runner can stall a Python process and a photo for far longer than they take.
+const LONG: Duration = Duration::from_secs(120);
+
 /// The fake phone on free local ports; the process ends with this.
 struct FakePhone {
     child: Child,
@@ -50,7 +53,7 @@ fn start() -> FakePhone {
 fn post(phone: &FakePhone, port: u16, path: &str, body: Value) -> Value {
     let url = format!("https://127.0.0.1:{port}/v1{path}");
     let body = body.to_string();
-    let mut resp = phone.auth.open_any(Request::post(&url, body.as_bytes(), Duration::from_secs(10))).unwrap();
+    let mut resp = phone.auth.open_any(Request::post(&url, body.as_bytes(), LONG)).unwrap();
     serde_json::from_slice(&resp.read_capped(1 << 20).unwrap()).unwrap()
 }
 
@@ -62,7 +65,7 @@ fn a_photos_run_against_the_fake_phone_saves_a_photo_that_stacks() {
     assert_eq!(post(&phone, phone.session, "/session", json!({"action": "start"})), json!({"ok": true}));
 
     let url = format!("https://127.0.0.1:{}/v1/state", phone.stream);
-    let mut resp = phone.auth.open(Request::get(&url, Duration::from_secs(10))).unwrap();
+    let mut resp = phone.auth.open(Request::get(&url, LONG)).unwrap();
     let state: Value = serde_json::from_slice(&resp.read_capped(1 << 20).unwrap()).unwrap();
     let caps = StillCaps::from_state(Some(&state)).expect("the phone takes photos");
     assert_eq!(caps.size_for("normal"), Some((160, 120)));
@@ -72,7 +75,7 @@ fn a_photos_run_against_the_fake_phone_saves_a_photo_that_stacks() {
     let options: Map<String, Value> = json!({"format": "jpeg", "quality": 95}).as_object().unwrap().clone();
     assert!(Stills::new().take(Some("fake"), &format!("https://127.0.0.1:{}/v1", phone.stream), phone.auth.clone(), options, folder.clone(),
                                Box::new(move |r| tx.send(r).unwrap()), None, None));
-    let result = rx.recv_timeout(Duration::from_secs(20)).unwrap();
+    let result = rx.recv_timeout(LONG).expect("the photo never finished");
     assert!(result.ok, "{result:?}");
     assert_eq!(result.files.len(), 1);
 
