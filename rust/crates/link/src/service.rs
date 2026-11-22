@@ -188,6 +188,14 @@ impl Default for LinkService {
     }
 }
 
+/// A check that found nothing while this computer has no network is marked, since the phone isn't what to look at then.
+fn mark_offline(mut res: Resolution, network_up: impl Fn() -> bool) -> Resolution {
+    if res.status == PhoneStatus::Unreachable && !res.other_app && !res.other_telescope && !network_up() {
+        res.no_network = true;
+    }
+    res
+}
+
 fn unreachable_of(res: &Resolution) -> Unreachable {
     match res.status {
         PhoneStatus::NotPaired => Unreachable::NotPaired,
@@ -212,6 +220,8 @@ impl Link for LinkService {
     }
 
     fn presence_hint(&self) { self.presence.hint(); }
+
+    fn network_up(&self) -> bool { !crate::net::pairing_addresses().is_empty() }
 
     fn presence_wake(&self, wake: Option<Arc<dyn Fn() + Send + Sync>>) { self.presence.set_wake(wake); }
 
@@ -254,7 +264,7 @@ impl Link for LinkService {
                 }
             }
         }
-        let res = self.resolver().resolve(&hinted, preference);
+        let res = mark_offline(self.resolver().resolve(&hinted, preference), || self.network_up());
         self.presence.checked(phone, res.status == PhoneStatus::Unreachable);
         self.checked_capability(phone, &res);
         res
@@ -693,6 +703,16 @@ mod tests {
         phone.token = "new".into();
         link.checked_capability(&phone, &Resolution::new(PhoneStatus::NotPaired));
         assert!(!link.searches.lock().unwrap()[&phone.id].capable);
+    }
+
+    #[test]
+    fn a_check_that_found_nothing_on_a_computer_with_no_network_says_so() {
+        let nothing = || Resolution::new(PhoneStatus::Unreachable);
+        assert!(mark_offline(nothing(), || false).no_network);
+        assert!(!mark_offline(nothing(), || true).no_network, "with a network the phone is what is missing");
+        let found = Resolution { route: Some(RouteSpec::Usb { serial: "S".into() }), ..Resolution::new(PhoneStatus::Ready) };
+        assert!(!mark_offline(found, || false).no_network, "a phone that answered is reachable whatever the addresses say");
+        assert!(!mark_offline(Resolution { other_app: true, ..nothing() }, || false).no_network, "something answered");
     }
 
     #[test]

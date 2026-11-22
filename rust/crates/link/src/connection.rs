@@ -824,6 +824,7 @@ pub fn status_line(res: Option<&Resolution>) -> (&'static str, String) {
     let Some(res) = res else { return ("status_dim", tr("Checking")) };
     match res.status {
         PhoneStatus::Ready => ("status_ok", tr("Ready")),
+        PhoneStatus::Unreachable if res.no_network => ("status_warn", tr("This computer has no network")),
         PhoneStatus::Unreachable => ("status_warn", tr("Can't reach the phone")),
         PhoneStatus::NotPaired => ("status_err", tr("Pairing required")),
         PhoneStatus::LocalOnly => ("status_warn", tr("Phone accepts USB only")),
@@ -838,6 +839,7 @@ pub fn problem_text(res: &Resolution, phone: &str, adb_available: bool) -> Strin
     match res.status {
         PhoneStatus::Unreachable if res.other_telescope => with_phone(tr("The Telescope app on {phone} has changed since you paired it. Click Add device to pair it again."), phone),
         PhoneStatus::Unreachable if res.other_app => with_phone(tr("Something else on {phone} is answering where Telescope should. Close it there, then try again."), phone),
+        PhoneStatus::Unreachable if res.no_network => with_phone(tr("This computer isn't connected to a network. Connect it to the same network as {phone}, or plug the phone in with a USB cable."), phone),
         PhoneStatus::Unreachable => with_phone(tr("Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."), phone),
         // LEGACY MIGRATION PATH
         PhoneStatus::NotPaired if res.before_tls => with_phone(tr("This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."), phone),
@@ -1193,6 +1195,10 @@ mod tests {
         assert!(text(PhoneStatus::Unreachable).contains("Open Telescope on Pixel"));
         let other = problem_text(&Resolution { other_app: true, ..Resolution::new(PhoneStatus::Unreachable) }, "Pixel", true);
         assert!(other.contains("Something else") && other.contains("Close it") && !other.contains("Add device"));
+        let offline = problem_text(&Resolution { no_network: true, ..Resolution::new(PhoneStatus::Unreachable) }, "Pixel", true);
+        assert!(offline.starts_with("This computer isn't connected to a network."), "{offline}");
+        assert!(!offline.contains("Open Telescope on"), "the phone isn't what to look at: {offline}");
+        assert_eq!(status_line(Some(&Resolution { no_network: true, ..Resolution::new(PhoneStatus::Unreachable) })).1, "This computer has no network");
         let swapped = problem_text(&Resolution { other_telescope: true, ..Resolution::new(PhoneStatus::Unreachable) }, "Pixel", true);
         assert!(swapped.contains("has changed since you paired it") && swapped.contains("Add device"));
         assert!(text(PhoneStatus::NotPaired).contains("Add device"));
