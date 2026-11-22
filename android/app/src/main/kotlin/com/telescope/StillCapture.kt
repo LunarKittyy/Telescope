@@ -43,7 +43,7 @@ class StillCapture(
         private const val SETTLE_MIN_MS = 300L   // its own session: auto exposure and focus get this long at least
         private const val SETTLE_MAX_MS = 2_000L // and no longer than this
         private const val FOCUS_TRIES = 3         // a frame taken with the lens still moving is taken again
-        private const val FOCUS_SETTLE_FRAMES = 3 // frames for the lens to get to the next focus distance
+        private const val FOCUS_SETTLE_FRAMES = 12 // about 400 ms of video for the lens to reach the next focus (3 left it where it was)
         private const val STALL_CHECK_MS = 1_000L // how often a photo that shot is checked for having stalled
         private const val RAW_IMAGES = 3          // RAW buffers held at once (a DNG holds its image until it's written)
         private const val MAX_RES_RAW_IMAGES = 2  // and at full resolution, where each is 100 MB or more
