@@ -154,16 +154,16 @@ Every control in a card sits between the same two edges, which are the card's ow
 
 Every slider has one anatomy of a track, a handle, the value on the right and a tick at the centre when the slider goes both ways (a range that crosses zero, or `two-way`). Only the fill varies, by name, from a fixed list in `ui/widgets/fills.slint`. A card names a fill and must not draw one. Every fill has the same rounded ends as the track.
 
-- `plain` is the card's colour from the start of the track up to the handle.
-- `gradient` is the range's own colours along the whole track (`grad-a`, `grad-b`, `grad-c`), the handle taking the colour under it. Temperature, tint and saturation.
-- `temperature` (blue, grey, amber) and `tint` (green, grey, magenta) are white balance, with the same colours on every card and the handle taking the colour under it. They must be two ordinary sliders and not a pad, since colour correction needs the full track length for each and must not snap.
-- `vibrance` shows pastels that grow more saturated to the right, the handle taking the colour under it.
+- `plain`: the card's colour from the start of the track up to the handle.
+- `gradient`: the range's own colours along the whole track (`grad-a`, `grad-b`, `grad-c`), the handle taking the colour under it. Temperature, tint and saturation.
+- `temperature` (blue, grey, amber) and `tint` (green, grey, magenta): white balance, the same colours on every card, the handle taking the colour under it. Two ordinary sliders, never a pad: colour correction needs the whole track's travel for each and must not snap.
+- `vibrance`: pastels that grow more saturated to the right, the handle taking the colour under it.
 - `shadows` (black to grey), `highlights` (grey to white), `pivot` (black to white, with the handle marking the brightness contrast turns around).
-- `lift` (dark), `gamma` (mid), `gain` (bright), `offset` (a plain grey ramp) are the four sliders under the colour wheels.
-- `contrast` is flat grey that fades into 45 degree black and white stripes, ending on a white one.
-- `tolerance` and `spill` are two colours from the card (`grad-a` to `grad-b`, left to right) with the handle taking the one under it. Chroma key's tolerance runs from the screen's colour to a grey, its spill from a skin tone with the screen's colour on it to a clean one.
-- `edges` has `grad-a` on the left, `grad-b` on the right and a step between them that is hard at the track's start and spreads over the whole track at its end, making the handle's place the softness. The handle uses the card's colour.
-- `threshold` is a bar as tall as the row whose fill is a live value (`level` on the handle's own scale, `has-level` off while there is none), making the handle the level to warn at. It is the one fill that changes the anatomy, with no readout column. The handle's number (`readout`) sits beside the handle on the side with room and the live one (`level-text`, with an optional `level-icon`) at the far end away from the handle, on the right while the handle is in the left half and on the left once it passes the middle. The fill rounds its start like the bar and ends square where the value is; it is muted at rest and full colour while held. With no live value the bar remains, empty, with a dash.
+- `lift` (dark), `gamma` (mid), `gain` (bright), `offset` (a plain grey ramp): the four sliders under the colour wheels.
+- `contrast`: flat grey that fades into 45 degree black and white stripes, ending on a white one.
+- `tolerance`, `spill`: two colours from the card (`grad-a` to `grad-b`, left to right) with the handle taking the one under it. Chroma key's tolerance runs from the screen's colour to a grey, its spill from a skin tone with the screen's colour on it to a clean one.
+- `edges`: `grad-a` on the left, `grad-b` on the right and a step between them that is hard at the track's start and spreads over the whole track at its end, making the handle's place the softness. The handle uses the card's colour.
+- `threshold`: a bar as tall as the row whose fill is a live value (`level` on the handle's own scale, `has-level` off while there is none), making the handle the level to warn at. It is the one fill that changes the anatomy: no readout column, the handle's number (`readout`) sits beside the handle on the side with room and the live one (`level-text`, with an optional `level-icon`) at the far end away from the handle: right while the handle is in the left half, left once it passes the middle. The fill rounds its start like the bar and ends square where the value is; it is muted at rest and full colour while held. With no live value the bar remains, empty, with a dash.
 
 The grey ramps use the card's colour on the handle as black or white would vanish into the track.
 
