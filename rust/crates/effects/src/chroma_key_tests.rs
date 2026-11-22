@@ -982,3 +982,34 @@ fn the_key_made_again_with_the_same_settings_is_the_same_step() {
         assert!(Arc::ptr_eq(&x.data, &y.data), "{name} was made again");
     }
 }
+
+#[test]
+fn a_key_made_again_never_darkens_the_frame_sent_again_and_a_changed_key_does_not_reuse_the_old_picture() {
+    // The still frame a stalled stream keeps sending goes through the steps that hide again when any plugin's setting moves
+    let mut p = ChromaKeyPlugin::new();
+    p.set_config(&json!({"on": true, "screen": "green"})).unwrap();
+    let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+    let step = |p: &mut ChromaKeyPlugin| vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step: p.frame_step().unwrap() }];
+    pipeline.set_steps(step(&mut p));
+    let out = pipeline.process(scene(), &NoContext);
+    if gpu_here() {
+        pipeline.set_steps(step(&mut p));
+        assert!(pipeline.hide_again(out.clone(), &NoContext).is_none(), "the same key made again is no new step");
+    }
+    // Any setting or the screen colour that goes into the tables gives a picture of its own
+    let first = shader(&mut p);
+    let key_of = |s: &ShaderStep| s.textures.iter().find(|(n, _)| n == "keys").unwrap().1.data.clone();
+    for change in [json!({"screen": "blue"}), json!({"tolerance": 10}), json!({"softness": 5}), json!({"spill": 20})] {
+        let mut changed = ChromaKeyPlugin::new();
+        let mut config = json!({"on": true, "screen": "green"});
+        config.as_object_mut().unwrap().extend(change.as_object().unwrap().clone());
+        changed.set_config(&json!({"on": true, "screen": "green"})).unwrap();
+        let before = key_of(&shader(&mut changed));
+        changed.set_config(&config).unwrap();
+        let after = key_of(&shader(&mut changed));
+        assert!(!Arc::ptr_eq(&before, &after) && before != after, "{change} left the old key");
+    }
+    // Other settings leave the key as it was
+    p.set_config(&json!({"on": true, "screen": "green", "background": "colour", "colour": [10, 20, 30]})).unwrap();
+    assert!(Arc::ptr_eq(&key_of(&first), &key_of(&shader(&mut p))), "a backdrop change doesn't make the key again");
+}
