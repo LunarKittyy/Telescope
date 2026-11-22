@@ -77,7 +77,8 @@ fn both(config: Value, picture: &Rgb) -> (Rgb, Rgb) {
 /// The same for a frame of any format, both read back as RGB the same way.
 fn both_of(config: Value, frame: Frame) -> (Rgb, Rgb) {
     let mut p = plugin(config);
-    let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+    // Pinned to the card: a slow software card would otherwise get moved to the CPU by the balance mid-test
+    let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
     let Some(step @ FrameStep::Either(..)) = p.frame_step() else { panic!("plain straightening runs either way") };
     pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Geometry, step }]);
     let before = telescope_media::transfers::totals();
