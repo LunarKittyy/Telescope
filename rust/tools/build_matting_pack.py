@@ -34,7 +34,7 @@ FILES = {
     "ort-linux": (f"{_ORT}/onnxruntime-linux-x64-{ORT}.tgz", "c849e36a1ef3e22d4ff217b9d1ce4a3cf5b9467b975610913ae959ad5b16bdc9"),
     "ort-windows": (f"{_ORT}/onnxruntime-win-x64-{ORT}.zip", "5869e26bb25314375f2d5ef1877e3ea06b1543d6c710e6e4a1ec2f7177ab4b2c"),
     "model": (f"{_RVM}/releases/download/v1.0.0/{MODEL}", "88d4531297118f595bf2fd60f6f566aec2e559393802d1f436c380f0cbbd2828"),
-    "rvm-licence": (f"https://raw.githubusercontent.com/PeterL1n/RobustVideoMatting/v1.0.0/LICENSE",
+    "rvm-licence": ("https://raw.githubusercontent.com/PeterL1n/RobustVideoMatting/v1.0.0/LICENSE",
                     "8b1ba204bb69a0ade2bfcf65ef294a920f6bb361b317dba43c7ef29d96332b9b"),
 }
 # ONNX Runtime's GitHub repository went missing in November 2026. These packs from release 5.1.3 hold its files as built from the pins above
