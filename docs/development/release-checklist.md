@@ -129,7 +129,7 @@ The QR code advertises desktop addresses and the phone sends LAN attempts on Wi-
 
 ### Photos
 
-<!-- due: android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/PreviewRecovery.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt rust/crates/effects/src/photos.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/PreviewRecovery.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt rust/crates/effects/src/photos.rs rust/tools/fake_phone_still.jpg rust/tools/test_fake_still.py -->
 
 - [ ] When a JPEG is taken while streaming on Light, the video continues (a short hitch the first time only). On Heavy it pauses for about two seconds and recovers. Either way the photo is the lens's full size, upright with the desktop's rotation.
 - [ ] With RAW and JPEG together on a phone that lists RAW, the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
