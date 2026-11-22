@@ -126,6 +126,8 @@
     "heat_paused": true,
     "low_light": true,
     "low_light_toggle": true,
+    "clean_video": true,
+    "clean_video_toggle": true,
     "h264_profile": "high",
     "intra_refresh": true,
     "wifi_band": "5",

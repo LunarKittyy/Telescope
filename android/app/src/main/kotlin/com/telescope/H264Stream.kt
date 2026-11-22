@@ -31,6 +31,9 @@ object H264Stream {
         return (sized(width, height, fps) * 5 / 2 / 100_000 * 100_000).coerceIn(MIN_BPS.toLong(), top).toInt()
     }
 
+    /** Most Dynamic sends for cleaner video: as much as the encoder takes, up to the slider's top. */
+    fun cleanCeiling(encoderMax: Int = MAX_BPS): Int = minOf(MAX_BPS, encoderMax).coerceAtLeast(MIN_BPS)
+
     // An access unit delimiter. Sent after each frame's packet: a decoder only knows a frame has
     // ended when the next one starts, so without it every frame would wait for the one after.
     val AUD = byteArrayOf(0, 0, 0, 1, 0x09, 0xF0.toByte())
