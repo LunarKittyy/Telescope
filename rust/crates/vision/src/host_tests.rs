@@ -257,6 +257,61 @@ fn the_grey_probe_calls_a_frame_moved_when_only_the_colour_changes() {
     }
 }
 
+/// A packed picture of one grey with a `size` pixel square turned red of the same grey level.
+fn flat_rgb(format: telescope_core::frame::PixelFormat, w: usize, h: usize, size: usize) -> Frame {
+    let red = if format == telescope_core::frame::PixelFormat::Bgra { [0, 0, 255, 255] } else { [255, 0, 0, 255] };
+    let mut data: Vec<u8> = [76, 76, 76, 255].repeat(w * h);
+    for y in h / 4..h / 4 + size {
+        for x in w / 4..w / 4 + size {
+            data[(y * w + x) * 4..][..4].copy_from_slice(&red);
+        }
+    }
+    Frame::new(w as u32, h as u32, format, data)
+}
+
+#[test]
+fn the_grey_probe_calls_an_rgb_frame_moved_when_only_the_colour_changes() {
+    use telescope_core::frame::PixelFormat::{Bgra, Rgba};
+    let (w, h) = (1920, 1080);
+    for format in [Rgba, Bgra] {
+        let base = flat_rgb(format, w, h, 0);
+        for (size, moved) in [(0, false), (700, true)] {
+            let mut look = ops::Motion::default();
+            look.moved_grey(people_look(&base).unwrap());
+            look.used();
+            let changed = people_look(&flat_rgb(format, w, h, size)).unwrap();
+            // the luma stays put, only the colour grids differ
+            let grey = ops::THUMB.0 * ops::THUMB.1;
+            assert!(people_look(&base).unwrap()[..grey].iter().zip(&changed[..grey]).all(|(a, b)| a.abs_diff(*b) <= 2), "{format:?} grey");
+            assert_eq!(look.moved_grey(changed), moved, "{format:?} patch of {size}");
+        }
+    }
+}
+
+#[test]
+fn the_grey_probe_calls_an_nv12_frame_moved_when_only_the_colour_changes() {
+    let (w, h) = (1920, 1080);
+    let nv12 = |size: usize| {
+        let (cw, ch) = (w / 2, h / 2);
+        let mut data = vec![64u8; w * h];
+        data.extend(std::iter::repeat_n(128u8, cw * ch * 2));
+        for y in h / 4..h / 4 + size {
+            for x in w / 4..w / 4 + size {
+                let i = w * h + ((y / 2) * cw + x / 2) * 2;
+                data[i] = 240;
+                data[i + 1] = 240;
+            }
+        }
+        Frame::new(w as u32, h as u32, telescope_core::frame::PixelFormat::Nv12, data)
+    };
+    for (size, moved) in [(0, false), (700, true)] {
+        let mut look = ops::Motion::default();
+        look.moved_grey(people_look(&nv12(0)).unwrap());
+        look.used();
+        assert_eq!(look.moved_grey(people_look(&nv12(size)).unwrap()), moved, "patch of {size}");
+    }
+}
+
 #[test]
 fn a_colour_change_at_the_same_luma_runs_the_cutout_within_its_still_wait() {
     let (handed, ran): (Arc<Mutex<Vec<(usize, usize)>>>, Arc<Mutex<Vec<(usize, usize)>>>) = Default::default();
@@ -333,7 +388,10 @@ fn bench_still_scene_probe() {
         // what a frame of a still scene cost before it was dropped: the colour picture for the model, then its tiny grey copy
         let old = measure(&mut || { let p = people_rgb(&frame).unwrap(); crate::ops::thumb(&p); });
         let new = measure(&mut || { people_look(&frame).unwrap(); });
-        println!("vision still probe {w}x{h} (wall ms, cpu ms): old {old:.2?} new {new:.2?}");
+        let rgba = flat_rgb(telescope_core::frame::PixelFormat::Rgba, w, h, 0);
+        let grey_only = measure(&mut || { telescope_core::image::small_grey(&rgba, ops::THUMB.0, ops::THUMB.1).unwrap(); });
+        let with_colour = measure(&mut || { people_look(&rgba).unwrap(); });
+        println!("vision still probe {w}x{h} (wall ms, cpu ms): old {old:.2?} new {new:.2?}; rgba grey only {grey_only:.2?} with colour {with_colour:.2?}");
     }
 }
 
