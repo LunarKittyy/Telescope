@@ -82,15 +82,24 @@ void FrameChannel::Close() {
     m_have = false;
 }
 
+// Whether Telescope has written a frame this reader hasn't taken yet, of the size it expects
+bool FrameChannel::HasNew(UINT32 width, UINT32 height) const {
+    if (!m_header) return false;
+    volatile SharedHeader* header = m_header;
+    UINT64 counter = header->frame_counter;
+    if ((counter & 1) || counter == m_counter) return false;
+    // Telescope's memory is only trusted as far as it fits what this reader expects
+    return header->frame_format == kFormatNV12 && header->frame_width == width && header->frame_height == height;
+}
+
 bool FrameChannel::ReadNewest(UINT32 width, UINT32 height) {
     if (!m_header) return false;
     volatile SharedHeader* header = m_header;
+    // One even snapshot covers the metadata check and the check after the copy, so a write that starts in between can't pass
     UINT64 before = header->frame_counter;
     if ((before & 1) || before == m_counter) return false;
-    // Telescope's memory is only trusted as far as it fits what this reader expects
-    if (header->frame_format != kFormatNV12 || header->frame_width != width || header->frame_height != height) {
-        return false;
-    }
+    MemoryBarrier();
+    if (header->frame_format != kFormatNV12 || header->frame_width != width || header->frame_height != height) return false;
     size_t bytes = static_cast<size_t>(width) * height * 3 / 2;
     if (bytes > kDataCapacity) return false;
     m_copy.resize(bytes);  // copied aside, so a torn copy never replaces the last good frame
@@ -105,8 +114,8 @@ bool FrameChannel::ReadNewest(UINT32 width, UINT32 height) {
     return true;
 }
 
-void FrameChannel::Fill(BYTE* dst, LONG pitch, UINT32 width, UINT32 height) {
-    ReadNewest(width, height);
+bool FrameChannel::Fill(BYTE* dst, LONG pitch, UINT32 width, UINT32 height) {
+    bool fresh = ReadNewest(width, height);
     if (m_header) InterlockedIncrement64(reinterpret_cast<volatile LONG64*>(&m_header->consumer_heartbeat));
     BYTE* uv = dst + static_cast<size_t>(pitch) * height;
     size_t bytes = static_cast<size_t>(width) * height * 3 / 2;
@@ -120,7 +129,7 @@ void FrameChannel::Fill(BYTE* dst, LONG pitch, UINT32 width, UINT32 height) {
         for (UINT32 row = 0; row < height; row++) memcpy(dst + row * static_cast<size_t>(pitch), src + row * width, width);
         src += static_cast<size_t>(width) * height;
         for (UINT32 row = 0; row < height / 2; row++) memcpy(uv + row * static_cast<size_t>(pitch), src + row * width, width);
-        return;
+        return fresh;
     }
     for (UINT32 row = 0; row < height; row++) memset(dst + row * static_cast<size_t>(pitch), kIdleY, width);
     for (UINT32 row = 0; row < height / 2; row++) {
@@ -130,6 +139,7 @@ void FrameChannel::Fill(BYTE* dst, LONG pitch, UINT32 width, UINT32 height) {
             line[x + 1] = kIdleV;
         }
     }
+    return fresh;
 }
 
 void Log(const wchar_t* format, ...) {

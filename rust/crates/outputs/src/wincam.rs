@@ -4,7 +4,7 @@
 /// MFCreateVirtualCamera arrived with Windows 11.
 pub const MF_MIN_BUILD: u32 = 22000;
 /// kCameraVersion in virtualcamera/camera.h: raise both when an installed DLL needs replacing.
-pub const MF_VERSION: i64 = 3;
+pub const MF_VERSION: i64 = 4;
 pub const MF_DLL: &str = "TelescopeCamera.dll";
 /// One per camera slot, as in virtualcamera/dllmain.cpp.
 pub const MF_CLSIDS: [&str; 4] = [
