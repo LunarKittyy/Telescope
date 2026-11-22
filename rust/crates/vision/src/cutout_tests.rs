@@ -196,9 +196,12 @@ fn a_cutout_mask_that_gets_too_old_is_not_handed_out() {
     let r = rig_taking(Duration::ZERO);
     let v = &r.normal.v;
     first_mask(v);
-    v.stream(&cutout_key("a")).newest.lock().unwrap().mask.as_mut().unwrap().at -= MASK_MAX_AGE_S + 0.1;
     let sv = cutout_stream(v);
-    // the thread's next mask is for the frame just handed over; until then the old one stays unusable
+    // the thread is stopped first, so a mask it was still making can't land fresh after the old one is aged
+    sv.stopping.store(true, Ordering::SeqCst);
+    sv.mask_wanted.notify_all();
+    wait(|| !sv.newest.lock().unwrap().thread);
+    sv.newest.lock().unwrap().mask.as_mut().unwrap().at -= MASK_MAX_AGE_S + 0.1;
     sv.newest.lock().unwrap().asked = Some(1);
     assert!(ask(v, 1).is_none());
 }
