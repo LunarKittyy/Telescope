@@ -38,12 +38,15 @@ def main():
     parser.add_argument("--keep", type=int, default=3)
     args = parser.parse_args()
     history_file = args.old / HISTORY
-    history = json.loads(history_file.read_text()) if history_file.is_file() else []
+    try:
+        history = json.loads(history_file.read_text()) if history_file.is_file() else []
+    except (OSError, ValueError):
+        history = []
     old_files = [p.name for p in args.old.glob("Telescope-*.zip")] if args.old.is_dir() else []
     new_files = [p.name for p in args.out.glob("Telescope-*.zip") if PACK.match(p.name)]
-    names = plan(history, old_files, new_files, args.keep)
+    names = [n for n in plan(history, old_files, new_files, args.keep) if n in new_files or (args.old / n).is_file()]
     for name in names:
-        if name not in new_files and (args.old / name).is_file():
+        if name not in new_files:
             shutil.copy2(args.old / name, args.out / name)
             print(f"carrying {name}")
     (args.out / HISTORY).write_text(json.dumps(names, indent=1) + "\n")

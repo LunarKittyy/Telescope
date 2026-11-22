@@ -50,3 +50,17 @@ fn only_the_newest_few_are_kept_and_the_first_nightly_has_nothing_to_carry() {
     run(&Path::new(env!("CARGO_TARGET_TMPDIR")).join("carry-missing"), &fresh, "3");
     assert_eq!(names(&fresh), ["Telescope-vision-linux-4444.zip", "pack-history.json"]);
 }
+
+// A download that stopped partway: the history names a pack that never arrived and is itself cut off.
+#[test]
+fn a_half_finished_download_carries_only_what_arrived() {
+    let old = folder("carry-old-4", &["Telescope-vision-linux-2222.zip"]);
+    std::fs::write(old.join("pack-history.json"), r#"["Telescope-vision-linux-2222.zip","Telescope-vision-linux-1111.zip"]"#).unwrap();
+    let out = folder("carry-out-4", &["Telescope-vision-linux-3333.zip"]);
+    run(&old, &out, "3");
+    assert_eq!(names(&out), ["Telescope-vision-linux-2222.zip", "Telescope-vision-linux-3333.zip", "pack-history.json"]);
+    std::fs::write(old.join("pack-history.json"), r#"["Telescope-vi"#).unwrap();
+    let out = folder("carry-out-5", &["Telescope-vision-linux-3333.zip"]);
+    run(&old, &out, "3");
+    assert_eq!(names(&out), ["Telescope-vision-linux-2222.zip", "Telescope-vision-linux-3333.zip", "pack-history.json"]);
+}
