@@ -780,8 +780,8 @@ impl McpPlugin {
 
     /// The command that starts the MCP server, as the entry an AI app's MCP settings take.
     pub fn connect_entry() -> String {
-        let program = std::env::current_exe().ok().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|| "telescope".into());
-        format!("\"telescope\": {{ \"command\": {}, \"args\": [\"mcp\"] }}", json!(program))
+        // An AppImage's program sits in a mount that goes when it quits, so the entry names the AppImage's file (start_command)
+        entry_for(telescope_core::system::start_command().unwrap_or_default())
     }
 
     fn page_props(&self) -> Value {
@@ -1378,6 +1378,14 @@ fn all_configs(host: &dyn Host) -> Vec<(String, Value)> {
     let mut seen = std::collections::HashSet::new();
     names.retain(|name| name != NAME && seen.insert(name.clone()));
     names.into_iter().filter_map(|name| host.plugin_config(&name).map(|config| (name, config))).collect()
+}
+
+/// The MCP settings entry that starts `argv` (the command that starts Telescope) with `mcp` after its own words.
+fn entry_for(argv: Vec<String>) -> String {
+    let mut words = argv.into_iter();
+    let program = words.next().unwrap_or_else(|| "telescope".into());
+    let args: Vec<String> = words.chain(["mcp".to_string()]).collect();
+    format!("\"telescope\": {{ \"command\": {}, \"args\": {} }}", json!(program), json!(args))
 }
 
 /// What moved between two looks at every plugin's config, as (plugin, key, was, now). A declared setting is read the way the plugin's settings read

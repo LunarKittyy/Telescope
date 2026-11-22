@@ -937,6 +937,14 @@ fn the_buttons_open_side_opens_the_mcp_page_and_copy_puts_the_entry_on_the_clipb
     assert!(json["telescope"]["command"].as_str().is_some_and(|c| !c.is_empty()));
 }
 
+#[test]
+fn an_appimage_entry_names_the_appimage_not_its_mount() {
+    let entry = entry_for(vec!["/home/me/Telescope.AppImage".into(), "--appimage-extract-and-run".into()]);
+    let json: Value = serde_json::from_str(&format!("{{{entry}}}")).unwrap();
+    assert_eq!(json["telescope"], json!({"command": "/home/me/Telescope.AppImage", "args": ["--appimage-extract-and-run", "mcp"]}));
+    assert!(entry_for(Vec::new()).contains("\"command\": \"telescope\""));
+}
+
 // ── Outlines: which controls the AI touched ──────────────────────────
 
 #[test]
