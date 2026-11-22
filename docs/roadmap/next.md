@@ -54,7 +54,7 @@ One piece is the window's weight and start time, from measuring the finished app
 
 A maybe. Releases are x86_64 only for now, so ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope. Windows on ARM laptops would probably run the x64 build through Windows' own emulation. The virtual camera likely wouldn't work there because the Windows 11 camera runs in a native ARM64 system service that can't load the x64 DLL.
 
-The first step is done: a separate workflow (`rust-arm64.yml`) builds the workspace and runs the tests on GitHub's free ARM64 runners for Linux and Windows 11. It's not a required check, so a red run blocks nothing. Both build and nearly everything passes, so most of the desktop works on ARM as it is: 6796 of 6803 tests on Linux and 6643 of 6646 on Windows.
+The first step is done: a separate workflow (`rust-arm64.yml`) builds the workspace and runs the tests on GitHub's free ARM64 runners for Linux and Windows 11. It's not a required check, so a red run blocks nothing. Both build and nearly everything passes, so most of the desktop works on ARM as it is: 6796 of 6802 tests on Linux and 6643 of 6645 on Windows.
 
 What's left:
 - The direct colour conversion in `yuv.rs` is checked against swscale, and on ARM the two differ by far more than the three levels the tests allow. The two tests for it fail on both runners. It's probably swscale's ARM code rounding differently from its x86 code, so the first thing to find out is whether the new conversion or the reference is the odd one out, with a pixel diff against x86_64.
@@ -62,7 +62,7 @@ What's left:
 - On Windows the FFmpeg for the tests is BtbN's ARM64 build (GyanD's is x64 only). The packages would need an ARM64 build from `build_ffmpeg.sh` first.
 - The Windows camera DLL and the vision pack's libraries still need ARM64 builds. Nothing has been tried there, and the people features stay off without the pack.
 - Nothing ARM is built into a release yet, and nothing has run on a real ARM machine, so the picture, capture and the virtual camera on Linux are untested.
-- A few tests that pass on x86_64 fail in the job's container only because it runs as root (files that "can't be read" can be), and one pacing test on Windows is timing-sensitive on the slower runner.
+- Four Linux tests fail only because the job runs as root, which can read files the tests make unreadable. One Windows pacing test failed once and passed in the next run. It depends on timing on the slower runner.
 
 ## Rearranging the docs
 
