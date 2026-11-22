@@ -1087,6 +1087,8 @@ class CameraStreamService : Service() {
             heat_height = snap?.heatHeight ?: 0,
             heat_paused = controller?.isHeatPaused() ?: false,
             low_light_toggle = true,
+            clean_video = controller?.cleanVideo ?: false,
+            clean_video_toggle = h264Available,
             codec_error = snap?.codecFailure?.text,
             codec_error_code = snap?.codecFailure?.code,
             codec_error_width = snap?.codecFailure?.width ?: 0,
@@ -1200,7 +1202,13 @@ class CameraStreamService : Service() {
                     val bps = params["value"]?.toIntOrNull() ?: return err("bad value")
                     val dynamic = bps == H264Stream.DYNAMIC
                     ctrl.setBitrate(if (dynamic) bps else bps.coerceAtLeast(0))
-                    server?.dynamicH264 = dynamic
+                    server?.dynamicH264 = ctrl.dynamicOn
+                    ok()
+                }
+                "clean_video" -> {
+                    // 1 while a run stacks the video: Dynamic up to the encoder's top; 0 back to the bitrate asked for
+                    ctrl.setCleanVideo(params["value"] == "1")
+                    server?.dynamicH264 = ctrl.dynamicOn
                     ok()
                 }
                 "focus_point" -> {

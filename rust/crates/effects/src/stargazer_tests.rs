@@ -1741,3 +1741,38 @@ fn unsupported_shutter_and_iso_overrides_can_be_set_back_to_the_camera() {
     assert_eq!(plugin.shot, ShotChoice::default());
     assert_eq!(plugin.shutter_props(None)["shutter-enabled"], false);
 }
+
+fn clean_calls(host: &FakeHost) -> Vec<String> {
+    host.calls.iter().filter(|c| c.contains("clean_video")).cloned().collect()
+}
+
+#[test]
+fn a_video_run_asks_for_cleaner_video_and_gives_it_back() {
+    let mut rig = Rig::new("clean", config("live"));
+    rig.host.phone_state = Some(json!({"clean_video_toggle": true}));
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(clean_calls(&rig.host), [r#"phone_control Some("phone") {"action":"clean_video","value":1}"#]);
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(clean_calls(&rig.host).len(), 2);
+    assert!(clean_calls(&rig.host)[1].ends_with(r#"{"action":"clean_video","value":0}"#));
+}
+
+#[test]
+fn an_older_phone_isnt_asked_for_cleaner_video() {
+    let mut rig = Rig::new("clean-old", config("live"));
+    rig.host.phone_state = Some(json!({}));
+    rig.click("run-clicked", Value::Null);
+    rig.click("run-clicked", Value::Null);
+    assert!(clean_calls(&rig.host).is_empty());
+}
+
+#[test]
+fn a_stream_that_stops_ends_cleaner_video_with_the_run() {
+    let mut rig = Rig::new("clean-stop", config("trails"));
+    rig.host.phone_state = Some(json!({"clean_video_toggle": true}));
+    rig.click("run-clicked", Value::Null);
+    rig.plugin.on_event(&mut rig.host, &Event::StreamStopped);
+    assert!(clean_calls(&rig.host).last().unwrap().ends_with(r#"{"action":"clean_video","value":0}"#));
+    rig.plugin.shutdown(&mut rig.host);
+    assert_eq!(clean_calls(&rig.host).len(), 2, "nothing more to give back");
+}
