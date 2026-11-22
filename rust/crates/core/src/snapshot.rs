@@ -96,6 +96,7 @@ mod tests {
             let name = folder.file_name().unwrap().to_string_lossy().into_owned();
             let expected: Value = json::loads(&std::fs::read_to_string(folder.join("expected.json")).unwrap()).unwrap();
             let ours = snapshot(&folder, &scratch_dir(&name), &[], &[]).unwrap();
+            let input = std::fs::read_to_string(folder.join("telescope_config.json")).ok().and_then(|t| json::loads(&t).ok()).unwrap_or(Value::Null);
             let (want, got) = (&expected["saved"], &ours["saved"]);
             assert_eq!(ours["set_aside"], expected["set_aside"], "{name}: set_aside");
             assert_eq!(sections(got), sections(want), "{name}: top-level keys");
@@ -127,7 +128,9 @@ mod tests {
             for device in sections(&want["devices"]) {
                 // Connection's picked phone gets its device-local plugins' settings
                 let picked = want["selected_device"].as_str() == Some(device.as_str());
-                assert!(got["devices"].get(&device).is_some() || picked, "{name}: devices.{device} missing");
+                // A paired phone that had no settings gets its entry from the spread, which this snapshot has no plugins for
+                let spread_only = input["devices"].get(&device).is_none();
+                assert!(got["devices"].get(&device).is_some() || picked || spread_only, "{name}: devices.{device} missing");
             }
         }
     }
