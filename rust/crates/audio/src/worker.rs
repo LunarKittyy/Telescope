@@ -140,8 +140,9 @@ impl AudioWorker {
     }
 
     pub fn start(&mut self) {
+        // Not waited for at stop: it may be opening a phone that can't be reached, and once stopped it lets go of anything it gets
         let s = self.shared.clone();
-        self.threads.push(std::thread::Builder::new().name("mic-read".into()).spawn(move || read_loop(&s)).expect("thread"));
+        std::thread::Builder::new().name("mic-read".into()).spawn(move || read_loop(&s)).expect("thread");
         let s = self.shared.clone();
         let open_sink = self.open_sink.clone();
         let make = self.make_denoiser.take().unwrap_or_else(|| Box::new(|| Ok(None)));
@@ -300,6 +301,7 @@ fn read_loop(s: &Arc<Shared>) {
                 (r.url.clone(), r.open.clone())
             };
             match open() {
+                Ok(_) if s.stopped() => break, // stopped while it opened: the connection goes unread
                 Ok(feed) => {
                     next_id += 1;
                     s.current.store(next_id, Ordering::SeqCst);
@@ -686,5 +688,27 @@ pub(crate) mod tests {
         assert!(until(|| contains(&sink.data.lock().unwrap(), 200, 8), 2.0)); // well before a five-second timeout
         assert!(started.elapsed() < Duration::from_secs(2));
         w.stop();
+    }
+
+    #[test]
+    fn stopping_does_not_wait_for_a_connection_still_opening() {
+        // A phone that can't be reached: the open only gives up at its timeout, then hands back a connection
+        let (opening, feed) = (Arc::new(AtomicBool::new(false)), Silent::default());
+        let (o2, f2) = (opening.clone(), feed.clone());
+        let sink = Sink::default();
+        let (mut w, _) = worker("https://phone/v1/audio", Arc::new(move || {
+            o2.store(true, Ordering::SeqCst);
+            std::thread::sleep(Duration::from_secs(2));
+            Ok(Box::new(f2.clone()) as Box<dyn AudioFeed>)
+        }), sink_opener(&sink));
+        w.start();
+        assert!(until(|| opening.load(Ordering::SeqCst), 3.0));
+        let started = Instant::now();
+        w.stop();
+        assert!(started.elapsed() < Duration::from_millis(500), "stop waited {:?} for the open", started.elapsed());
+        assert!(sink.closed.load(Ordering::SeqCst), "the virtual mic is let go of at once");
+        // The connection the open gives back later is let go of without being read
+        std::thread::sleep(Duration::from_millis(2200));
+        assert!(!feed.reading.load(Ordering::SeqCst));
     }
 }
