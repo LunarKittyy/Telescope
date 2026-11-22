@@ -754,7 +754,7 @@ fn shared_expression(cu: &Rc<crate::component::Unit>, e: &Expression) -> Rc<Expr
 }
 
 fn shared_mut(cu: &Rc<crate::component::Unit>, e: &MutExpression) -> Rc<Expression> {
-    shared_expression(cu, &e.borrow())
+    cu.shared_slot(e)
 }
 
 /// A handler that evaluates `expr` with the call's arguments in `weak`'s
