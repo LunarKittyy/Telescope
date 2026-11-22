@@ -277,6 +277,11 @@ impl Pipeline {
         Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false }
     }
 
+    /// How many times the newest frame went up to the card and came down, for this pipeline alone.
+    pub fn last_transfers(&self) -> (u32, u32) {
+        self.last_transfers
+    }
+
     fn run(&mut self, mut frame: Frame, ctx: &dyn FrameContext, finish: Finish) -> PipelineFrame {
         if frame.mask_space.source_size == (0, 0) {
             frame.mask_space.source_size = (frame.width, frame.height);
