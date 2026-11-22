@@ -24,7 +24,7 @@
 
 1. **Get the desktop app.** On Windows run `TelescopeSetup.exe` (it installs only for your user and needs no admin). On Linux allow `Telescope-x86_64.AppImage` to run as a program (in its Properties, or `chmod +x`) and open it. The tarball on the [releases page](../../releases) works too. Extract it and run `./start.sh`.
 2. **Follow the checklist it opens with.** It sets up the virtual camera, puts the phone app on your phone with a QR code and pairs the two.
-3. **Pick the camera in your app.** It's called **Telescope**, in Discord, Zoom, OBS or anything else that takes a webcam.
+3. **Pick the camera in your app.** It's called **Telescope**, in Discord, Zoom, OBS or any other app that takes a webcam.
 
 <details>
 <summary>What Linux needs</summary>
@@ -35,7 +35,7 @@
 [Manual setup](docs/setup.md#linux) has the rest.
 </details>
 
-No Android phone? [Browser camera](docs/features/sources.md#browser-camera) streams from an iPhone, a tablet or an old laptop straight from its browser with nothing to install.
+No Android phone? [Browser camera](docs/features/sources.md#browser-camera) streams from an iPhone, a tablet or an old laptop straight from its browser with no app to install.
 
 ## More than a webcam
 
@@ -49,14 +49,14 @@ Plug the phone in or use Wi-Fi and run up to four phones at once, each as its ow
   </tr>
   <tr>
     <td valign="top"><img src="site/media/one-picture.avif" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Put the cameras you run side by side, in a grid or in your own layout, for apps that take only one camera.</td>
-    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straighten anything flat the phone looks at, like a page or a drawing, to make it face the camera head-on.</td>
+    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straighten something flat the phone looks at, like a page or a drawing, to make it face the camera head-on.</td>
     <td valign="top"><img src="site/media/fun.avif" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Add clones, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
   </tr>
 </table>
 
 Most of these are plugins you switch on when you want them, along with Colour grading, Privacy blur, a Name tag, Notes next to the lens and others. You can install plugins other people made too.
 
-The [docs](docs/README.md) have [everything Telescope can do](docs/features/README.md), plus troubleshooting, manual setup and plugins. [How it compares](https://telescope.webcam/compare.html) with DroidCam, Iriun and Camo is on the site.
+The [docs](docs/README.md) have [every feature](docs/features/README.md), plus troubleshooting, manual setup and plugins. [How it compares](https://telescope.webcam/compare.html) with DroidCam, Iriun and Camo is on the site.
 
 ## Questions people ask
 
@@ -95,7 +95,7 @@ It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md
 <details>
 <summary><b>Rather not install anything on Windows?</b></summary>
 
-`Telescope-windows-portable.zip` on the [releases page](../../releases) has the same app. Extract it and run `TelescopeDesktop.exe`, keeping everything in its folder since the files next to it are part of the app.
+`Telescope-windows-portable.zip` on the [releases page](../../releases) has the same app. Extract it and run `TelescopeDesktop.exe`, keeping all the files in its folder since the ones next to it are part of the app.
 </details>
 
 <details>

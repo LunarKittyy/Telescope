@@ -1,12 +1,12 @@
 ## Why
 <!-- What someone using the app saw or was missing, then the cause in plain words, then why this fix.
-Example: "The video turned into grey smears after a Wi-Fi drop. The decoder carried on without a keyframe. This asks the phone for a new one."
-Technical detail can come after, kept short. If it fixes an issue, write "Closes #123". -->
+Example: "The video turned into grey smears after a Wi-Fi drop. The decoder carried on without a keyframe. This requests a new one from the phone."
+Technical detail can come after, in brief. If it fixes an issue, write "Closes #123". -->
 
 
 ## What changes for people using the app
 <!-- Up to about 4 one-line bullets, or "Nothing visible". For a UI change, add before and after screenshots.
-Check them first: no pairing QR codes, phone names, IP addresses or home folder paths. -->
+Check first that they show no pairing QR codes, phone names, IP addresses or home folder paths. -->
 
 
 ## What could break and how to check it

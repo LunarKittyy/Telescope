@@ -30,12 +30,12 @@ The AppImage needs `fusermount` or `fusermount3`, which nearly every desktop has
 
 ## Virtual camera
 
-**Telescope isn't listed in OBS, Discord or Zoom**
+**Telescope isn't listed as a camera in OBS, Discord or Zoom**
 Apps only look for cameras when they start. Restart the app if it was already open when the camera was set up. On Windows Discord remains in the tray when you close its window. Quit it from the tray icon (right-click, Quit) and open it again. Restarting the computer works too.
 
 On Linux, a setup from before the rename still shows the camera as **Phone Camera**. Click **Unload** and then **Load** under Virtual camera & phone in Settings to get **Telescope**, then pick it again in apps like Discord.
 
-**Linux: the virtual camera won't open**
+**The virtual camera won't open on Linux**
 The `v4l2loopback` package isn't installed or loaded. Install it (`v4l2loopback-dkms` on Debian, Ubuntu and Arch, `v4l2loopback` on Fedora and Nobara through RPM Fusion, see [Manual setup](setup.md#linux)) and click **Start streaming** again. **Virtual camera & phone** in Settings can load it by hand.
 
 **Linux: `/dev/video11` is gone after a reboot**
@@ -44,28 +44,28 @@ The module isn't loaded at boot. Starting a stream loads it again. Leave **Also 
 **Linux: "Virtual camera is set up differently"**
 Another app (OBS's own virtual camera, for example) already loaded the module with different settings. Close that app, click **Unload** under Virtual camera & phone in Settings (or run `sudo modprobe -r v4l2loopback`) and click **Start streaming** again.
 
-**Linux: canvas change fails with "module in use"**
-OBS or another app still holds the device. Close everything using the virtual camera and retry.
+**Canvas change fails with "module in use" on Linux**
+OBS or another app still holds the device. Close every app using the virtual camera and retry.
 
-**Windows: the virtual camera won't open**
+**The virtual camera won't open on Windows**
 The driver isn't registered. Open **Virtual camera & phone** in Settings and reinstall it.
 
 **Windows 11: an app doesn't list Telescope**
-Open **Virtual camera & phone** in Settings. If the Driver row shows **Some apps can't see it** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) never see. Click **Update**. An app that was already open may need restarting before it lists the new camera.
+Open **Virtual camera & phone** in Settings. If the Driver row shows **Some apps can't see it** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) don't see. Click **Update**. An app that was already open can need restarting before it lists the new camera.
 
 **Windows 11: the camera shows Telescope's lens while Telescope is closed**
-Telescope isn't running, or it's still starting. The camera is in every app's list even with Telescope closed and shows the default wait screen without that line until Telescope sends it something. Open Telescope and your wait screen or your phone takes over.
+Telescope isn't running, or it's still starting. The camera is in every app's list even with Telescope closed and shows the default wait screen without that line until Telescope sends it something. Open Telescope and your wait screen or your phone appears in its place.
 
-**Windows 11: keep using the older driver**
-Set the environment variable `TELESCOPE_VCAM` to `unitycapture` before starting Telescope (in System Properties under Environment Variables) and click **Install driver**. Telescope then streams to UnityCapture like on Windows 10. Apps list both cameras while the Windows 11 one is still installed. The one Telescope uses is the one without "(Windows Virtual Camera)". Remove the variable to undo this.
+**Keep using the older driver on Windows 11**
+Set `TELESCOPE_VCAM` to `unitycapture` before starting Telescope (in System Properties under Environment Variables) and click **Install driver**. Telescope then streams to UnityCapture like on Windows 10. Apps list both cameras while the Windows 11 one is still installed. The one Telescope uses is the one without "(Windows Virtual Camera)". Remove the variable to undo this.
 
-**Windows: the camera is called "Unity Video Capture"**
+**On Windows the camera is called "Unity Video Capture"**
 An older Telescope installed the driver before it had its own name. Click **Rename** under **Virtual camera & phone** in Settings.
 
-**Windows: driver install says `Program Files\Telescope has links in it or other users can change it`**
+**Windows driver install shows `Program Files\Telescope has links in it or other users can change it`**
 Something else made that folder or changed who can edit it and Telescope won't install into a folder it can't trust. Delete `C:\Program Files\Telescope` and click **Install driver** again.
 
-**Windows: driver install says it `hit an error while running as admin`**
+**Windows driver install reports that it `hit an error while running as admin`**
 Click **Retry**. If it fails again open an issue with your **Copy diagnostics** report.
 
 ## Pairing and connecting
@@ -77,13 +77,13 @@ The phone and computer aren't on the same network, or the computer's firewall bl
 The two apps are on different versions from before Telescope moved its ports (they were 8765 to 8768 and are now 7479 to 7482). Update the one the message names, or both. Telescope on the computer and on the phone has to be the same version.
 
 **Which ports does the firewall need?**
-Allow 7479 on the computer while pairing. Browser camera uses 7481 and On Air 7482. Presence needs UDP 7483. The computer also has to reach the phone on 7480 and 8080. These are the defaults. Browser camera picks another free port if its own is taken and shows the port it picked in its link. Pairing does the same, but only the QR code carries the port, so allow Telescope itself instead of the port if 7479 is taken. Windows asks about Telescope itself the first time and that rule covers every port. If you added rules by hand after an earlier version, replace 8765 to 8768 with 7479 to 7482. For a few releases the update messages between an older and a newer version travel over the old ports (8766 on the phone, and 8765 on the computer while pairing). With only the new ports open, an older and a newer version still don't connect, and neither can name the one to update.
+Allow 7479 on the computer while pairing. Browser camera uses 7481 and On Air 7482. Presence needs UDP 7483. The computer also has to reach the phone on 7480 and 8080. These are the defaults. Browser camera picks another free port if its own is taken and shows the port it picked in its link. Pairing does the same, but the port is only in the QR code. With 7479 taken, allow Telescope itself rather than the port. Windows shows a prompt about Telescope itself the first time and that rule covers every port. If you added rules yourself after an earlier version, replace 8765 to 8768 with 7479 to 7482. For a few releases the update messages between an older and a newer version go over the old ports (8766 on the phone and 8765 on the computer while pairing). With only the new ports open, an older and a newer version still don't connect, and neither can name the one to update.
 
 **QR pairing fails on guest or public Wi-Fi**
-Those networks usually block devices from talking to each other. Nothing can work around that. Use USB pairing or a network you control.
+Those networks usually block devices from talking to each other. There is no way around that. Use USB pairing or a network you control.
 
 **QR pairing fails with a VPN on**
-The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same. With Tailscale you don't need to pause anything, see [Things to try](unusual-setups.md#use-a-phone-from-far-away).
+The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same. With Tailscale you don't need to pause it, see [Things to try](unusual-setups.md#use-a-phone-from-far-away).
 
 **Plugged in but USB pairing doesn't happen**
 Click the phone's **Pair** button under USB in the Add phone dialog first. A plugged-in phone isn't paired until you do. The USB line names which of these is in the way if it still doesn't (adb isn't installed, USB debugging isn't allowed on the phone or the app isn't on screen). Install `adb` (Linux) or click **get from Google** in that line (Windows), [enable Developer options](https://developer.android.com/studio/debug/dev-options#enable) on the phone and turn on [USB debugging](https://developer.android.com/studio/debug/dev-options#Enable-debugging) in them, accept the prompt it shows and leave Telescope open there.
@@ -98,7 +98,7 @@ Hover the status line of the Connection panel and its tooltip names the reason (
 Telescope isn't open on the phone, or the phone is on another network and not plugged in. Open Telescope on the phone and leave it on screen.
 
 **"Can't reach the phone" after reinstalling the phone app**
-A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. Telescope asks whether it's the same phone and takes over the old settings and presets if you answer yes.
+A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. A banner asks whether it's the same phone and **Yes** moves the old settings and presets over to it.
 
 **"Can't reach <phone>" banner while streaming**
 The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If the stream is still running the picture returns without you doing anything. Otherwise click **Start streaming**.
@@ -144,7 +144,7 @@ sudo firewall-cmd --reload
 Include the Tailscale interface or subnet too if you use it. The phone must permit UDP 7483 as well. Presence can recover an address only while either remembered addresses or network discovery still reach the other device; USB or pairing again is needed when both fail.
 
 **Windows asks about the firewall again after an update**
-The update moved an unzipped copy to the installed one and Windows treats it as a new program. Click Allow on private networks like the first time. The old copy's rule is left behind and does nothing.
+The update moved an unzipped copy to the installed one and Windows treats it as a new program. Click Allow on private networks like the first time. The old copy's rule is left behind and has no effect.
 
 ## Video and quality
 
@@ -152,19 +152,19 @@ The update moved an unzipped copy to the installed one and Windows treats it as 
 Heavy (MJPEG) sends several times the data of Light. Switch Format to Light, use USB, lower JPEG quality or reduce FPS.
 
 **Light freezes for a moment now and then over Wi-Fi**
-A busy network loses a packet and TCP holds everything up until the resend. Try Dynamic bitrate or USB first. **UDP on Wi-Fi** in Settings on the Streaming tab is experimental and worth a try here, though it can also stutter more than TCP.
+A busy network loses a packet and TCP delays everything until the resend. Try Dynamic bitrate or USB first. **UDP on Wi-Fi** in Settings on the Streaming tab is experimental and worth a try here, though it can also stutter more than TCP.
 
 **FPS is limited to 30 with 60 picked**
 Some phone makers reserve their camera's faster modes for their camera app. The phone lists 60 fps and accepts the request, then gives other apps 30. Telescope can't change that. **Copy diagnostics** while streaming shows it. The "Camera did" line reads 33.4 ms with range [60, 60]. Rates a camera doesn't list at all are greyed out.
 
-**Telescope uses a lot of power, or the fans spin up**
+**Telescope uses a lot of power or the fans spin up**
 Background and Auto framing cost the most. A 720p stream without them added about 0.2 W of processor power on a test laptop and about 1.5 W with both on. In rough order of what helps:
 - Switch off the effect you don't need, or turn on **Power-saving effects** under Video in Settings
 - Lower the resolution or FPS. Every step down means less work for the phone and the computer
 - Use the Light format and turn on **Hardware acceleration** if your graphics card supports it
-- On battery, unplug the phone: over USB it runs off the laptop's power. On the test laptop it drew about 2.4 W even while not streaming. Use Wi-Fi, or charge the phone from the wall
+- On battery, unplug the phone because over USB it runs off the laptop's power. On the test laptop it drew about 2.4 W even while not streaming. Use Wi-Fi, or charge the phone from the wall
 
-Minimising the window or putting it in the tray only saves power when no app is reading the virtual camera. Then Telescope pauses the effects and vision after about 8 seconds, provided the Wait screen plugin is on and it can tell that nobody reads the camera (on Linux with v4l2loopback 0.13 or newer and on Windows 11 with Telescope's own camera but not on Windows 10 with UnityCapture). An app that opens the camera brings them back on the next frame.
+Minimising the window or putting it in the tray only saves power when no app is reading the virtual camera. Then Telescope pauses the effects and vision after about 8 seconds, provided the Wait screen plugin is on and it can tell that no app reads the camera (on Linux with v4l2loopback 0.13 or newer and on Windows 11 with Telescope's own camera but not on Windows 10 with UnityCapture). An app that opens the camera resumes them on the next frame.
 
 **Telescope uses a lot of RAM**
 Most of it isn't Telescope's own. Measured on a Linux laptop, streaming 1080p at 30 fps:
@@ -176,21 +176,21 @@ Most of it isn't Telescope's own. Measured on a Linux laptop, streaming 1080p at
 | Streaming with Background and Auto framing | 470 MB |
 
 Where it goes:
-- **Libraries, about 130 MB**: Slint draws the window, wgpu runs the picture steps on the graphics card and FFmpeg decodes the video. They're loaded once and don't grow.
-- **Frames from the camera, about 100 MB at 1080p**: a few copies of each picture on its way from the phone to the virtual camera. Lower resolutions need less.
-- **The vision models, about 150 MB**: only while Background, Auto framing, Expose for my face or Privacy blur is on. About 10 seconds after you switch them all off most of it is given back and restarting Telescope frees the rest.
-- **Telescope itself, about 50 MB**: its code, settings and the wait screen.
+- **Libraries, about 130 MB.** Slint draws the window, wgpu runs the picture steps on the graphics card and FFmpeg decodes the video. They're loaded once and don't grow.
+- **Frames from the camera, about 100 MB at 1080p.** There are a few copies of each picture on its way from the phone to the virtual camera. Lower resolutions need less.
+- **The vision models, about 150 MB.** These are loaded only while Background, Auto framing, Expose for my face or Privacy blur is on. About 10 seconds after you switch them all off most of it is given back and restarting Telescope frees the rest.
+- **Telescope itself, about 50 MB.** This is its code, settings and the wait screen.
 
-Your numbers may not match these because task managers count memory in different ways (Windows Task Manager, for one, leaves out memory other apps could share).
+Your numbers can differ from these because task managers count memory in different ways (Windows Task Manager, for one, leaves out memory other apps could share).
 
 **"No graphics card Telescope can use" in Video settings**
 On Linux the decoder is VA-API or NVIDIA's CUDA. On Windows it's Direct3D 11. Without a usable card Light still decodes on the processor.
 
 **Telescope switched graphics card**
-The last start closed while Telescope was opening that card, or the card opened but couldn't draw the window. When every card has been skipped the processor draws the window. Telescope now leaves it out and uses another one, or the processor if none is left. It tries the card again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
+The last start closed while Telescope was opening that card, or the card opened but couldn't draw the window. When every card has been skipped the processor draws the window. Telescope now leaves it out and uses another one, or the processor if none is left. The card is tried again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
 
-**Windows: Telescope uses the other graphics card**
-Pick the card yourself under **Graphics card** in Video settings and restart. With **Automatic** Telescope follows the graphics setting for its own app in Windows Settings > System > Display > Graphics. It uses the high performance card, which on a laptop with two is the discrete one, with no setting or with **Let Windows decide**. **Power saving** runs everything on the integrated card, hardware decode included. Try it when a laptop with two cards runs hot or drains the battery. The log shows which setting Telescope found. On Intel cards it tries DirectX 12 before Vulkan because an old Intel Vulkan driver crashed while opening the card.
+**Telescope uses the other graphics card on Windows**
+Pick the card yourself under **Graphics card** in Video settings and restart. With **Automatic** Telescope follows the graphics setting for its own app in Windows Settings > System > Display > Graphics. It uses the high performance card, which on a laptop with two is the discrete one, with no setting or with **Let Windows decide**. **Power saving** runs everything on the integrated card, hardware decode included. Try it when a laptop with two cards runs hot or drains the battery. The log shows which setting Telescope found. On Intel cards DirectX 12 is tried before Vulkan because an old Intel Vulkan driver crashed while opening the card.
 
 ## Camera controls
 
@@ -205,11 +205,11 @@ Auto framing is moving them. Switch it off on its card and your own zoom and pan
 **The page won't load**
 The device isn't on the same network, or a firewall blocks port 7481. Use the address on the card that matches the device's network (the card lists each one if there are several) and allow port 7481 in the firewall. If you clicked Cancel on the Windows firewall prompt, allow Telescope in Windows Security under Firewall & network protection, Allow an app through firewall.
 
-**The page says it can't reach the computer or that the code was replaced**
+**The page shows that it can't reach the computer or that the code was replaced**
 The code changed (**New link**, or Telescope restarted). Scan the code on the card again.
 
 **The page stays on "Connecting the video…" or keeps reconnecting**
-The video goes over WebRTC on UDP ports picked each time, which a strict firewall can block even with port 7481 open. On Windows allow Telescope itself in the firewall, not only the port. On Linux allow incoming UDP from your local network, or turn the firewall off for a moment to confirm that's it.
+The video goes over WebRTC on UDP ports picked each time, which a strict firewall can block even with port 7481 open. On Windows allow Telescope itself in the firewall and not only the port. On Linux allow incoming UDP from your local network, or turn the firewall off for a moment to confirm that's it.
 
 **It stops when the phone locks or you switch apps**
 Phones pause the camera for pages in the background. Leave the page open with the screen on. Returning to it starts it again.
@@ -220,7 +220,7 @@ Firefox can still drop frames or change size a bit when the phone or Wi-Fi strug
 ## Webcams
 
 **A webcam isn't in the device picker**
-Check that **Webcams** is on in Plugins and that the camera works in another app. On Linux your user needs access to `/dev/video*` (usually the `video` group). A camera that only offers H.264 or another format OpenCV can't read is left out. Virtual cameras, like OBS Virtual Camera, are left out on purpose. On Windows a camera only Media Foundation apps can open (a phone through Phone Link, for one) isn't listed either.
+Check that **Webcams** is on in Plugins and that the camera works in another app. On Linux your user needs access to `/dev/video*` (usually the `video` group). A camera that only offers H.264 or another format OpenCV can't read is left out. Virtual cameras, like OBS Virtual Camera, are left out by design. On Windows a camera only Media Foundation apps can open (a phone through Phone Link, for one) isn't listed either.
 
 **"Can't open" and the webcam's name**
 On Linux only one app can stream from a webcam at a time. Close the camera in the app named in the banner (a browser tab with a call or a camera test page counts too). Telescope retries and starts streaming the moment it's free. On Windows the banner can't name the app. Check what has the camera open.
@@ -253,10 +253,10 @@ That part of Telescope is switched off in **Plugins**. Open Settings and go to t
 **A plugin that finds people asks for a one-time download**
 The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer, or download the vision pack zip from the release page and install it with **Install** on the Plugins tab ([Plugins](features/plugins.md#installing-a-plugin-someone-made)).
 
-**A plugin that finds people says MediaPipe didn't load**
-The download is there but MediaPipe won't start here (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring. If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian and Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report.
+**A plugin that finds people reports that MediaPipe didn't load**
+The download is there but MediaPipe won't start here (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring. If **Copy diagnostics** contains `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian and Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report.
 
 ## Updates
 
-**"Didn't start after updating, so it's held back"**
+**"Didn't start after updating and is held back"**
 The new version crashed before its window came up and the old one was restored. For an unzipped copy that was moving to the installed one, it means the installed copy didn't open. Click **Try again**. If it happens again open an issue with your **Copy diagnostics** report.

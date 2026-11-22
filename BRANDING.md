@@ -18,7 +18,7 @@ Everything else is under the AGPL-3.0 or its own licence. That covers all code, 
 
 - Redistribute the official builds as they are, logo included.
 - Write about Telescope in articles, reviews, videos or docs and use the name, logo and screenshots to refer to the real app.
-- Say that your project is a fork of Telescope or based on it, in plain text.
+- State in plain text that your project is a fork of Telescope or based on it.
 
 ## What you can't do
 

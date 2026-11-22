@@ -27,27 +27,27 @@ Full notices (the bundled binaries and every Rust crate in the program, with its
 
 **UnityCapture** (`rust/windows/unitycapture/`) - DirectShow virtual camera filter for Windows.
 Copyright (c) 2018 Bernhard Schelling. MIT License. See `rust/windows/unitycapture/LICENSE`.
-Source: https://github.com/schellingb/UnityCapture
+Source: <https://github.com/schellingb/UnityCapture>
 
 **The Windows 11 camera** (`rust/windows/virtualcamera/`) - Telescope's own code under the AGPL-3.0. Its structure follows Microsoft's VirtualCamera sample, which is MIT licensed (Copyright (c) Microsoft Corporation).
-Source of the sample: https://github.com/microsoft/Windows-Camera/tree/master/Samples/VirtualCamera
+Source of the sample: <https://github.com/microsoft/Windows-Camera/tree/master/Samples/VirtualCamera>
 
 **IBM Plex Sans** - the font in both apps (Regular, Medium and SemiBold on the phone). Copyright (c) 2017 IBM Corp. SIL Open Font License 1.1. The licence text ships with each: `rust/crates/ui-kit/ui/fonts/OFL.txt` on the desktop, `IBMPlexSans-OFL.txt` in the phone app's assets.
-Source: https://github.com/IBM/plex
+Source: <https://github.com/IBM/plex>
 
 **Android SDK Platform Tools** - not included. On Windows, Telescope downloads `adb.exe` from Google when you ask for it, for USB mode.
-Copyright (c) Google LLC. Android Software Development Kit License Agreement: https://developer.android.com/studio/terms
+Copyright (c) Google LLC. Android Software Development Kit License Agreement: <https://developer.android.com/studio/terms>
 
-**MediaPipe** and its selfie segmenter and pose landmarker models - not included. Telescope downloads them from its own GitHub releases when you switch on Auto framing or Background. Copyright (c) Google LLC. Apache License 2.0. The download carries its own notices file (`NOTICES.txt`), along with absl-py, flatbuffers (both Apache 2.0) and certifi (MPL 2.0).
-Source: https://github.com/google-ai-edge/mediapipe
+**MediaPipe** and its selfie segmenter and pose landmarker models - not included. Telescope downloads them from its own GitHub releases when you switch on Auto framing or Background. Copyright (c) Google LLC. Apache License 2.0. The download includes its own notices file (`NOTICES.txt`), along with absl-py, flatbuffers (both Apache 2.0) and certifi (MPL 2.0).
+Source: <https://github.com/google-ai-edge/mediapipe>
 
-**Robust Video Matting** and **ONNX Runtime** - not included. Telescope downloads them from its own GitHub releases when you switch on High quality in Background. The model is by Peter Lin under the GNU GPL v3 and ONNX Runtime is by Microsoft under the MIT license. The download carries both licence texts, ONNX Runtime's own third-party notices and a notices file (`NOTICES.txt`).
-Sources: https://github.com/PeterL1n/RobustVideoMatting and https://github.com/microsoft/onnxruntime
+**Robust Video Matting** and **ONNX Runtime** - not included. Telescope downloads them from its own GitHub releases when you switch on High quality in Background. The model is by Peter Lin under the GNU GPL v3 and ONNX Runtime is by Microsoft under the MIT license. The download includes both licence texts, ONNX Runtime's own third-party notices and a notices file (`NOTICES.txt`).
+Sources: <https://github.com/PeterL1n/RobustVideoMatting> and <https://github.com/microsoft/onnxruntime>
 
 **FFmpeg** (libavcodec, libavutil, libswresample, libswscale) - a decoder-only build under the LGPL v2.1 or later, in every package. `rust/tools/build_ffmpeg.sh` is the exact recipe and you can swap in your own build of the same major version.
 
 **IBM Plex Sans** (`rust/crates/ui-kit/ui/fonts/`) - the typeface of the window, in four weights. Copyright (c) 2017 IBM Corp., with Reserved Font Name "Plex". SIL Open Font License 1.1, the text is in `OFL.txt` next to the fonts.
-Source: https://github.com/IBM/plex
+Source: <https://github.com/IBM/plex>
 
 **RNNoise** - the microphone's noise reduction. Copyright (c) Xiph.Org Foundation, Mozilla Corporation and others. BSD 3-Clause.
 

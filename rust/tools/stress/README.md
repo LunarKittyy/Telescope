@@ -1,10 +1,10 @@
 # Stress test
 
-Runs the Rust desktop on a recorded phone stream, alone and beside game-like loads, confined to a mid-tier CPU budget and measures what comes out of the virtual camera. It's here to show whether Telescope holds up with OBS, a browser and a heavy game running and what frame dropping and shader effects change once they exist.
+Runs the Rust desktop on a recorded phone stream, alone and beside game-like loads, confined to a mid-tier CPU budget and measures what comes out of the virtual camera. It's here to show whether Telescope copes with OBS, a browser and a heavy game running and what frame dropping and shader effects change once they exist.
 
 ## Running it
 
-Build first, or let the script do it:
+Build first or let the script do it:
 
 ```
 cargo build --release -p telescope-app                 # in rust/
@@ -19,21 +19,21 @@ python3 stress.py --clip clip.h264 --vision-pack FOLDER --quick --compare baseli
 python3 stress.py --clip clip.h264 --cells crt/gpu,crt/idle --seconds 25
 ```
 
-A cell is `scenario/load`. Scenarios are `plain`, `colour`, `crt`, `vhs`, `desk`, `blur` and `none` for the load with no Telescope. `none/idle` is the machine with nothing running. `colour3d` is a grade that needs a 3D LUT, only by name. Loads are `idle`, `gpu`, `cpu`, `obs` and `all`, `split` (in the full matrix for `colour`) and `burst`, by name, which is the `gpu` load starting a fifth of the way in and stopping halfway, to watch frame steps leave the card and return. Give it `--seconds 50`. `--vision-pack` is a downloaded pack's folder, the one named after its hash; without it `blur` does nothing. If an effect costs no more than plain you get a warning as it probably never switched on.
+A cell is `scenario/load`. Scenarios are `plain`, `colour`, `crt`, `vhs`, `desk`, `blur` and `none` for the load with no Telescope. `none/idle` is the machine with no Telescope and no load running. `colour3d` is a grade that needs a 3D LUT, only by name. Loads are `idle`, `gpu`, `cpu`, `obs` and `all`, `split` (in the full matrix for `colour`) and `burst`, by name, which is the `gpu` load starting a fifth of the way in and stopping halfway, to watch frame steps leave the card and return. Give it `--seconds 50`. `--vision-pack` is a downloaded pack's folder, the one named after its hash; without it `blur` has no effect. If an effect costs no more than plain you get a warning as it probably didn't switch on.
 
-`--compare old.json` lists what moved in each cell. `--hw-decode` turns on the graphics card decoder, which the app leaves off. `--real-phone --profile FOLDER` streams from the phone paired in that folder's settings instead of the clip, for a check on the real path. Two of those runs won't match frame for frame. `--keep-logs` keeps each cell's app log, delivery log and raw timestamps. `--trace` prints what each stage of a frame took under each row and adds it to the JSON (`TELESCOPE_STRESS_TRACE` is the file the app writes).
+`--compare old.json` lists what moved in each cell. `--hw-decode` turns on the graphics card decoder, which the app leaves off. `--real-phone --profile FOLDER` streams from the phone paired in that folder's settings instead of the clip, for a check on the real path. Two of those runs won't match frame for frame. `--keep-logs` saves each cell's app log, delivery log and raw timestamps. `--trace` prints what each stage of a frame took under each row and adds it to the JSON (`TELESCOPE_STRESS_TRACE` is the file the app writes).
 
-It needs Linux, the virtual camera with nothing else reading it (`/dev/video11` unless you pass `--device`), `kwin_wayland`, `dbus-run-session` and `ffmpeg` with libx264. A Telescope already using that camera will spoil the run.
+It needs Linux, the virtual camera with no other program reading it (`/dev/video11` unless you pass `--device`), `kwin_wayland`, `dbus-run-session` and `ffmpeg` with libx264. A Telescope already using that camera will spoil the run.
 
 ## The clip
 
-`record_clip.py` records `/v1/video.h264` from a paired phone over USB while the digital crop sweeps around, which moves the whole picture and leaves the sensor noise in. Look at a frame afterwards, as a lens that sees nothing gives a black clip without any warning.
+`record_clip.py` records `/v1/video.h264` from a paired phone over USB while the digital crop sweeps around, which moves the whole picture and leaves the sensor noise in. Look at a frame afterwards, as a lens that sees no light gives a black clip without any warning.
 
-Keep it out of git. The fake phone serves it at 30 fps over TLS through the same path as a real phone.
+Leave it out of git. The fake phone serves it at 30 fps over TLS through the same path as a real phone.
 
 ## What runs where
 
-The app and the loads run in a nested virtual KWin on a private bus (nothing shows on the real desktop), confined with CPU affinity to 6 threads on 3 physical cores (`--cpus`). The fake phone, the camera reader and this script remain on the other cores because they stand for the phone and the measuring tool, which shouldn't suffer the load they measure.
+The app and the loads run in a nested virtual KWin on a private bus (no window appears on the real desktop), confined with CPU affinity to 6 threads on 3 physical cores (`--cpus`). The fake phone, the camera reader and this script remain on the other cores because they stand for the phone and the measuring tool, which shouldn't suffer the load they measure.
 
 | Load | Stated level |
 |---|---|
@@ -63,9 +63,9 @@ With no Telescope running, `none/obs` encodes the clip instead, which adds a sof
 | `gpuL`, `cpuL`, `obsL` | Each load's own rate, as a share of its rate with no Telescope. On `none` rows, the rate itself. |
 | `gpuW`, `cpuW` | Watts of the whole card (amdgpu's `power1_average`) and the CPU package (RAPL), over the window. Blank where they can't be read without root. These are for the whole machine, so compare a cell against `none/idle`, one after the other, with nothing else running. |
 
-A `!` on a row means a warning follows. Either something else used over 60% of a core or the GPU was busy with no GPU load. The idle `plain` cell runs three times spread across the matrix. The spread is printed at the end. A spread wider than `SPREAD_LIMITS` gets a warning as small differences mean nothing in a run like that.
+A `!` on a row means a warning follows. Either something else used over 60% of a core or the GPU was busy with no GPU load. The idle `plain` cell runs three times spread across the matrix. The spread is printed at the end. A spread wider than `SPREAD_LIMITS` gets a warning as small differences aren't meaningful in a run like that.
 
-The JSON also has per-thread CPU, per-engine GPU, jitter, the time spent in the camera step, how evenly packets arrived, how busy the budget was, the card's core and memory clocks and `swaps`, each time frame steps moved between the card and the CPU. `TELESCOPE_FRAME_STEPS=card` or `cpu` in the environment pins them there, for comparing.
+The JSON also has per-thread CPU, per-engine GPU, jitter, the time spent in the camera step, how evenly packets arrived, how busy the budget was, the card's core and memory clocks and `swaps`, each time frame steps moved between the card and the CPU. Exporting `TELESCOPE_FRAME_STEPS=card` or `cpu` pins them there, for comparing.
 
 ## What it can't show
 
