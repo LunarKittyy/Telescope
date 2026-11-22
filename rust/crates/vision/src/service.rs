@@ -34,6 +34,8 @@ pub const CUTOUT_STILL_EVERY_S: f64 = 0.25;
 /// Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often.
 pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
 pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
+/// And the mask this often, or sooner on a big move (ops::BIG_MOVE_SHARE), so standing up or waving doesn't leave the room sharp around you.
+pub const SAVING_MASK_EVERY_S: f64 = 0.1;
 /// How long a frame waits for its mask when there's none it can use, so the picture doesn't go out without one when a stream starts.
 pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 /// A mask of a frame further back than this is of a picture that's gone: frame steps hear there's none, not an old silhouette.
@@ -816,13 +818,19 @@ impl Vision {
         }
         let now = monotonic();
         let saving = self.power_saving();
-        let still_every = if which == Which::Cutout { CUTOUT_STILL_EVERY_S } else { MASK_STILL_EVERY_S };
+        let still_every = match which {
+            Which::Cutout => CUTOUT_STILL_EVERY_S,
+            _ if saving => SAVING_MASK_EVERY_S,
+            _ => MASK_STILL_EVERY_S,
+        };
         let overdue = m.small.is_none() || now - m.at >= still_every;
+        // Power-saving still runs the normal model at once on a big move; the cutout costs too much for that
+        let jumped = |motion: &Motion| saving && which != Which::Cutout && motion.big();
         // With a grey look at hand the colour picture is only made when the model is about to run
         let run = if let Some(look) = look {
             let grey = look()?;
             let moved = m.motion.moved_grey(grey);
-            if (moved && !saving) || overdue {
+            if (moved && !saving) || jumped(&m.motion) || overdue {
                 let frame = picture()?;
                 let small = m.segment.as_ref().and_then(|s| s.input(&frame)).unwrap_or(frame);
                 Some((small, moved))
@@ -838,7 +846,7 @@ impl Vision {
             let small = m.segment.as_ref().and_then(|s| s.input(&frame)).unwrap_or(frame);
             // Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
             let moved = m.motion.moved(&small);
-            if (moved && !saving) || overdue {
+            if (moved && !saving) || jumped(&m.motion) || overdue {
                 Some((small, moved))
             } else {
                 if !moved {

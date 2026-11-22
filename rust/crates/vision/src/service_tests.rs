@@ -157,7 +157,7 @@ fn hold_mask_clock(v: &Vision) {
 }
 
 fn age_mask_clock(v: &Vision) {
-    sv(v, "a").mask.lock().unwrap().at -= HELD + MASK_STILL_EVERY_S + TICK;
+    sv(v, "a").mask.lock().unwrap().at -= HELD + MASK_STILL_EVERY_S.max(SAVING_MASK_EVERY_S) + TICK;
 }
 
 fn with_arm(base: &Rgb, x: (usize, usize), y: (usize, usize), value: u8) -> Rgb {
@@ -558,10 +558,25 @@ fn test_people_are_looked_for_less_often_while_nothing_moves() {
 }
 
 #[test]
+fn test_power_saving_runs_the_mask_at_once_on_a_big_move() {
+    let r = ready();
+    r.v.set_power_saving(true);
+    let still = Rgb::filled(1280, 720, 80);
+    mask(&r.v, "a", 0, &still);
+    hold_mask_clock(&r.v);
+    // An arm moving a little waits for the slower beat, standing up (most of the picture changing) doesn't
+    mask(&r.v, "a", 1, &with_arm(&still, (400, 600), (200, 400), 200));
+    assert_eq!(r.backend.log.lock().unwrap().segmented.len(), 1);
+    mask(&r.v, "a", 2, &with_arm(&still, (200, 1100), (100, 720), 200));
+    assert_eq!(r.backend.log.lock().unwrap().segmented.len(), 2);
+}
+
+#[test]
 fn test_power_saving_runs_the_models_less_often_even_while_something_moves() {
     let r = ready();
     r.v.set_power_saving(true);
-    let moving: Vec<Rgb> = (0..3).map(|i| with_arm(&Rgb::filled(1280, 720, 80), (400, 700), (100 * i, 100 * i + 300), 200)).collect();
+    // small moves: a big one runs the mask at once (see above)
+    let moving: Vec<Rgb> = (0..3).map(|i| with_arm(&Rgb::filled(1280, 720, 80), (400, 700), (40 * i, 40 * i + 300), 200)).collect();
     for (seq, frame) in moving.iter().enumerate() {
         mask(&r.v, "a", seq as u64, frame);
         if seq == 0 {
