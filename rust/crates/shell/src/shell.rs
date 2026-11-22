@@ -542,6 +542,8 @@ pub struct State {
     pub preview_own_told: bool,
     /// Whether the main camera's frame steps can pause while nobody reads it (idle.rs), which the stream's worker looks at.
     pub idle: Arc<crate::idle::IdleGate>,
+    /// The plugin that last said whether an app reads the camera (Event::CameraWatched): once it stops, nothing says, and the steps never pause.
+    pub camera_watcher: Option<String>,
     pub tray_close_notified: bool,
     /// Host::set_shortcut_menu: the plugin behind the controls' right-click menu, and the shortcuts it lists.
     pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
@@ -646,7 +648,7 @@ impl State {
             preview_own_told: true,
             idle: Arc::default(),
             tray_close_notified: false,
-            shortcut_menu: None, stills: Vec::new(), hiding_steps: BTreeMap::new(), hiding: BTreeMap::new(), hidden_flags: BTreeMap::new(), source_owners: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
+            shortcut_menu: None, stills: Vec::new(), hiding_steps: BTreeMap::new(), hiding: BTreeMap::new(), hidden_flags: BTreeMap::new(), source_owners: Vec::new(), camera_watcher: None, source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
         }
     }
 
@@ -4546,6 +4548,23 @@ mod tests {
         s.bus.emit(Event::CameraWatched { watched: false });
         s.deliver_events();
         assert!(s.idle.idle());
+    }
+
+    #[test]
+    fn the_watch_going_away_with_its_plugin_ends_the_quiet() {
+        use telescope_core::host::Host;
+        let mut s = state();
+        s.idle = Arc::new(crate::idle::IdleGate::after(0));
+        s.shown = Some(false);
+        s.sync_idle();
+        s.idle.reliable(true);
+        crate::host::Ctx { state: &mut s, me: "wait_screen".into() }.emit(Event::CameraWatched { watched: false });
+        s.deliver_events();
+        assert!(s.idle.idle());
+        crate::host::Ctx { state: &mut s, me: "other".into() }.release_everything();
+        assert!(s.idle.idle(), "a plugin that never said anything about readers changes nothing");
+        crate::host::Ctx { state: &mut s, me: "wait_screen".into() }.release_everything();
+        assert!(!s.idle.idle(), "nothing says whether an app reads the camera any more, so it never pauses");
     }
 
     #[test]

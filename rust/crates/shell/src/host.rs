@@ -49,6 +49,10 @@ impl Ctx<'_> {
         if self.state.packet_makers.0.iter().any(|(o, _)| *o == me) {
             self.change_packets(&me, None);
         }
+        if self.state.camera_watcher.as_deref() == Some(me.as_str()) {
+            self.state.camera_watcher = None;
+            self.state.idle.forget_watched();
+        }
     }
 
     /// The plugin whose hook this is asked to save: its settings are looked at for what moved when the hook ends.
@@ -787,6 +791,9 @@ impl HostPackets for Ctx<'_> {
 
 impl Host for Ctx<'_> {
     fn emit(&mut self, event: Event) {
+        if matches!(event, Event::CameraWatched { .. }) {
+            self.state.camera_watcher = Some(self.me.clone());
+        }
         self.state.bus.emit(event);
     }
     fn share(&mut self, owner: &str, name: &str, value: Option<Value>) -> Result<(), String> {
