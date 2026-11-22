@@ -485,6 +485,9 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     renumber(&mut panels.right);
     let text = doc::window(&cards, &panels, &headers);
     let def = crate::compile::compile("window.slint", &text, files.clone(), "TelescopeWindow")?;
+    if let Some(step) = BEFORE_WINDOW.with(|step| step.borrow_mut().take()) {
+        step()?;
+    }
     let ui = def.create().map_err(|e| e.to_string())?;
     crate::appearance::apply(&ui);
     set_app_icon(&ui);
@@ -2149,6 +2152,13 @@ fn banner_row(row: &crate::banners::Row) -> SValue {
     ]))
 }
 
+type BackendStep = Box<dyn FnOnce() -> Result<(), String>>;
+
+thread_local! {
+    /// What `build` does after compiling and before it makes the window, which is the last moment the backend can be chosen (set by `run`).
+    static BEFORE_WINDOW: RefCell<Option<BackendStep>> = const { RefCell::new(None) };
+}
+
 pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
     build(file, |bus| {
         let mut plugins = crate::plugins::builtins(Some(&services), bus);
@@ -2158,30 +2168,45 @@ pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowO
 }
 
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
-    let gpu_painter = crate::preview::select_wgpu_backend();
-    // Every card was skipped (or none opened): the processor draws the window. Slint's own default would pick a card without asking the skip list
-    let software = gpu_painter.is_none() && !telescope_core::gpu_marker::skipped().is_empty();
-    if software {
-        // Winit named too: SLINT_BACKEND must not hand the choice to a backend that would try a graphics card of its own
-        crate::parent::selector().backend_name("winit".into()).renderer_name("software".into()).select().map_err(|e| format!("The window can't be drawn without a graphics card: {e}"))?;
-        log::info!("The window is drawn by the processor, every graphics card was skipped");
-    }
-    #[cfg(not(windows))]
-    let _ = software;
-    // Without the graphics card's backend the default one is chosen here, so Windows can make a side window owned by the main one
-    #[cfg(windows)]
-    if gpu_painter.is_none() && !software {
-        if let Err(e) = crate::parent::selector().select() {
-            log::warn!("The window backend couldn't be chosen: {e}");
+    // On Linux the card opens on a thread while the window's document compiles, and the backend is chosen just before the window is made.
+    // Elsewhere both happen here, first, as they always did
+    let early_card = crate::preview::begin_wgpu_backend();
+    let chosen: Rc<RefCell<Option<Box<dyn crate::preview::Painter>>>> = Rc::default();
+    let slot = chosen.clone();
+    let step: BackendStep = Box::new(move || {
+        let gpu_painter = crate::preview::finish_wgpu_backend(early_card);
+        // Every card was skipped (or none opened): the processor draws the window. Slint's own default would pick a card without asking the skip list
+        let software = gpu_painter.is_none() && !telescope_core::gpu_marker::skipped().is_empty();
+        if software {
+            // Winit named too: SLINT_BACKEND must not hand the choice to a backend that would try a graphics card of its own
+            crate::parent::selector().backend_name("winit".into()).renderer_name("software".into()).select().map_err(|e| format!("The window can't be drawn without a graphics card: {e}"))?;
+            log::info!("The window is drawn by the processor, every graphics card was skipped");
         }
-    }
-    // Wayland takes a window's icon from the desktop entry named like this, not from the window
-    if let Some(id) = APP_ID.get() {
-        if let Err(e) = slint::set_xdg_app_id(id.as_str()) {
-            log::info!("Couldn't set the window's app id: {e}");
+        #[cfg(not(windows))]
+        let _ = software;
+        // Without the graphics card's backend the default one is chosen here, so Windows can make a side window owned by the main one
+        #[cfg(windows)]
+        if gpu_painter.is_none() && !software {
+            if let Err(e) = crate::parent::selector().select() {
+                log::warn!("The window backend couldn't be chosen: {e}");
+            }
         }
+        // Wayland takes a window's icon from the desktop entry named like this, not from the window
+        if let Some(id) = APP_ID.get() {
+            if let Err(e) = slint::set_xdg_app_id(id.as_str()) {
+                log::info!("Couldn't set the window's app id: {e}");
+            }
+        }
+        *slot.borrow_mut() = gpu_painter;
+        Ok(())
+    });
+    if cfg!(target_os = "linux") {
+        BEFORE_WINDOW.with(|later| *later.borrow_mut() = Some(step));
+    } else {
+        step()?;
     }
     let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
+    let gpu_painter = chosen.borrow_mut().take();
     // Without the card's painter the picture is scaled on a thread of its own, so the window never waits on a readback
     *window.painter.borrow_mut() = gpu_painter.or_else(|| Some(Box::new(crate::preview::ThreadedPainter::for_window(services.media.scaler())) as Box<dyn crate::preview::Painter>));
     let t0 = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok());

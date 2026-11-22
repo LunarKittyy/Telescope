@@ -48,7 +48,7 @@ On Linux a VA-API picture goes to the effects on the card without a trip through
 
 Ongoing. Bug passes over the code and measured work on speed, system use and the size of the app, one change per pull request. Nothing here is a feature.
 
-One piece is the window's weight and start time, from measuring the finished app against Python. The interpreter no longer keeps the compiler's trees after a build and Settings is built the first time it opens (122 MB at start against 173 MB). Compiling the cards of hidden tabs only when they open would save more. For the start, compile ahead of time instead of at launch, overlap opening the cards with compiling them (40 to 80 ms) and reuse the Vulkan instance (24 ms).
+One piece is the window's weight and start time, from measuring the finished app against Python. The interpreter no longer keeps the compiler's trees after a build and Settings is built the first time it opens (122 MB at start against 173 MB). Compiling the cards of hidden tabs only when they open would save more. On Linux the graphics card now opens on a thread while the window's document compiles, which took 30 to 60 ms off the start. Compiling is still about 80 % of the time to the first frame, 600 to 1000 ms depending on how busy the machine is. Compiling ahead of time isn't a small change: the document is written at launch from the cards that are on, in the person's language, and the shell reaches every card by name through the interpreter, so a compiled window would be a second path next to the one plugins use. Reusing the Vulkan instance would save 24 ms.
 
 ## ARM64
 
