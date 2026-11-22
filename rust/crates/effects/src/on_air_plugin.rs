@@ -85,6 +85,8 @@ pub struct OnAirPlugin {
     retries: usize,
     /// A retry is waiting for its time.
     retrying: bool,
+    /// The last on or off sent to the light, a webhook test included.
+    last_sent: Option<bool>,
     /// The text and status kind of the last Send test.
     test_result: (String, &'static str),
     sender: Option<WebhookSender>,
@@ -129,6 +131,7 @@ impl OnAirPlugin {
             state_gen: 0,
             retries: 0,
             retrying: false,
+            last_sent: None,
             test_result: (String::new(), ""),
             sender: None,
             poster: None,
@@ -212,6 +215,7 @@ impl OnAirPlugin {
         if self.webhook_ready() {
             if let Some(sender) = &self.sender {
                 sender.send(self.request(self.on()), &self.state_tag(), Some("state"));
+                self.last_sent = Some(self.on());
             }
         }
     }
@@ -230,6 +234,7 @@ impl OnAirPlugin {
         self.refresh(host);
         if let Some(sender) = &self.sender {
             sender.send(self.request(on), "test", None);
+            self.last_sent = Some(on);
         }
     }
 
@@ -588,7 +593,7 @@ impl Plugin for OnAirPlugin {
         let unfinished = self.sender.as_ref().is_some_and(|sender| sender.slot_busy("state"));
         if let Some(sender) = self.sender.as_ref().filter(|_| self.webhook_ready()) {
             let deadline = Instant::now() + QUIT_WAIT;
-            if self.on() || retrying {
+            if self.on() || retrying || self.last_sent == Some(true) {
                 // Behind anything still going out, so a late "on" can't land after it; quitting waits only so long
                 sender.send(self.request(false), "quit", Some("state"));
                 sender.wait_idle(QUIT_WAIT);

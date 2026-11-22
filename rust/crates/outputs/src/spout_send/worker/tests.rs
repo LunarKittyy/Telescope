@@ -269,3 +269,18 @@ fn a_picture_that_waits_for_a_busy_reader_past_the_idle_time_is_dropped_and_the_
     assert_eq!(log.sent.lock().unwrap().len(), 1, "a stale picture went out after the stream stopped");
     wait_for("the sender to close", || log.closed.load(Ordering::SeqCst) == 1);
 }
+
+fn slot() -> Slot {
+    Slot { latest: Mutex::new(None), ready: Condvar::new(), stop: AtomicBool::new(false), alive: AtomicBool::new(true) }
+}
+
+#[test]
+fn a_picture_that_lands_as_the_thread_ends_keeps_it_going() {
+    let slot = slot();
+    *slot.latest.lock().unwrap() = Some((picture(2, 2, 1), Instant::now()));
+    assert!(!retire(&slot), "a fresh picture is waiting");
+    assert!(slot.alive.load(Ordering::SeqCst));
+    slot.latest.lock().unwrap().take();
+    assert!(retire(&slot));
+    assert!(!slot.alive.load(Ordering::SeqCst), "a picture put after this is refused, so the caller makes a new thread");
+}
