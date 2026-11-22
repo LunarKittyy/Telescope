@@ -180,7 +180,7 @@ fn the_desk_on_the_card_keeps_the_cpus_chroma_for_yuv_frames() {
                 let (card, cpu) = both_of(config, coloured(w, h, format));
                 let (max, mean, psnr, over) = difference(&card, &cpu);
                 println!("desk {format:?} {w}x{h} {name}: max {max}, mean {mean:.3}, psnr {psnr:.1} dB, {:.3}% of values off by more than 3", over * 100.0);
-                assert!(psnr >= 45.0 && mean < 1.0 && over < 0.01, "{format:?} {w}x{h} {name}: max {max}, psnr {psnr}, mean {mean}, over {over}");
+                assert!(psnr >= 52.0 && mean < 0.2 && over < 0.01, "{format:?} {w}x{h} {name}: max {max}, psnr {psnr}, mean {mean}, over {over}");
             }
         }
     }
