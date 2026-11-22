@@ -5,7 +5,7 @@ The next release follows 5.1.4. Ticked here means merged and not released yet. E
 - [ ] [Stargazer photos, cleaner frames and Night focus](#stargazer-photos-cleaner-frames-and-night-focus)
 - [x] [3D in a headset](#3d-in-a-headset)
 - [ ] [Stills as raw YUV](#stills-as-raw-yuv)
-- [ ] [Hardware decoding on Windows without a trip through memory](#hardware-decoding-on-windows-without-a-trip-through-memory)
+- [ ] [Hardware decoding on Windows without a copy through memory](#hardware-decoding-on-windows-without-a-copy-through-memory)
 - [ ] [Bug hunts, speed and a smaller app](#bug-hunts-speed-and-a-smaller-app)
 - [ ] [ARM64](#arm64)
 - [x] [Rearranging the docs](#rearranging-the-docs)
@@ -30,38 +30,38 @@ The next release follows 5.1.4. Ticked here means merged and not released yet. E
 
 ## Stargazer photos, cleaner frames and Night focus
 
-Three more pieces of Stargazer. Frames from photos lets Live stack and Star trails take their frames from photos instead of video, one request per shot. It's merged (#665). Lucky imaging is video only since it wants hundreds of frames. Night focus lets the Focus slider under Customise camera set the photos' focus instead of using the camera's own. It's written and in review. It needs the phone app from the same release, and with an older phone the slider stays greyed out. Cleaner frames raises the phone's H.264 bitrate while a run collects video frames, as far as the link allows and up to 100 Mbps. The bitrate returns to the Stream output setting when the run ends. It changes on the running stream with no reconnect and no gap. It's written and in review and needs the phone app from the same release.
+Three more pieces of Stargazer. Frames from photos lets Live stack and Star trails take their frames from photos instead of video, one request per shot. It's merged (#665). Lucky imaging is video only since it needs hundreds of frames. Night focus lets the Focus slider under Customise camera set the photos' focus rather than the camera's own. It's written and in review. It needs the phone app from the same release, and with an older phone the slider is greyed out. Cleaner frames raises the phone's H.264 bitrate while a run collects video frames, as far as the link allows and up to 100 Mbps. The bitrate returns to the Stream output setting when the run ends. It changes on the running stream with no reconnect and no gap. It's written and in review and needs the phone app from the same release.
 
 ## 3D in a headset
 
-A Headset switch on the 3D card serves a page that shows each half of the 3D picture to one eye in a Quest's browser (WebXR), with nothing to install on the headset. The page has VR controls (leave with B, Y or a grip, bring the picture back with A or X) and Depth, Height and a tilt for each eye are sliders on the card. The link has a secret in it and stays the same until you press New link.
+A Headset switch on the 3D card serves a page that shows each half of the 3D picture to one eye in a Quest's browser (WebXR), with nothing to install on the headset. The page has VR controls (leave with B, Y or a grip, bring the picture back with A or X) and Depth, Height and a tilt for each eye are sliders on the card. The link has a secret in it and doesn't change until you press New link.
 
 ## Stills as raw YUV
 
-A camera probe is now in the phone's developer settings and writes a report of what the phone's camera allows (long exposures, burst rates, full-size YUV). It needs a phone release to reach anyone. The report decides whether a burst of stills could go as raw YUV instead of JPEG, with no compression and nothing to decode. That is a protocol change and gets its own design first.
+A camera probe is now in the phone's developer settings and writes a report of what the phone's camera supports (long exposures, burst rates, full-size YUV). It needs a phone release to reach anyone. The report decides whether a burst of stills could go as raw YUV rather than JPEG, with no compression and nothing to decode. That is a protocol change and gets its own design first.
 
-## Hardware decoding on Windows without a trip through memory
+## Hardware decoding on Windows without a copy through memory
 
-On Linux a VA-API picture goes to the effects on the card without a trip through memory. On Windows this works when the picture work runs on DX12: a D3D11VA picture is copied on the card into a texture both APIs can open, the DX12 queue waits for that copy on the card, and each shared texture is kept open between pictures. It works on both cards of the test laptop and the picture matches the old path to within one level. At 4K the app's processor time on a short clip fell from about 4.3 s to 1.5 s, and the processor now spends about 2.5 ms on each frame, down from 13 to 16. Any failure falls back to the old copy through memory for the rest of that stream. What's left is Vulkan, which is what Windows picks first. Sharing is still off there. On the discrete card's current driver, opening the shared texture a second time or taking it from an undefined layout loses the device. Keeping it open and taking it from the general layout doesn't, but then the colour plane reads wrong (zeros on the first picture) while brightness is right. Vulkan also can't wait for the copy on the card yet, since wgpu doesn't switch on semaphore sharing on Windows.
+On Linux a VA-API picture goes to the effects on the card without a copy through memory. On Windows this works when the picture work runs on DX12: a D3D11VA picture is copied on the card into a texture both APIs can open, the DX12 queue waits for that copy on the card, and each shared texture isn't reopened for every picture. It works on both cards of the test laptop and the picture matches the old path to within one level. At 4K the app's processor time on a short clip fell from about 4.3 s to 1.5 s, and the processor now spends about 2.5 ms on each frame, down from 13 to 16. Any failure falls back to the old copy through memory for the rest of that stream. What's left is Vulkan, which is what Windows picks first. Sharing is still off there. On the discrete card's current driver, opening the shared texture a second time or taking it from an undefined layout loses the device. Keeping it open and taking it from the general layout doesn't, but then the colour plane reads wrong (zeros on the first picture) while brightness is right. Vulkan also can't wait for the copy on the card yet, since wgpu doesn't switch on semaphore sharing on Windows.
 
 ## Bug hunts, speed and a smaller app
 
-Ongoing. Bug passes over the code and measured work on speed, system use and the size of the app, one change per pull request. Nothing here is a feature.
+Ongoing. Bug passes over the code and measured work on speed, system use and the size of the app, one change per pull request. None of it is a feature.
 
-One piece is the window's weight and start time, from measuring the finished app against Python. The interpreter no longer keeps the compiler's trees after a build and Settings is built the first time it opens (122 MB at start against 173 MB). Compiling the cards of hidden tabs only when they open would save more. On Linux the graphics card now opens on a thread while the window's document compiles, which took 30 to 60 ms off the start. Compiling is still about 80 % of the time to the first frame, 600 to 1000 ms depending on how busy the machine is. Compiling ahead of time isn't a small change: the document is written at launch from the cards that are on, in the person's language, and the shell reaches every card by name through the interpreter, so a compiled window would be a second path next to the one plugins use. Reusing the Vulkan instance would save 24 ms.
+One piece is the window's weight and start time, from measuring the finished app against Python. The interpreter no longer retains the compiler's trees after a build and Settings is built the first time it opens (122 MB at start against 173 MB). Compiling the cards of hidden tabs only when they open would save more. On Linux the graphics card now opens on a thread while the window's document compiles, which took 30 to 60 ms off the start. Compiling is still about 80 % of the time to the first frame, 600 to 1000 ms depending on how busy the machine is. Compiling ahead of time isn't a small change because the document is written at launch from the cards that are on, in the person's language, and the shell reaches every card by name through the interpreter. A compiled window would be a second path next to the one plugins use. Reusing the Vulkan instance would save 24 ms.
 
 ## ARM64
 
-A maybe. Releases are x86_64 only for now, so ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope. Windows on ARM laptops would probably run the x64 build through Windows' own emulation. The virtual camera likely wouldn't work there because the Windows 11 camera runs in a native ARM64 system service that can't load the x64 DLL.
+Not decided. Releases are x86_64 only for now. ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope. Windows on ARM laptops run x64 programs through Windows' own emulation. The x64 build should work there, untested. The virtual camera is unlikely to work there because the Windows 11 camera runs in a native ARM64 system service that can't load the x64 DLL.
 
-The first step is done: a separate workflow (`rust-arm64.yml`) builds the workspace and runs the tests on GitHub's free ARM64 runners for Linux and Windows 11. It's not a required check, so a red run blocks nothing. Both build and nearly everything passes, so most of the desktop works on ARM as it is: 6796 of 6802 tests on Linux and 6643 of 6645 on Windows.
+The first step is done. A separate workflow (`rust-arm64.yml`) builds the workspace and runs the tests on GitHub's free ARM64 runners for Linux and Windows 11. A red run blocks nothing because the workflow is not a required check. Both build and nearly everything passes (6796 of 6802 tests on Linux and 6643 of 6645 on Windows). Most of the desktop works on ARM.
 
 What's left:
-- The direct colour conversion in `yuv.rs` is checked against swscale, and on ARM the two differ by far more than the three levels the tests allow. The two tests for it fail on both runners. It's probably swscale's ARM code rounding differently from its x86 code, so the first thing to find out is whether the new conversion or the reference is the odd one out, with a pixel diff against x86_64.
-- Linux needs FFmpeg 8, which Ubuntu 24.04 doesn't have, so the ARM Linux job runs in a 26.04 container. The code doesn't build against FFmpeg 6.1.
+- The direct colour conversion in `yuv.rs` is checked against swscale and on ARM the two differ by far more than the three levels the tests allow. The two tests for it fail on both runners. It's probably swscale's ARM code rounding differently from its x86 code. The first thing to find out is whether the new conversion or the reference is the odd one out, with a pixel diff against x86_64.
+- Linux needs FFmpeg 8 (the code doesn't build against 6.1) and Ubuntu 24.04 doesn't have it. The ARM Linux job runs in a 26.04 container for that reason.
 - On Windows the FFmpeg for the tests is BtbN's ARM64 build (GyanD's is x64 only). The packages would need an ARM64 build from `build_ffmpeg.sh` first.
-- The Windows camera DLL and the vision pack's libraries still need ARM64 builds. Nothing has been tried there, and the people features stay off without the pack.
-- Nothing ARM is built into a release yet, and nothing has run on a real ARM machine, so the picture, capture and the virtual camera on Linux are untested.
+- The Windows camera DLL and the vision pack's libraries still need ARM64 builds. Nothing has been tried there. The people features are off without the pack.
+- No release has an ARM build yet and nothing has run on a real ARM machine. The picture, capture and the virtual camera on Linux are untested.
 - Four Linux tests fail only because the job runs as root, which can read files the tests make unreadable. One Windows pacing test failed once and passed in the next run. It depends on timing on the slower runner.
 
 ## Rearranging the docs
@@ -74,11 +74,11 @@ The prose pass over `docs/` and the app's texts went out in 5.1.4. The files are
 
 ## Doing the picture work on the GPU
 
-Background blur now runs on the graphics card (4K with everything on went from 5.5 to 2.4 ms for the blur) and a wasted pass in it is skipped. Background's Picture mode runs there too. Spout capture is converted on the card too, the 1998 webcam costs much less and Green screen goes dark instead of showing the room when the card fails. Cinema's tints in the preview are painted on the card, which had been costing about 14 points of app CPU at 4K. On Linux VA-API pictures reach the steps on the card without a trip through memory. What's left is the steps still written for the CPU that change the picture partway through, like Chroma key, Privacy blur, the combined picture, the Fun pack, Name tag and the wait screen. Each one brings the frame down and makes the next shader send it up again. Turning the heaviest of them into shaders, or into steps that can run either way, would leave one trip up and one down, which is all the virtual camera needs. On Windows a decoded picture still comes down to memory first unless the steps run on DX12 (see the Windows decoding item above).
+Background blur now runs on the graphics card (4K with everything on went from 5.5 to 2.4 ms for the blur) and a wasted pass in it is skipped. Background's Picture mode runs there too. Spout capture is converted on the card too, the 1998 webcam costs much less and Green screen goes dark instead of showing the room when the card fails. Cinema's tints in the preview are painted on the card, which had been costing about 14 points of app CPU at 4K. On Linux VA-API pictures reach the steps on the card without a copy through memory. What's left is the steps still written for the CPU that change the picture partway through, like Chroma key, Privacy blur, the combined picture, the Fun pack, Name tag and the wait screen. Each one brings the frame down and makes the next shader send it up again. Turning the heaviest of them into shaders, or into steps that can run either way, would leave one copy up and one down, which is all the virtual camera needs. On Windows a decoded picture still comes down to memory first unless the steps run on DX12 (see the Windows decoding item above).
 
 The card isn't always the faster place though. 5.0.2 and 5.0.3 moved mirroring, flipping, zoom and stretch back to the CPU, since they're cheap there and a card busy with a game or OBS held up every frame. A step is only worth moving to the card when it's heavy enough to make up for that.
 
-A view between two plugin shaders costs a trip down and back up. Making the view a step that can run either way would only help with one more rule. Such a step would go to the card only when the frame is already up there. Right now the balancer picks the card or the CPU for every such step in a frame at once (colour grading is the other one). With the card picked, a lone view or grade sends the frame up only for itself.
+A view between two plugin shaders costs a copy down and back up. Making the view a step that can run either way would only help with one more rule. Such a step would go to the card only when the frame is already up there. Right now the balancer picks the card or the CPU for every such step in a frame at once (colour grading is the other one). With the card picked, a lone view or grade sends the frame up only for itself.
 
 Measure first with the transfer counter (`crates/media/src/transfers.rs`). Run a heavy stack on a weak laptop and see where the time goes before moving anything. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first. Medium. Sharing one working frame and doing effects on the YUV planes were measured and dropped, see [dropped.md](dropped.md).
 
@@ -90,8 +90,8 @@ Settings has a graphics card choice for someone whose system picks the wrong car
 
 - Composite tiles follow Max zoom and remember their zoom
 - The stick figure copes with close-ups and crossed legs
-- Auto framing can follow one person, and follows through a crossing. Picking a person is refused on a preview that shows another stream
-- Background cuts around chairs and light clothing more cleanly, and reuses the last mask instead of going black when a new one is late
+- Auto framing can follow one person and follows through a crossing. Picking a person is refused on a preview that shows another stream
+- Background cuts around chairs and light clothing more cleanly and reuses the last mask rather than going black when a new one is late
 
 ## One picture as a scene editor
 
@@ -131,7 +131,7 @@ Look in Settings has options for corners, text size, density, higher contrast, m
 - Phototrap, Stargazer and the Preview card have a Reset
 - The header button reads Stop all when several streams are live
 - Every stream line in the log names the phone and the virtual camera it feeds, and the reason it stopped
-- The windows fit the screen at 125% and 150% scale and after a taskbar that hides itself comes back
+- The windows fit the screen at 125% and 150% scale and after a taskbar that hides itself reappears
 
 ## Stargazer and Phototrap
 
@@ -139,7 +139,7 @@ Both are optional Lab plugins. Stargazer has lucky imaging, live stacking and st
 
 ## Plugins that fail safely and share values
 
-A plugin that panics is switched off and the app carries on, unless it hides part of the picture. Then the app closes with a crash report. A plugin can name the built-in plugins it needs in `plugin.json` and share values with other plugins through a host registry. The MCP server can change the settings of most plugins now. Safety and outward settings (Privacy blur, start on, the battery and temperature stops, the update channel, keeping the app portable and the camera's manual switches) are kept out of it on purpose.
+A plugin that panics is switched off and the app keeps running, unless it hides part of the picture. Then the app closes with a crash report. A plugin can name the built-in plugins it needs in `plugin.json` and share values with other plugins through a host registry. The MCP server can change the settings of most plugins now. Safety and outward settings (Privacy blur, start on, the battery and temperature stops, the update channel, keeping the app portable and the camera's manual switches) are not available to it.
 
 ## Phones that find the computer again
 
@@ -151,7 +151,7 @@ Live view for Nikon and Canon works through Windows' own camera driver, and so d
 
 ## Spout capture fixes
 
-A Spout sender that gets stuck on Linux no longer holds up Stop and its pictures are dropped when they finish too late. A sender that is stuck shows that on the card instead of an old picture.
+A Spout sender that gets stuck on Linux no longer blocks Stop and its pictures are dropped when they finish too late. A sender that is stuck shows that on the card rather than an old picture.
 
 ## Lighter and faster
 
@@ -165,7 +165,7 @@ Less work while nothing is looking and less per frame while something is.
 
 ## A faster interface underneath
 
-Fewer allocations while the window updates, about a third as many for each update from the phone. The interpreter also lets go of the compiler's trees after each build and Settings frees its window. The window isn't visibly lighter.
+Fewer allocations while the window updates, about a third as many for each update from the phone. The interpreter also drops the compiler's trees after each build and Settings frees its window. The window isn't visibly lighter.
 
 ## Going back to the Python version removed
 
