@@ -20,7 +20,7 @@ use wgpu::naga;
 /// Set on the convert shader's mode to read YUV chroma by index, a sample for its 2 x 2 block, as the CPU does (taps stay 1).
 const BLOCK_CHROMA: u32 = 8;
 /// Set on the convert shader's mode so ToY/ToU/ToV read directly from NV12 planes instead of an RGBA texture.
-#[cfg(all(target_os = "linux", ffmpeg))]
+#[cfg(all(any(target_os = "linux", windows), ffmpeg))]
 const FROM_NV12: u32 = 64;
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
 const BLUR: &str = include_str!("shaders/blur.wgsl");
@@ -923,47 +923,6 @@ impl Gpu {
             Ok(out)
         })??;
         Ok(Some(Held { enc: self.device.create_command_encoder(&Default::default()), a, b: None, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: true }))
-    }
-
-    /// Ensures held.a holds the current picture as RGBA, converting from held.planes on demand.
-    fn ensure_rgba(&self, held: &mut Held) -> wgpu::Texture {
-        if let Some(a) = &held.a {
-            return a.clone();
-        }
-        let planes = held.planes.as_ref().expect("held picture has neither RGBA nor I420 planes");
-        let views = planes.each_ref().map(|t| t.create_view(&Default::default()));
-        let a = self.texture(held.width, held.height, WORK);
-        self.convert_pass_with(&mut held.enc, &views, Mode::I420, &a, 1, (held.width, held.height), held.block_chroma);
-        held.a = Some(a.clone());
-        a
-    }
-
-    #[cfg(all(windows, ffmpeg))]
-    fn lift_d3d11(&self, frame: &Frame, source: Arc<dyn telescope_core::frame::DecodedSurface>, surface: &crate::d3d11_import::Surface, block_chroma: bool) -> Result<Option<Held>, String> {
-        let Some(imported) = surface.import(&self.device, &self.import_capabilities)? else { return Ok(None) };
-        let (w, h) = (frame.width, frame.height);
-        let vulkan = imported.backend == wgpu::Backend::Vulkan;
-        let converted = self.scoped(|| -> Result<_, String> {
-            // wgpu refuses one encoder that mixes its own commands with raw ones, so the two barriers get encoders of their own
-            let mut acquire = self.device.create_command_encoder(&Default::default());
-            if vulkan {
-                crate::d3d11_import::Surface::ownership(&self.device, &mut acquire, &imported.texture, true)?;
-            }
-            let mut enc = self.device.create_command_encoder(&Default::default());
-            let plane = |aspect, format| imported.texture.create_view(&wgpu::TextureViewDescriptor { aspect, format: Some(format), ..Default::default() });
-            let views = [plane(wgpu::TextureAspect::Plane0, wgpu::TextureFormat::R8Unorm), plane(wgpu::TextureAspect::Plane1, wgpu::TextureFormat::Rg8Unorm), self.blank.clone()];
-            let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
-            self.convert_pass_encoded(&mut enc, &views, Mode::Nv12, &a, 1, (w, h), block_chroma, surface.colour());
-            let mut release = self.device.create_command_encoder(&Default::default());
-            if vulkan {
-                crate::d3d11_import::Surface::ownership(&self.device, &mut release, &imported.texture, false)?;
-            }
-            self.queue.submit([acquire.finish(), enc.finish(), release.finish()]);
-            // Keep the decoder's AVFrame, the shared texture's slot and the imported image until the conversion submission has finished.
-            self.queue.on_submitted_work_done(move || drop((source, imported)));
-            Ok((a, b))
-        })??;
-        Ok(Some(Held { enc: self.device.create_command_encoder(&Default::default()), a: converted.0, b: converted.1, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: None, block_chroma, imported: true }))
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
