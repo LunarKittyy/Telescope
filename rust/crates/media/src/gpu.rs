@@ -1854,13 +1854,8 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     let layouts: Vec<Option<&wgpu::BindGroupLayout>> = [Some(&gpu.frame_layout), extras_layout.as_ref()].into_iter().take(if extras_layout.is_some() { 2 } else { 1 }).collect();
     let layout = gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("plugin"), bind_group_layouts: &layouts, immediate_size: 0 });
     let pipeline = gpu.render_pipeline("plugin", &layout, &module, (shader::VERTEX_ENTRY, shader::FRAGMENT_ENTRY), WORK);
-    let passes = kinds.iter().enumerate().map(|(k, kind)| {
-        let format = match kind {
-            shader::PassKind::Colour => WORK,
-            shader::PassKind::Number => wgpu::TextureFormat::R32Float,
-        };
-        (gpu.render_pipeline("plugin pass", &layout, &module, (shader::VERTEX_ENTRY, &shader::pass_entry(k)), format), format)
-    }).collect();
+    // A number pass is packed into 8-bit RGBA (core::shader): every card can draw into that, where R32Float isn't renderable on all of them
+    let passes = (0..kinds.len()).map(|k| (gpu.render_pipeline("plugin pass", &layout, &module, (shader::VERTEX_ENTRY, &shader::pass_entry(k)), WORK), WORK)).collect();
 
     // The plugin's pictures go up once, as RGBA (or R8Unorm for single-channel red blur masks) whatever they came as
     let mut keep = Vec::new();

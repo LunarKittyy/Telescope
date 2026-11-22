@@ -18,7 +18,7 @@
 //! A shader that needs pictures worked out first (a shrunk copy, a running sum) defines `fn pass_0(at: vec2<i32>) -> vec4<f32>` (or `-> f32`), then pass_1 and so on, up to MAX_PASSES.
 //! Each pass makes a picture of its own before effect() runs, at the size the step's uniform PASS_SIZES gives it (the picture's own when it gives none), `at` being the pixel it makes.
 //! A vec4 pass is kept in 8 bits a channel like the picture, an f32 pass as one exact float. Later passes and effect() read pass k with `passed_k(at)`, which repeats the edge
-//! pixel past the edges, and its size with `passed_size_k()`; see passes.
+//! pixel past the edges, and its size with `passed_size_k()`; see passes. An f32 pass's bits are kept in an 8-bit RGBA picture, as not every card can draw into a float one.
 
 use crate::frame::ShaderStep;
 use serde_json::Value;
@@ -112,12 +112,24 @@ pub const ROOM_PICTURE: &str = "room_picture";
 /// The step texture (one channel, red, at the blurred size) that weights blurred_weighted: 255 where the picture counts, 0 where it's left out.
 pub const BLUR_WEIGHTS: &str = "blur_weights";
 
+/// An f32 pass's bits spread over an 8-bit RGBA picture's four channels and read back, exactly on any card.
+const PACK_HELPERS: &str = "\
+fn telescope_pack(v: f32) -> vec4<f32> {
+    let b = bitcast<u32>(v);
+    return vec4<f32>(vec4<u32>(b & 255u, (b >> 8u) & 255u, (b >> 16u) & 255u, b >> 24u)) / 255.0;
+}
+fn telescope_unpack(c: vec4<f32>) -> f32 {
+    let b = vec4<u32>(round(c * 255.0));
+    return bitcast<f32>(b.x | (b.y << 8u) | (b.z << 16u) | (b.w << 24u));
+}
+";
+
 /// Most passes a shader can define before effect().
 pub const MAX_PASSES: usize = 8;
 /// The step's uniform with each pass's size, [[width, height], ...]: a pass left out works at the picture's size.
 pub const PASS_SIZES: &str = "pass_sizes";
 
-/// What a pass gives: four channels kept in 8 bits as the picture is, or one exact number (32-bit float).
+/// What a pass gives: four channels kept in 8 bits as the picture is, or one exact number (32-bit float, its bits kept in the four 8-bit channels).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PassKind {
     Colour,
@@ -398,7 +410,7 @@ pub fn assemble(step: &ShaderStep) -> Result<String, String> {
     for (k, kind) in passes(&step.wgsl).into_iter().enumerate() {
         let value = match kind {
             PassKind::Colour => format!("pass_{k}(at)"),
-            PassKind::Number => format!("vec4<f32>(pass_{k}(at), 0.0, 0.0, 1.0)"),
+            PassKind::Number => format!("telescope_pack(pass_{k}(at))"),
         };
         out += &format!("\n@fragment\nfn {}(v: TelescopeVertex) -> @location(0) vec4<f32> {{\n    let at = vec2<i32>(floor(v.position.xy));\n    return {value};\n}}\n", pass_entry(k));
     }
@@ -435,14 +447,19 @@ fn assemble_body(step: &ShaderStep) -> Result<String, String> {
         }
     }
     let first = pass_binding(step);
-    for (k, kind) in passes(&step.wgsl).into_iter().enumerate() {
-        let (ty, pick) = match kind {
-            PassKind::Colour => ("vec4<f32>", ""),
-            PassKind::Number => ("f32", ".r"),
+    let kinds = passes(&step.wgsl);
+    if kinds.contains(&PassKind::Number) {
+        out += PACK_HELPERS;
+    }
+    for (k, kind) in kinds.into_iter().enumerate() {
+        let ty = match kind {
+            PassKind::Colour => "vec4<f32>",
+            PassKind::Number => "f32",
         };
+        let (open, close) = if kind == PassKind::Number { ("telescope_unpack(", ")") } else { ("", "") };
         out += &format!("@group({GROUP_STEP}) @binding({}) var telescope_passed_{k}: texture_2d<f32>;\n", first + k as u32);
         out += &format!("fn passed_size_{k}() -> vec2<i32> {{\n    return vec2<i32>(textureDimensions(telescope_passed_{k}));\n}}\n");
-        out += &format!("fn passed_{k}(at: vec2<i32>) -> {ty} {{\n    return textureLoad(telescope_passed_{k}, clamp(at, vec2<i32>(0), passed_size_{k}() - vec2<i32>(1)), 0){pick};\n}}\n");
+        out += &format!("fn passed_{k}(at: vec2<i32>) -> {ty} {{\n    return {open}textureLoad(telescope_passed_{k}, clamp(at, vec2<i32>(0), passed_size_{k}() - vec2<i32>(1)), 0){close};\n}}\n");
     }
     out += "\n";
     out += &step.wgsl;
