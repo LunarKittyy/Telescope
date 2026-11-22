@@ -9,6 +9,9 @@ enum class StreamState {
 val StreamState.holdsSession: Boolean
     get() = this != StreamState.Idle && this != StreamState.Failed && this != StreamState.Stopping
 
+// A preview attached to stream run attachedRun shows nothing more once that run ends or another starts without its surface
+fun previewLost(attachedRun: Long, run: Long, state: StreamState): Boolean = run != attachedRun || !state.holdsSession
+
 data class StateTransition(
     val timestampMs: Long,
     val from: StreamState,

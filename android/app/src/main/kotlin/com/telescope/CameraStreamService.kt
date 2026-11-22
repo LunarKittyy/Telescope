@@ -520,6 +520,9 @@ class CameraStreamService : Service() {
     private var idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var started = false
+    // Counts the streams this instance has run, so a preview can tell its stream from a newer one
+    @Volatile var run = 0L
+        private set
     private var ownershipLeaseId = 0L
     @Volatile private var busySinceMs = 0L
 
@@ -745,6 +748,7 @@ class CameraStreamService : Service() {
             return START_NOT_STICKY
         }
         started = true
+        run++
         val cameraId  = intent?.getStringExtra(EXTRA_CAMERA_ID)  ?: "0"
         val logicalId = intent?.getStringExtra(EXTRA_LOGICAL_ID) ?: ""
         streamWidth   = intent?.getIntExtra(EXTRA_WIDTH,  1920)  ?: 1920
