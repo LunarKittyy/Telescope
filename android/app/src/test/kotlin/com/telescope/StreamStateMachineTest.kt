@@ -142,4 +142,19 @@ class StreamStateMachineTest {
         val transition = m.transition(StreamState.StartingServer, "op")
         assertEquals(42L, transition.timestampMs)
     }
+
+    @Test
+    fun `a preview keeps showing its stream while it runs, lens switches included`() {
+        for (state in listOf(StreamState.OpeningCamera, StreamState.ConfiguringSession, StreamState.Streaming, StreamState.Recovering)) {
+            assertFalse(previewLost(attachedRun = 3, run = 3, state = state), "$state")
+        }
+    }
+
+    @Test
+    fun `a preview closes once its stream stops, or a new one starts without its surface`() {
+        // Seen on an emulator: the camera closed and the preview stayed up on its last frame, also through the next stream
+        assertTrue(previewLost(attachedRun = 3, run = 3, state = StreamState.Idle))
+        assertTrue(previewLost(attachedRun = 3, run = 3, state = StreamState.Failed))
+        assertTrue(previewLost(attachedRun = 3, run = 4, state = StreamState.Streaming))
+    }
 }
