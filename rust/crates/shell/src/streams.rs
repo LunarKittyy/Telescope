@@ -1410,17 +1410,16 @@ impl Window {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 on_camera_check(self, &source, session_id, state.as_ref());
             }
-            Report::HandedOver { source_id, session_id, url, session } => {
+            Report::HandedOver { source_id, session_id, url, opened } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
-                let Some(phone) = source.kind.as_phone().filter(|p| p.handing_over()) else {
-                    if let Some(s) = session {
-                        std::thread::spawn(move || s.release()); // stopped meanwhile
+                let Some(phone) = source.kind.as_phone() else {
+                    if let Some(s) = opened.lock().unwrap().take() {
+                        std::thread::spawn(move || s.release());
                     }
                     return;
                 };
-                match session {
-                    Some(_) if source.session().is_some_and(|s| s.id == session_id) => self.moved_over(&source, None, &url),
-                    _ => phone.hand_over_failed(&url, true),
+                if phone.handed_over(source.session().map(|s| s.id), session_id, &url, &opened) {
+                    self.moved_over(&source, None, &url);
                 }
             }
             Report::Moved { source_id, session_id, generation, route, session } => {
