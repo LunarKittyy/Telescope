@@ -62,3 +62,16 @@ fn a_paired_phone_that_is_not_picked_gets_the_old_shared_config_too() {
     s.switch_device(Some("A"), Some("B"));
     assert_eq!(frames(&mut s), 500);
 }
+
+#[test]
+fn an_old_night_mode_on_a_phone_that_is_not_picked_reads_as_it_does_on_the_picked_one() {
+    let mut s = state_with("stargazer-night", json!({"selected_device": "A",
+        "plugin_configs": {"stargazer": {"mode": "night", "frames": 500}, "connection": {"phones": [{"id": "A"}, {"id": "B"}]}},
+    }));
+    s.register(Box::new(StargazerPlugin::new())).unwrap();
+    s.apply_saved_config();
+    let first = s.plugin_config("stargazer").unwrap();
+    assert_eq!((first["mode"].clone(), first["input"].clone(), first["photo_count"].clone()), (json!("live"), json!("photos"), json!(1)));
+    s.switch_device(Some("A"), Some("B"));
+    assert_eq!(s.plugin_config("stargazer").unwrap(), first);
+}

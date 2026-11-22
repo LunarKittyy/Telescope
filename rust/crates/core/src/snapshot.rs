@@ -128,8 +128,11 @@ mod tests {
             for device in sections(&want["devices"]) {
                 // Connection's picked phone gets its device-local plugins' settings
                 let picked = want["selected_device"].as_str() == Some(device.as_str());
-                // A paired phone that had no settings gets its entry from the spread, which this snapshot has no plugins for
-                let spread_only = input["devices"].get(&device).is_none();
+                // A paired phone that had no settings gets its entry from the spread, which this snapshot has no plugins for:
+                // it has to be a phone the file pairs, and hold nothing but copies of the file's own shared sections
+                let paired = input.pointer("/plugin_configs/connection/phones").and_then(Value::as_array).is_some_and(|p| p.iter().any(|p| p["id"].as_str() == Some(device.as_str())));
+                let copies = sections(&want["devices"][&device]["plugin_configs"]).iter().all(|k| input["plugin_configs"].get(k).is_some());
+                let spread_only = input["devices"].get(&device).is_none() && paired && copies;
                 assert!(got["devices"].get(&device).is_some() || picked || spread_only, "{name}: devices.{device} missing");
             }
         }

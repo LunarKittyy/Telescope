@@ -63,6 +63,10 @@ pub fn spread_shared_settings(cfg: &mut Value, device_local: &[String]) -> bool 
             ids.push(id);
         }
     }
+    // No phone yet: the copy stays in the file until one is paired or picked, so it isn't lost
+    if ids.is_empty() {
+        return false;
+    }
     for name in moved {
         let section = cfg["plugin_configs"].as_object_mut().and_then(|p| p.remove(&name)).unwrap_or(json!({}));
         for id in &ids {
@@ -146,6 +150,25 @@ mod tests {
         let mut cfg = json!({"selected_device": "A", "plugin_configs": {"fun_pack": {"effect": "vhs"}, "connection": {"phones": [{"id": "A"}, {"id": "P2", "name": "x"}]}}, "devices": {}});
         spread_shared_settings(&mut cfg, &["fun_pack".into()]);
         assert_eq!(cfg["devices"]["P2"]["plugin_configs"]["fun_pack"], json!({"effect": "vhs"}));
+        assert_eq!(cfg["devices"]["A"]["plugin_configs"]["fun_pack"], json!({"effect": "vhs"}));
+    }
+
+    #[test]
+    fn a_phone_paired_after_the_move_starts_without_the_old_copy() {
+        let mut cfg = json!({"selected_device": "A", "plugin_configs": {"fun_pack": {"effect": "vhs"}, "connection": {"phones": [{"id": "A"}]}}});
+        spread_shared_settings(&mut cfg, &["fun_pack".into()]);
+        cfg["plugin_configs"]["connection"]["phones"].as_array_mut().unwrap().push(json!({"id": "Later"}));
+        assert!(!spread_shared_settings(&mut cfg, &["fun_pack".into()]));
+        assert!(cfg["devices"].get("Later").is_none());
+    }
+
+    #[test]
+    fn the_shared_copy_stays_while_there_is_no_phone_to_take_it() {
+        let mut cfg = json!({"selected_device": null, "plugin_configs": {"fun_pack": {"effect": "vhs"}}});
+        assert!(!spread_shared_settings(&mut cfg, &["fun_pack".into()]));
+        assert_eq!(cfg["plugin_configs"]["fun_pack"], json!({"effect": "vhs"}));
+        cfg["plugin_configs"]["connection"] = json!({"phones": [{"id": "A"}]});
+        assert!(spread_shared_settings(&mut cfg, &["fun_pack".into()]));
         assert_eq!(cfg["devices"]["A"]["plugin_configs"]["fun_pack"], json!({"effect": "vhs"}));
     }
 

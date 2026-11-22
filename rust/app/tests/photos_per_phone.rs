@@ -51,3 +51,22 @@ fn an_old_shared_config_reaches_the_picked_and_every_paired_phone() {
     let saved = s.file.load();
     assert!(saved["plugin_configs"].get("photos").is_none());
 }
+
+/// The settings of every paired phone in the real two-phone fixture, which still has the old one-pick bracket and no zoom key.
+#[test]
+fn both_phones_of_a_real_old_config_end_up_with_the_same_photos_settings() {
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/configs/linux-two-phones/telescope_config.json");
+    let config: Value = telescope_core::json::loads(&std::fs::read_to_string(fixture).unwrap()).unwrap();
+    let (a, b) = ("00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002");
+    assert_eq!(config["plugin_configs"]["photos"]["bracket"], "3x1", "the fixture still holds the old key");
+    let mut s = state_with("photos-fixture", config);
+    s.register(Box::new(PhotosPlugin::new())).unwrap();
+    s.apply_saved_config();
+    let first = s.plugin_config("photos").unwrap();
+    assert_eq!((first["bracket_photos"].clone(), first["bracket_gap"].clone(), first["use_zoom"].clone()), (json!(3), json!(3), json!(false)));
+    s.switch_device(Some(a), Some(b));
+    let second = s.plugin_config("photos").unwrap();
+    assert_eq!(second, first, "the phone that wasn't picked reads the old keys the same way");
+    assert!(second.get("bracket").is_none());
+    assert_eq!(second["folder"], "/home/sam/Pictures/Telescope");
+}
