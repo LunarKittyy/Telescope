@@ -78,7 +78,7 @@ object StreamLauncher {
             Result.Started
         } catch (e: Exception) {
             CameraOwnership.release(lease.id)
-            SessionStartWindow.cancel()
+            SessionStartWindow.cancel(ticket)
             android.util.Log.w("StreamLauncher", "Could not start stream service", e)
             Result.Rejected("start_refused")
         }

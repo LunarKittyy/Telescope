@@ -321,7 +321,12 @@ open class StartWindow(private val clock: () -> Long) {
 
     fun open(): Boolean = clock() < until
 
-    fun cancel() { until = 0L }
+    // This start couldn't be made: only its own ticket leaves, and the window closes unless another start still waits in it
+    @Synchronized
+    fun cancel(ticket: Long) {
+        queued.remove(ticket)
+        if (queued.isEmpty()) until = 0L
+    }
 
     companion object {
         const val PENDING_MS = 5_000L  // the service never got to onStartCommand

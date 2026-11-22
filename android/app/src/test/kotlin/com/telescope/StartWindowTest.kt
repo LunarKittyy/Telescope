@@ -35,8 +35,19 @@ class StartWindowTest {
 
     @Test
     fun `a start that couldn't be made closes the window`() {
-        window.begin()
-        window.cancel()
+        val ticket = window.begin()
+        window.cancel(ticket)
+        assertFalse(window.open())
+    }
+
+    @Test
+    fun `a start that couldn't be made leaves another computer's start queued`() {
+        val a = window.begin("a")
+        val b = window.begin("b")
+        window.cancel(b)
+        assertTrue(window.open())
+        assertTrue(window.abort("a"))
+        assertTrue(window.aborted(a))
         assertFalse(window.open())
     }
 
