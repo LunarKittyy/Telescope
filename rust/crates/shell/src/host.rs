@@ -51,6 +51,7 @@ impl Ctx<'_> {
         }
         if self.state.camera_watcher.as_deref() == Some(me.as_str()) {
             self.state.camera_watcher = None;
+            self.state.watch_cut = true;
             self.state.idle.forget_watched();
         }
     }
@@ -793,6 +794,7 @@ impl Host for Ctx<'_> {
     fn emit(&mut self, event: Event) {
         if matches!(event, Event::CameraWatched { .. }) {
             self.state.camera_watcher = Some(self.me.clone());
+            self.state.watch_cut = false;
         }
         self.state.bus.emit(event);
     }

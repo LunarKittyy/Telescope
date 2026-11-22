@@ -443,6 +443,13 @@ impl StreamFlow {
         false
     }
 
+    /// source_id is gone for good: nothing queued for it starts later.
+    pub fn forget_queued(&mut self, source_id: &str) {
+        self.sessions.restart_later.remove(source_id);
+        self.sessions.start_later.retain(|id| id != source_id);
+        self.befores.remove(source_id);
+    }
+
     /// _on_slots_ready: the extra cameras are there, so what waited for them starts, one at a time.
     pub fn slots_ready(&mut self, host: &mut dyn FlowHost, waiting: Vec<String>) {
         self.announce_idle_outputs(host, None);

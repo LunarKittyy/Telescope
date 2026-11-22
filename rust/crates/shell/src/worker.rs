@@ -1277,6 +1277,7 @@ impl Shared {
             let seq = self.next_seq();
             if !self.publish(seq, first.0) || self.slot.latest_picture().is_none() {
                 drop(cap);
+                self.status("waiting", &tr("Waiting for the first frame…"));
                 self.restart_vcam.wait(RECONNECT_DELAY);
                 self.restart_vcam.clear();
                 continue;
@@ -3884,6 +3885,20 @@ mod tests {
         assert!(cams.sent.lock().unwrap().is_empty());
         wait_for(|| cams.sent.lock().unwrap().contains(&3));
         assert!(!kinds(&log).iter().any(|k| k == "error" || k == "idle"), "{:?}", kinds(&log));
+        w.stop();
+    }
+
+    #[test]
+    fn a_first_frame_that_breaks_says_the_stream_is_waiting_while_it_tries_again() {
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(2)]), Some(vec![Step::Frame(3)])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let (media, _tried) = breaking_on(2);
+        let w = start(setup(opener), media, &cams, &log);
+        wait_for(|| opens.gone() == 1);
+        wait_for(|| cams.sent.lock().unwrap().contains(&3));
+        let kinds = kinds(&log);
+        let waiting = kinds.iter().position(|k| k == "waiting");
+        assert!(waiting.is_some(), "no status while the first frame was tried again: {kinds:?}");
         w.stop();
     }
 

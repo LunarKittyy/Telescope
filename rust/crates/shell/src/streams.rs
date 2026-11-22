@@ -1532,6 +1532,9 @@ impl Window {
             // select_device tells Connection first, while it still knows the source it's leaving
             self.with_flow(|_, host| host.select_device(next.as_deref()));
         }
+        // Waiting for the extra cameras or a start under way, it would be taken for a phone when its turn came
+        self.streams.slots.forget(id);
+        self.with_flow(|flow, _| flow.forget_queued(id));
         self.streams.plugin_sources.borrow_mut().remove(id);
         self.streams.sources.borrow_mut().remove(id);
         self.note_changes_only();

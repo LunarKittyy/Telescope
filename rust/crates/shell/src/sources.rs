@@ -481,6 +481,10 @@ pub struct PhoneKind {
     inner: RefCell<PhoneInner>,
     /// Stops still on their way to the phone; a wake waits for them so it doesn't join the stream they end.
     stopping: Stops,
+    /// Wakes still under way, which quitting waits for.
+    wakes: Stops,
+    /// Set at quit: a wake that gets through after that stops the phone itself, since nothing reads its report any more.
+    quitting: Arc<AtomicBool>,
     /// One recovery state poll at a time: an unreachable phone takes 4 s to time out.
     state_poll_busy: Arc<AtomicBool>,
     park_timer: slint::Timer,
@@ -500,7 +504,7 @@ pub struct PhoneKind {
 impl PhoneKind {
     pub fn new(id: Option<String>, link: Arc<dyn Link>, plan: PlanNow, request: StreamRequest,
                post: Post, on_timer: TimerHook) -> PhoneKind {
-        PhoneKind { id, link, plan, request, post, inner: RefCell::default(), stopping: Stops::default(),
+        PhoneKind { id, link, plan, request, post, inner: RefCell::default(), stopping: Stops::default(), wakes: Stops::default(), quitting: Arc::default(),
                     park_timer: slint::Timer::default(), gone_timer: slint::Timer::default(),
                     recovery_timer: slint::Timer::default(), heat_timer: slint::Timer::default(),
                     alive_timer: slint::Timer::default(), camera_on_timer: slint::Timer::default(),
@@ -555,6 +559,8 @@ impl PhoneKind {
 
     /// Quitting: give stops still on their way until deadline.
     pub fn drain_stops(&self, deadline: std::time::Instant) {
+        self.quitting.store(true, Ordering::SeqCst);
+        self.wakes.drain(deadline.saturating_duration_since(Instant::now()));
         self.stopping.drain(deadline.saturating_duration_since(Instant::now()));
     }
 
@@ -914,10 +920,14 @@ impl SourceKind for PhoneKind {
         let mut opening = plan.opening.unwrap_or(self.request);
         opening.camera_off = source.camera_off();
         let (link, post, id, sid, stopping) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.stopping.clone());
+        let (quitting, phone) = (self.quitting.clone(), self.phone());
         let label = crate::session::stream_label(source);
-        std::thread::spawn(move || {
+        self.wakes.spawn(false, move || {
             // A stop still on its way would land after this wake joined the stream it ends, so the wake goes after it
             let after_stop = stopping.finish(STOP_WAIT);
+            if quitting.load(Ordering::SeqCst) {
+                return;
+            }
             let progress_post = post.clone();
             let progress_sid = sid.clone();
             let progress = move |text: &str| progress_post(Report::WakeProgress { source_id: progress_sid.clone(), wake_id, text: text.into() });
@@ -936,6 +946,12 @@ impl SourceKind for PhoneKind {
                 }
                 Ok(session)
             })();
+            // Quit came while the phone was starting: nothing will read the report, so the phone is stopped here
+            if let (true, Ok(session), Some(phone)) = (quitting.load(Ordering::SeqCst), &result, &phone) {
+                link.stop_streaming(phone, &session.route());
+                session.release();
+                return;
+            }
             post(Report::WakeDone { source_id: sid, wake_id, result });
         });
     }
@@ -1375,6 +1391,8 @@ mod tests {
         reached: Mutex<Vec<String>>,
         /// A stop waits until this is true.
         stop_gate: Option<Arc<(Mutex<bool>, std::sync::Condvar)>>,
+        /// A wake waits until this is true.
+        wake_gate: Option<Arc<(Mutex<bool>, std::sync::Condvar)>>,
         adopted: Mutex<Vec<RouteSpec>>,
         accepted_recovery: Mutex<Vec<(Option<String>, Resolution)>>,
         version_checks: Mutex<Vec<(String, RoutePreference)>>,
@@ -1458,6 +1476,12 @@ mod tests {
         }
         fn ensure_streaming(&self, _phone: &PairedPhone, _route: &RouteSpec, _opening: Option<StreamRequest>, after_stop: bool,
                             _progress: &dyn Fn(&str)) -> Result<(), String> {
+            if let Some(gate) = &self.wake_gate {
+                let mut open = gate.0.lock().unwrap();
+                while !*open {
+                    open = gate.1.wait_timeout(open, Duration::from_secs(5)).unwrap().0;
+                }
+            }
             self.reached.lock().unwrap().push(format!("wake after_stop={after_stop}"));
             Ok(())
         }
@@ -1913,6 +1937,24 @@ mod tests {
         phone.stop_late(Arc::new(FakeSession { url: String::new(), released: AtomicBool::new(false), controls: link.controls.clone() }));
         phone.drain_stops(Instant::now() + Duration::from_secs(5));
         assert!(link.reached.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_wake_still_under_way_at_quit_stops_the_phone_it_starts() {
+        let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+        let (source, link, _, _) = streaming_on(Arc::new(FakeLink { wake_gate: Some(gate.clone()), ..FakeLink::default() }));
+        let phone = source.kind.as_phone().unwrap();
+        source.kind.wake(&source);
+        source.kind.stopped(&source, true, true);
+        std::thread::sleep(Duration::from_millis(100)); // the wake is at the phone, which is slow to answer
+        let opens = gate.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            *opens.0.lock().unwrap() = true;
+            opens.1.notify_all();
+        });
+        phone.drain_stops(Instant::now() + Duration::from_secs(5));
+        assert_eq!(*link.reached.lock().unwrap(), ["stop", "wake after_stop=true", "stop"], "quit left before the phone was stopped again");
     }
 
     fn with_tries(source: &SourceRef) -> Rc<Tries> {

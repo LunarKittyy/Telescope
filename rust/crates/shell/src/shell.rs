@@ -544,6 +544,8 @@ pub struct State {
     pub idle: Arc<crate::idle::IdleGate>,
     /// The plugin that last said whether an app reads the camera (Event::CameraWatched): once it stops, nothing says, and the steps never pause.
     pub camera_watcher: Option<String>,
+    /// The watcher stopped and no plugin has said anything since: a report it queued before stopping is dropped on its way in.
+    pub watch_cut: bool,
     pub tray_close_notified: bool,
     /// Host::set_shortcut_menu: the plugin behind the controls' right-click menu, and the shortcuts it lists.
     pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
@@ -648,7 +650,7 @@ impl State {
             preview_own_told: true,
             idle: Arc::default(),
             tray_close_notified: false,
-            shortcut_menu: None, stills: Vec::new(), hiding_steps: BTreeMap::new(), hiding: BTreeMap::new(), hidden_flags: BTreeMap::new(), source_owners: Vec::new(), camera_watcher: None, source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
+            shortcut_menu: None, stills: Vec::new(), hiding_steps: BTreeMap::new(), hiding: BTreeMap::new(), hidden_flags: BTreeMap::new(), source_owners: Vec::new(), camera_watcher: None, watch_cut: false, source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
         }
     }
 
@@ -1775,7 +1777,9 @@ impl State {
                 if let Event::CameraWatched { watched } = event {
                     // What needs frames is told first, so a quiet that starts here isn't counted from before it was known
                     self.sync_idle();
-                    self.idle.watched(watched);
+                    if !self.watch_cut {
+                        self.idle.watched(watched);
+                    }
                 }
                 if let Event::SettingsTouched { ids, changed } = &event {
                     self.effects.push(Effect::TouchSettings { ids: ids.clone(), changed: *changed });
@@ -4564,6 +4568,20 @@ mod tests {
         crate::host::Ctx { state: &mut s, me: "other".into() }.release_everything();
         assert!(s.idle.idle(), "a plugin that never said anything about readers changes nothing");
         crate::host::Ctx { state: &mut s, me: "wait_screen".into() }.release_everything();
+        assert!(!s.idle.idle(), "nothing says whether an app reads the camera any more, so it never pauses");
+    }
+
+    #[test]
+    fn a_watch_report_still_queued_when_its_plugin_stops_doesnt_bring_the_watch_back() {
+        use telescope_core::host::Host;
+        let mut s = state();
+        s.idle = Arc::new(crate::idle::IdleGate::after(0));
+        s.shown = Some(false);
+        s.sync_idle();
+        s.idle.reliable(true);
+        crate::host::Ctx { state: &mut s, me: "wait_screen".into() }.emit(Event::CameraWatched { watched: false });
+        crate::host::Ctx { state: &mut s, me: "wait_screen".into() }.release_everything();
+        s.deliver_events();
         assert!(!s.idle.idle(), "nothing says whether an app reads the camera any more, so it never pauses");
     }
 
