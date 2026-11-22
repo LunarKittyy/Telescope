@@ -882,6 +882,8 @@ pub struct StargazerPlugin {
     use_zoom: bool,
     shot: ShotChoice,
     shot_initialized: bool,
+    /// The shot is still the first-pick default, which gives way to Camera on a dial the camera can't set.
+    shot_default: bool,
     customize_open: bool,
     taking: Option<RequestId>,
     exposing: bool,
@@ -960,6 +962,7 @@ impl StargazerPlugin {
             use_zoom: false,
             shot: ShotChoice::default(),
             shot_initialized: false,
+            shot_default: false,
             customize_open: false,
             taking: None,
             exposing: false,
@@ -1153,7 +1156,9 @@ impl StargazerPlugin {
             return;
         }
         let caps = self.still_caps(host).unwrap_or_default();
+        self.settle_default_shot(host);
         if stills::pick_shot(&mut self.shot, &caps, which == "shutter-picked", index, false) {
+            self.shot_default = false;
             host.schedule_save();
         }
         self.show(host);
@@ -1268,7 +1273,20 @@ impl StargazerPlugin {
         host.set_ui_props("card", &props);
     }
 
+    /// Once the camera is known, a first-pick default it can't set becomes Camera, so the first start isn't refused. A pick by hand is left alone.
+    fn settle_default_shot(&mut self, host: &dyn Host) {
+        if !self.shot_default || self.input != Input::Photos || self.phase != Phase::Idle {
+            return;
+        }
+        let Some(caps) = self.still_caps(host) else { return };
+        let shot = caps.shot.as_ref();
+        if shot.map(stills::shot_shutter_stops).unwrap_or_default().is_empty() { self.shot.shutter_s = None; }
+        if shot.map(stills::shot_iso_stops).unwrap_or_default().is_empty() { self.shot.iso = None; }
+        self.shot_default = false;
+    }
+
     fn catch_up(&mut self, host: &mut dyn Host) {
+        self.settle_default_shot(host);
         *self.shared.focused.lock().unwrap() = host.focused_source_id().unwrap_or_default();
         if self.pending {
             self.pending = false;
@@ -1296,6 +1314,7 @@ impl StargazerPlugin {
     fn start_photos(&mut self, host: &mut dyn Host) {
         let Some(source) = host.focused_source_id() else { return };
         let Some(caps) = self.still_caps(host) else { return };
+        self.settle_default_shot(host);
         let Some(feed) = self.feed() else { return };
         let photo = PhotoRun {
             options: self.photo_options(&caps), folder: self.folder.clone(), source: source.clone(), total: self.photo_count as usize,
@@ -1680,6 +1699,7 @@ impl StargazerPlugin {
         // Lucky imaging needs video, so choosing it brings the frames back to the video
         let input = if self.input.suits(mode) { self.input } else { Input::Video };
         self.change_mode(mode, input);
+        self.settle_default_shot(host);
         self.show(host);
         host.schedule_save();
     }
@@ -1691,6 +1711,7 @@ impl StargazerPlugin {
             return;
         }
         self.change_mode(self.mode, input);
+        self.settle_default_shot(host);
         self.show(host);
         host.schedule_save();
     }
@@ -1701,6 +1722,7 @@ impl StargazerPlugin {
         if input == Input::Photos && !self.shot_initialized {
             self.shot = Self::default_shot();
             self.shot_initialized = true;
+            self.shot_default = true;
         }
         (self.mode, self.input) = (mode, input);
         self.shared.mode.store(mode.index() as u8, Ordering::SeqCst);
@@ -1979,6 +2001,7 @@ impl Plugin for StargazerPlugin {
         self.camera = cfg.get("camera") == Some(&Value::Bool(true));
         self.use_zoom = cfg.get("use_zoom") == Some(&Value::Bool(true));
         self.shot_initialized = cfg.get("shot").is_some() || self.input == Input::Photos;
+        self.shot_default = cfg.get("shot").is_none() && self.input == Input::Photos;
         self.shot = cfg.get("shot").cloned().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_else(|| {
             if self.input == Input::Photos { Self::default_shot() } else { ShotChoice::default() }
         });
