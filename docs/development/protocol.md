@@ -304,7 +304,7 @@ recipient_id
 
 A request gets a rate-limited answer to its source address and port. Accept a new address only after that peer answers a fresh outstanding challenge; reject replayed requests and expired or unmatched answers. An authenticated exchange supplies an address hint for the existing pinned-TLS hello/ping check. It never starts the camera or claims stream ownership. It proves neither media delivery nor camera state. The existing HTTPS checks remain as fallback for older peers and blocked UDP. mDNS remains an address hint too.
 
-Use `rust/tools/fake_phone.py --legacy-presence` for a phone without the capability and `--block-presence` for one that advertises it but drops all UDP presence. Scripted tests can set `phone.presence_blocked`, call `phone.drop()` / `phone.back()`, or change `phone.version`; presence does not alter `phone.streaming`. `python3 -m unittest discover -s rust/tools -p test_fake_presence.py` checks the fake peer's authentication, replay rejection, return challenge, capability and UDP-only blocking.
+Use `rust/tools/fake_phone.py --legacy-presence` for a phone without the capability and `--block-presence` for one that advertises it but drops all UDP presence. Scripted tests can set `phone.presence_blocked`, call `phone.drop()` / `phone.back()`, or change `phone.version`; presence does not alter `phone.streaming`. `python3 -m unittest discover -s rust/tools -p test_fake_presence.py` checks the fake peer's authentication, replay rejection, return challenge, capability and UDP-only blocking. The fake phone also answers [`/v1/still`](#photos-v1still) for plain JPEG photos: bursts, the timer, one photo at a time, forget, and the refusals a plain lens gives for everything else (`test_fake_still.py`).
 
 ## `POST /v1/session`
 
