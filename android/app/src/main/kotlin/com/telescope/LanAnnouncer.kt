@@ -17,7 +17,7 @@ class LanAnnouncer(private val context: Context) {
         if (StreamPrefs.localOnly(context)) return
         val nsd = context.getSystemService(Context.NSD_SERVICE) as? NsdManager ?: return
         val info = NsdServiceInfo().apply {
-            serviceName = "Telescope ${PairedComputers.phoneName(context)}"
+            serviceName = LanAnnouncer.serviceName(PairedComputers.phoneName(context))
             serviceType = SERVICE_TYPE
             setPort(port)
             setAttribute("id", PairedComputers.phoneId(context))
@@ -55,5 +55,21 @@ class LanAnnouncer(private val context: Context) {
     companion object {
         const val SERVICE_TYPE = "_telescope._tcp"
         private const val TAG = "LanAnnouncer"
+        private const val MAX_NAME_BYTES = 63  // one DNS label; Android 13 and older refuse a longer name outright
+
+        // The desktop goes by the TXT id, so a long phone name is only cut, never refused
+        fun serviceName(phoneName: String): String {
+            val full = "Telescope $phoneName"
+            var bytes = 0
+            var end = 0
+            while (end < full.length) {
+                val next = full.offsetByCodePoints(end, 1)
+                val size = full.substring(end, next).toByteArray(Charsets.UTF_8).size
+                if (bytes + size > MAX_NAME_BYTES) break
+                bytes += size
+                end = next
+            }
+            return full.substring(0, end).trimEnd()
+        }
     }
 }

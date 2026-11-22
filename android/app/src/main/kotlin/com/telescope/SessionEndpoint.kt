@@ -149,10 +149,12 @@ object SessionEndpoint {
         }.also { watchdog?.schedule(it, STOPPED_HOLD_MS) }
     }
 
-    // The port was busy (the other Telescope build, an old socket after an update) or the accept loop died: try again
+    // The port was busy (the other Telescope build, an old socket after an update), the accept loop died or Android refused the LAN announcement: try again
     @Synchronized
     private fun rebind(app: Context) {
-        if (owners.isNotEmpty() && (server?.listening != true || oldServers.size < oldPorts.size)) bind(app)
+        if (owners.isEmpty()) return
+        if (server?.listening != true || oldServers.size < oldPorts.size) bind(app)
+        else announcer?.start(SessionServer.DEFAULT_PORT)
     }
 
     // Callers are often the main thread: the first start makes the TLS identity (keys and a file) and opens the port, so a worker does both
