@@ -20,6 +20,10 @@ use telescope_core::source::{PairedPhone, RouteSpec};
 
 /// Idle re-check of the selected phone, only while the window is on screen.
 pub const STATUS_POLL: Duration = Duration::from_secs(3);
+/// Checks in a row that found no phone (about a minute of ticks) before the window checks less often.
+pub const GONE_AFTER_CHECKS: u32 = 20;
+/// How long a phone that has been gone a while waits between ticks' checks.
+pub const GONE_POLL_S: f64 = 10.0;
 /// An idle check that never answers stops blocking new ones.
 pub const CHECK_GIVE_UP_S: f64 = 60.0;
 /// Tray, after starting once the phone was ready: only its going away matters.
@@ -159,6 +163,8 @@ pub struct Connection {
     /// The idle check still resolving; the poll waits for it.
     pub running_check: Option<u64>,
     pub check_started: f64,
+    /// Idle checks in a row that found no phone.
+    unreachable_checks: u32,
     /// Phones that run Dynamic over UDP, from their last check.
     udp_dynamic: HashSet<String>,
     /// The route each streaming phone's video comes over, and the USB forward it holds (None over Wi-Fi), by id.
@@ -204,7 +210,7 @@ impl Connection {
     pub fn new(computer_id: String, computer_name: String, tunnels: std::sync::Arc<dyn Tunnels>) -> Connection {
         Connection {
             computer_id, computer_name, route_pref: RoutePreference::Auto, udp: false, phones: Vec::new(), selected_id: None, pending_pick: None,
-            resolution: None, check_id: 0, running_check: None, check_started: 0.0, udp_dynamic: HashSet::new(), holds: HashMap::new(),
+            resolution: None, check_id: 0, running_check: None, check_started: 0.0, unreachable_checks: 0, udp_dynamic: HashSet::new(), holds: HashMap::new(),
             paths: HashMap::new(), prepared: HashMap::new(), usb_sat_out: -1e9, streaming: false, connected: false, lost: false,
             transport_udp: false, pending_route: None, route_probe_id: 0, watch_id: 0, usb_watch_active: false,
             switch_usb_visible: false, shown: true, watched: false, wanted: false, wanted_held: false, tunnels,
@@ -331,7 +337,9 @@ impl Connection {
 
     /// The status timer's tick.
     pub fn poll_status(&mut self, now: f64) -> Option<Check> {
-        if self.polling_fast() || now - self.check_started >= HELD_POLL_S {
+        // A phone that has been gone for a while is looked for less often: its coming back can wait a few seconds
+        let calm = self.unreachable_checks >= GONE_AFTER_CHECKS && now - self.check_started < GONE_POLL_S;
+        if !calm && (self.polling_fast() || now - self.check_started >= HELD_POLL_S) {
             return self.check_status(now);
         }
         None
@@ -371,6 +379,7 @@ impl Connection {
 
     /// Takes a check's answer for the selected phone; true when the phone list changed and should be saved.
     pub fn apply_resolution(&mut self, res: Resolution) -> bool {
+        self.unreachable_checks = if res.status == PhoneStatus::Unreachable { self.unreachable_checks.saturating_add(1) } else { 0 };
         if res.status == PhoneStatus::Ready {
             if let Some(sel) = self.selected_id.clone() {
                 if res.udp_dynamic { self.udp_dynamic.insert(sel); } else { self.udp_dynamic.remove(&sel); }
@@ -1357,6 +1366,34 @@ mod tests {
         c.check_status(0.0);
         settle(&mut c);
         c
+    }
+
+    /// How many of the status ticks (one every 3 s, the window on screen) from `from` for `secs` ran a check that found nothing.
+    fn unreachable_checks(c: &mut Connection, from: f64, secs: f64) -> usize {
+        let mut ran = 0;
+        let mut now = from;
+        while now < from + secs {
+            if let Some(check) = c.poll_status(now) {
+                ran += 1;
+                c.on_resolved(check.check_id, "id-a", Resolution::new(PhoneStatus::Unreachable));
+            }
+            now += STATUS_POLL.as_secs_f64();
+        }
+        ran
+    }
+
+    #[test]
+    fn a_phone_that_stays_gone_is_checked_less_often_and_a_sighting_ends_that() {
+        let mut c = settled();
+        // The first minute is every tick, so a phone coming back is seen at once
+        assert_eq!(unreachable_checks(&mut c, 10.0, 60.0), 20);
+        // After that the window isn't on a phone that is plainly not there
+        let calm = unreachable_checks(&mut c, 70.0, 120.0);
+        assert!((1..=12).contains(&calm), "{calm} checks in two minutes");
+        // Seen again: every tick once more
+        let check = c.poll_status(190.0).or_else(|| c.poll_status(200.0)).unwrap();
+        c.on_resolved(check.check_id, "id-a", ready(wifi()));
+        assert_eq!(unreachable_checks(&mut c, 210.0, 60.0), 20);
     }
 
     #[test]

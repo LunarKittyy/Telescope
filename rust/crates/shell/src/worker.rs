@@ -23,6 +23,19 @@ const BURST_KEPT: usize = 3;
 pub const RECONNECT_DELAY: Duration = Duration::from_secs(3);
 /// Between tries after a stream drops mid-way, since a phone back on Wi-Fi answers within seconds.
 pub const DROP_RETRY_DELAY: Duration = Duration::from_secs(1);
+/// Tries a stream that dropped makes at DROP_RETRY_DELAY (about half a minute) before it calms down, and how many more at the next pace.
+const QUICK_TRIES: u32 = 30;
+const SLOW_TRIES: u32 = 90;
+
+/// How long a stream that dropped waits after its `failures`th failed try: a phone back on Wi-Fi answers within seconds, but one
+/// that stays gone is not worth dialling every second for hours.
+pub fn drop_retry_delay(failures: u32) -> Duration {
+    match failures {
+        f if f < QUICK_TRIES => DROP_RETRY_DELAY,
+        f if f < QUICK_TRIES + SLOW_TRIES => Duration::from_secs(3),
+        _ => Duration::from_secs(5),
+    }
+}
 /// hand_over(): the new route has to keep frames coming this long, with no gap past HANDOVER_GAP, before the stream moves
 pub const HANDOVER_HEALTHY: Duration = Duration::from_secs(2);
 pub const HANDOVER_GAP: Duration = Duration::from_millis(500);
@@ -415,6 +428,8 @@ struct Shared {
     stop: AtomicBool,
     restart_vcam: Flag,
     retry_now: AtomicBool,
+    /// Wakes the wait between tries of a dropped stream: a stop, a new route, a route ready to take over.
+    nudge: Flag,
     failed_tries: AtomicU32,
     parked: AtomicBool,
     vcam_free: Flag,
@@ -599,7 +614,7 @@ impl StreamWorker {
             slot_number: setup.slot, source_id: setup.source_id, vision: setup.vision, hardware: setup.hardware_decode, hardware_default: setup.hardware_default,
             plugin_source: setup.plugin_source, size: Mutex::new((setup.width, setup.height)),
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
-            restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
+            restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), nudge: Flag::default(), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), surface_wish, publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
@@ -719,6 +734,7 @@ impl StreamWorker {
         let s = &self.shared;
         s.stop.store(true, Ordering::SeqCst);
         s.restart_vcam.set();
+        s.nudge.set();
         if let Some(stopper) = s.stopper.lock().unwrap().as_ref() {
             stopper.stop();
         }
@@ -762,6 +778,7 @@ impl StreamWorker {
         *self.shared.url.lock().unwrap() = url.into();
         self.shared.stats.set_link(url, self.shared.plugin_source);
         self.shared.retry_now.store(true, Ordering::SeqCst);
+        self.shared.nudge.set();
     }
 
     /// Whether hand_over() would try now: a phone's stream that isn't stopping or trying another route already.
@@ -1464,21 +1481,30 @@ impl Shared {
         } else {
             self.status("reconnecting", &tr("Stream dropped - reconnecting"));
         }
+        let mut failures = 0u32;
         while !self.stopped() {
             // A photo that lost the camera never brings the video back: this has to be reported as a drop after all
             if quiet && !on_hold() {
                 quiet = false;
                 self.status("reconnecting", &tr("Stream dropped - reconnecting"));
             }
-            let until = Instant::now() + DROP_RETRY_DELAY;
+            let delay = drop_retry_delay(failures);
+            let (until, slept_at) = (Instant::now() + delay, std::time::SystemTime::now());
             while Instant::now() < until {
                 if self.stopped() {
                     return None;
                 }
-                if self.retry_now.load(Ordering::SeqCst) {
+                if self.retry_now.load(Ordering::SeqCst) || self.handover_ready.lock().unwrap().is_some() {
                     break;
                 }
-                std::thread::sleep(Duration::from_millis(100));
+                // The computer slept (its clock moved on, the one for waits didn't): the network may be back, so try straight away
+                if slept_at.elapsed().is_ok_and(|gone| gone > delay + Duration::from_secs(5)) {
+                    failures = 0;
+                    break;
+                }
+                // Woken by a stop, a new route or a hand-over; the rest of the time a slice, to notice a superseded worker
+                self.nudge.wait(until.saturating_duration_since(Instant::now()).min(Duration::from_millis(500)));
+                self.nudge.clear();
             }
             self.retry_now.store(false, Ordering::SeqCst);
             if let Some(moved) = self.take_handover() {
@@ -1497,6 +1523,7 @@ impl Shared {
             if url == *self.url.lock().unwrap() {
                 self.failed_tries.fetch_add(1, Ordering::SeqCst); // a retarget() meanwhile makes it a try on the old url
             }
+            failures = failures.saturating_add(1);
         }
         None
     }
@@ -1513,6 +1540,7 @@ impl Shared {
             Ok((mut cap, clock)) => {
                 if self.healthy(&mut cap) {
                     *self.handover_ready.lock().unwrap() = Some((cap, url.clone(), taken.clone(), clock));
+                    self.nudge.set();
                     let give_up = Instant::now() + HANDOVER_TAKE;
                     while !taken.wait(Duration::from_millis(100)) {
                         if self.stopped() || Instant::now() >= give_up {
@@ -2878,6 +2906,16 @@ mod tests {
         assert!(w.shared.stopped() && w.shared.restart_vcam.is_set());
         wait_for(|| opens.gone() == 1); // the read it was blocked in stops too
         w.stop();
+    }
+
+    #[test]
+    fn a_stream_that_stays_gone_is_dialled_less_and_less_often() {
+        assert_eq!(drop_retry_delay(0), Duration::from_secs(1));
+        assert_eq!(drop_retry_delay(QUICK_TRIES - 1), Duration::from_secs(1), "the first half minute is every second");
+        assert_eq!(drop_retry_delay(QUICK_TRIES), Duration::from_secs(3));
+        assert_eq!(drop_retry_delay(QUICK_TRIES + SLOW_TRIES - 1), Duration::from_secs(3));
+        assert_eq!(drop_retry_delay(QUICK_TRIES + SLOW_TRIES), Duration::from_secs(5));
+        assert_eq!(drop_retry_delay(u32::MAX), Duration::from_secs(5));
     }
 
     #[test]

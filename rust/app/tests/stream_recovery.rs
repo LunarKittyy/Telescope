@@ -189,6 +189,22 @@ fn recovery_keeps_looking_while_the_phone_is_unreachable() {
 }
 
 #[test]
+fn recovery_looks_less_often_for_a_phone_that_stays_gone() {
+    let r = unreachable("drop-calms-down");
+    // The first minute or so it looks every few seconds, so a phone that comes back is found quickly
+    for _ in 0..24 {
+        probe_again(&r);
+    }
+    let before = checks(&r);
+    for _ in 0..60 {
+        r.skip(1000);
+        std::thread::sleep(std::time::Duration::from_millis(15));
+    }
+    let looked = checks(&r) - before;
+    assert!((3..=8).contains(&looked), "{looked} looks in the next minute");
+}
+
+#[test]
 fn recovery_moves_the_stream_once_per_route() {
     let r = dropped("drop-once", ready(wifi(), true));
     r.until("the worker moved", |r| r.worker(0).did(&format!("retarget {WIFI_URL}")));
