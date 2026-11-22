@@ -10345,6 +10345,18 @@ msgstr "इंस्टॉलर रुक गया (कोड {code}). Telesco
 msgid "Telescope was installed but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope इंस्टॉल हो गया था लेकिन इसका फ़ोल्डर उम्मीद के मुताबिक जगह पर नहीं था. इसे स्टार्ट मेन्यू से खोलें."
 
+#: rust/crates/system/src/setup_move.rs:444
+msgid "Windows didn't get permission to update Telescope. Nothing changed. Open the download page to update it yourself, or try again."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:449
+msgid "Windows couldn't start the installer as admin. Nothing changed. Open the download page to update it yourself, or try again."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:471
+msgid "A stream started while the update downloaded. Stop streaming and update again."
+msgstr ""
+
 #: rust/crates/system/src/shortcuts.rs:54
 msgid "This Telescope has no shortcuts."
 msgstr "इस Telescope में कोई शॉर्टकट नहीं हैं."
@@ -10741,6 +10753,10 @@ msgstr "अपडेट हो गया. स्ट्रीमिंग रो�
 #: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "अपडेट करने पर यह आपके यूज़र के लिए स्टार्ट मेन्यू एंट्री के साथ इंस्टॉल भी हो जाता है और इस अनज़िप की गई कॉपी को हटा देता है. सेटिंग्स और पेयर किए गए फ़ोन बने रहते हैं."
+
+#: rust/crates/system/src/updates_plugin.rs:433
+msgid "Updating needs admin permission because Telescope is installed for all users."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."

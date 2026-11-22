@@ -3,9 +3,13 @@
 ;   iscc /DAppVersion=3.3.1 /DBuild=0 /DSourceDir=..\bundle /DOutputDir=..\out installer\Telescope.iss
 ; /DRust=1 packs rust/tools/build_windows.ps1's folder and adds the clean-up of what in-app updates bring.
 ;
-; Per-user on purpose: the app updates itself by swapping files in its own folder (rust/crates/system/src/updates.rs), so the
-; folder has to be writable without admin. {autopf} is %LOCALAPPDATA%\Programs here. Program Files\Telescope
-; belongs to the camera driver, which the app's first-run checklist installs with its own UAC prompt.
+; Per-user without admin is the default: the app updates itself by swapping files in its own folder
+; (rust/crates/system/src/updates.rs), so the folder has to be writable without admin. {autopf} is %LOCALAPPDATA%\Programs
+; then. The first page offers "Install for all users (requires admin)" too, and /ALLUSERS does the same from a command line.
+; A copy in a folder it can't write to (an all-users install) updates by running this setup again with one admin prompt,
+; which the app starts with /ALLUSERS /DIR=its folder /RELAUNCH=1 (rust/crates/system/src/setup_move.rs).
+; Program Files\Telescope belongs to the camera driver, which the app's first-run checklist installs with its own UAC
+; prompt, so an all-users install goes to Program Files\Telescope Desktop.
 
 #ifndef AppVersion
   #error Pass /DAppVersion=x.y.z
@@ -34,11 +38,12 @@ AppPublisherURL=https://telescope.webcam
 AppSupportURL=https://github.com/LunarKittyy/Telescope/issues
 AppUpdatesURL=https://github.com/LunarKittyy/Telescope/releases
 PrivilegesRequired=lowest
-DefaultDirName={autopf}\Telescope
+PrivilegesRequiredOverridesAllowed=dialog commandline
+DefaultDirName={code:DefaultDir}
 DisableProgramGroupPage=yes
-; Always its own folder: the uninstaller clears what the app adds there by name (lib-*, below), which in a folder
-; someone picked, like C:\Android, could be theirs
-DisableDirPage=yes
+; The folder is the person's choice. NextButtonClick (below) keeps it to a folder of Telescope's own: the uninstaller clears
+; what the app adds there by name (lib-*), which in a folder like C:\Android could be theirs
+DisableDirPage=no
 UsePreviousAppDir=yes
 ; x64compatible also lets Windows on Arm install it (it runs the x64 app emulated); older Inno only knows x64
 #if Ver >= EncodeVer(6, 3, 0)
@@ -66,6 +71,14 @@ OutputBaseFilename=TelescopeSetup
 CloseApplications=yes
 RestartApplications=no
 
+; Inno's own words for the install mode dialog, but the all-users option says what it needs. Only English is set here: other
+; installer languages keep Inno's text until the next translation pass.
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Messages]
+english.PrivilegesRequiredOverrideAllUsers=Install for &all users (requires admin)
+
 [Tasks]
 Name: desktopicon; Description: "Put Telescope on the desktop"; Flags: unchecked
 
@@ -79,6 +92,9 @@ Name: "{autodesktop}\Telescope"; Filename: "{app}\{#AppExe}"; AppUserModelID: "L
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Open Telescope"; Flags: nowait postinstall skipifsilent
+; An update the app started as admin (/RELAUNCH=1) has closed it, so setup opens it again. Through Explorer, which starts it as the
+; person: setup itself is elevated then, and runasoriginaluser would hand the app that same admin token
+Filename: "{win}\explorer.exe"; Parameters: """{app}\{#AppExe}"""; Flags: nowait; Check: RelaunchRequested
 
 #ifdef Rust
 [InstallDelete]
@@ -128,6 +144,65 @@ Type: dirifempty; Name: "{app}"
 const
   RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
   RunValue = 'Telescope';  // rust/crates/system/src/autostart.rs
+
+// The folder the first page starts with: per user it's %LOCALAPPDATA%\Programs\Telescope, for all users Program Files\Telescope Desktop
+function DefaultDir(Param: String): String;
+begin
+  if IsAdminInstallMode then
+    Result := ExpandConstant('{autopf}\Telescope Desktop')
+  else
+    Result := ExpandConstant('{autopf}\Telescope');
+end;
+
+function RelaunchRequested(): Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
+
+// Whether the folder has anything in it
+function FolderHasFiles(Dir: String): Boolean;
+var
+  Found: TFindRec;
+begin
+  Result := False;
+  if FindFirst(Dir + '\*', Found) then
+    try
+      repeat
+        if (Found.Name <> '.') and (Found.Name <> '..') then
+        begin
+          Result := True;
+          Exit;
+        end;
+      until not FindNext(Found);
+    finally
+      FindClose(Found);
+    end;
+end;
+
+// The folder page: not the camera's folder, and a folder with other things in it gets a Telescope folder of its own inside it
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Dir: String;
+begin
+  Result := True;
+  // A message box in a silent setup would wait for nobody, and the app's update runs it silently
+  if (CurPageID <> wpSelectDir) or WizardSilent() then
+    Exit;
+  Dir := RemoveBackslash(WizardDirValue);
+  if (CompareText(Dir, ExpandConstant('{commonpf64}\Telescope')) = 0) or (CompareText(Dir, ExpandConstant('{commonpf32}\Telescope')) = 0) then
+  begin
+    MsgBox('Program Files\Telescope is where the Telescope camera goes. Please pick another folder.', mbError, MB_OK);
+    Result := False;
+  end
+  else if DirExists(Dir) and FolderHasFiles(Dir) and not FileExists(Dir + '\{#AppExe}') then
+  begin
+    if MsgBox('That folder already has other files in it, and Telescope clears its own files from its folder when you uninstall it.' + #13#10#13#10 +
+              'Install into ' + Dir + '\Telescope instead?', mbConfirmation, MB_YESNO) = IDYES then
+      WizardForm.DirEdit.Text := Dir + '\Telescope'
+    else
+      Result := False;
+  end;
+end;
 
 // "Open at sign-in" points the Run key at this copy's exe. Once it's gone that entry would only fail at every
 // sign-in, so take it out, but leave one that points at some other copy of Telescope alone.
@@ -307,6 +382,10 @@ begin
       // Silent only as admin already: an admin prompt out of nowhere would be worse than leaving it
       if UninstallSilent() then
         Camera := IsAdmin()
+      else if IsAdmin() then
+        Camera := MsgBox('Also remove the Telescope virtual camera?' + #13#10#13#10 +
+                         'It''s installed for everyone on this computer.',
+                         mbConfirmation, MB_YESNO) = IDYES
       else
         Camera := MsgBox('Also remove the Telescope virtual camera?' + #13#10#13#10 +
                          'It''s installed for everyone on this computer which is why Windows will ask for admin permission.',
