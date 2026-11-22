@@ -23,6 +23,13 @@ class UpdateLogicTest {
     """.trimIndent()
 
     @Test
+    fun `a check that throws becomes a problem to show`() {
+        assertEquals("oops", UpdateLogic.checked({ throw IllegalStateException("x") }, { "oops" }))
+        assertEquals("bad", UpdateLogic.checked({ "bad" }, { "oops" }))
+        assertNull(UpdateLogic.checked({ null }, { "oops" }))
+    }
+
+    @Test
     fun `a check's answer is dropped once the channel has been switched`() {
         assertTrue(UpdateLogic.resultWanted(UpdateLogic.NIGHTLY, UpdateLogic.NIGHTLY))
         assertFalse(UpdateLogic.resultWanted(UpdateLogic.NIGHTLY, UpdateLogic.STABLE))

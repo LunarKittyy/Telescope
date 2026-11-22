@@ -135,7 +135,8 @@ object Updater {
                 val (selected, downloadProblem) = http.downloadUpdate(manifest, apk, app.strings(),
                     fetchLatest = { http.fetchManifest(UpdateLogic.manifestUrl(manifest.channel)) },
                     progress = { current, pct -> set(State.Downloading(current, pct)) })
-                val problem = downloadProblem ?: verifyApk(app, apk, selected)
+                val problem = downloadProblem ?: UpdateLogic.checked(
+                    { verifyApk(app, apk, selected) }, { app.getString(R.string.update_error_verify) })
                 if (problem != null) {
                     set(State.Failed(problem, selected))
                     return@Thread

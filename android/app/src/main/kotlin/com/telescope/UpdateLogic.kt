@@ -25,6 +25,10 @@ data class UpdateManifest(
 
 // Pure update rules, JVM-tested; Updater does the Android side (network, files, PackageInstaller).
 object UpdateLogic {
+    // The check on a downloaded file; a check that throws is a problem to show, not a dead thread
+    fun checked(verify: () -> String?, onError: () -> String): String? =
+        try { verify() } catch (e: Exception) { onError() }
+
     const val REPO = "LunarKittyy/Telescope"
     const val STABLE = "stable"
     const val NIGHTLY = "nightly"

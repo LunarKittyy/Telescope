@@ -48,6 +48,7 @@
     <string name="update_error_checksum">The download didn\'t match its checksum and wasn\'t installed.</string>
     <string name="update_error_save">Couldn\'t save the download.</string>
     <string name="update_error_not_an_app">The download isn\'t a valid app.</string>
+    <string name="update_error_verify">The download couldn\'t be checked and wasn\'t installed.</string>
     <string name="update_error_not_telescope">The download isn\'t Telescope.</string>
     <!-- %1$s is a version such as 1.2.3 -->
     <string name="update_error_signature">This copy of Telescope was signed differently from the update. Uninstall it and install %1$s from the releases page.</string>
