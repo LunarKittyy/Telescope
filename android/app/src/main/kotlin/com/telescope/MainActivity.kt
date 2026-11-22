@@ -316,6 +316,7 @@ class MainActivity : LookActivity() {
 
     // Tries pairing POST at each address; LAN tries first over Wi-Fi to work through VPNs
     private fun startPairing(offer: PairingOffer) {
+        if (!pairingRuns.begin(offer.nonce)) return
         val wifi = wifiNetwork()
         val routes = pairingRoutes(offer.candidates, hasWifi = wifi != null)
         val myIps = getAllDeviceIps(wifi)
@@ -328,33 +329,37 @@ class MainActivity : LookActivity() {
             var success = false
             var successfulAddress: String? = null
             var untried = 0
-            for ((index, route) in routes.withIndex()) {
-                // Bound wait per candidate; many candidates can't cause long delays.
-                val timeout = attemptTimeoutMs(android.os.SystemClock.elapsedRealtime() - startedAt)
-                if (timeout == null) {
-                    untried = routes.size - index
-                    break
+            try {
+                for ((index, route) in routes.withIndex()) {
+                    // Bound wait per candidate; many candidates can't cause long delays.
+                    val timeout = attemptTimeoutMs(android.os.SystemClock.elapsedRealtime() - startedAt)
+                    if (timeout == null) {
+                        untried = routes.size - index
+                        break
+                    }
+                    val network = if (route.via == PairingRouteKind.WIFI) wifi else null
+                    val problem =
+                        attemptPair(offer, route.candidate, network, deviceName, phoneId, myIps, timeout)
+                    if (problem == null) {
+                        success = true
+                        successfulAddress = route.candidate.ip
+                        break
+                    }
+                    failures += PairingAttemptFailure(route.candidate.ip, route.via, problem)
                 }
-                val network = if (route.via == PairingRouteKind.WIFI) wifi else null
-                val problem =
-                    attemptPair(offer, route.candidate, network, deviceName, phoneId, myIps, timeout)
-                if (problem == null) {
-                    success = true
-                    successfulAddress = route.candidate.ip
-                    break
+                if (success) {
+                    // One token per computer: pairing this one leaves every other paired computer working.
+                    // Servers read the list per request, so a running stream doesn't need restarting.
+                    PairedComputers.add(this, PairedComputer(
+                        id = offer.computerId,
+                        name = offer.computerName.ifBlank { getString(R.string.default_computer_name) },
+                        token = offer.token,
+                        pairedAtMs = System.currentTimeMillis(),
+                        addresses = mergeComputerAddresses(listOfNotNull(successfulAddress) + offer.candidates.map { it.ip }, offer.candidates),
+                    ))
                 }
-                failures += PairingAttemptFailure(route.candidate.ip, route.via, problem)
-            }
-            if (success) {
-                // One token per computer: pairing this one leaves every other paired computer working.
-                // Servers read the list per request, so a running stream doesn't need restarting.
-                PairedComputers.add(this, PairedComputer(
-                    id = offer.computerId,
-                    name = offer.computerName.ifBlank { getString(R.string.default_computer_name) },
-                    token = offer.token,
-                    pairedAtMs = System.currentTimeMillis(),
-                    addresses = mergeComputerAddresses(listOfNotNull(successfulAddress) + offer.candidates.map { it.ip }, offer.candidates),
-                ))
+            } finally {
+                pairingRuns.end(offer.nonce, success)
             }
             runOnUiThread {
                 if (success) {
@@ -787,6 +792,8 @@ class MainActivity : LookActivity() {
 
 
     companion object {
+        // Process-wide, since a run outlives the screen that started it
+        private val pairingRuns = PairingRuns()
         private const val RC_PERMS = 100
         // Android's "Large" font is 1.15 and its largest 1.3 or more; from there a setup step stacks its button
         private const val STACK_FONT_SCALE = 1.3f

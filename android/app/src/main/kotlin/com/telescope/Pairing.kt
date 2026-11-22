@@ -137,6 +137,24 @@ fun pairingRoutes(candidates: List<PairingCandidate>, hasWifi: Boolean): List<Pa
 
 private fun isLoopback(ip: String): Boolean = ip.startsWith("127.")
 
+// Offers by nonce that are being tried or have paired: the desktop pushes a USB offer every few seconds and closes it once paired, so a second run only ends in a failure dialog
+class PairingRuns(private val remember: Int = 16) {
+    private val running = mutableSetOf<String>()
+    private val paired = ArrayDeque<String>()
+
+    // False when this offer is already being tried or has paired
+    @Synchronized
+    fun begin(nonce: String): Boolean = nonce !in paired && running.add(nonce)
+
+    @Synchronized
+    fun end(nonce: String, ok: Boolean) {
+        running.remove(nonce)
+        if (!ok) return
+        paired.addLast(nonce)
+        while (paired.size > remember) paired.removeFirst()
+    }
+}
+
 /** Connect/read timeout for a single attempt. */
 const val PAIR_ATTEMPT_TIMEOUT_MS = 2_000
 

@@ -194,6 +194,26 @@ class PairingTest {
     }
 
     @Test
+    fun `a pushed offer that arrives again while it's being tried or after it paired starts no second run`() {
+        val runs = PairingRuns()
+        assertTrue(runs.begin("n1"))
+        assertFalse(runs.begin("n1"), "the desktop's next push while the first run is trying")
+        assertTrue(runs.begin("n2"), "another offer is its own run")
+        runs.end("n1", ok = true)
+        assertFalse(runs.begin("n1"), "a push that was in flight as it paired")
+        runs.end("n2", ok = false)
+        assertTrue(runs.begin("n2"), "an offer that failed can be tried again")
+    }
+
+    @Test
+    fun `only the last few paired offers are remembered`() {
+        val runs = PairingRuns(remember = 2)
+        listOf("a", "b", "c").forEach { runs.begin(it); runs.end(it, ok = true) }
+        assertTrue(runs.begin("a"))
+        assertFalse(runs.begin("c"))
+    }
+
+    @Test
     fun `falls back to the default network when there is no Wi-Fi network`() {
         assertEquals(
             listOf(
