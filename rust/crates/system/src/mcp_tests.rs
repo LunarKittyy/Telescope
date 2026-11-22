@@ -368,6 +368,25 @@ fn no_gain_no_contrast(_: &str, config: &mut Value) {
     }
 }
 
+/// A plugin that keeps a whole-number setting as an integer, as one with a u32 field gives it back.
+fn whole_numbers(name: &str, config: &mut Value) {
+    if let Some(n) = config["level"].as_f64().filter(|_| name == "count") {
+        config["level"] = json!(n as i64);
+    }
+}
+
+#[test]
+fn a_whole_number_setting_takes_a_set_and_a_revert() {
+    let mut r = Rig::new();
+    r.host.preset_rules = Some(whole_numbers);
+    r.host.settings.insert(0, PluginSettings { name: "count".into(), title: "Count".into(), settings: vec![SettingSpec::number("level", "How many", 0.0, 10.0, 0, 5.0)] });
+    r.host.plugin_configs.insert("count".into(), json!({"level": 5}));
+    r.ask("set", json!({"changes": {"count.level": 7}})).unwrap();
+    assert_eq!(r.host.plugin_configs["count"]["level"], json!(7));
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.host.plugin_configs["count"]["level"], json!(5), "{back}");
+}
+
 #[test]
 fn a_set_the_plugin_only_half_takes_is_undone_whole_and_leaves_nothing_to_revert() {
     let mut r = Rig::new();
