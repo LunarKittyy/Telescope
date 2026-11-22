@@ -22,7 +22,11 @@ impl Candidate {
     }
 
     fn font(&self) -> Option<&FontArc> {
-        self.loaded.get_or_init(|| FontArc::from_bytes_at(self.blob.as_ref().to_vec(), self.index, self.weight)).as_ref()
+        // The blob is kept for the process (leaked once), so the font reads the system's bytes in place instead of a copy
+        self.loaded.get_or_init(|| {
+            let blob: &'static Blob<u8> = Box::leak(Box::new(self.blob.clone()));
+            FontArc::from_static(blob.as_ref(), self.index, self.weight)
+        }).as_ref()
     }
 }
 

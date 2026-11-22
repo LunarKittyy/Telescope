@@ -216,3 +216,13 @@ fn a_uniform_picture_at_the_cutoff_leaves_no_seam_between_the_vector_columns_and
         assert!(row.iter().all(|&y| y == row[0]), "a seam in the trail: {} then {}", row[0], row[w - 1]);
     }
 }
+
+#[test]
+fn the_floor_is_the_highest_luma_whose_brightest_chroma_stays_under_the_level() {
+    let most: Vec<u8> = (0..=255u8).map(brightest_for_luma).collect();
+    assert!(most.windows(2).all(|w| w[0] <= w[1]), "a brighter luma is never dimmer");
+    for level in 0..=255u8 {
+        let want = (0..255usize).rev().find(|&y| (most[y] as u32) < level as u32).unwrap_or(0) as u8;
+        assert_eq!(luma_floor(level), want, "level {level}");
+    }
+}
