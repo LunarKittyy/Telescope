@@ -63,10 +63,6 @@ pub fn spread_shared_settings(cfg: &mut Value, device_local: &[String]) -> bool 
             ids.push(id);
         }
     }
-    // No phone yet: the copy stays in the file until one is paired or picked, so it isn't lost
-    if ids.is_empty() {
-        return false;
-    }
     for name in moved {
         let section = cfg["plugin_configs"].as_object_mut().and_then(|p| p.remove(&name)).unwrap_or(json!({}));
         for id in &ids {
@@ -163,13 +159,11 @@ mod tests {
     }
 
     #[test]
-    fn the_shared_copy_stays_while_there_is_no_phone_to_take_it() {
+    fn old_shared_settings_are_dropped_when_there_is_no_phone() {
         let mut cfg = json!({"selected_device": null, "plugin_configs": {"fun_pack": {"effect": "vhs"}}});
-        assert!(!spread_shared_settings(&mut cfg, &["fun_pack".into()]));
-        assert_eq!(cfg["plugin_configs"]["fun_pack"], json!({"effect": "vhs"}));
-        cfg["plugin_configs"]["connection"] = json!({"phones": [{"id": "A"}]});
         assert!(spread_shared_settings(&mut cfg, &["fun_pack".into()]));
-        assert_eq!(cfg["devices"]["A"]["plugin_configs"]["fun_pack"], json!({"effect": "vhs"}));
+        assert!(cfg["plugin_configs"].get("fun_pack").is_none());
+        assert!(cfg.get("devices").is_none_or(|d| d.as_object().is_some_and(|d| d.is_empty())));
     }
 
     #[test]
