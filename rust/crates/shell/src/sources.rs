@@ -1063,8 +1063,8 @@ impl SourceKind for PhoneKind {
         self.camera_on_timer.start(slint::TimerMode::SingleShot, CAMERA_ON_CHECK, move || cb("camera_on_check", &sid));
     }
 
-    fn video_ending(&self) {
-        // Begun while the video ran, so it's the worker's, which is stopped without saying how it went
+    fn cancel_hand_over(&self) {
+        // A worker's move ends with the worker, which says nothing once stopped; the mic's would leave a new worker on the old route
         let pending = self.inner.borrow_mut().handover.take();
         if let Some(pending) = pending {
             self.drop_hand_over(pending, false);

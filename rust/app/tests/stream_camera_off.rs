@@ -343,6 +343,30 @@ fn turning_the_camera_off_during_a_hand_over_leaves_the_stream_free_to_move_agai
 }
 
 #[test]
+fn the_camera_coming_on_during_the_mics_hand_over_keeps_the_video_on_the_streams_route() {
+    const USB: &str = "https://usb-SER:8080/v1/video";
+    let r = with_mic("camera-on-mid-mic-hand-over", true);
+    r.pump();
+    r.w.set_camera_on(false, false);
+    r.pump();
+    r.w.toggle_stream();
+    r.until("the stream", |r| r.streaming() == ["pixel"]);
+    *r.link.prepared.lock().unwrap() = Some(USB.into());
+    let at = r.w.state.borrow().index("panel").unwrap();
+    let usb = RouteSpec::Usb { serial: "SER".into() };
+    assert!(r.w.state.borrow_mut().call(at, |_, host| host.hand_over_stream(&usb, Some("pixel"))).unwrap());
+    r.w.process();
+    // The camera comes back before the mic's move reports: the new worker opens the route the stream is on now
+    r.w.set_camera_on(true, false);
+    r.pump();
+    assert_eq!(r.workers_made(), 1);
+    r.until("the move is through", |r| !r.source("pixel").kind.as_phone().unwrap().handing_over());
+    r.pump();
+    let session = r.source("pixel").session().unwrap();
+    assert_eq!(session.url, *r.worker(0).url.lock().unwrap(), "the video and the stream agree on the route");
+}
+
+#[test]
 fn switching_the_mic_off_brings_the_camera_back() {
     let r = on_air("camera-mic-gone");
     r.w.set_camera_on(false, false);
