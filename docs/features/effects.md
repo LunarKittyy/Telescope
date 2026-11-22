@@ -54,6 +54,8 @@ Optional. Switch it on under **Camera** in the Plugins tab of Settings and the P
 
 **Use zoom** on each photo card is off by default. Switch it on to crop to the manual zoom and position from Transforms, rounded to the JPEG MCU block grid. It is greyed out for HEIC and Ultra HDR, which get turned but not cropped. Pick JPEG to use it. Stretch, the Lens slider and Auto framing do not apply to photos. If zoom switched the preview to a telephoto lens, the photo uses that lens too. If a phone maker's mode can't use the zoomed lens, Telescope reports an error.
 
+Each phone has its own Photos settings, including its shot settings.
+
 Photos go to the folder under **Save in** (a Telescope folder in your Pictures by default) with the phone's file name. **Open folder** shows the last ones. A plain photo is taken next to the video, which hitches for a moment the first time only. Night, HDR, Bokeh, long exposures and full resolution on some phones pause the video for a few seconds instead and the stream picks up again afterwards without a reconnect. **Take photo** also works as a [keyboard shortcut](app.md#keyboard-shortcuts), even with Telescope in the background. A photo taken that way pops up a notification once it's saved.
 
 A photo that pauses the video puts **Taking a picture** over the preview, with the shot count and an estimated time left. The popped-out preview shows it too and it clears when the photo finishes. The virtual camera continues to show its last picture without the message. The countdown runs down to the last second and the bar fills with it. A photo that takes longer than the estimate shows no countdown until it's done. With a self timer the message counts the timer down first. After a photo that pauses the video, the preview pauses briefly until the camera's exposure has settled again, at most about 1.5 s.
@@ -61,6 +63,8 @@ A photo that pauses the video puts **Taking a picture** over the preview, with t
 On a DSLR the Photos card has its own ISO and Shutter dials. What you set there and on the Webcam card is left on the camera after a photo. Shutter and ISO overrides from Stargazer or Phototrap are undone before live view returns, also after a cancelled or failed photo. A failed undo shows in the result and a warning. Cleanup can finish after a timeout. Check the camera settings after unplugging it during a photo.
 
 ## Phototrap
+
+Each phone has its own Phototrap zones and settings.
 
 Open **Customise camera** between **Pause** and **Night** to choose a shutter speed and ISO for unattended photos. **Camera** uses the camera's own value. These choices are saved with Phototrap settings and presets. When the phone maker's Night mode is available and switched on, it sets its own exposure and the two dials are disabled without erasing your choices. Focus overrides aren't available yet. **Use zoom** crops these photos to the manual zoom and position from Transforms and is saved in presets with the other settings.
 
