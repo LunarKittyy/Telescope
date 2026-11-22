@@ -72,6 +72,13 @@ impl IdleGate {
         self.settle(&inputs, now);
     }
 
+    /// Nothing says any more whether an app reads the camera (the plugin that did stopped): the steps never pause, as before it first said.
+    pub fn forget_watched(&self) {
+        let mut inputs = self.inputs.lock().unwrap_or_else(|e| e.into_inner());
+        inputs.watched = None;
+        self.settle(&inputs, telescope_core::time::monotonic_ns());
+    }
+
     pub fn watched_at(&self, watched: bool, now: u64) {
         let mut inputs = self.inputs.lock().unwrap_or_else(|e| e.into_inner());
         inputs.watched = Some(watched);

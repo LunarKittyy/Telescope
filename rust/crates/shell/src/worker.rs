@@ -852,7 +852,9 @@ impl Shared {
         let open = telescope_core::media::OpenStop::default();
         self.opening.lock().unwrap().push(open.clone());
         if self.stopped() {
-            open.stop();
+            // Not even begun: a hand-over's opener opens the phone's session on its route first, and nothing would release that one
+            self.opening.lock().unwrap().retain(|o| !o.is(&open));
+            return Err("stopped".into());
         }
         let opened = opener(&open);
         self.opening.lock().unwrap().retain(|o| !o.is(&open));
@@ -1237,11 +1239,16 @@ impl Shared {
         self.status("info", &if self.plugin_source { tr("Connecting...") } else { fill(&tr("Connecting to {url}..."), &[("url", &url)]) });
         let mut failed = false; // the phone may be reachable another way by now, so the host looks for it (see "waiting")
         while !self.stopped() {
+            let url = self.url.lock().unwrap().clone();
             let mut cap = match self.open_cap() {
                 Ok(cap) => cap,
                 Err(e) => {
                     log::info!("Opening the stream failed: {e}");
                     failed = true;
+                    // Counted as a reconnect's are, so recovery can tell a USB forward that never worked from one that is new
+                    if url == *self.url.lock().unwrap() {
+                        self.failed_tries.fetch_add(1, Ordering::SeqCst);
+                    }
                     let secs = RECONNECT_DELAY.as_secs().to_string();
                     let own = self.waiting_text.as_ref().map(|f| f()).filter(|t| !t.is_empty());
                     self.status("waiting", &own.unwrap_or_else(|| fill(&tr("Can't reach the phone's stream. Trying again in {seconds} s…"), &[("seconds", &secs)])));
@@ -1256,6 +1263,9 @@ impl Shared {
                 Err(_) => {
                     drop(cap);
                     failed = true;
+                    if url == *self.url.lock().unwrap() {
+                        self.failed_tries.fetch_add(1, Ordering::SeqCst);
+                    }
                     self.status("waiting", &tr("Waiting for the first frame…"));
                     self.restart_vcam.wait(RECONNECT_DELAY);
                     self.restart_vcam.clear();
@@ -2525,6 +2535,15 @@ mod tests {
     }
 
     #[test]
+    fn a_stream_that_never_opened_counts_its_tries_for_recovery() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let opener: Opener = Arc::new(|_| Err("refused".into()));
+        let w = worker_with(opener, None, cams, log, false);
+        wait_for(|| w.failed_tries() >= 1);
+        w.stop();
+    }
+
+    #[test]
     fn a_source_says_why_it_isnt_streaming_while_it_waits() {
         let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
         let opener: Opener = Arc::new(|_| Err("busy".into()));
@@ -2672,6 +2691,17 @@ mod tests {
 
     fn moves(log: &Log) -> Vec<WorkerEvent> {
         log.lock().unwrap().iter().filter(|e| matches!(e, WorkerEvent::Moved(_) | WorkerEvent::MoveFailed(_))).cloned().collect()
+    }
+
+    #[test]
+    fn a_route_isnt_opened_for_a_stream_that_has_stopped() {
+        // A hand-over's opener opens the phone's session on the new route first, which only its own release lets go of
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let w = worker(Arc::default(), cams, log);
+        w.stop();
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(1)])]);
+        assert!(w.shared.open_cap_with(&opener).is_err());
+        assert_eq!(opens.calls(), 0);
     }
 
     #[test]

@@ -592,6 +592,7 @@ impl StreamFlow {
         source.kind.end_recovery(source);
         if let Some(mut session) = source.session() {
             if let Some(worker) = session.worker.take() {
+                source.kind.cancel_hand_over();
                 host.end_worker(worker);
                 self.sessions.add(source, session);
                 self.announce_idle_outputs(host, None); // its virtual camera gets the wait screen
@@ -609,6 +610,7 @@ impl StreamFlow {
         source.kind.stop_watching_alive();
         source.kind.end_recovery(source);
         let Some(mut session) = source.session() else { return };
+        source.kind.cancel_hand_over();
         session.worker = Some(self.start_worker(host, &session.url, source));
         let id = session.id;
         self.sessions.add(source, session);

@@ -567,6 +567,7 @@ impl PhoneKind {
         let opened: Arc<Mutex<Option<Arc<dyn PhoneSession>>>> = Arc::default();
         self.inner.borrow_mut().handover = Some(Handover { session_id, route: route.clone(), url: url.clone(), opened: opened.clone() });
         let link = self.link.clone();
+        let held = opened.clone();
         let open = move || -> Result<Arc<dyn PhoneSession>, String> {
             let mut slot = opened.lock().unwrap();
             if let Some(s) = slot.as_ref() {
@@ -586,6 +587,13 @@ impl PhoneKind {
         }
         Some(Arc::new(move |stop| {
             let session = open()?;
+            // Stopped while the route opened: the stop took the hand-over before there was a session to release, so it goes here
+            if stop.stopped() {
+                if let Some(session) = held.lock().unwrap().take() {
+                    std::thread::spawn(move || session.release());
+                }
+                return Err("stopped".into());
+            }
             session.open_video_stoppable(stop).map(|o| Opened::of_session(&*session, o))
         }))
     }
@@ -1053,6 +1061,14 @@ impl SourceKind for PhoneKind {
         self.inner.borrow_mut().camera_on_session = session_id;
         let (cb, sid) = (self.on_timer.clone(), self.sid());
         self.camera_on_timer.start(slint::TimerMode::SingleShot, CAMERA_ON_CHECK, move || cb("camera_on_check", &sid));
+    }
+
+    fn cancel_hand_over(&self) {
+        // A worker's move ends with the worker, which says nothing once stopped; the mic's would leave a new worker on the old route
+        let pending = self.inner.borrow_mut().handover.take();
+        if let Some(pending) = pending {
+            self.drop_hand_over(pending, false);
+        }
     }
 
     fn as_phone(&self) -> Option<&PhoneKind> {
@@ -1531,6 +1547,19 @@ mod tests {
         assert!(link.controls.0.lock().unwrap().is_empty()); // the controls still go to the Wi-Fi stream
         assert!(!phone.handing_over()); // it can try again
         assert!(phone.begin_hand_over(1, usb(), USB_URL.into(), false).is_some());
+    }
+
+    #[test]
+    fn a_hand_over_opened_after_its_stream_stopped_lets_go_of_the_route() {
+        let (phone, link, _, _) = wifi_phone();
+        let opener = phone.begin_hand_over(1, usb(), USB_URL.into(), false).unwrap();
+        // The stop took the hand-over while nothing was open yet, and its worker is told to stop as the route opens
+        drop(phone.inner.borrow_mut().handover.take());
+        let stop = telescope_core::media::OpenStop::default();
+        stop.stop();
+        assert!(opener(&stop).is_err());
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(link.opened.lock().unwrap()[0].released.load(Ordering::SeqCst));
     }
 
     #[test]

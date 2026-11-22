@@ -1518,7 +1518,9 @@ impl Window {
         if !self.streams.plugin_sources.borrow().contains_key(id) {
             return;
         }
-        if self.streams.flow.borrow().sessions.is_streaming_from(Some(id)) {
+        // A tile waiting next to the streams for it goes too: what it waits for can't come any more
+        let waiting = self.streams.flow.borrow().sessions.pending.as_ref().is_some_and(|p| p.id.as_deref() == Some(id));
+        if waiting || self.streams.flow.borrow().sessions.is_streaming_from(Some(id)) {
             self.with_flow(|flow, host| {
                 flow.stop_reason = "its plugin source going away";
                 flow.stop_stream(host, Some(id));
