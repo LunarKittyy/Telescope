@@ -91,7 +91,7 @@ impl CpuStep for DeskStep {
             }
             "bw" => {
                 params["block"] = json!(sheet::bw_block(rw, rh));
-                params[shader::PASS_SIZES] = json!([[rw, rh], [rw, rh], [rw, rh]]);
+                params[shader::PASS_SIZES] = json!([[rw, rh], [rw, rh], [rw.div_ceil(8), rh], [rw, rh], [rw, rh.div_ceil(8)]]);
             }
             _ => {}
         }
