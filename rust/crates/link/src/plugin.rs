@@ -113,6 +113,8 @@ pub struct ConnectionPlugin {
     /// Its list is open, and what changed under it waits for it to close.
     picker_open: bool,
     picker_stale: bool,
+    /// What phone.pick's Pick offered when the actions were last listed, which changes as phones and sources come and go.
+    action_options: Vec<(String, String)>,
     /// set_config has no host: the card catches up on the next hook.
     stale: bool,
     adb_available: bool,
@@ -138,7 +140,7 @@ impl ConnectionPlugin {
         ConnectionPlugin {
             link, shared, poster: None, sources: Vec::new(), remembered: Vec::new(), active_key: None, no_phone_issue: None,
             updating_phone: false, update_note: None, add: None, phones_open: false, add_from_phones: false, same_phone: None, picker_ids: Vec::new(), picker_names: Vec::new(),
-            picker_open: false, picker_stale: false, stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
+            picker_open: false, picker_stale: false, action_options: Vec::new(), stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
             outputs: None, vcam_source: None, adb_asked: None, desktop_version: String::new(), version_notice: None,
         }
     }
@@ -272,6 +274,12 @@ impl ConnectionPlugin {
         host.emit(Event::PhonesChanged { count });
         if self.phones_open {
             self.refresh_phones_dialog(host);
+        }
+        // Shortcuts, --action and MCP check a Pick against the options the actions were listed with
+        let options = self.pick_options();
+        if options != self.action_options {
+            self.action_options = options;
+            host.refresh_actions();
         }
     }
 
@@ -3247,6 +3255,16 @@ mod tests {
         assert_eq!(e.plugin.run_action(&mut e.host, "phone.pick", &json!({"op": "next"})).as_deref(), Some("Phone: Pixel"));
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
         assert_eq!(e.plugin.run_action(&mut e.host, "phone.pick", &json!({"op": "set", "option": "Galaxy"})).as_deref(), Some("Phone: Galaxy"));
+    }
+
+    #[test]
+    fn a_phone_that_arrives_is_offered_to_the_pick_shortcut() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        let listed = e.host.calls.iter().filter(|c| *c == "refresh_actions").count();
+        e.add("id-b", "Galaxy");
+        assert!(e.host.calls.iter().filter(|c| *c == "refresh_actions").count() > listed, "the window lists the actions again");
+        assert_eq!(e.plugin.actions()[0].params[1]["choices"], json!([["id-a", "Pixel"], ["id-b", "Galaxy"]]));
     }
 
     #[test]

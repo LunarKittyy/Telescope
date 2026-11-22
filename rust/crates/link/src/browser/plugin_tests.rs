@@ -381,6 +381,22 @@ fn the_server_stays_up_while_a_browser_streams_behind_another() {
 }
 
 #[test]
+fn picking_a_phone_while_browser_camera_waits_alone_ends_the_wait() {
+    let mut r = Rig::new();
+    r.select(SOURCE_ID);
+    assert!(!r.launcher().prepare(true)); // Start with nothing else streaming: the banner says it waits
+    r.pump();
+    assert!(r.launcher().waiting() && r.host.issues.contains_key("start"));
+    let server = r.server();
+
+    r.select("some-phone"); // picked back before a browser came: Start is for the phone now
+    assert!(!r.launcher().waiting() && !r.host.issues.contains_key("start"));
+    assert!(server.stopped.load(Ordering::SeqCst) && r.host.stopped == [SOURCE_ID]);
+    r.arrive("pixel-aaaaaaaa", "");
+    assert!(r.host.starts.is_empty(), "a browser coming later doesn't start a stream nobody waits for");
+}
+
+#[test]
 fn adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins() {
     let mut r = Rig::new();
     r.host.streams.push("some-phone".into());
