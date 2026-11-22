@@ -4,6 +4,7 @@
 //! something per frame (every plugin's frame step) only runs while something asks for it with `Hub::want`, like `want_people` does for vision.
 
 use crate::balance::{Balance, Place, Why};
+use crate::effort::{Effort, EffortSnapshot};
 use crate::event::Event;
 use crate::perf::STAGES;
 use crate::time::monotonic_ns;
@@ -11,7 +12,7 @@ use crate::BusSender;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 
 /// How many seconds of every series a snapshot holds.
@@ -513,6 +514,9 @@ pub struct AppSnapshot {
     pub cpu_percent: Option<f32>,
     pub memory_mb: Option<f32>,
     pub balance: BalanceSnapshot,
+    /// How hard the heavy effects work (they step down while frames run late).
+    #[serde(default)]
+    pub effort: EffortSnapshot,
     /// How long each plugin's hooks (events, card updates, clicks) took over the last second, while something asked.
     pub hooks: Vec<NamedTiming>,
     pub series: AppSeries,
@@ -566,12 +570,15 @@ pub struct Hub {
     app: Mutex<AppTrack>,
     hooks: Timers,
     balance: Arc<Balance>,
+    effort: Arc<Effort>,
+    /// The effects' level the bus was last told.
+    told_effort: AtomicU8,
     had_sources: AtomicBool,
     bus: Mutex<Option<BusSender>>,
     ticking: AtomicBool,
 }
 
-static SHARED: LazyLock<Arc<Hub>> = LazyLock::new(|| Arc::new(Hub::with_balance(Balance::shared())));
+static SHARED: LazyLock<Arc<Hub>> = LazyLock::new(|| Arc::new(Hub::with_parts(Balance::shared(), Effort::shared())));
 
 impl Hub {
     pub fn shared() -> Arc<Hub> {
@@ -588,6 +595,10 @@ impl Hub {
     }
 
     pub fn with_balance(balance: Arc<Balance>) -> Hub {
+        Hub::with_parts(balance, Arc::new(Effort::free()))
+    }
+
+    pub fn with_parts(balance: Arc<Balance>, effort: Arc<Effort>) -> Hub {
         let detailed = Arc::new(AtomicBool::new(false));
         Hub {
             hooks: Timers::new(detailed.clone()),
@@ -596,6 +607,8 @@ impl Hub {
             sources: Mutex::new(Vec::new()),
             app: Mutex::new(AppTrack::default()),
             balance,
+            effort,
+            told_effort: AtomicU8::new(crate::effort::FULL),
             had_sources: AtomicBool::new(false),
             bus: Mutex::new(None),
             ticking: AtomicBool::new(false),
@@ -665,7 +678,7 @@ impl Hub {
             at_ms: now_ns / 1_000_000,
             detailed,
             sources,
-            app: AppSnapshot { cpu_percent, memory_mb, balance: self.balance_snapshot(now_ns), hooks: self.hooks.take_all(), series },
+            app: AppSnapshot { cpu_percent, memory_mb, balance: self.balance_snapshot(now_ns), effort: self.effort.snapshot(), hooks: self.hooks.take_all(), series },
         }
     }
 
@@ -702,6 +715,11 @@ impl Hub {
             std::thread::sleep(std::time::Duration::from_millis(EVERY_MS));
             let Some(hub) = hub.upgrade() else { return };
             let bus = hub.bus.lock().unwrap_or_else(|p| p.into_inner()).clone();
+            // The level changes with settings too, so it's told whether or not a stream runs
+            let level = hub.effort.level();
+            if let Some(bus) = bus.as_ref().filter(|_| hub.told_effort.swap(level, Ordering::Relaxed) != level) {
+                bus.emit(Event::EffortChanged { level });
+            }
             if let Some(bus) = bus.filter(|_| hub.worth_sending()) {
                 bus.emit(Event::StatsUpdated { snapshot: hub.snapshot() });
             }

@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::thread::JoinHandle;
+use telescope_core::effort::{Effort, MOST};
 use telescope_core::pose::Person;
 use telescope_core::frame::MaskSpace;
 use telescope_core::view::{shown_to_view, view_to_shown, Geometry};
@@ -34,6 +35,43 @@ pub const CUTOUT_STILL_EVERY_S: f64 = 0.25;
 /// Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often.
 pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
 pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
+
+/// The least time between two runs of a model, while something moves and while nothing does.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Gaps {
+    pub moving: f64,
+    pub still: f64,
+}
+
+/// How often the models run at one effort level.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Cadence {
+    pub mask: Gaps,
+    /// The high quality cutout; None: it doesn't run, and the normal mask stands in.
+    pub cutout: Option<Gaps>,
+    pub people: Gaps,
+}
+
+const fn gaps(moving: f64, still: f64) -> Gaps {
+    Gaps { moving, still }
+}
+
+/// The cadence of each effort level (core::effort), which only says when the models run and changes nothing about what they work out.
+pub const CADENCE: [Cadence; MOST as usize + 1] = [
+    // 0: full, a mask for every frame that moves, people about 12 times a second
+    Cadence { mask: gaps(0.0, MASK_STILL_EVERY_S), cutout: Some(gaps(0.0, CUTOUT_STILL_EVERY_S)), people: gaps(PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S) },
+    // 1: what power-saving effects does, the mask 15 times a second at most, the cutout 4, people 6
+    Cadence { mask: gaps(MASK_STILL_EVERY_S, MASK_STILL_EVERY_S), cutout: Some(gaps(CUTOUT_STILL_EVERY_S, CUTOUT_STILL_EVERY_S)), people: gaps(SAVING_PEOPLE_EVERY_S, SAVING_PEOPLE_STILL_EVERY_S) },
+    // 2: the mask 10 times a second, the cutout 2, people 4
+    Cadence { mask: gaps(0.1, 0.1), cutout: Some(gaps(0.5, 0.5)), people: gaps(0.25, 0.66) },
+    // 3: the mask 6 times a second, no cutout, people 3
+    Cadence { mask: gaps(0.15, 0.15), cutout: None, people: gaps(0.33, 1.0) },
+];
+
+/// The cadence for a level, which a level past the lightest has as the lightest.
+pub fn cadence(level: u8) -> Cadence {
+    CADENCE[(level as usize).min(CADENCE.len() - 1)]
+}
 /// How long a frame waits for its mask when there's none it can use, so the picture doesn't go out without one when a stream starts.
 pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 /// A mask of a frame further back than this is of a picture that's gone: frame steps hear there's none, not an old silhouette.
@@ -400,7 +438,8 @@ pub(crate) struct Inner {
     tidier: Mutex<Option<Sender<()>>>,
     closed: AtomicBool,
     callback_lock: Mutex<()>,
-    pub(crate) saving: AtomicBool,
+    /// How hard the models work; power-saving effects is its floor.
+    pub(crate) effort: Arc<Effort>,
     pub(crate) give_back: Mutex<Box<dyn Fn() + Send + Sync>>,
     /// Tests: frames for people wait in the slot instead of going to a thread.
     pub(crate) hold_people: AtomicBool,
@@ -436,6 +475,11 @@ impl Vision {
     /// on_people: (stream, people) from a people thread; on_state: state() changed, from whichever thread changed it.
     /// there: whether a pack is there without loading anything (state() says MISSING before load() when it isn't).
     pub fn new(on_people: OnPeople, on_state: OnState, find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>) -> Vision {
+        Vision::with_effort(Effort::shared(), on_people, on_state, find, there)
+    }
+
+    /// The same, reading how hard to work from effort instead of the app's own.
+    pub fn with_effort(effort: Arc<Effort>, on_people: OnPeople, on_state: OnState, find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>) -> Vision {
         Vision { inner: Arc::new(Inner {
             on_people, on_state, find,
             there: there.unwrap_or_else(|| Box::new(|| true)),
@@ -450,7 +494,7 @@ impl Vision {
             tidier: Mutex::new(None),
             closed: AtomicBool::new(false),
             callback_lock: Mutex::new(()),
-            saving: AtomicBool::new(false),
+            effort,
             give_back: Mutex::new(Box::new(give_back_memory)),
             hold_people: AtomicBool::new(false),
             masks_wait: AtomicBool::new(false),
@@ -507,12 +551,18 @@ impl Vision {
         }
     }
 
+    /// Power-saving effects: level 1 at least, whatever the automatic part says.
     pub fn set_power_saving(&self, on: bool) {
-        self.inner.saving.store(on, Ordering::SeqCst);
+        self.inner.effort.set_floor(u8::from(on));
     }
 
     pub fn power_saving(&self) -> bool {
-        self.inner.saving.load(Ordering::SeqCst)
+        self.inner.effort.floor() >= 1
+    }
+
+    /// How the models are scheduled at the level the effects run at now.
+    fn cadence(&self) -> Cadence {
+        cadence(self.inner.effort.level())
     }
 
     fn ready(&self) -> Option<Arc<dyn Backend>> {
@@ -683,6 +733,8 @@ impl Vision {
 
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn newest_cutout_snapshot_with_look(&self, key: &str, seq: u64, w: usize, h: usize, look: Option<Look>, picture: Picture, epoch: u64, view: MaskView) -> Option<MaskSnapshot> {
+        // At the lightest level the cutout rests, so the normal mask stands in for it
+        self.cadence().cutout?;
         let Some(backend) = self.cutout_ready() else {
             self.load_cutout();
             return None;
@@ -815,14 +867,15 @@ impl Vision {
             }
         }
         let now = monotonic();
-        let saving = self.power_saving();
-        let still_every = if which == Which::Cutout { CUTOUT_STILL_EVERY_S } else { MASK_STILL_EVERY_S };
-        let overdue = m.small.is_none() || now - m.at >= still_every;
+        let cadence = self.cadence();
+        let gaps = if which == Which::Cutout { cadence.cutout.unwrap_or(cadence.mask) } else { cadence.mask };
+        let overdue = m.small.is_none() || now - m.at >= gaps.still;
+        let may_run = now - m.at >= gaps.moving;
         // With a grey look at hand the colour picture is only made when the model is about to run
         let run = if let Some(look) = look {
             let grey = look()?;
             let moved = m.motion.moved_grey(grey);
-            if (moved && !saving) || overdue {
+            if (moved && may_run) || overdue {
                 let frame = picture()?;
                 let small = m.segment.as_ref().and_then(|s| s.input(&frame)).unwrap_or(frame);
                 Some((small, moved))
@@ -838,7 +891,7 @@ impl Vision {
             let small = m.segment.as_ref().and_then(|s| s.input(&frame)).unwrap_or(frame);
             // Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
             let moved = m.motion.moved(&small);
-            if (moved && !saving) || overdue {
+            if (moved && may_run) || overdue {
                 Some((small, moved))
             } else {
                 if !moved {
@@ -924,7 +977,7 @@ impl Vision {
         }
         let sv = self.stream(key);
         let p = sv.people.lock().unwrap();
-        let every = if self.power_saving() { SAVING_PEOPLE_EVERY_S } else { PEOPLE_EVERY_S };
+        let every = self.cadence().people.moving;
         let now = monotonic();
         now - p.at >= every && now - p.probed >= every
     }
@@ -945,7 +998,7 @@ impl Vision {
         let now = monotonic();
         let mut p = sv.people.lock().unwrap();
         p.fed = now;
-        let (every, still_every) = if self.power_saving() { (SAVING_PEOPLE_EVERY_S, SAVING_PEOPLE_STILL_EVERY_S) } else { (PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S) };
+        let Gaps { moving: every, still: still_every } = self.cadence().people;
         if now - p.at < every || now - p.probed < every {
             return;
         }
@@ -1104,6 +1157,10 @@ impl Vision {
         }
         if self.power_saving() {
             line += ", power saving";
+        }
+        let level = self.inner.effort.level();
+        if level > self.inner.effort.floor() {
+            line += &format!(", effects stepped down to level {level}");
         }
         let mut lines = vec![("Vision".into(), line)];
         if let Some(cutout) = self.cutout_slot().filter(|_| self.cutout_state() != OFF) {

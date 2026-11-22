@@ -534,6 +534,10 @@ pub trait FrameContext {
     }
     /// For a final-stage step: the frame as the preview shows it, with a colour_split drawn in.
     fn colour_preview(&self, frame: &Frame) -> Frame;
+    /// How hard the heavy effects should work: 0 is full, and 1 to 3 ask an effect that analyses the picture (a person model, a detector) to do it less often or smaller and to reuse its last result in between, a little more at each level. The app raises it while frames run late and lowers it when there is room. 0 where the host doesn't say.
+    fn effort(&self) -> u8 {
+        0
+    }
 }
 
 /// What a CpuStep is about to do with a frame: the less it does, the longer the picture can stay on the graphics card.

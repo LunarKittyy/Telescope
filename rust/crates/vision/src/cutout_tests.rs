@@ -4,6 +4,7 @@ use super::tests::{ready, wait, Ready};
 use super::*;
 use std::sync::atomic::AtomicU32;
 use std::time::{Duration, Instant};
+use telescope_core::effort::{FULL, MOST};
 
 #[derive(Default)]
 struct Counts {
@@ -118,6 +119,24 @@ fn a_service_without_a_cutout_says_it_is_missing_and_gives_no_mask() {
     assert_eq!(r.v.state(), READY);
     r.v.load_cutout();
     r.v.cutout_downloaded();
+}
+
+#[test]
+fn at_the_lightest_effort_level_the_cutout_rests_and_comes_back_after() {
+    let r = rig_taking(Duration::ZERO);
+    let v = &r.normal.v;
+    first_mask(v);
+    let runs = || r.counts.runs.load(Ordering::SeqCst);
+    v.inner.effort.set_floor(MOST);
+    let before = runs();
+    for seq in 100..110 {
+        assert!(ask(v, seq).is_none(), "the normal mask stands in");
+        cutout_stream(v).mask.lock().unwrap().at -= CUTOUT_STILL_EVERY_S + 0.02;
+    }
+    assert_eq!(runs(), before, "the model wasn't asked");
+    v.inner.effort.set_floor(FULL);
+    cutout_stream(v).mask.lock().unwrap().at -= CUTOUT_STILL_EVERY_S + 0.02;
+    wait(|| ask(v, 200).is_some() && runs() > before);
 }
 
 #[test]

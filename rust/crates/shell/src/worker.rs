@@ -10,6 +10,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
+use telescope_core::effort::Effort;
 use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
 use telescope_core::i18n::tr;
 use telescope_core::image::resize_linear_into;
@@ -231,14 +232,24 @@ impl Settle {
         self.last_frame = Some(now);
     }
 
-    /// Whether a window from start on says anything about the link: it has to start after settling ended.
-    pub fn judges(&mut self, start: Instant) -> bool {
-        let Some(since) = self.since else { return true };
+    /// When settling ends, None once it has.
+    fn ends(&self) -> Option<Instant> {
+        let since = self.since?;
         let mut end = since + SETTLE_MAX;
         if let Some(flowing) = self.flowing {
             end = end.min(flowing + SETTLE_AFTER_FRAMES);
         }
-        if start < end {
+        Some(end)
+    }
+
+    /// Whether settling is over at now, for what is judged frame by frame; it doesn't end it the way judges does.
+    pub fn over(&self, now: Instant) -> bool {
+        self.ends().is_none_or(|end| now >= end)
+    }
+
+    /// Whether a window from start on says anything about the link: it has to start after settling ended.
+    pub fn judges(&mut self, start: Instant) -> bool {
+        if self.ends().is_some_and(|end| start < end) {
             return false;
         }
         self.since = None;
@@ -326,6 +337,9 @@ impl FrameContext for Ctx<'_> {
     }
     fn hurried(&self) -> bool {
         self.hurried
+    }
+    fn effort(&self) -> u8 {
+        Effort::global().level()
     }
     fn entry_epoch(&self) -> Option<u64> {
         Some(self.entry_epoch)
@@ -913,6 +927,15 @@ impl Shared {
     fn shed(&self, frames: u64) {
         self.frames_shed.fetch_add(frames, Ordering::Relaxed);
         self.stats.dropped(DropReason::Paced, frames);
+        if self.steps_judged() {
+            Effort::global().note_shed(frames);
+        }
+    }
+
+    /// Whether what the frame steps cost says anything about the effects: they are running (not paused for want of a reader) and the stream has settled.
+    fn steps_judged(&self) -> bool {
+        let paused = self.slot.latest_picture().is_some() && self.paused();
+        !paused && self.settle.lock().unwrap().over(Instant::now())
     }
 
     /// Resize and run the plugin steps on frame, then make it the frame the camera sends. One frame at a time, and
@@ -1215,7 +1238,14 @@ impl Shared {
         if self.demand_paused() {
             return false;
         }
-        self.publish(seq, frame)
+        let began = Instant::now();
+        let published = self.publish(seq, frame);
+        // What the steps cost tells the effects whether to work less; a frame that never went out says nothing
+        if published && self.settle.lock().unwrap().over(began) {
+            let interval_ns = 1_000_000_000 / self.fps.load(Ordering::SeqCst).max(1) as u64;
+            Effort::global().note_frame(began.elapsed().as_nanos() as u64, interval_ns);
+        }
+        published
     }
 
     fn next_seq(&self) -> u64 {
@@ -2151,6 +2181,24 @@ mod tests {
         assert!(!settle.judges(clock.0 - Duration::from_secs(1))); // a window that started while settling doesn't count
         assert!(settle.judges(clock.0));
         assert!(settle.since.is_none());
+    }
+
+    #[test]
+    fn settling_is_over_for_a_frame_the_same_moment_it_is_for_a_window_and_asking_ends_nothing() {
+        let mut clock = Clock(Instant::now());
+        let mut settle = Settle::new(clock.0);
+        assert!(!settle.over(clock.0));
+        clock.0 += Duration::from_secs(4);
+        settle.arrived(clock.0);
+        clock.flow(&mut settle, SETTLE_AFTER_FRAMES.as_secs_f32() - 0.1);
+        assert!(!settle.over(clock.0));
+        clock.flow(&mut settle, 0.1);
+        assert!(settle.over(clock.0));
+        assert!(settle.since.is_some(), "only the window that judges ends it");
+        assert!(settle.judges(clock.0));
+        assert!(settle.over(clock.0));
+        settle.restart(clock.0);
+        assert!(!settle.over(clock.0), "a lens switch starts it again");
     }
 
     #[test]

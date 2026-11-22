@@ -29,7 +29,7 @@ fn host_finding(find: crate::service::Find, opener: WebOpener) -> (VisionHost, E
     std::fs::write(folder.join("models/a.task"), files[0].1).unwrap();
     let tree = pack::tree_hash(&folder).unwrap();
     let info = PackInfo::from_json(&serde_json::json!({"linux": {"id": tree, "size": 100_000}}), Some("linux"));
-    let h = VisionHost::with(find, None, tmp.join("vision"), info, opener);
+    let h = VisionHost::with_effort(Arc::new(Effort::free()), find, None, tmp.join("vision"), info, opener);
     let bus = EventBus::new();
     h.attach(bus.sender());
     (h, bus)
@@ -902,6 +902,29 @@ fn a_still_picture_under_power_saving_keeps_the_cutouts_mask() {
         })
         .collect();
     assert!(seen[5..].iter().all(|m| *m == Some(50)), "{seen:?}");
+    h.shutdown();
+}
+
+#[test]
+fn at_the_lightest_effort_level_the_normal_mask_stands_in_for_the_cutouts() {
+    let (h, _bus, _normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let h = h.with_cutout(Box::new(|| Ok(Arc::new(ConstCutout(50)) as Arc<dyn Backend>)), None, scratch_dir("lightest-effort"), PackInfo::default());
+    h.vision().wait_for_masks();
+    h.load();
+    wait(|| h.state() == READY);
+    let mask_at = |i: u64| {
+        let mut frame = scene(640, 360, 0, 0);
+        frame.number = i;
+        let mask = h.person_mask_hq("a", &frame, 160, 90, 0).map(|m| m[0]);
+        std::thread::sleep(Duration::from_millis(33));
+        mask
+    };
+    wait(|| mask_at(1) == Some(50));
+    h.vision().inner.effort.set_floor(telescope_core::effort::MOST);
+    let seen: Vec<Option<u8>> = (2..=40u64).map(mask_at).collect();
+    assert!(seen[5..].iter().all(|m| *m == Some(200)), "{seen:?}");
+    h.vision().inner.effort.set_floor(telescope_core::effort::FULL);
+    wait(|| mask_at(100) == Some(50));
     h.shutdown();
 }
 
