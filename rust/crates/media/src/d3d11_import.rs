@@ -1,4 +1,5 @@
 //! D3D11VA surfaces retained across decode, a copy on the card into a texture both D3D11 and the pipeline's device can open, and a lazy RAM read.
+//! On DX12 the pipeline's queue waits for the copy through a shared fence, and each shared texture stays opened between pictures.
 
 use ash::vk;
 use ffmpeg_sys_next as ff;
@@ -10,7 +11,7 @@ use telescope_core::frame::{DecodedSurface, Frame, PixelFormat};
 use windows::core::{Interface, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0};
 use windows::Win32::Graphics::Direct3D11::*;
-use windows::Win32::Graphics::Direct3D12::{ID3D12Device, ID3D12Resource};
+use windows::Win32::Graphics::Direct3D12::{ID3D12Device, ID3D12Fence, ID3D12Resource};
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_NV12, DXGI_SAMPLE_DESC};
 use windows::Win32::Graphics::Dxgi::{IDXGIDevice, IDXGIResource1};
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
@@ -24,6 +25,8 @@ pub(crate) const HW: crate::ffmpeg::Hw = crate::ffmpeg::Hw::D3d11va;
 const COPY_WAIT_MS: u32 = 250;
 /// GENERIC_READ for a DXGI shared handle: DXGI_SHARED_RESOURCE_READ
 const SHARED_READ: u32 = 0x8000_0000;
+/// GENERIC_ALL for a shared fence handle, which D3D12 asks for to open it
+const SHARED_ALL: u32 = 0x1000_0000;
 
 #[derive(Default)]
 pub(crate) struct Capabilities {
@@ -58,6 +61,21 @@ struct Slot {
     handle: HANDLE,
     size: (u32, u32),
     busy: Arc<AtomicBool>,
+    opened: Arc<Mutex<Option<Opened>>>,
+}
+
+/// A slot's texture as the pipeline's device opened it, kept for the next picture that lands in the slot.
+struct Opened {
+    device: wgpu::Device,
+    texture: wgpu::Texture,
+}
+
+/// A free slot handed to one picture: the D3D11 texture pointer, its NT handle, the busy flag and the texture as last opened.
+struct Claim {
+    texture: *mut c_void,
+    handle: HANDLE,
+    busy: Arc<AtomicBool>,
+    opened: Arc<Mutex<Option<Opened>>>,
 }
 
 // SAFETY: the handle is a plain NT handle value and the texture is a free-threaded D3D11 object used under FFmpeg's device lock.
@@ -74,16 +92,57 @@ struct Fence {
     fence: ID3D11Fence,
     event: HANDLE,
     value: AtomicU64,
+    /// The fence's NT handle when it could be shared, so a DX12 queue can wait on it.
+    shared: Option<HANDLE>,
+    /// The fence as the pipeline's DX12 device opened it.
+    on_dx12: Mutex<Option<(ID3D12Device, ID3D12Fence)>>,
 }
 
-// SAFETY: the fence is free-threaded; the event handle is used by one waiter at a time, under the stream's lock.
+impl Fence {
+    /// Wait on the processor until the copy that signals value has finished.
+    fn wait(&self, value: u64) -> Result<(), String> {
+        // SAFETY: the fence and event are live and owned by self.
+        unsafe {
+            self.fence.SetEventOnCompletion(value, self.event).map_err(|e| e.to_string())?;
+            if WaitForSingleObject(self.event, COPY_WAIT_MS) != WAIT_OBJECT_0 {
+                return Err("the copy into the shared texture didn't finish in time".into());
+            }
+        }
+        Ok(())
+    }
+
+    /// This fence opened on the pipeline's DX12 device, or None when it isn't shared or that device can't open it.
+    fn dx12(&self, device: &wgpu::Device) -> Option<ID3D12Fence> {
+        let handle = self.shared?;
+        // SAFETY: the guard only borrows wgpu's DX12 device for this lookup.
+        let d12: ID3D12Device = unsafe { device.as_hal::<Dx12>() }?.raw_device().clone();
+        let mut kept = self.on_dx12.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((_, fence)) = kept.as_ref().filter(|(owner, _)| owner.as_raw() == d12.as_raw()) {
+            return Some(fence.clone());
+        }
+        let mut fence: Option<ID3D12Fence> = None;
+        // SAFETY: the handle is this fence's live NT handle, made on the same card (checked by LUID).
+        if let Err(e) = unsafe { d12.OpenSharedHandle(handle, &mut fence) } {
+            log::info!("DX12 couldn't open the copy's fence ({e}); waiting for each copy on the processor");
+            return None;
+        }
+        let fence = fence?;
+        *kept = Some((d12, fence.clone()));
+        Some(fence)
+    }
+}
+
+// SAFETY: the fence is free-threaded; the event handle is used by one waiter at a time, under the stream's lock; the D3D12 objects are free-threaded.
 unsafe impl Send for Fence {}
 unsafe impl Sync for Fence {}
 
 impl Drop for Fence {
     fn drop(&mut self) {
-        // SAFETY: the event was made in Fence::new and is closed once.
-        unsafe { let _ = CloseHandle(self.event); }
+        // SAFETY: the event and shared handle were made in Stream::fence and are closed once.
+        unsafe {
+            let _ = CloseHandle(self.event);
+            if let Some(handle) = self.shared { let _ = CloseHandle(handle); }
+        }
     }
 }
 
@@ -96,6 +155,9 @@ pub(crate) struct Stream {
     fence: Mutex<Option<Arc<Fence>>>,
     #[cfg(test)]
     forced: Mutex<Option<&'static str>>,
+    /// How often a shared texture was opened on the pipeline's device.
+    #[cfg(test)]
+    opens: AtomicUsize,
 }
 
 impl Stream {
@@ -165,7 +227,25 @@ impl std::fmt::Debug for Surface {
 pub(crate) struct Imported {
     pub(crate) texture: wgpu::Texture,
     pub(crate) backend: wgpu::Backend,
+    wait: Option<CardWait>,
     _slot: SlotGuard,
+}
+
+/// The DX12 fence and value the pipeline's queue waits for before it reads the shared texture.
+struct CardWait(ID3D12Fence, u64);
+
+// SAFETY: D3D12 fences are free-threaded.
+unsafe impl Send for CardWait {}
+
+impl Imported {
+    /// Stage the wait for the copy on the pipeline's next submission; a picture without one was already waited for on the processor.
+    pub(crate) fn wait_on(&mut self, queue: &wgpu::Queue) -> Result<(), String> {
+        let Some(CardWait(fence, value)) = self.wait.take() else { return Ok(()) };
+        // SAFETY: the guard only borrows wgpu's DX12 queue to stage a wait; the queue waits before the next submission's command lists.
+        let hal = unsafe { queue.as_hal::<Dx12>() }.ok_or("no DX12 queue")?;
+        hal.add_wait_fence(fence, value);
+        Ok(())
+    }
 }
 
 struct SlotGuard(Arc<AtomicBool>);
@@ -210,12 +290,14 @@ impl Surface {
         self.colour
     }
 
-    /// Copy this picture into one of the stream's shared textures, wait for the copy, and open the texture on the pipeline's device.
+    /// Copy this picture into one of the stream's shared textures and open the texture on the pipeline's device (or reuse it as opened before).
+    /// On DX12 the pipeline's queue waits for the copy on the card (see Imported::wait_on); otherwise the processor waits here.
     /// None: every shared texture is in use, so this picture goes through memory (the stream keeps sharing).
     pub(crate) fn import(&self, device: &wgpu::Device, capabilities: &Mutex<Capabilities>) -> Result<Option<Imported>, String> {
         self.stream.attempt(|| {
             let backend = device.adapter_info().backend;
-            // Vulkan imports of D3D11 NV12 textures lose the device on the drivers tried so far (a 2019 and a 2025 NVIDIA driver), so they stay off until that is understood
+            // Vulkan imports of D3D11 NV12 textures stay off: opening the texture again or taking it from UNDEFINED loses the device on the NVIDIA drivers tried (a 2019 and a 2025 one),
+            // and without those the chroma plane reads wrong (docs/roadmap/next.md)
             if backend == wgpu::Backend::Vulkan && std::env::var_os("TELESCOPE_VULKAN_SURFACE_IMPORT").is_none() {
                 self.stream.decline("sharing with Vulkan isn't switched on yet");
                 return Err("sharing with Vulkan isn't switched on yet".into());
@@ -234,27 +316,46 @@ impl Surface {
                 wgpu::Backend::Dx12 => same_dx12_device(device, luid),
                 other => Err(format!("the pipeline uses the {other:?} backend")),
             })?;
-            let Some((handle, busy)) = self.stream.slot(&d3d_device, self.size)? else { return Ok(None) };
-            let guard = SlotGuard(busy);
-            // SAFETY: texture and index belong to the retained frame; the slot's texture is this stream's and idle; the context is locked.
-            unsafe { self.copy_and_wait(d3d, &d3d_device, texture, index, handle.0)? };
+            let Some(claim) = self.stream.slot(&d3d_device, self.size)? else { return Ok(None) };
+            let guard = SlotGuard(claim.busy.clone());
+            let fence = self.stream.fence(&d3d_device)?;
+            // SAFETY: texture and index belong to the retained frame; the claimed texture is this stream's and idle; the context is locked.
+            let value = unsafe { self.copy(d3d, texture, index, claim.texture, &fence)? };
             drop(source);
-            let texture = match backend {
-                wgpu::Backend::Vulkan => import_vulkan(device, handle.1, self.size)?,
-                _ => import_dx12(device, handle.1, self.size)?,
+            let on_card = if backend == wgpu::Backend::Dx12 { fence.dx12(device) } else { None };
+            let wait = match on_card {
+                Some(fence) => Some(CardWait(fence, value)),
+                None => {
+                    fence.wait(value)?;
+                    None
+                }
             };
-            Ok(Some(Imported { texture, backend, _slot: guard }))
+            let mut opened = claim.opened.lock().unwrap_or_else(|e| e.into_inner());
+            let kept = opened.as_ref().filter(|o| o.device == *device).map(|o| o.texture.clone());
+            let texture = match kept {
+                Some(texture) => texture,
+                None => {
+                    let texture = match backend {
+                        wgpu::Backend::Vulkan => import_vulkan(device, claim.handle, self.size)?,
+                        _ => import_dx12(device, claim.handle, self.size)?,
+                    };
+                    *opened = Some(Opened { device: device.clone(), texture: texture.clone() });
+                    #[cfg(test)]
+                    self.stream.opens.fetch_add(1, Ordering::Relaxed);
+                    texture
+                }
+            };
+            Ok(Some(Imported { texture, backend, wait, _slot: guard }))
         })
     }
 
-    /// Enqueue the copy of this picture's array slice into the shared texture, signal a fence and wait for it without reading any pixels.
-    unsafe fn copy_and_wait(&self, d3d: &DeviceContext, device: &ID3D11Device, source: *mut c_void, index: u32, dest: *mut c_void) -> Result<(), String> {
+    /// Enqueue the copy of this picture's array slice into the shared texture and signal the stream's fence after it; returns the value signalled.
+    unsafe fn copy(&self, d3d: &DeviceContext, source: *mut c_void, index: u32, dest: *mut c_void, fence: &Fence) -> Result<u64, String> {
         // SAFETY: see the caller; the lock functions are FFmpeg's own for this device.
         unsafe {
             let source = ID3D11Resource::from_raw_borrowed(&source).ok_or("no decoder texture")?;
             let dest = ID3D11Resource::from_raw_borrowed(&dest).ok_or("no shared texture")?;
             let context = ID3D11DeviceContext::from_raw_borrowed(&d3d.device_context).ok_or("no D3D11 context")?;
-            let fence = self.stream.fence(device)?;
             let value = fence.value.fetch_add(1, Ordering::AcqRel) + 1;
             let region = D3D11_BOX { left: 0, top: 0, front: 0, right: self.size.0, bottom: self.size.1, back: 1 };
             if let Some(lock) = d3d.lock { lock(d3d.lock_ctx) }
@@ -267,16 +368,12 @@ impl Surface {
             })();
             if let Some(unlock) = d3d.unlock { unlock(d3d.lock_ctx) }
             queued?;
-            fence.fence.SetEventOnCompletion(value, fence.event).map_err(|e| e.to_string())?;
-            if WaitForSingleObject(fence.event, COPY_WAIT_MS) != WAIT_OBJECT_0 {
-                return Err("the copy into the shared texture didn't finish in time".into());
-            }
-            Ok(())
+            Ok(value)
         }
     }
 
     /// Acquire or release external queue ownership of the shared image on Vulkan.
-    /// A new import starts UNDEFINED and goes to the GENERAL layout wgpu tracks it in; after the convert pass wgpu has left it SHADER_READ_ONLY_OPTIMAL.
+    /// The image is taken from GENERAL, the layout wgpu tracks it in (from UNDEFINED the discrete card's driver lost the device); after the convert pass wgpu has left it SHADER_READ_ONLY_OPTIMAL.
     pub(crate) fn ownership(device: &wgpu::Device, enc: &mut wgpu::CommandEncoder, texture: &wgpu::Texture, acquire: bool) -> Result<(), String> {
         // SAFETY: all handles remain borrowed for the call; this encoder exclusively records the barrier outside any render pass.
         unsafe {
@@ -285,7 +382,7 @@ impl Surface {
             let barrier = vk::ImageMemoryBarrier::default()
                 .image(image.raw_handle())
                 .subresource_range(vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::PLANE_0 | vk::ImageAspectFlags::PLANE_1).level_count(1).layer_count(1))
-                .old_layout(if acquire { vk::ImageLayout::UNDEFINED } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL })
+                .old_layout(if acquire { vk::ImageLayout::GENERAL } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL })
                 .new_layout(vk::ImageLayout::GENERAL)
                 .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
                 .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
@@ -304,15 +401,15 @@ impl Surface {
 }
 
 impl Stream {
-    /// A free shared texture of this size and its handle values (the D3D11 texture pointer, the NT handle), made when the stream has fewer than MAX_SURFACES.
+    /// A free shared texture of this size, made when the stream has fewer than MAX_SURFACES.
     /// None when all of them are in use.
-    fn slot(&self, device: &ID3D11Device, size: (u32, u32)) -> Result<Option<((*mut c_void, HANDLE), Arc<AtomicBool>)>, String> {
+    fn slot(&self, device: &ID3D11Device, size: (u32, u32)) -> Result<Option<Claim>, String> {
         let mut slots = self.slots.lock().unwrap_or_else(|e| e.into_inner());
         // A resolution change retires the idle slots of the old size
         slots.retain(|s| s.size == size || s.busy.load(Ordering::Acquire));
         for slot in slots.iter().filter(|s| s.size == size) {
             if slot.busy.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_ok() {
-                return Ok(Some(((slot.texture.as_raw(), slot.handle), slot.busy.clone())));
+                return Ok(Some(Claim { texture: slot.texture.as_raw(), handle: slot.handle, busy: slot.busy.clone(), opened: slot.opened.clone() }));
             }
         }
         if slots.len() >= MAX_SURFACES {
@@ -333,9 +430,9 @@ impl Stream {
         };
         let texture = texture.ok_or("no shared texture")?;
         let busy = Arc::new(AtomicBool::new(true));
-        let raw = texture.as_raw();
-        slots.push(Slot { texture, handle, size, busy: busy.clone() });
-        Ok(Some(((raw, handle), busy)))
+        let claim = Claim { texture: texture.as_raw(), handle, busy: busy.clone(), opened: Arc::default() };
+        slots.push(Slot { texture, handle, size, busy, opened: claim.opened.clone() });
+        Ok(Some(claim))
     }
 
     fn fence(&self, device: &ID3D11Device) -> Result<Arc<Fence>, String> {
@@ -347,10 +444,14 @@ impl Stream {
         let made = unsafe {
             let device5 = device.cast::<ID3D11Device5>().map_err(|e| format!("no D3D11 fences: {e}"))?;
             let mut made_fence: Option<ID3D11Fence> = None;
-            device5.CreateFence(0, D3D11_FENCE_FLAG_NONE, &mut made_fence).map_err(|e| format!("no D3D11 fences: {e}"))?;
+            // A shared fence lets a DX12 queue wait for the copy; without one the processor waits
+            if device5.CreateFence(0, D3D11_FENCE_FLAG_SHARED, &mut made_fence).is_err() {
+                device5.CreateFence(0, D3D11_FENCE_FLAG_NONE, &mut made_fence).map_err(|e| format!("no D3D11 fences: {e}"))?;
+            }
             let fence = made_fence.ok_or("no D3D11 fence")?;
+            let shared = fence.CreateSharedHandle(None, SHARED_ALL, PCWSTR::null()).ok();
             let event = CreateEventW(None, false, false, PCWSTR::null()).map_err(|e| e.to_string())?;
-            Arc::new(Fence { fence, event, value: AtomicU64::new(0) })
+            Arc::new(Fence { fence, event, value: AtomicU64::new(0), shared, on_dx12: Mutex::default() })
         };
         *kept = Some(made.clone());
         Ok(made)
@@ -533,8 +634,9 @@ mod tests {
             fn log(&self, r: &log::Record) { if self.enabled(r.metadata()) { eprintln!("[{}] {}: {}", r.level(), r.target(), r.args()); } }
             fn flush(&self) {}
         }
-        let _ = log::set_logger(&Stderr).map(|()| log::set_max_level(log::LevelFilter::Warn));
         if let Ok(id) = std::env::var("TS_CARD") {
+            // Only a hand-picked card is a diagnostic run: a logger here would take the one global slot from the tests that read the log
+            let _ = log::set_logger(&Stderr).map(|()| log::set_max_level(log::LevelFilter::Warn));
             telescope_core::gpu_pick::set_choice(&id);
         }
         let gpu = Gpu::shared();
@@ -605,6 +707,32 @@ mod tests {
         let next = decode_surface(&mut codec, &packets[1..]).expect("another frame");
         assert!(next.surface().is_none(), "the decoder kept offering surfaces after fallback");
         assert!(next.data[0].abs_diff(171) <= 3);
+    }
+
+    #[test]
+    fn each_shared_texture_is_opened_once_and_reused_for_later_pictures() {
+        let Some(gpu) = card() else { return eprintln!("no graphics card; skipped") };
+        if gpu.adapter_name.contains("Vulkan") && std::env::var_os("TELESCOPE_VULKAN_SURFACE_IMPORT").is_none() {
+            return eprintln!("sharing with Vulkan is off; skipped");
+        }
+        let Ok(mut codec) = Codec::h264(Some(Hw::D3d11va)) else { return eprintln!("no D3D11VA device; skipped") };
+        codec.surfaces(true);
+        let lumas = [60u8, 100, 140, 180, 140, 100, 60, 100, 140, 180];
+        let Some(packets) = testenc::h264(&lumas, 256, 144, 1) else { return eprintln!("no H.264 encoder; skipped") };
+        let mut stream = None;
+        for (packet, luma) in packets.iter().zip(lumas) {
+            let frame = decode_surface(&mut codec, std::slice::from_ref(packet)).expect("a frame");
+            stream = frame.surface().and_then(|s| s.as_any().downcast_ref::<Surface>()).map(|s| s.stream.clone()).or(stream);
+            let mut held = gpu.lift_with(&frame, true).unwrap();
+            assert!(held.was_imported(), "a picture fell back to memory");
+            let out = gpu.land(&mut held).unwrap();
+            gpu.put_down(held);
+            // limited range: 16 + luma * 219 / 255
+            let want = 16 + u32::from(luma) * 219 / 255;
+            assert!(u32::from(out.data[0]).abs_diff(want) <= 3, "luma {} for {luma}, wanted about {want}", out.data[0]);
+        }
+        let opens = stream.expect("a shared picture").opens.load(Ordering::Relaxed);
+        assert!(opens <= MAX_SURFACES, "{opens} opens for {} pictures", lumas.len());
     }
 
     /// A long stream with the pictures shared: surfaces and shared textures stay within their bounds and the frames never go dark.

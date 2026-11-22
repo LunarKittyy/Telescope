@@ -68,6 +68,7 @@ data class StillCapability(
     val exposureMinNs: Long = 0L,  // the fastest shutter; 0 = not said
     val bracketMax: Int = 0,  // the most exposure bracket pictures, which come with up to 12 EV from the middle; 0 = not said
     val focusStepsMax: Int = 0,  // the most focus bracket steps; 0 = not said
+    val focusDistance: Boolean = false,  // takes focus_diopters, one focus for the photo; an older phone leaves it out
 )
 
 @Serializable
@@ -137,6 +138,8 @@ data class V1State(
     val heat_paused: Boolean = false,  // too hot: the camera is closed (the stream and mic carry on) until the phone has cooled
     val low_light: Boolean = false,  // auto exposure may slow the camera down in the dark (and noise reduction is high)
     val low_light_toggle: Boolean = false,  // takes low_light; set by every phone that can
+    val clean_video: Boolean = false,  // cleaner video is on: Dynamic up to the encoder's top
+    val clean_video_toggle: Boolean = false,  // takes clean_video; an older phone leaves it out
     val h264_profile: String? = null,  // "high", "baseline" or "auto" while H.264 runs
     val intra_refresh: Boolean = false,  // H.264 refreshes the picture over a second of frames instead of keyframes
     val wifi_band: String? = null,  // the phone's Wi-Fi: "2.4", "5" or "6" GHz, left out on mobile data or Android 9

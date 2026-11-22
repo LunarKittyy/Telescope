@@ -2,10 +2,10 @@
 
 If you found a security problem in Telescope, please report it privately through [GitHub's private vulnerability reporting](https://github.com/LunarKittyy/Telescope/security/advisories/new) instead of opening an issue.
 
-Things I'd especially like to hear about:
+Reports about these are especially welcome:
 
-- Pairing, the encrypted connection between the phone and the computer, or anything that lets another device connect without pairing
-- The MCP server, or anything that lets an app change settings without permission
+- Pairing, the encrypted connection between the phone and the computer, or any way for another device to connect without pairing
+- The MCP server, or any way for an app to change settings without permission
 - Ports Telescope opens on your network
 - Updates, for example a way to get a modified update installed
 

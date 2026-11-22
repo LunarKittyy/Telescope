@@ -12,7 +12,6 @@ log.workspace = true
 # unstable-wgpu-30 and femtovg on wgpu: the preview hands Slint textures media painted on its device; unstable-winit-030 for the keys' scan codes
 slint = { workspace = true, features = ["renderer-software", "software-renderer-systemfonts", "software-renderer-path", "unstable-wgpu-30", "renderer-femtovg-wgpu", "unstable-winit-030"] }
 png = "0.18"
-unicode-normalization = "0.1"
 # Finds where things are in a window for scenes and tests (pinned: its API follows Slint's internals)
 i-slint-backend-testing = "=1.18.1"
 i-slint-core = "=1.18.1"

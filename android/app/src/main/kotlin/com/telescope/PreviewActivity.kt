@@ -64,6 +64,15 @@ class PreviewActivity : LookActivity() {
     private var bindRequested = false  // unbind by this: onStop can come before onServiceConnected
     private var receiverRegistered = false
     private var boundToRunningStream = false
+    private var attachedRun = 0L
+    // The stream it shows can stop or restart under it (from the computer, the idle watchdog), which leaves the last frame frozen
+    private val followStream = object : Runnable {
+        override fun run() {
+            val svc = service ?: return
+            if (previewLost(attachedRun, svc.run, svc.state)) { finish(); return }
+            textureView.postDelayed(this, FOLLOW_MS)
+        }
+    }
     private var resolved = false
     private var pendingSurface: Surface? = null
     // Guards tearDownPreview() from redundant calls.
@@ -182,6 +191,7 @@ class PreviewActivity : LookActivity() {
             (getSystemService(DISPLAY_SERVICE) as DisplayManager).unregisterDisplayListener(displayListener)
             receiverRegistered = false
         }
+        textureView.removeCallbacks(followStream)
         tearDownPreview()
         unbind()
         service = null
@@ -218,6 +228,8 @@ class PreviewActivity : LookActivity() {
         // Also while the stream's camera is opening or switching: its session picks the preview up when it's built.
         if (svc != null && svc.state in ATTACHABLE) {
             boundToRunningStream = true
+            attachedRun = svc.run
+            textureView.postDelayed(followStream, FOLLOW_MS)
             val streamSize = svc.getStreamSize()
             // Must be set before attaching: Camera2 needs buffer size fixed to supported size
             textureView.surfaceTexture?.setDefaultBufferSize(streamSize.width, streamSize.height)
@@ -532,6 +544,7 @@ class PreviewActivity : LookActivity() {
 
     companion object {
         private const val TAG = "PreviewActivity"
+        private const val FOLLOW_MS = 500L
         private const val MAX_TRANSFORM_RETRIES = 3
         private const val TRANSFORM_RETRY_DELAY_MS = 150L
         private val ATTACHABLE = setOf(

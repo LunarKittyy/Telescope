@@ -520,6 +520,9 @@ class CameraStreamService : Service() {
     private var idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var started = false
+    // Counts the streams this instance has run, so a preview can tell its stream from a newer one
+    @Volatile var run = 0L
+        private set
     private var ownershipLeaseId = 0L
     @Volatile private var busySinceMs = 0L
 
@@ -745,6 +748,7 @@ class CameraStreamService : Service() {
             return START_NOT_STICKY
         }
         started = true
+        run++
         val cameraId  = intent?.getStringExtra(EXTRA_CAMERA_ID)  ?: "0"
         val logicalId = intent?.getStringExtra(EXTRA_LOGICAL_ID) ?: ""
         streamWidth   = intent?.getIntExtra(EXTRA_WIDTH,  1920)  ?: 1920
@@ -1087,6 +1091,8 @@ class CameraStreamService : Service() {
             heat_height = snap?.heatHeight ?: 0,
             heat_paused = controller?.isHeatPaused() ?: false,
             low_light_toggle = true,
+            clean_video = controller?.cleanVideo ?: false,
+            clean_video_toggle = h264Available,
             codec_error = snap?.codecFailure?.text,
             codec_error_code = snap?.codecFailure?.code,
             codec_error_width = snap?.codecFailure?.width ?: 0,
@@ -1200,7 +1206,13 @@ class CameraStreamService : Service() {
                     val bps = params["value"]?.toIntOrNull() ?: return err("bad value")
                     val dynamic = bps == H264Stream.DYNAMIC
                     ctrl.setBitrate(if (dynamic) bps else bps.coerceAtLeast(0))
-                    server?.dynamicH264 = dynamic
+                    server?.dynamicH264 = ctrl.dynamicOn
+                    ok()
+                }
+                "clean_video" -> {
+                    // 1 while a run stacks the video: Dynamic up to the encoder's top; 0 back to the bitrate asked for
+                    ctrl.setCleanVideo(params["value"] == "1")
+                    server?.dynamicH264 = ctrl.dynamicOn
                     ok()
                 }
                 "focus_point" -> {

@@ -5992,7 +5992,6 @@ dependencies = [
  "slint-interpreter",
  "telescope-core",
  "telescope-ui-kit",
- "unicode-normalization",
  "wayland-backend",
  "wayland-client",
  "wayland-protocols",

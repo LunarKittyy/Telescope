@@ -871,6 +871,8 @@ pub struct StargazerPlugin {
     input: Input,
     /// Where the stack that is there got its frames.
     stack_input: Input,
+    /// The stream cleaner video was asked of, while a run of video frames collects.
+    clean_for: Option<String>,
     frames: u32,
     keep: u32,
     trail_s: u32,
@@ -948,6 +950,7 @@ impl StargazerPlugin {
             mode: Mode::Lucky,
             input: Input::Video,
             stack_input: Input::Video,
+            clean_for: None,
             frames: DEFAULT_FRAMES,
             keep: DEFAULT_KEEP,
             trail_s: DEFAULT_TRAIL_S,
@@ -1092,18 +1095,49 @@ impl StargazerPlugin {
         })
     }
 
+    /// The nearest focus a photo can be set to, in diopters; 0 when this camera takes no focus for a photo (an older phone, a DSLR).
+    fn focus_near(caps: Option<&StillCaps>) -> f64 {
+        caps.and_then(|c| c.shot.as_ref()).and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters).max(0.0)
+    }
+
+    /// The focus the photos are taken at: none on a camera that can't set it, which then uses its own.
+    fn photo_focus(&self, caps: Option<&StillCaps>) -> Option<f64> {
+        self.shot.focus_diopters.filter(|_| Self::focus_near(caps) > 0.0)
+    }
+
     fn focus_props(&self, caps: Option<&StillCaps>) -> Value {
-        let near = caps.and_then(|c| c.shot.as_ref()).and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters);
+        let near = Self::focus_near(caps);
+        let focus = self.photo_focus(caps);
         json!({
-            "focus-enabled": false, "focus-tip": tr("Setting the focus from here comes in a later version."),
-            "focus-value": stills::focus_position(near, self.shot.focus_diopters.unwrap_or(0.0)), "focus-unset": self.shot.focus_diopters.is_none(),
-            "focus-readout": self.shot.focus_diopters.map_or_else(|| tr("Camera"), stills::shot_focus_text),
+            "focus-enabled": self.phase == Phase::Idle && near > 0.0,
+            "focus-tip": if caps.is_none() { tr("Waiting for the picture") } else if near > 0.0 { tr("Set the focus for the photos.") } else { tr("This camera can't set the focus for a photo.") },
+            "focus-value": stills::focus_position(near, focus.unwrap_or(0.0)), "focus-unset": focus.is_none(),
+            "focus-readout": focus.map_or_else(|| tr("Camera"), stills::shot_focus_text),
         })
+    }
+
+    /// The focus slider moved (position on the focus scale) or was reset to the camera's own (None).
+    fn set_focus(&mut self, host: &mut dyn Host, position: Option<f64>) {
+        if self.input != Input::Photos || self.phase != Phase::Idle {
+            return;
+        }
+        let near = Self::focus_near(self.still_caps(host).as_ref());
+        if near <= 0.0 {
+            return;
+        }
+        let focus = position.map(|p| (p.clamp(0.0, stills::FOCUS_SCALE) / stills::FOCUS_SCALE * near * 100.0).round() / 100.0);
+        if focus != self.shot.focus_diopters {
+            self.shot.focus_diopters = focus;
+            self.shot_initialized = true;
+            host.schedule_save();
+        }
+        self.show(host);
     }
 
     fn shot_props(&self, host: &dyn Host) -> Value {
         let caps = self.still_caps(host);
-        let mut props = json!({"customize-open": self.customize_open, "shot-summary": self.shot.summary(stills::shot_focus_text)});
+        let shown = ShotChoice { focus_diopters: self.photo_focus(caps.as_ref()), ..self.shot.clone() };
+        let mut props = json!({"customize-open": self.customize_open, "shot-summary": shown.summary(stills::shot_focus_text)});
         if let Some(all) = props.as_object_mut() {
             for control in [self.shutter_props(caps.as_ref()), self.iso_props(caps.as_ref()), self.focus_props(caps.as_ref())] {
                 if let Value::Object(fields) = control {
@@ -1251,6 +1285,10 @@ impl StargazerPlugin {
         let mut options = json!({"format": "jpeg", "rotation": 0, "use_zoom": self.use_zoom, "shot": {}, "skip_if_hidden": true});
         if !caps.camera { options["quality"] = json!(95); }
         stills::add_shot(&mut options, &self.shot, true, false);
+        // Only a camera that takes a focus for one photo gets one: an older phone would refuse the photo
+        if let Some(focus) = self.photo_focus(Some(caps)) {
+            options["shot"]["focus_diopters"] = json!(focus);
+        }
         options
     }
 
@@ -1484,6 +1522,7 @@ impl StargazerPlugin {
         self.shared.run.store(self.run, Ordering::SeqCst);
         host.want_frames(NAME, true);
         host.schedule(1000, TICK);
+        self.sync_clean_video(host);
         self.show(host);
     }
 
@@ -1509,7 +1548,26 @@ impl StargazerPlugin {
             self.phase = Phase::Idle;
             self.note = tr("Stopped. Reset starts a new stack");
         }
+        self.sync_clean_video(host);
         self.show(host);
+    }
+
+    /// Asks the phone for cleaner video (a higher bitrate, as far as the link takes it) while a run collects video frames, and gives it back
+    /// after. Only a phone that says it takes it is asked; the bitrate changes on the running stream, so there's no reconnect.
+    fn sync_clean_video(&mut self, host: &mut dyn Host) {
+        let wanted = (self.phase == Phase::Collecting && self.stack_input == Input::Video && !self.down && !self.source.is_empty()).then(|| self.source.clone());
+        if wanted == self.clean_for {
+            return;
+        }
+        if let Some(old) = self.clean_for.take() {
+            host.phone_control(Some(&old), &json!({"action": "clean_video", "value": 0}));
+        }
+        let Some(source) = wanted else { return };
+        let takes = host.phone_state(Some(&source)).is_some_and(|s| s.get("clean_video_toggle") == Some(&Value::Bool(true)));
+        if takes {
+            host.phone_control(Some(&source), &json!({"action": "clean_video", "value": 1}));
+            self.clean_for = Some(source);
+        }
     }
 
     fn ended(&mut self, host: &mut dyn Host) {
@@ -1519,6 +1577,7 @@ impl StargazerPlugin {
         host.want_frames(NAME, false);
         host.cancel_schedule(TICK);
         host.cancel_schedule(NEXT_PHOTO);
+        self.sync_clean_video(host);
     }
 
     fn heard(&mut self, host: &mut dyn Host, token: &str, data: &Value) {
@@ -1757,6 +1816,7 @@ impl Plugin for StargazerPlugin {
         }
         self.ticking = false;
         self.phase = Phase::Idle;
+        self.sync_clean_video(host);
         self.taking = None;
         self.photo = None;
         host.want_frames(NAME, false);
@@ -1825,6 +1885,7 @@ impl Plugin for StargazerPlugin {
             }
             _ => {}
         }
+        self.sync_clean_video(host);
     }
 
     fn card(&mut self) -> Option<CardSpec> {
@@ -1837,8 +1898,7 @@ impl Plugin for StargazerPlugin {
             "photo-every": self.photo_every, "photo-every-text": self.photo_every_text(), "shot-summary": self.shot.summary(stills::shot_focus_text), "customize-open": self.customize_open,
             "shutter-stops": [tr("Camera")], "iso-stops": [tr("Camera")],
             "focus-unset": self.shot.focus_diopters.is_none(), "focus-readout": self.shot.focus_diopters.map_or_else(|| tr("Camera"), stills::shot_focus_text),
-            "shutter-tip": tr("Waiting for the picture"), "iso-tip": tr("Waiting for the picture"),
-            "focus-tip": tr("Setting the focus from here comes in a later version."),
+            "shutter-tip": tr("Waiting for the picture"), "iso-tip": tr("Waiting for the picture"), "focus-tip": tr("Waiting for the picture"),
         })) {
             a.extend(s);
         }
@@ -1881,6 +1941,8 @@ impl Plugin for StargazerPlugin {
                 self.show(host);
             }
             "shutter-picked" | "iso-picked" => self.pick_shot(host, &event.callback, number.max(0.0) as usize),
+            "focus-moved" => self.set_focus(host, Some(number)),
+            "focus-reset" => self.set_focus(host, None),
             "open-clicked" => self.open_folder(host),
             _ => {}
         }

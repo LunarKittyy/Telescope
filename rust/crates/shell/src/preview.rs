@@ -246,19 +246,9 @@ fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPref
     ordered
 }
 
-/// Opens a graphics card for Slint's wgpu renderer when there's a GPU painter to share it with, and makes the painter on
-/// the same device: every window (the pop-out too) then renders with it, so their textures go anywhere. None keeps the
-/// default renderer (no painter, TELESCOPE_NO_GPU set, or no card wgpu can use).
-pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
-    let factory = GPU_PAINTER.get()?;
-    if std::env::var_os("TELESCOPE_NO_GPU").is_some() {
-        return None;
-    }
-    if gpu_marker::probe_failed() {
-        log::warn!("The last start closed while looking for graphics cards, so none is looked for now");
-        return None;
-    }
-    let opened = (|| {
+/// Looks for a graphics card the window can draw on and opens it. `select` gets the configuration to hand Slint, and says whether it took.
+fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result<(), String>) -> Result<(wgpu::Device, wgpu::Queue), String> {
+    (|| {
         // Not GL: looking for it loads Mesa's big GL libraries, about 25 MB, and a GL adapter found here can't present to the window
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
         desc.backends = wgpu::Backends::PRIMARY;
@@ -282,7 +272,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
                     ..Default::default()
                 })).map_err(|e| e.to_string())?;
                 let config = slint::wgpu_30::WGPUConfiguration::Manual { instance: instance.clone(), adapter: adapter.clone(), device: device.clone(), queue: queue.clone() };
-                crate::parent::selector().require_wgpu_30(config).select().map_err(|e| e.to_string())?;
+                select(config)?;
                 Ok::<_, String>((device, queue))
             })();
             match tried {
@@ -314,9 +304,26 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
             ..Default::default()
         })).map_err(|e| e.to_string())?;
         let config = slint::wgpu_30::WGPUConfiguration::Manual { instance, adapter, device: device.clone(), queue: queue.clone() };
-        crate::parent::selector().require_wgpu_30(config).select().map_err(|e| e.to_string())?;
+        select(config)?;
         Ok::<_, String>((device, queue))
-    })();
+    })()
+}
+
+/// Whether a graphics card is looked for at all: a painter to share it with, no TELESCOPE_NO_GPU and no crash on the last start.
+fn wgpu_wanted() -> Option<&'static GpuPainterFactory> {
+    let factory = GPU_PAINTER.get()?;
+    if std::env::var_os("TELESCOPE_NO_GPU").is_some() {
+        return None;
+    }
+    if gpu_marker::probe_failed() {
+        log::warn!("The last start closed while looking for graphics cards, so none is looked for now");
+        return None;
+    }
+    Some(factory)
+}
+
+/// The painter on the card that was opened, or None (logged) when none was.
+fn painter_on(factory: &GpuPainterFactory, opened: Result<(wgpu::Device, wgpu::Queue), String>) -> Option<Box<dyn Painter>> {
     match opened {
         Ok((device, queue)) => {
             log::info!("The preview paints on the window's graphics card");
@@ -326,6 +333,55 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
             log::warn!("The window can't render with wgpu, so the preview is scaled on the CPU: {e}");
             None
         }
+    }
+}
+
+/// Opens a graphics card for Slint's wgpu renderer when there's a GPU painter to share it with, and makes the painter on
+/// the same device: every window (the pop-out too) then renders with it, so their textures go anywhere. None keeps the
+/// default renderer (no painter, TELESCOPE_NO_GPU set, or no card wgpu can use).
+pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
+    let factory = wgpu_wanted()?;
+    let opened = open_wgpu(&mut |config| crate::parent::selector().require_wgpu_30(config).select().map_err(|e| e.to_string()));
+    painter_on(factory, opened)
+}
+
+/// A graphics card being opened on a thread of its own, while the window's document compiles.
+pub(crate) struct EarlyCard(std::thread::JoinHandle<Result<(wgpu::Device, wgpu::Queue, Option<slint::wgpu_30::WGPUConfiguration>), String>>);
+
+/// Starts opening the card (None when there is nothing to open). Only the card is opened here: Slint is told about it by `finish`, on the window's thread.
+pub(crate) fn begin_wgpu_backend() -> Option<EarlyCard> {
+    // Only Linux, where it was measured: the other systems' drivers may want the thread they were first used on
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    wgpu_wanted()?;
+    let spawned = std::thread::Builder::new().name("graphics card".into()).spawn(|| {
+        let mut config = None;
+        let (device, queue) = open_wgpu(&mut |c| { config = Some(c); Ok(()) })?;
+        Ok((device, queue, config))
+    });
+    spawned.map_err(|e| log::warn!("The graphics card couldn't be opened on a thread: {e}")).ok().map(EarlyCard)
+}
+
+/// What `select_wgpu_backend` gives, for a card opened by `begin_wgpu_backend`. Has to run before the first window is made.
+pub(crate) fn finish_wgpu_backend(early: Option<EarlyCard>) -> Option<Box<dyn Painter>> {
+    let Some(EarlyCard(thread)) = early else { return select_wgpu_backend() };
+    let Ok(done) = thread.join() else {
+        log::warn!("Opening the graphics card failed");
+        return None;
+    };
+    let factory = wgpu_wanted()?;
+    match done {
+        Ok((device, queue, Some(config))) => match crate::parent::selector().require_wgpu_30(config).select() {
+            Ok(()) => painter_on(factory, Ok((device, queue))),
+            // Slint refused the card: the blocking way goes through the other cards the way it always did
+            Err(e) => {
+                log::warn!("The window can't use the card that was opened: {e}");
+                drop((device, queue));
+                select_wgpu_backend()
+            }
+        },
+        other => painter_on(factory, other.map(|(device, queue, _)| (device, queue))),
     }
 }
 

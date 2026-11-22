@@ -3,7 +3,7 @@
 
 ## Helping without any tools
 
-Spotted a text that reads wrong, or would like Telescope in your language? [Open a translation issue](https://github.com/LunarKittyy/Telescope/issues/new?template=translation.yml) and write what a text says now and what it should say. That's all it takes, no coding or setup needed.
+Spotted a text that reads wrong, or would like Telescope in your language? [Open a translation issue](https://github.com/LunarKittyy/Telescope/issues/new?template=translation.yml) and write the current wording of a text and your suggested wording. That's all it takes, no coding or setup needed.
 
 To fix many texts at once you can edit the files right on GitHub. These are the languages so far, one file for each app:
 
@@ -27,7 +27,7 @@ To fix many texts at once you can edit the files right on GitHub. These are the 
 | Vietnamese (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-vi/strings.xml) | [vi.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/vi.po) |
 
 1. Open the file for the app you want to fix and click the pencil icon at the top right of it
-2. Change the translated texts. On the phone that's the part between `>` and `<`, on the desktop the `msgstr "..."` lines. Leave anything in `{curly braces}` or like `%1$s` as it is (the app fills those in)
+2. Change the translated texts. On the phone that's the part between `>` and `<`, on the desktop the `msgstr "..."` lines. Leave anything in `{curly braces}` or like `%1$s` unchanged (the app fills those in)
 3. Click **Commit changes** and then **Propose changes**. GitHub makes a copy for you and opens the pull request
 
 A first draft hasn't been checked by someone who speaks the language yet (the desktop's Language list shows "(beta)" after its name). Reading one through and listing what's off in an issue is a big help even if you don't change the files.
@@ -69,7 +69,7 @@ cd rust
 python tools/i18n.py new sv
 ```
 
-That writes `locale/sv.po` with every text and an empty `msgstr` under each. Fill in the `msgstr` lines and leave the rest alone. Check the `Plural-Forms` line in its header. The script knows the common languages and reports when it doesn't know yours.
+That writes `locale/sv.po` with every text and an empty `msgstr` under each. Fill in the `msgstr` lines and leave the rest alone. Check the `Plural-Forms` line in its header. The script has a list of the common languages and reports when yours isn't on it.
 
 ```
 #. what a translator should know, from the code
@@ -79,9 +79,9 @@ msgid "Paired with {name}"
 msgstr "Parkopplad med {name}"
 ```
 
-- `{name}`, `{n}` and the like are filled in by the app. Leave the word inside the braces exactly as it is, though the field can move. A translation with a field the English doesn't have shows the English instead
+- `{name}`, `{n}` and the like are filled in by the app. Leave the word inside the braces exactly as written, though the field can move. A translation with a field the English doesn't have shows the English instead
 - `msgid_plural` entries take one `msgstr[0]`, `msgstr[1]`... per plural form in your header
-- `msgctxt "search"` marks the words the settings search looks for, not a sentence. Put in the words people would type in your language and leave names like OBS, adb or VA-API as they are
+- `msgctxt "search"` marks the words the settings search looks for rather than a sentence. Put in the words people would type in your language and leave names like OBS, adb or VA-API as they are
 - `\n` is a line break. Put the breaks where the English has them and make the lines about as long
 - `#, fuzzy` means the English changed since it was translated. The app ignores fuzzy entries. Check the translation and remove the flag
 
@@ -92,7 +92,7 @@ python tools/i18n.py todo sv      # the untranslated entries, ready to paste in
 python tools/i18n.py status       # how far along each language is
 ```
 
-Some texts remain in English on purpose: Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line, VB-Audio's two license lines. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)). They're translated there.
+Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line and VB-Audio's two licence lines remain in English by design. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)). They're translated there.
 
 ## Checking that texts fit
 
@@ -107,11 +107,11 @@ To try a layout before any real translation exists, start the desktop with `TELE
 Hand it one file and the notes above. Things worth asking for:
 
 - Translate `todo`'s output in chunks of a hundred entries or so, and paste the result back into the `.po`
-- Keep the app's tone: short, plain and friendly, addressed to the person using it. Buttons are verbs ("Add phone", "Start streaming")
+- Keep the app's tone short, plain and friendly, addressed to the person using it. Buttons are verbs ("Add phone", "Start streaming")
 - Use one word for each thing across both apps. "Add phone" on the desktop and "Scan pairing code" on the phone are names of buttons that the other app's texts refer to
 - Have a person who speaks the language read through it in the running app before it ships
 
-For bigger runs, [automation/translation](../../automation/translation/README.md) has the setup used for the languages so far: a glossary per language, prompts and `kit.py` for what's left and for the checks no model needs to do.
+For bigger runs, [automation/translation](../../automation/translation/README.md) has the setup used for the languages so far, with a glossary per language, prompts and `kit.py` for what's left and for the checks no model needs to do.
 
 ## First drafts
 
@@ -133,11 +133,11 @@ cargo run -p telescope-plugin-host --bin plugin-texts -- status path/to/the_plug
 
 The `.po` format is the same as above. Telescope's own translations don't change.
 
-## For developers: adding a text
+## Adding a text (for developers)
 
-Phone: add it to `values/strings.xml` and use `getString(R.string.x)` or `@string/x`. Code that builds a message without a `Context` takes a `Strings` (see `Pairing.kt`).
+On the phone, add it to `values/strings.xml` and use `getString(R.string.x)` or `@string/x`. Code that builds a message without a `Context` takes a `Strings` (see `Pairing.kt`).
 
-Desktop: wrap it in `tr()` from `telescope_core::i18n`. In a `.slint` file use `@tr()`:
+On the desktop, wrap it in `tr()` from `telescope_core::i18n`. In a `.slint` file use `@tr()`:
 
 ```rust
 use telescope_core::i18n::{n_, tr, tr_with, trn};

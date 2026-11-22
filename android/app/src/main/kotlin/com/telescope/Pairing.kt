@@ -123,14 +123,36 @@ fun isValidIpv4(ip: String): Boolean {
     }
 }
 
-// Try LAN over Wi-Fi first (works through VPNs), then all over default network
+// USB's loopback first (only an adb-pushed offer has it, and it can't fail to route), then LAN over Wi-Fi (works through VPNs), then the rest over the default network
 fun pairingRoutes(candidates: List<PairingCandidate>, hasWifi: Boolean): List<PairingRoute> {
+    val (usb, others) = candidates.partition { isLoopback(it.ip) }
     val overWifi =
         if (hasWifi)
-            candidates.filter { it.kind == PairingKind.LAN }
+            others.filter { it.kind == PairingKind.LAN }
                 .map { PairingRoute(it, PairingRouteKind.WIFI) }
         else emptyList()
-    return overWifi + candidates.map { PairingRoute(it, PairingRouteKind.DEFAULT) }
+    return usb.map { PairingRoute(it, PairingRouteKind.DEFAULT) } + overWifi +
+        others.map { PairingRoute(it, PairingRouteKind.DEFAULT) }
+}
+
+private fun isLoopback(ip: String): Boolean = ip.startsWith("127.")
+
+// Offers by nonce that are being tried or have paired: the desktop pushes a USB offer every few seconds and closes it once paired, so a second run only ends in a failure dialog
+class PairingRuns(private val remember: Int = 16) {
+    private val running = mutableSetOf<String>()
+    private val paired = ArrayDeque<String>()
+
+    // False when this offer is already being tried or has paired
+    @Synchronized
+    fun begin(nonce: String): Boolean = nonce !in paired && running.add(nonce)
+
+    @Synchronized
+    fun end(nonce: String, ok: Boolean) {
+        running.remove(nonce)
+        if (!ok) return
+        paired.addLast(nonce)
+        while (paired.size > remember) paired.removeFirst()
+    }
 }
 
 /** Connect/read timeout for a single attempt. */

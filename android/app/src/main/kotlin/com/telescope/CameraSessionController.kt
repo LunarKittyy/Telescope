@@ -140,6 +140,12 @@ class CameraSessionController(
     @Volatile private var askedHeight:  Int = initialStreamHeight
     @Volatile private var codec: String = H264Stream.CODEC_MJPEG
     @Volatile private var requestedBitrate: Int = 0  // 0 = sized from resolution and fps, H264Stream.DYNAMIC = dynamic
+    // Cleaner video for a run that stacks frames: Dynamic with the encoder's whole range, whatever the bitrate asked for
+    @Volatile var cleanVideo: Boolean = false
+        private set
+    private val bitrateMode: Int get() = if (cleanVideo) H264Stream.DYNAMIC else requestedBitrate
+    /** Whether the bitrate follows the link now (Dynamic asked for, or cleaner video). */
+    val dynamicOn: Boolean get() = bitrateMode == H264Stream.DYNAMIC
     @Volatile private var dynamic: DynamicBitrate? = null
     // Dynamic's frame rate step, alongside its bitrate: only while Dynamic runs the H.264 stream
     @Volatile private var frameRate: DynamicFrameRate? = null
@@ -406,10 +412,11 @@ class CameraSessionController(
     }
 
     private fun currentBitrate(): Int {
-        if (requestedBitrate != H264Stream.DYNAMIC) {
+        if (bitrateMode != H264Stream.DYNAMIC) {
             return H264Stream.bitrateFor(requestedBitrate, streamWidth, streamHeight, currentPhoneFps)
         }
-        val ceiling = H264Stream.dynamicCeiling(streamWidth, streamHeight, streamFps(), H264Encoder.maxBitrate)
+        val ceiling = if (cleanVideo) H264Stream.cleanCeiling(H264Encoder.maxBitrate)
+            else H264Stream.dynamicCeiling(streamWidth, streamHeight, streamFps(), H264Encoder.maxBitrate)
         // Kept across a new size or rate: the link is the same one.
         val d = dynamic?.also { it.rebound(ceiling) }
             ?: DynamicBitrate(H264Stream.defaultBitrate(streamWidth, streamHeight, currentPhoneFps), ceiling)
@@ -435,9 +442,21 @@ class CameraSessionController(
 
     fun setBitrate(bps: Int) {
         if (bps == requestedBitrate) return
-        if (bps == H264Stream.DYNAMIC) dynamic = null  // starts again from the default, like a new stream
+        if (bps == H264Stream.DYNAMIC && !cleanVideo) dynamic = null  // starts again from the default, like a new stream
         requestedBitrate = bps
+        if (cleanVideo) return  // cleaner video holds the encoder; this applies once it ends
         val capped = dropFrameRate()
+        post { if (capped) reconfigureSession(); encoder?.setBitrate(currentBitrate()) }
+    }
+
+    // Cleaner video on or off. Dynamic already running keeps what it learnt about the link; one starting begins at the default.
+    fun setCleanVideo(on: Boolean) {
+        if (on == cleanVideo) return
+        val wasDynamic = dynamicOn
+        cleanVideo = on
+        if (!wasDynamic && dynamicOn) dynamic = null
+        android.util.Log.i(TAG, "Cleaner video ${if (on) "on" else "off"}")
+        val capped = !dynamicOn && dropFrameRate()
         post { if (capped) reconfigureSession(); encoder?.setBitrate(currentBitrate()) }
     }
 
@@ -449,15 +468,15 @@ class CameraSessionController(
     }
 
     /** The bitrate Dynamic set, or 0 when it's off. */
-    val dynamicBitrate: Int get() = if (requestedBitrate == H264Stream.DYNAMIC) dynamic?.bitrate ?: 0 else 0
+    val dynamicBitrate: Int get() = if (dynamicOn) dynamic?.bitrate ?: 0 else 0
 
     /** Whether Dynamic found where the link fills up lately (DynamicBitrate.full). */
-    val dynamicFull: Boolean get() = requestedBitrate == H264Stream.DYNAMIC && dynamic?.full == true
+    val dynamicFull: Boolean get() = dynamicOn && dynamic?.full == true
 
     /** How the link did lately (MjpegServer, on the encoder's thread); Dynamic moves the bitrate to match, and the
      *  frame rate too once the bitrate alone can't keep it sharp. */
     fun onLinkSample(sample: DynamicBitrate.Sample) {
-        if (requestedBitrate != H264Stream.DYNAMIC || codec != H264Stream.CODEC_H264) return
+        if (!dynamicOn || codec != H264Stream.CODEC_H264) return
         val d = dynamic ?: return
         d.update(sample)?.let {
             android.util.Log.i(TAG, "Dynamic: ${it / 1000} kbps (queue ${sample.queueMs} ms, on the way ${sample.routerMs} ms, " +
