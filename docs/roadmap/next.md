@@ -30,7 +30,7 @@ The next release follows 5.1.4. Ticked here means merged and not released yet. E
 
 ## Stargazer photos, cleaner frames and Night focus
 
-Three more pieces of Stargazer. Frames from photos lets Live stack and Star trails take their frames from photos instead of video, one request per shot. It's written and in review. Lucky imaging is video only since it wants hundreds of frames. Cleaner frames asks the phone for higher quality video during a run, with a gap of a second or two at the start while the phone reconnects. Night focus lets the Night row set a focus instead of using the camera's own. It needs a phone release, since the phone app has to take the focus.
+Three more pieces of Stargazer. Frames from photos lets Live stack and Star trails take their frames from photos instead of video, one request per shot. It's merged (#665). Lucky imaging is video only since it wants hundreds of frames. Night focus lets the Focus slider under Customise camera set the photos' focus instead of using the camera's own. It's written and in review. It needs the phone app from the same release, and with an older phone the slider stays greyed out. Cleaner frames asks the phone for higher quality video during a run, with a gap of a second or two at the start while the phone reconnects.
 
 ## 3D in a headset
 
