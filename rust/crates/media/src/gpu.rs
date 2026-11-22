@@ -129,6 +129,16 @@ fn tex_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     }
 }
 
+/// A pass's picture: read by textureLoad only, so an exact float one binds too.
+fn loaded_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false },
+        count: None,
+    }
+}
+
 fn sampler_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
@@ -890,7 +900,8 @@ impl Gpu {
                             let b = held.b.take().unwrap_or_else(|| self.texture(held.width, held.height, WORK));
                             let past = slot.past(held).filter(|_| history);
                             let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some(), past.is_some()));
-                            slot.draw(self, &mut held.enc, &a, &b, &info, mask, past.as_ref(), blurred.as_ref());
+                            let passed = slot.passes(self, &mut held.enc, &a, &info, mask, past.as_ref(), blurred.as_ref(), &mut held.used);
+                            slot.draw(self, &mut held.enc, &a, &b, &info, mask, past.as_ref(), blurred.as_ref(), &passed);
                             slot.keep(self, &mut held.enc, &b, held.time_ns);
                             held.used.push(b);
                         }
@@ -913,7 +924,8 @@ impl Gpu {
         let b = held.b.take().unwrap_or_else(|| self.texture(held.width, held.height, WORK));
         let past = slot.past(held).filter(|_| history);
         let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some(), past.is_some()));
-        slot.draw(self, &mut held.enc, &a, &b, &info, mask, past.as_ref(), blurred.as_ref());
+        let passed = slot.passes(self, &mut held.enc, &a, &info, mask, past.as_ref(), blurred.as_ref(), &mut held.used);
+        slot.draw(self, &mut held.enc, &a, &b, &info, mask, past.as_ref(), blurred.as_ref(), &passed);
         slot.keep(self, &mut held.enc, &b, held.time_ns);
         held.a = Some(b);
         held.b = Some(a);
@@ -1374,6 +1386,8 @@ struct Built {
     sources: Vec<Option<Arc<Vec<u8>>>>,
     replaced: Vec<Option<wgpu::Texture>>,
     blur: Option<BlurKit>,
+    /// The step's passes (shader::passes) in order: the pipeline and the format its picture is kept in.
+    passes: Vec<(wgpu::RenderPipeline, wgpu::TextureFormat)>,
     _keep: Vec<wgpu::Texture>,
 }
 
@@ -1583,27 +1597,52 @@ impl ShaderSlot {
         })
     }
 
-    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>, blurred: Option<&(wgpu::TextureView, wgpu::TextureView)>) {
+    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>, blurred: Option<&(wgpu::TextureView, wgpu::TextureView)>, passed: &[wgpu::TextureView]) {
         let Some(Ok(built)) = &self.built else { return };
         #[cfg(test)]
         self.draws.fetch_add(1, Ordering::Relaxed);
-        let (src_view, dst_view) = (src.create_view(&Default::default()), dst.create_view(&Default::default()));
-        let frame_bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("frame"),
-            layout: &gpu.frame_layout,
-            entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&src_view) },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&gpu.linear) },
-                wgpu::BindGroupEntry { binding: 2, resource: info.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: shader::BINDING_MASK, resource: wgpu::BindingResource::TextureView(mask.map_or(&gpu.blank, |m| &m.view)) },
-                wgpu::BindGroupEntry { binding: shader::BINDING_HISTORY, resource: wgpu::BindingResource::TextureView(past.unwrap_or(&gpu.blank)) },
-            ],
-        });
-        // The blurred copies are new each frame, so a step that has them gets a group of its own for the frame
-        let made = blurred.zip(built.extras_layout.as_ref()).map(|(b, layout)| extras_group(gpu, layout, built.ubuf.as_ref(), &built.views, self.blur_bindings().map(|(p, w)| ((p, &b.0), (w, &b.1)))));
+        let frame_bind = frame_group(gpu, src, info, mask, past);
+        let made = self.frame_extras(gpu, built, blurred, passed);
         let mut binds = vec![&frame_bind];
         binds.extend(made.as_ref().or(built.extras.as_ref()));
-        draw(enc, &built.pipeline, &binds, &dst_view);
+        draw(enc, &built.pipeline, &binds, &dst.create_view(&Default::default()));
+    }
+
+    /// Group 1 made for this frame, for a step whose blurred copies or passes are new each frame; None for one whose group was made once.
+    fn frame_extras(&self, gpu: &Gpu, built: &Built, blurred: Option<&(wgpu::TextureView, wgpu::TextureView)>, passed: &[wgpu::TextureView]) -> Option<wgpu::BindGroup> {
+        let layout = built.extras_layout.as_ref()?;
+        if blurred.is_none() && built.passes.is_empty() {
+            return None;
+        }
+        let mut more: Vec<(u32, &wgpu::TextureView)> = Vec::new();
+        if let (Some(b), Some((p, w))) = (blurred, self.blur_bindings()) {
+            more.extend([(p, &b.0), (w, &b.1)]);
+        }
+        let first = shader::pass_binding(&self.step);
+        more.extend((0..built.passes.len()).map(|k| (first + k as u32, passed.get(k).unwrap_or(&gpu.blank))));
+        Some(extras_group(gpu, layout, built.ubuf.as_ref(), &built.views, &more))
+    }
+
+    /// Records the step's passes (shader::passes) one after the other, each into a picture of its own at its size, and gives their views for effect(); empty for a step without any.
+    fn passes(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>, blurred: Option<&(wgpu::TextureView, wgpu::TextureView)>, used: &mut Vec<wgpu::Texture>) -> Vec<wgpu::TextureView> {
+        let Some(Ok(built)) = &self.built else { return Vec::new() };
+        if built.passes.is_empty() {
+            return Vec::new();
+        }
+        let frame_bind = frame_group(gpu, src, info, mask, past);
+        let most = gpu.device.limits().max_texture_dimension_2d;
+        let mut passed = Vec::with_capacity(built.passes.len());
+        for (k, (pipeline, format)) in built.passes.iter().enumerate() {
+            let (w, h) = shader::pass_size(&self.step.uniforms, k, src.width(), src.height());
+            let target = gpu.texture(w.min(most), h.min(most), *format);
+            used.push(target.clone());
+            let extras = self.frame_extras(gpu, built, blurred, &passed);
+            let mut binds = vec![&frame_bind];
+            binds.extend(extras.as_ref());
+            draw(enc, pipeline, &binds, &target.create_view(&Default::default()));
+            passed.push(target.create_view(&Default::default()));
+        }
+        passed
     }
 
     /// The step's picture for the room (shader::ROOM_PICTURE) as it is bound now.
@@ -1712,15 +1751,31 @@ impl ShaderSlot {
                 None => {}
             }
         }
-        if changed && !has_blur {
-            built.extras = built.extras_layout.as_ref().map(|l| extras_group(gpu, l, built.ubuf.as_ref(), &built.views, None));
+        if changed && !has_blur && built.passes.is_empty() {
+            built.extras = built.extras_layout.as_ref().map(|l| extras_group(gpu, l, built.ubuf.as_ref(), &built.views, &[]));
         }
         refused.map_or(Ok(()), Err)
     }
 }
 
-/// Group 1 for the step: its Params buffer, its textures and the blurred copies when it has them.
-fn extras_group(gpu: &Gpu, layout: &wgpu::BindGroupLayout, params: Option<&wgpu::Buffer>, views: &[wgpu::TextureView], blurred: Option<((u32, &wgpu::TextureView), (u32, &wgpu::TextureView))>) -> wgpu::BindGroup {
+/// Group 0 for a step: the picture so far, the sampler, the frame's info, the mask and the step's last frame.
+fn frame_group(gpu: &Gpu, src: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>) -> wgpu::BindGroup {
+    let src_view = src.create_view(&Default::default());
+    gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("frame"),
+        layout: &gpu.frame_layout,
+        entries: &[
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&src_view) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&gpu.linear) },
+            wgpu::BindGroupEntry { binding: 2, resource: info.as_entire_binding() },
+            wgpu::BindGroupEntry { binding: shader::BINDING_MASK, resource: wgpu::BindingResource::TextureView(mask.map_or(&gpu.blank, |m| &m.view)) },
+            wgpu::BindGroupEntry { binding: shader::BINDING_HISTORY, resource: wgpu::BindingResource::TextureView(past.unwrap_or(&gpu.blank)) },
+        ],
+    })
+}
+
+/// Group 1 for the step: its Params buffer, its textures and what is made for it each frame (the blurred copies, the passes' pictures) by binding.
+fn extras_group(gpu: &Gpu, layout: &wgpu::BindGroupLayout, params: Option<&wgpu::Buffer>, views: &[wgpu::TextureView], more: &[(u32, &wgpu::TextureView)]) -> wgpu::BindGroup {
     let mut e = Vec::new();
     if let Some(b) = params {
         e.push(wgpu::BindGroupEntry { binding: shader::BINDING_PARAMS, resource: b.as_entire_binding() });
@@ -1728,7 +1783,7 @@ fn extras_group(gpu: &Gpu, layout: &wgpu::BindGroupLayout, params: Option<&wgpu:
     for (i, v) in views.iter().enumerate() {
         e.push(wgpu::BindGroupEntry { binding: shader::BINDING_FIRST_TEXTURE + i as u32, resource: wgpu::BindingResource::TextureView(v) });
     }
-    for (binding, v) in blurred.into_iter().flat_map(|(a, b)| [a, b]) {
+    for &(binding, v) in more {
         e.push(wgpu::BindGroupEntry { binding, resource: wgpu::BindingResource::TextureView(v) });
     }
     gpu.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("plugin"), layout, entries: &e })
@@ -1789,6 +1844,9 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     entries.extend((0..step.textures.len()).map(|i| tex_entry(shader::BINDING_FIRST_TEXTURE + i as u32)));
     let blur_bindings = shader::blur_bindings(step);
     entries.extend(blur_bindings.into_iter().flat_map(|(plain, weighted)| [tex_entry(plain), tex_entry(weighted)]));
+    let kinds = shader::passes(&step.wgsl);
+    let first_pass = shader::pass_binding(step);
+    entries.extend((0..kinds.len()).map(|k| loaded_entry(first_pass + k as u32)));
     let extras_layout = (!entries.is_empty()).then(|| gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("plugin"),
         entries: &entries,
@@ -1796,6 +1854,13 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     let layouts: Vec<Option<&wgpu::BindGroupLayout>> = [Some(&gpu.frame_layout), extras_layout.as_ref()].into_iter().take(if extras_layout.is_some() { 2 } else { 1 }).collect();
     let layout = gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("plugin"), bind_group_layouts: &layouts, immediate_size: 0 });
     let pipeline = gpu.render_pipeline("plugin", &layout, &module, (shader::VERTEX_ENTRY, shader::FRAGMENT_ENTRY), WORK);
+    let passes = kinds.iter().enumerate().map(|(k, kind)| {
+        let format = match kind {
+            shader::PassKind::Colour => WORK,
+            shader::PassKind::Number => wgpu::TextureFormat::R32Float,
+        };
+        (gpu.render_pipeline("plugin pass", &layout, &module, (shader::VERTEX_ENTRY, &shader::pass_entry(k)), format), format)
+    }).collect();
 
     // The plugin's pictures go up once, as RGBA (or R8Unorm for single-channel red blur masks) whatever they came as
     let mut keep = Vec::new();
@@ -1817,13 +1882,13 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     drop(staging);
     let ubuf = has_uniforms.then(|| gpu.uniform(&params));
     // With a blur the group is made for each frame, as its copies are new each time
-    let extras = extras_layout.as_ref().filter(|_| blur_bindings.is_none()).map(|l| extras_group(gpu, l, ubuf.as_ref(), &views, None));
+    let extras = extras_layout.as_ref().filter(|_| blur_bindings.is_none() && kinds.is_empty()).map(|l| extras_group(gpu, l, ubuf.as_ref(), &views, &[]));
     let blur = (blur_bindings.is_some() || step.textures.iter().any(|(n, _)| n == shader::ROOM_PICTURE)).then(|| BlurKit::new(gpu));
     if let Some(e) = pollster::block_on(scope.pop()) {
         return Err(e.to_string());
     }
     let n = views.len();
-    Ok(Built { pipeline, extras, extras_layout, ubuf, first_views: views.clone(), views, sources: vec![None; n], replaced: vec![None; n], blur, _keep: keep })
+    Ok(Built { pipeline, extras, extras_layout, ubuf, first_views: views.clone(), views, sources: vec![None; n], replaced: vec![None; n], blur, passes, _keep: keep })
 }
 
 #[cfg(test)]
@@ -2605,6 +2670,46 @@ mod tests {
         };
         let out = run(&gpu, &yuv_frame(4, 4, |_, _| 16, 128, 128), &mut [ShaderSlot::new(s)]);
         assert!((out.data[0] as i32 - 235).abs() <= 2, "{}", out.data[0]);
+    }
+
+    /// Each pass sees the ones before it at the size it was given, an f32 pass keeps numbers past 8 bits exactly, and effect() reads them all.
+    const PASSES: &str = "
+fn pass_0(at: vec2<i32>) -> vec4<f32> { return vec4<f32>(sample((vec2<f32>(at) + 0.5) / frame.size).rgb, 1.0); }
+fn pass_1(at: vec2<i32>) -> f32 {
+    var total = 0.0;
+    for (var x = 0; x < passed_size_0().x; x++) { total += round(passed_0(vec2<i32>(x, at.y)).r * 255.0); }
+    return total * 1000.0 + f32(at.x);
+}
+fn effect(uv: vec2<f32>) -> vec4<f32> {
+    let at = vec2<i32>(floor(uv * frame.size));
+    let n = passed_1(vec2<i32>(at.x, 0));
+    return vec4<f32>(floor(n / 1000.0) / 2550.0, (n % 1000.0) / 255.0, f32(passed_size_1().x) / 255.0, 1.0);
+}";
+
+    #[test]
+    fn a_shader_with_passes_reads_each_pass_at_its_own_size() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let kinds = shader::passes(PASSES);
+        assert_eq!(kinds, [shader::PassKind::Colour, shader::PassKind::Number]);
+        let (w, h) = (16u32, 4u32);
+        let picture: Vec<u8> = (0..w * h).flat_map(|i| [((i % w) * 15) as u8, 0, 0, 255]).collect();
+        let frame = Frame::new(w, h, PixelFormat::Rgba, picture);
+        // pass 0 is the picture at its own size, pass 1 one row of five
+        let mut slot = ShaderSlot::new(step(PASSES, json!({"pass_sizes": [[16, 4], [5, 1]]})));
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        let sum: u32 = (0..w).map(|x| x * 15).sum();
+        for x in 0..w as usize {
+            let px = &out.data[x * 4..x * 4 + 3];
+            // the sum was 1800, past what 8 bits hold, and came through whole; the last of five columns repeats past the edge
+            assert_eq!(px[0] as u32, (sum as f32 / 10.0).round() as u32, "column {x}: {px:?}");
+            assert_eq!(px[1] as usize, x.min(4), "column {x}: {px:?}");
+            assert_eq!(px[2], 5, "column {x}: {px:?}");
+        }
+        // new sizes come with the uniforms
+        slot.set_uniforms(&gpu, json!({"pass_sizes": [[16, 4], [9, 1]]}));
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        assert_eq!(out.data[2], 9);
+        assert_eq!(out.data[15 * 4 + 1], 8);
     }
 
     #[test]
