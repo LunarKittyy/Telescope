@@ -895,7 +895,7 @@ impl Gpu {
 
     #[cfg(all(windows, ffmpeg))]
     fn lift_d3d11(&self, frame: &Frame, source: Arc<dyn telescope_core::frame::DecodedSurface>, surface: &crate::d3d11_import::Surface, block_chroma: bool) -> Result<Option<Held>, String> {
-        let Some(imported) = surface.import(&self.device, &self.import_capabilities)? else { return Ok(None) };
+        let Some(mut imported) = surface.import(&self.device, &self.import_capabilities)? else { return Ok(None) };
         let (w, h) = (frame.width, frame.height);
         let vulkan = imported.backend == wgpu::Backend::Vulkan;
         let (a, kept_planes) = self.scoped(|| -> Result<_, String> {
@@ -927,6 +927,8 @@ impl Gpu {
             if vulkan {
                 crate::d3d11_import::Surface::ownership(&self.device, &mut release, &imported.texture, false)?;
             }
+            // On DX12 the queue waits for the copy into the shared texture on the card
+            imported.wait_on(&self.queue)?;
             self.queue.submit([acquire.finish(), enc.finish(), release.finish()]);
             // Keep the decoder's AVFrame, the shared texture's slot and the imported image until the conversion submission has finished.
             self.queue.on_submitted_work_done(move || drop((source, imported)));
