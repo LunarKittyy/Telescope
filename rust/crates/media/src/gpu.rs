@@ -20,7 +20,7 @@ use wgpu::naga;
 /// Set on the convert shader's mode to read YUV chroma by index, a sample for its 2 x 2 block, as the CPU does (taps stay 1).
 const BLOCK_CHROMA: u32 = 8;
 /// Set on the convert shader's mode so ToY/ToU/ToV read directly from NV12 planes instead of an RGBA texture.
-#[cfg(all(target_os = "linux", ffmpeg))]
+#[cfg(all(any(target_os = "linux", windows), ffmpeg))]
 const FROM_NV12: u32 = 64;
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
 const BLUR: &str = include_str!("shaders/blur.wgsl");
@@ -82,8 +82,8 @@ static NEXT_SERIAL: AtomicU64 = AtomicU64::new(1);
 pub struct Gpu {
     serial: u64,
     device: wgpu::Device,
-    #[cfg(all(target_os = "linux", ffmpeg))]
-    import_capabilities: Mutex<crate::vaapi_import::Capabilities>,
+    #[cfg(all(any(target_os = "linux", windows), ffmpeg))]
+    import_capabilities: Mutex<ImportCapabilities>,
     queue: wgpu::Queue,
     /// For the convert shader: three planes, a sampler and its settings.
     convert_layout: wgpu::BindGroupLayout,
@@ -166,6 +166,27 @@ fn aligned_row(bytes: u32) -> u32 {
 }
 
 /// What to ask for, in order: just looking for GL loads Mesa's big GL libraries, about 25 MB, so it waits until there's no Vulkan.
+#[cfg(all(target_os = "linux", ffmpeg))]
+type ImportCapabilities = crate::vaapi_import::Capabilities;
+#[cfg(all(windows, ffmpeg))]
+type ImportCapabilities = crate::d3d11_import::Capabilities;
+#[cfg(not(all(any(target_os = "linux", windows), ffmpeg)))]
+type ImportCapabilities = ();
+
+/// The device features that let decoded pictures stay on the card: DMA-BUF import on Linux; NV12 textures and, on Vulkan, Win32 external memory on Windows.
+/// Nothing is asked for when a part is missing, so a card that can't share keeps its device as it was.
+pub fn surface_features(adapter: &wgpu::Adapter) -> wgpu::Features {
+    let have = adapter.features();
+    if cfg!(target_os = "linux") {
+        have & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF
+    } else if cfg!(windows) {
+        let wanted = if adapter.get_info().backend == wgpu::Backend::Vulkan { wgpu::Features::TEXTURE_FORMAT_NV12 | wgpu::Features::VULKAN_EXTERNAL_MEMORY_WIN32 } else { wgpu::Features::TEXTURE_FORMAT_NV12 };
+        if have.contains(wanted) { wanted } else { wgpu::Features::empty() }
+    } else {
+        wgpu::Features::empty()
+    }
+}
+
 const BACKENDS: [wgpu::Backends; 2] = [wgpu::Backends::PRIMARY, wgpu::Backends::PRIMARY.union(wgpu::Backends::GL)];
 
 /// The adapter as the crash marker and the skip list name it: the driver version is part of it (borrowed from the same card on another API
@@ -300,7 +321,7 @@ impl Gpu {
         let info = adapter.get_info();
         let (device, queue) = gpu_marker::marked_while(card, || pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
-            required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
+            required_features: surface_features(adapter),
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             memory_hints: wgpu::MemoryHints::Manual { suballocated_device_memory_block_size: (4 << 20)..(8 << 20) },
             ..Default::default()
@@ -368,7 +389,7 @@ impl Gpu {
         Gpu {
             serial: NEXT_SERIAL.fetch_add(1, Ordering::Relaxed),
             device,
-            #[cfg(all(target_os = "linux", ffmpeg))]
+            #[cfg(all(any(target_os = "linux", windows), ffmpeg))]
             import_capabilities: Mutex::default(),
             queue,
             convert_layout,
@@ -785,6 +806,18 @@ impl Gpu {
             }
             return self.lift_unguarded(&frame.materialise(), block_chroma);
         }
+        #[cfg(all(windows, ffmpeg))]
+        if let Some(source) = frame.surface() {
+            if let Some(surface) = source.as_any().downcast_ref::<crate::d3d11_import::Surface>() {
+                match self.lift_d3d11(frame, source.clone(), surface, block_chroma) {
+                    Ok(Some(held)) => return Ok(held),
+                    // Every shared texture was busy: this picture goes through memory, the stream keeps sharing
+                    Ok(None) => {}
+                    Err(why) => surface.disable(&why),
+                }
+            }
+            return self.lift_unguarded(&frame.materialise(), block_chroma);
+        }
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -858,6 +891,48 @@ impl Gpu {
         self.convert_pass_with(&mut held.enc, &views, Mode::I420, &a, 1, (held.width, held.height), held.block_chroma);
         held.a = Some(a.clone());
         a
+    }
+
+    #[cfg(all(windows, ffmpeg))]
+    fn lift_d3d11(&self, frame: &Frame, source: Arc<dyn telescope_core::frame::DecodedSurface>, surface: &crate::d3d11_import::Surface, block_chroma: bool) -> Result<Option<Held>, String> {
+        let Some(imported) = surface.import(&self.device, &self.import_capabilities)? else { return Ok(None) };
+        let (w, h) = (frame.width, frame.height);
+        let vulkan = imported.backend == wgpu::Backend::Vulkan;
+        let (a, kept_planes) = self.scoped(|| -> Result<_, String> {
+            // wgpu refuses one encoder that mixes its own commands with raw ones, so the two barriers get encoders of their own
+            let mut acquire = self.device.create_command_encoder(&Default::default());
+            if vulkan {
+                crate::d3d11_import::Surface::ownership(&self.device, &mut acquire, &imported.texture, true)?;
+            }
+            let mut enc = self.device.create_command_encoder(&Default::default());
+            let plane = |aspect, format| imported.texture.create_view(&wgpu::TextureViewDescriptor { aspect, format: Some(format), ..Default::default() });
+            let views = [plane(wgpu::TextureAspect::Plane0, wgpu::TextureFormat::R8Unorm), plane(wgpu::TextureAspect::Plane1, wgpu::TextureFormat::Rg8Unorm), self.blank.clone()];
+            let out = if frame.format == PixelFormat::I420 {
+                let i420 = [
+                    self.texture(w, h, wgpu::TextureFormat::R8Unorm),
+                    self.texture(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
+                    self.texture(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
+                ];
+                let flags = FROM_NV12 | surface.colour();
+                for (plane, mode) in i420.iter().zip([Mode::ToY, Mode::ToU, Mode::ToV]) {
+                    self.convert_pass_encoded(&mut enc, &views, mode, plane, 1, (w, h), false, flags);
+                }
+                (None, Some(i420))
+            } else {
+                let a = self.texture(w, h, WORK);
+                self.convert_pass_encoded(&mut enc, &views, Mode::Nv12, &a, 1, (w, h), block_chroma, surface.colour());
+                (Some(a), None)
+            };
+            let mut release = self.device.create_command_encoder(&Default::default());
+            if vulkan {
+                crate::d3d11_import::Surface::ownership(&self.device, &mut release, &imported.texture, false)?;
+            }
+            self.queue.submit([acquire.finish(), enc.finish(), release.finish()]);
+            // Keep the decoder's AVFrame, the shared texture's slot and the imported image until the conversion submission has finished.
+            self.queue.on_submitted_work_done(move || drop((source, imported)));
+            Ok(out)
+        })??;
+        Ok(Some(Held { enc: self.device.create_command_encoder(&Default::default()), a, b: None, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: true }))
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
@@ -2522,7 +2597,8 @@ mod tests {
     #[test]
     fn a_step_shaded_without_history_has_no_previous_frame_and_the_next_one_goes_on_from_it() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
-        let frame = || Frame::new(8, 4, PixelFormat::Rgba, vec![0; 8 * 4 * 4]);
+        // One time for every picture, so a slow card between them can't age the history out
+        let frame = || { let mut f = Frame::new(8, 4, PixelFormat::Rgba, vec![0; 8 * 4 * 4]); f.time_ns = 1; f };
         let mut slot = ShaderSlot::new(step(COUNTS, json!({})));
         slot.prepare(&gpu).unwrap();
         assert_eq!(run(&gpu, &frame(), std::slice::from_mut(&mut slot)).data[0], 51);
