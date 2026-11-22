@@ -87,7 +87,7 @@ pub fn adb_exe() -> Option<PathBuf> {
 pub fn run(cmd: &[String], timeout: Duration, input: Option<&[u8]>) -> Outcome {
     if input.is_none() && is_plain_devices(cmd) && server_socket_allowed() {
         ensure_adb_server();
-        if let Some(list) = devices_from_server(server_port(), timeout.min(Duration::from_secs(5))) {
+        if let Some(list) = server_port().and_then(|port| devices_from_server(port, timeout.min(Duration::from_secs(5)))) {
             return (0, list, String::new());
         }
     }
@@ -98,9 +98,27 @@ fn is_plain_devices(cmd: &[String]) -> bool {
     matches!(cmd, [program, sub] if sub == "devices" && Path::new(program).file_stem().is_some_and(|s| s.eq_ignore_ascii_case("adb")))
 }
 
-/// The port adb's server listens on (ANDROID_ADB_SERVER_PORT, which adb itself reads, else 5037).
-fn server_port() -> u16 {
-    std::env::var("ANDROID_ADB_SERVER_PORT").ok().and_then(|v| v.trim().parse().ok()).unwrap_or(ADB_PORT)
+/// The local port adb's server listens on, read the way adb reads its environment (ADB_SERVER_SOCKET, else
+/// ANDROID_ADB_SERVER_PORT, else 5037). None when adb would talk to a server this machine's loopback doesn't hold.
+fn server_port() -> Option<u16> {
+    let var = |name| std::env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+    server_port_of(var("ADB_SERVER_SOCKET").as_deref(), var("ANDROID_ADB_SERVER_ADDRESS").as_deref(), var("ANDROID_ADB_SERVER_PORT").as_deref())
+}
+
+fn server_port_of(socket: Option<&str>, address: Option<&str>, port: Option<&str>) -> Option<u16> {
+    let loopback = |host: &str| matches!(host, "127.0.0.1" | "localhost");
+    if let Some(spec) = socket {
+        // "tcp:5037", "tcp:host:5037"; a unix or vsock spec is a server this socket can't reach
+        let rest = spec.strip_prefix("tcp:")?;
+        return match rest.rsplit_once(':') {
+            Some((host, port)) => loopback(host).then(|| port.parse().ok()).flatten(),
+            None => rest.parse().ok(),
+        };
+    }
+    if address.is_some_and(|host| !loopback(host)) {
+        return None;
+    }
+    Some(port.and_then(|v| v.parse().ok()).unwrap_or(ADB_PORT))
 }
 
 /// A test rig that points TELESCOPE_ADB at a stand-in adb must not be answered by a real server on this machine.
@@ -398,6 +416,18 @@ impl Adb {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_server_socket_follows_adbs_environment() {
+        assert_eq!(server_port_of(None, None, None), Some(5037));
+        assert_eq!(server_port_of(None, None, Some("5038")), Some(5038));
+        assert_eq!(server_port_of(Some("tcp:6000"), None, Some("5038")), Some(6000));
+        assert_eq!(server_port_of(Some("tcp:localhost:6000"), None, None), Some(6000));
+        assert_eq!(server_port_of(Some("tcp:192.168.1.5:5037"), None, None), None);
+        assert_eq!(server_port_of(Some("local:/tmp/adb"), None, None), None);
+        assert_eq!(server_port_of(None, Some("10.0.0.2"), None), None);
+        assert_eq!(server_port_of(None, Some("127.0.0.1"), Some("5039")), Some(5039));
+    }
+
     use super::*;
     use std::sync::{Arc, Mutex};
 

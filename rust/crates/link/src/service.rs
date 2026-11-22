@@ -169,12 +169,14 @@ impl LinkService {
 /// or on the UI thread, and the bookkeeping is done by then so a new acquire opens a fresh one.
 fn adb_tunnels(adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> UsbTunnels {
     let unforward = adb.clone();
+    let adb_now = adb.clone();
     UsbTunnels::new(move |serial, remote| adb().forward_auto(remote, Some(serial)), move |serial, local| {
         let (adb, serial) = (unforward.clone(), serial.to_string());
         std::thread::spawn(move || adb().unforward(local, Some(&serial)));
     })
     // A check, the start after it and the next check all use the session port: one forward serves them
     .with_linger(PING_PORT, PING_FORWARD_LINGER)
+    .with_blocking_unforward(move |serial, local| adb_now().unforward(local, Some(serial)))
 }
 
 /// How long the session port's forward outlives its last user (two of the idle check's 3 s polls).
@@ -388,6 +390,7 @@ impl Link for LinkService {
         self.stills.shutdown();
         self.lan.stop();
         self.sensors.shutdown();
+        self.tunnels.shutdown();
         adb::stop_adb_server();
     }
 }

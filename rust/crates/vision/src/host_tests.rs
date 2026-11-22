@@ -227,6 +227,59 @@ fn the_grey_probe_calls_a_frame_moved_when_the_colour_picture_does() {
     }
 }
 
+/// A flat luma picture whose colour is neutral, with a patch of `size` luma-sized pixels square turned strongly coloured (the luma stays put).
+fn flat_luma(w: usize, h: usize, size: usize) -> Frame {
+    let mut frame = yuv_frame(w, h);
+    let data = Arc::make_mut(&mut frame.data);
+    data[..w * h].fill(64);
+    let cw = w.div_ceil(2);
+    let chroma = cw * h.div_ceil(2);
+    data[w * h..].fill(128);
+    for y in h / 4..h / 4 + size {
+        for x in w / 4..w / 4 + size {
+            let i = (y / 2) * cw + x / 2;
+            data[w * h + i] = 240;
+            data[w * h + chroma + i] = 240;
+        }
+    }
+    frame
+}
+
+#[test]
+fn the_grey_probe_calls_a_frame_moved_when_only_the_colour_changes() {
+    let (w, h) = (1920, 1080);
+    let base = flat_luma(w, h, 0);
+    for (size, moved) in [(0, false), (700, true)] {
+        let mut look = ops::Motion::default();
+        look.moved_grey(people_look(&base).unwrap());
+        look.used();
+        assert_eq!(look.moved_grey(people_look(&flat_luma(w, h, size)).unwrap()), moved, "patch of {size}");
+    }
+}
+
+#[test]
+fn a_colour_change_at_the_same_luma_runs_the_cutout_within_its_still_wait() {
+    let (handed, ran): (Arc<Mutex<Vec<(usize, usize)>>>, Arc<Mutex<Vec<(usize, usize)>>>) = Default::default();
+    let cutout = Arc::new(SeenCutout(handed.clone(), ran.clone()));
+    let (h, _bus, _normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let h = h.with_cutout(Box::new(move || Ok(cutout.clone() as Arc<dyn Backend>)), None, scratch_dir("chroma-moved"), PackInfo::default());
+    h.vision().wait_for_masks();
+    h.load();
+    wait(|| h.state() == READY);
+    let base = flat_luma(640, 360, 0);
+    let first = {
+        let mut f = base.clone();
+        f.number = 1;
+        wait(|| h.person_mask_hq("a", &f, 160, 90, 0).is_some() && !ran.lock().unwrap().is_empty());
+        ran.lock().unwrap().len()
+    };
+    let mut changed = flat_luma(640, 360, 240);
+    changed.number = 2;
+    assert!(h.person_mask_hq("a", &changed, 160, 90, 0).is_some());
+    assert!(ran.lock().unwrap().len() > first, "the colour change ran the model");
+    h.shutdown();
+}
+
 #[test]
 fn the_models_get_small_pictures_made_from_the_planes() {
     let sizes = |f: &Frame| (model_rgb(f).map(|p| (p.w, p.h, p.data.len())), people_rgb(f).map(|p| (p.w, p.h, p.data.len())));

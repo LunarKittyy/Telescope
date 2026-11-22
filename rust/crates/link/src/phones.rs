@@ -75,6 +75,8 @@ type Unforward = Arc<dyn Fn(&str, u16) + Send + Sync>;
 pub struct UsbTunnels {
     forward: Forward,
     unforward: Unforward,
+    /// Removes a forward before returning (the normal one hands it to a thread), for quitting.
+    unforward_now: Option<Unforward>,
     held: Arc<Mutex<HashMap<(String, u16), Held>>>,
     lingers: HashMap<u16, Duration>,
 }
@@ -90,7 +92,37 @@ struct Held {
 impl UsbTunnels {
     pub fn new(forward: impl Fn(&str, u16) -> Option<u16> + Send + Sync + 'static,
                unforward: impl Fn(&str, u16) + Send + Sync + 'static) -> UsbTunnels {
-        UsbTunnels { forward: Box::new(forward), unforward: Arc::new(unforward), held: Arc::default(), lingers: HashMap::new() }
+        UsbTunnels { forward: Box::new(forward), unforward: Arc::new(unforward), unforward_now: None, held: Arc::default(), lingers: HashMap::new() }
+    }
+
+    /// How shutdown removes forwards without a thread that quitting would cut short.
+    pub fn with_blocking_unforward(mut self, unforward: impl Fn(&str, u16) + Send + Sync + 'static) -> UsbTunnels {
+        self.unforward_now = Some(Arc::new(unforward));
+        self
+    }
+
+    /// Quitting: removes every forward still held or lingering, waiting up to a few seconds for adb.
+    pub fn shutdown(&self) {
+        let entries: Vec<(String, u16)> = self.held.lock().unwrap().drain().map(|((serial, _), e)| (serial, e.local)).collect();
+        if entries.is_empty() {
+            return;
+        }
+        let unforward = self.unforward_now.clone().unwrap_or_else(|| self.unforward.clone());
+        let (tx, rx) = std::sync::mpsc::channel();
+        let count = entries.len();
+        for (serial, local) in entries {
+            let (unforward, tx) = (unforward.clone(), tx.clone());
+            std::thread::spawn(move || {
+                unforward(&serial, local);
+                let _ = tx.send(());
+            });
+        }
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        for _ in 0..count {
+            if rx.recv_timeout(deadline.saturating_duration_since(std::time::Instant::now())).is_err() {
+                break;
+            }
+        }
     }
 
     /// Keep the forward to remote_port for linger after its last release.
@@ -714,6 +746,20 @@ pub(crate) mod tests {
         let (status, _, took) = resolve_with_delays(&net, &["192.168.1.77"]);
         assert_eq!(status, PhoneStatus::Unreachable);
         assert!(took >= Duration::from_millis(600));
+    }
+
+    #[test]
+    fn quitting_removes_a_forward_that_still_lingers() {
+        let calls: Arc<Mutex<Vec<String>>> = Arc::default();
+        let b = calls.clone();
+        let tunnels = UsbTunnels::new(|_, _| Some(5000), |_, _| {}).with_linger(7480, Duration::from_secs(30))
+            .with_blocking_unforward(move |s, l| b.lock().unwrap().push(format!("unfwd {s} {l}")));
+        tunnels.acquire("A", 7480);
+        tunnels.release("A", 7480);
+        assert!(calls.lock().unwrap().is_empty());
+        tunnels.shutdown();
+        assert_eq!(*calls.lock().unwrap(), ["unfwd A 5000"]);
+        assert_eq!(tunnels.held_port("A", 7480), None);
     }
 
     #[test]

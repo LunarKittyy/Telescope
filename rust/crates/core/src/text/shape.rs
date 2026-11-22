@@ -41,7 +41,11 @@ impl FontArc {
     /// The font at this index of a collection (.ttc), else the font itself; a variable one is set to this weight.
     pub fn from_bytes_at(bytes: Vec<u8>, index: u32, weight: f32) -> Option<FontArc> {
         // Fonts live for the whole process, so the bytes are leaked once and shared by the outlines, the shaper and the colour glyphs
-        let bytes: &'static [u8] = Box::leak(bytes.into_boxed_slice());
+        FontArc::from_static(Box::leak(bytes.into_boxed_slice()), index, weight)
+    }
+
+    /// Like `from_bytes_at` for bytes that already live for the whole process (a system font's shared blob), so nothing is copied.
+    pub fn from_static(bytes: &'static [u8], index: u32, weight: f32) -> Option<FontArc> {
         let mut outlines = OutlineRef::try_from_slice_and_index(bytes, index).ok()?;
         outlines.set_variation(b"wght", weight);
         let font = FontRef::from_index(bytes, index).ok()?;
