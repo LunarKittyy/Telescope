@@ -17,7 +17,7 @@ use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 use wgpu::hal::api::{Dx12, Vulkan};
 
 /// Decoder pictures kept on the card at once, and shared textures in flight, per stream.
-pub(crate) const MAX_SURFACES: usize = 6;
+pub(crate) const MAX_SURFACES: usize = 3;
 /// The decoder this module imports from.
 pub(crate) const HW: crate::ffmpeg::Hw = crate::ffmpeg::Hw::D3d11va;
 /// How long the copy into the shared texture may take before the picture goes through memory instead.

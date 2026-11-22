@@ -11,7 +11,7 @@ use telescope_core::frame::{DecodedSurface, Frame, PixelFormat};
 use wgpu::hal::api::Vulkan;
 use wgpu::hal::Device as _;
 
-pub(crate) const MAX_SURFACES: usize = 6;
+pub(crate) const MAX_SURFACES: usize = 3;
 /// The decoder this module imports from.
 pub(crate) const HW: crate::ffmpeg::Hw = crate::ffmpeg::Hw::Vaapi;
 const R8: u32 = u32::from_le_bytes(*b"R8  ");

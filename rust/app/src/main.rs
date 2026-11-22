@@ -138,7 +138,9 @@ struct Machine {
 
 impl Machine {
     fn real(device: Option<String>) -> Machine {
-        Machine { outputs: Arc::new({ let mut cameras = telescope_outputs::VirtualCameras::default(); cameras.device = device; cameras }), web: Arc::new(telescope_link::web::SystemWeb), quiet: false }
+        // A dev copy only touches a camera it was given with --device (the real app's one is in use next to it)
+        let hands_off_when_idle = device.is_none() && telescope_core::config::dev_profile().is_some();
+        Machine { outputs: Arc::new({ let mut cameras = telescope_outputs::VirtualCameras::default(); cameras.device = device; cameras.hands_off_when_idle = hands_off_when_idle; cameras }), web: Arc::new(telescope_link::web::SystemWeb), quiet: false }
     }
 
     /// As config_fixtures.py's quiet_system and quiet_plugin leave the Python window.

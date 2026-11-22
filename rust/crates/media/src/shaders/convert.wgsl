@@ -82,10 +82,46 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         }
         return vec4<f32>(sum / f32(taps * taps), 1.0);
     }
-    // Back to YUV from the RGBA picture in p0. A chroma target pixel is the average of its own 2 x 2 source pixels, found by index so odd
+    // Back to YUV from the RGBA picture in p0, or directly from NV12 planes when bit 6 (64) is set.
+    // A chroma target pixel is the average of its own 2 x 2 source pixels, found by index so odd
     // sizes line up with the CPU: the last column and row of an odd picture average only the pixels there are.
-    var c = rgb_at(in.uv) * 255.0;
-    if mode >= 4u {
+    var c = vec3<f32>(0.0);
+    if (settings.x & 64u) != 0u {
+        let at = vec2<i32>(in.pos.xy);
+        if (settings.x & 48u) == 0u {
+            if mode == 3u {
+                return vec4<f32>(textureLoad(p0, at, 0).r, 0.0, 0.0, 1.0);
+            }
+            let uv = textureLoad(p1, at, 0).rg;
+            if mode == 4u {
+                return vec4<f32>(uv.r, 0.0, 0.0, 1.0);
+            }
+            if mode == 5u {
+                return vec4<f32>(uv.g, 0.0, 0.0, 1.0);
+            }
+            return vec4<f32>(uv.r, uv.g, 0.0, 1.0);
+        }
+        if mode == 3u {
+            let uv = textureLoad(p1, at / 2, 0).rg;
+            c = yuv_to_rgb(textureLoad(p0, at, 0).r, uv.r, uv.g) * 255.0;
+        } else {
+            let base = at * 2;
+            let last = vec2<i32>(i32(settings.z) - 1, i32(settings.w) - 1);
+            let uv = textureLoad(p1, at, 0).rg;
+            var sum = vec3<f32>(0.0);
+            var n = 0.0;
+            for (var j = 0; j < 2; j++) {
+                for (var i = 0; i < 2; i++) {
+                    let q = base + vec2<i32>(i, j);
+                    if q.x <= last.x && q.y <= last.y {
+                        sum += yuv_to_rgb(textureLoad(p0, q, 0).r, uv.r, uv.g);
+                        n += 1.0;
+                    }
+                }
+            }
+            c = sum * 255.0 / max(n, 1.0);
+        }
+    } else if mode >= 4u {
         let at = vec2<i32>(in.pos.xy) * 2;
         let last = vec2<i32>(i32(settings.z) - 1, i32(settings.w) - 1);
         var sum = vec3<f32>(0.0);
@@ -100,6 +136,8 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
             }
         }
         c = sum * 255.0 / max(n, 1.0);
+    } else {
+        c = rgb_at(in.uv) * 255.0;
     }
     let y = (16.0 + 0.256788 * c.r + 0.504129 * c.g + 0.097906 * c.b) / 255.0;
     let u = (128.0 - 0.148223 * c.r - 0.290993 * c.g + 0.439216 * c.b) / 255.0;
