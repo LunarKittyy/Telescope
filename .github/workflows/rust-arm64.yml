@@ -20,6 +20,8 @@ jobs:
   linux-arm64:
     name: linux (arm64)
     runs-on: ubuntu-24.04-arm
+    # The x86_64 job runs on ubuntu-latest, which has FFmpeg 8. 24.04 has 6.1, which the code doesn't build against
+    container: ubuntu:26.04
     continue-on-error: true
     timeout-minutes: 60
     concurrency:
@@ -29,14 +31,15 @@ jobs:
       run:
         working-directory: rust
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Install system libraries
+      - name: Install system libraries and Rust
+        working-directory: /
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang pkg-config libavcodec-dev libavformat-dev \
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git build-essential cargo rustc clang pkg-config libavcodec-dev libavformat-dev \
             libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libfontconfig1-dev libxkbcommon-dev \
             fonts-inter fonts-noto-core fonts-noto-cjk libegl1 libgl1 libdbus-1-3
+
+      - uses: actions/checkout@v7
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -74,9 +77,9 @@ jobs:
       - name: Install FFmpeg
         shell: pwsh
         run: |
-          Invoke-WebRequest https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-winarm64-gpl-shared.zip -OutFile "$env:RUNNER_TEMP\ffmpeg.zip"
+          Invoke-WebRequest https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-winarm64-gpl-shared-8.1.zip -OutFile "$env:RUNNER_TEMP\ffmpeg.zip"
           Expand-Archive "$env:RUNNER_TEMP\ffmpeg.zip" -DestinationPath "$env:RUNNER_TEMP"
-          $env:FFMPEG_DIR = "$env:RUNNER_TEMP\ffmpeg-master-latest-winarm64-gpl-shared"
+          $env:FFMPEG_DIR = "$env:RUNNER_TEMP\ffmpeg-n8.1-latest-winarm64-gpl-shared-8.1"
           Get-ChildItem "$env:FFMPEG_DIR\lib" | Select-Object -First 30 | Out-Host
           "FFMPEG_DIR=$env:FFMPEG_DIR" >> $env:GITHUB_ENV
           "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
