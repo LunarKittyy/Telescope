@@ -634,8 +634,9 @@ mod tests {
             fn log(&self, r: &log::Record) { if self.enabled(r.metadata()) { eprintln!("[{}] {}: {}", r.level(), r.target(), r.args()); } }
             fn flush(&self) {}
         }
-        let _ = log::set_logger(&Stderr).map(|()| log::set_max_level(log::LevelFilter::Warn));
         if let Ok(id) = std::env::var("TS_CARD") {
+            // Only a hand-picked card is a diagnostic run: a logger here would take the one global slot from the tests that read the log
+            let _ = log::set_logger(&Stderr).map(|()| log::set_max_level(log::LevelFilter::Warn));
             telescope_core::gpu_pick::set_choice(&id);
         }
         let gpu = Gpu::shared();
