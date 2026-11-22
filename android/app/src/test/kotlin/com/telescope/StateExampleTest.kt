@@ -29,7 +29,7 @@ class StateExampleTest {
                 extensionSizes = mapOf("night" to StillSize(3840, 2160), "hdr" to StillSize(4032, 3024), "bokeh" to StillSize(4032, 3024)),
                 exposureMaxNs = 30_000_000_000L, bracketing = true, focusBracketing = true, noiseReductionHq = true,
                 sharpeningHq = true, hotPixelHq = true, distortionCorrection = true, burstMax = 60,
-                exposureMinNs = 125_000L, bracketMax = 15, focusStepsMax = 100,
+                exposureMinNs = 125_000L, bracketMax = 15, focusStepsMax = 100, focusDistance = true,
             ),
         )),
         auto = false, iso = 400, shutter_ns = 16_666_666L,

@@ -38,6 +38,7 @@ data class StillCaps(
         exposureMaxNs = if (manualSensor) exposureMaxNs else 0L,
         bracketing = manualSensor,
         focusBracketing = manualFocus,
+        focusDistance = manualFocus,
         noiseReductionHq = nrHq, sharpeningHq = edgeHq, hotPixelHq = hotPixelHq, distortionCorrection = distortion,
         burstMax = StillOptions.MAX_SHOTS,
         exposureMinNs = if (manualSensor) exposureMinNs else 0L,
@@ -174,6 +175,15 @@ object StillOptions {
         }
 
         var focuses: List<Float?> = listOf(null)
+        val focus = params["focus_diopters"]?.takeIf { it.isNotBlank() }?.let {
+            it.toFloatOrNull()?.takeIf { d -> d.isFinite() && d >= 0f } ?: return refuse("bad_option", "The focus is a distance in diopters")
+        }
+        if (focus != null) {
+            if (extension != null) return refuse("unsupported", "Night, HDR and Bokeh set their own exposure and focus")
+            if (focusSteps > 0) return refuse("bad_option", "Ask for one focus or a focus bracket, not both")
+            if (!caps.manualFocus) return refuse("unsupported", "This lens has no manual focus")
+            focuses = listOf(focus.coerceIn(0f, caps.minFocusDistance))
+        }
         if (focusSteps > 0) {
             if (!caps.manualFocus) return refuse("unsupported", "This lens has no manual focus")
             if (focusSteps !in 2..MAX_FOCUS_STEPS) return refuse("bad_option", "Focus bracketing takes 2 to $MAX_FOCUS_STEPS steps")

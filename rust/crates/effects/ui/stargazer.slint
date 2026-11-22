@@ -59,6 +59,8 @@ export component StargazerCard inherits Card {
     callback customize-toggled(bool);
     callback shutter-picked(int);
     callback iso-picked(int);
+    callback focus-moved(float);
+    callback focus-reset();
     callback mode-picked(int);
     callback input-picked(int);
     callback photo-count-moved(float);
@@ -330,6 +332,8 @@ export component StargazerCard inherits Card {
                     focus-readout: root.focus-readout;
                     shutter-picked(i) => { root.shutter-picked(i); }
                     iso-picked(i) => { root.iso-picked(i); }
+                    focus-moved(v) => { root.focus-moved(v); }
+                    focus-reset => { root.focus-reset(); }
                 }
             }
         }

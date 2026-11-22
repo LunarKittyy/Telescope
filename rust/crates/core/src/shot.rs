@@ -32,6 +32,11 @@ pub fn phone_ranges(caps: &Value) -> Value {
             shot.insert("iso".into(), json!({"min": iso_min.min(iso_max), "max": iso_max}));
         }
     }
+    // A phone that takes one focus for a photo says so; an older one only takes focus brackets, which aren't a `shot` key
+    let near = caps.get("focus_near_max").and_then(Value::as_f64).filter(|d| d.is_finite() && *d > 0.0);
+    if let (Some(true), Some(near)) = (caps.get("focus_distance").and_then(Value::as_bool), near) {
+        shot.insert("focus".into(), json!({"near_diopters": near}));
+    }
     shot.insert("freezes_from_ns".into(), json!(FREEZES_FROM_NS));
     Value::Object(shot)
 }
@@ -134,8 +139,16 @@ pub fn apply_to_phone(options: &mut Map<String, Value>, ranges: &Value) -> Resul
         options.insert("iso".into(), json!(value));
         applied.insert("iso".into(), json!(value));
     }
-    // The phone takes no focus distance or processing choice for one photo yet
-    for (key, what) in [("focus_diopters", tr("the focus")), ("nr", tr("noise reduction")), ("edge", tr("sharpening"))] {
+    if let Some(diopters) = number(&shot, "focus_diopters")? {
+        let Some(near) = ranges.get("focus").and_then(|f| f.get("near_diopters")).and_then(Value::as_f64) else {
+            return Err(ShotRefused { code: "unsupported", why: tr("This phone can't set {what} for one photo.").field("what", tr("the focus")) });
+        };
+        let diopters = diopters.clamp(0.0, near);
+        options.insert("focus_diopters".into(), json!(diopters));
+        applied.insert("focus_diopters".into(), json!(diopters));
+    }
+    // The phone takes no processing choice for one photo yet
+    for (key, what) in [("nr", tr("noise reduction")), ("edge", tr("sharpening"))] {
         if shot.get(key).is_some_and(|v| !v.is_null()) {
             return Err(ShotRefused { code: "unsupported", why: tr("This phone can't set {what} for one photo.").field("what", what) });
         }
@@ -211,6 +224,20 @@ mod tests {
             assert_eq!(refused.code, "unsupported");
         }
         assert_eq!(apply_to_phone(&mut options(json!({"iso": "high"})), &phone_ranges(&caps())).unwrap_err().code, "bad_option");
+    }
+
+    #[test]
+    fn a_phone_that_takes_one_focus_gets_it_fitted_to_the_lens() {
+        let older = phone_ranges(&json!({"focus_near_max": 10.0}));
+        assert!(older.get("focus").is_none(), "an older phone only takes focus brackets");
+        let ranges = phone_ranges(&json!({"focus_near_max": 10.0, "focus_distance": true}));
+        assert_eq!(ranges["focus"], json!({"near_diopters": 10.0}));
+        let mut o = options(json!({"focus_diopters": 0.0}));
+        assert_eq!(apply_to_phone(&mut o, &ranges).unwrap(), json!({"focus_diopters": 0.0}));
+        assert_eq!(o["focus_diopters"], json!(0.0));
+        let mut o = options(json!({"focus_diopters": 25.0}));
+        assert_eq!(apply_to_phone(&mut o, &ranges).unwrap(), json!({"focus_diopters": 10.0}));
+        assert_eq!(apply_to_phone(&mut options(json!({"focus_diopters": 1.0})), &older).unwrap_err().code, "unsupported");
     }
 
     #[test]
