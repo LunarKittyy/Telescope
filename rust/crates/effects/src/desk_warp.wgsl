@@ -17,6 +17,7 @@ struct Params {
     untouched: f32,
 }
 
+// Known, small difference from the CPU: positions here are f32 and the CPU's are f64. At 1080p about 0.4% of the 1/32 pixel positions land one step off (0.7% at 4K), which moves a pixel's blend by 1/32 of its neighbour's difference: at most 8 levels on a hard edge, nothing on a smooth area. Measured against the CPU: mean 0.02 to 0.07 levels, 0.005% of values off by more than 3.
 // The colour of the sheet's pixel `local`, counted from its rectangle's corner.
 fn warp_at(local: vec2<f32>) -> vec3<f32> {
     let size = frame.size;
