@@ -179,6 +179,21 @@ class PairingTest {
     }
 
     @Test
+    fun `an adb-pushed offer tries the USB loopback before any LAN address times out`() {
+        // A firewalled LAN address costs 2 s per try, long enough for the desktop's next push to start a second run
+        val usb = PairingCandidate("127.0.0.1", "USB (adb)", PairingKind.OTHER)
+        assertEquals(
+            listOf(
+                PairingRoute(usb, PairingRouteKind.DEFAULT),
+                PairingRoute(lan, PairingRouteKind.WIFI),
+                PairingRoute(lan, PairingRouteKind.DEFAULT),
+                PairingRoute(ts, PairingRouteKind.DEFAULT),
+            ),
+            pairingRoutes(listOf(usb, lan, ts), hasWifi = true),
+        )
+    }
+
+    @Test
     fun `falls back to the default network when there is no Wi-Fi network`() {
         assertEquals(
             listOf(
