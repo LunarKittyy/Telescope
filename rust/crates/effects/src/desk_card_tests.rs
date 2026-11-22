@@ -283,3 +283,19 @@ fn bench_desk_between_other_steps() {
         }
     }
 }
+
+#[test]
+fn the_desk_on_the_card_never_darkens_black_or_white_yuv_frames() {
+    if !real_card() {
+        eprintln!("no graphics card here: the shader comparison is skipped");
+        return;
+    }
+    let (w, h) = (640usize, 360usize);
+    for (name, luma) in [("black", 16u8), ("below black", 0), ("white", 235), ("above white", 255)] {
+        let mut frame = Frame::new(w as u32, h as u32, PixelFormat::I420, vec![128; PixelFormat::I420.size(w as u32, h as u32)]);
+        frame.data_mut()[..w * h].fill(luma);
+        let (card, cpu) = both_of(json!({"shape": "fill"}), frame);
+        let (max, mean, ..) = difference(&card, &cpu);
+        assert!(max <= 1 && mean < 0.1, "{name}: max {max}, mean {mean}");
+    }
+}
