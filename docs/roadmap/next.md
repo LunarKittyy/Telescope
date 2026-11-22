@@ -3,7 +3,7 @@
 The next release follows 5.1.4. Ticked here means merged and not released yet. Everything ticked is in the nightly builds.
 
 - [ ] [Stargazer photos, cleaner frames and Night focus](#stargazer-photos-cleaner-frames-and-night-focus)
-- [ ] [3D in a headset](#3d-in-a-headset)
+- [x] [3D in a headset](#3d-in-a-headset)
 - [ ] [Stills as raw YUV](#stills-as-raw-yuv)
 - [ ] [Hardware decoding on Windows without a trip through memory](#hardware-decoding-on-windows-without-a-trip-through-memory)
 - [ ] [Bug hunts, speed and a smaller app](#bug-hunts-speed-and-a-smaller-app)
@@ -34,7 +34,7 @@ Three more pieces of Stargazer. Frames from photos lets Live stack and Star trai
 
 ## 3D in a headset
 
-A Headset switch on the 3D card serves a page that shows each half of the 3D picture to one eye in a Quest's browser (WebXR), with nothing to install on the headset. It's written and not merged yet. The page has VR controls (leave with B, Y or a grip, bring the picture back with A or X) and Depth, Height and a tilt for each eye are sliders on the card. The link has a secret in it and stays the same until you press New link.
+A Headset switch on the 3D card serves a page that shows each half of the 3D picture to one eye in a Quest's browser (WebXR), with nothing to install on the headset. The page has VR controls (leave with B, Y or a grip, bring the picture back with A or X) and Depth, Height and a tilt for each eye are sliders on the card. The link has a secret in it and stays the same until you press New link.
 
 ## Stills as raw YUV
 
@@ -52,11 +52,17 @@ One piece is the window's weight and start time, from measuring the finished app
 
 ## ARM64
 
-A maybe. Every build is x86_64 only for now and ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope at all. Windows on ARM laptops would probably run the x64 build through Windows' own emulation. The virtual camera likely wouldn't work there because the Windows 11 camera runs in a native ARM64 system service that can't load the x64 DLL.
+A maybe. Releases are x86_64 only for now, so ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope. Windows on ARM laptops would probably run the x64 build through Windows' own emulation. The virtual camera likely wouldn't work there because the Windows 11 camera runs in a native ARM64 system service that can't load the x64 DLL.
 
-Most of the desktop is plain Rust and Slint and should build for ARM as it is. v4l2loopback on Linux comes from the distro. The parts that need real work are an ARM64 build of the Windows camera DLL and ARM builds of the vision pack's libraries. Background, Auto framing and the other people features are off without the vision pack, the way `platform_key()` in `crates/vision/src/pack.rs` already handles it.
+The first step is done: a separate workflow (`rust-arm64.yml`) builds the workspace and runs the tests on GitHub's free ARM64 runners for Linux and Windows 11. It's not a required check, so a red run blocks nothing. Both build and nearly everything passes, so most of the desktop works on ARM as it is: 6796 of 6802 tests on Linux and 6643 of 6645 on Windows.
 
-The first step is to build the workspace and run the tests on GitHub's free ARM64 runners for Linux and Windows 11. That shows how much works as it is before deciding on the rest.
+What's left:
+- The direct colour conversion in `yuv.rs` is checked against swscale, and on ARM the two differ by far more than the three levels the tests allow. The two tests for it fail on both runners. It's probably swscale's ARM code rounding differently from its x86 code, so the first thing to find out is whether the new conversion or the reference is the odd one out, with a pixel diff against x86_64.
+- Linux needs FFmpeg 8, which Ubuntu 24.04 doesn't have, so the ARM Linux job runs in a 26.04 container. The code doesn't build against FFmpeg 6.1.
+- On Windows the FFmpeg for the tests is BtbN's ARM64 build (GyanD's is x64 only). The packages would need an ARM64 build from `build_ffmpeg.sh` first.
+- The Windows camera DLL and the vision pack's libraries still need ARM64 builds. Nothing has been tried there, and the people features stay off without the pack.
+- Nothing ARM is built into a release yet, and nothing has run on a real ARM machine, so the picture, capture and the virtual camera on Linux are untested.
+- Four Linux tests fail only because the job runs as root, which can read files the tests make unreadable. One Windows pacing test failed once and passed in the next run. It depends on timing on the slower runner.
 
 ## Rearranging the docs
 
