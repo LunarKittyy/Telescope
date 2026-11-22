@@ -151,8 +151,13 @@ fn paint_lens(pm: &mut tiny_skia::Pixmap, c: (f32, f32), k: f32) {
     fill(pm, circle((c.0 + 26.0 * k, c.1 + 30.0 * k), 5.0 * k), Some(tiny_skia::Shader::SolidColor(colour([255, 255, 255], 0.10))), id);
 }
 
-/// A font to draw the name and note with: Inter like the app, else whatever sans the system has.
+/// A font to draw the name and note with: Inter like the app, else whatever sans the system has. Loaded once, as each load keeps its bytes for good.
 fn find_font(display: bool) -> Option<telescope_core::text::FontArc> {
+    static FONTS: [OnceLock<Option<telescope_core::text::FontArc>>; 2] = [OnceLock::new(), OnceLock::new()];
+    FONTS[usize::from(display)].get_or_init(|| load_font(display)).clone()
+}
+
+fn load_font(display: bool) -> Option<telescope_core::text::FontArc> {
     let names: &[&str] = if display {
         &["InterDisplay-Bold.ttf", "Inter-Bold.ttf", "DejaVuSans-Bold.ttf", "segoeuib.ttf", "arialbd.ttf"]
     } else {
@@ -525,17 +530,33 @@ fn is_default_loader(loader: &FrameLoader) -> bool {
 
 type DefaultKey = (u32, u32, PixelFormat, bool, String);
 
+/// A frame over pixels another frame already holds (made empty first so no second copy is allocated).
+fn shared_frame(width: u32, height: u32, fmt: PixelFormat, data: Arc<Vec<u8>>) -> Frame {
+    let mut frame = Frame::new(0, 0, fmt, Vec::new());
+    (frame.width, frame.height, frame.data) = (width, height, data);
+    frame
+}
+
+static CACHE: Mutex<Vec<(DefaultKey, Weak<Vec<u8>>)>> = Mutex::new(Vec::new());
+
+/// The live shared frame for this key, if one is still held.
+fn cached(key: &DefaultKey) -> Option<Arc<Vec<u8>>> {
+    let mut cache = CACHE.lock().ok()?;
+    cache.retain(|(_, w)| w.strong_count() > 0);
+    cache.iter().find(|(k, _)| k == key).and_then(|(_, w)| w.upgrade())
+}
+
 fn shared_default_frame(width: u32, height: u32, i420: bool, mirror: bool) -> Frame {
-    static CACHE: Mutex<Vec<(DefaultKey, Weak<Vec<u8>>)>> = Mutex::new(Vec::new());
     let fmt = if i420 { PixelFormat::I420 } else { PixelFormat::Rgba };
     let key = (width, height, fmt, mirror, tr("Waiting for camera"));
-    if let Ok(mut cache) = CACHE.lock() {
-        cache.retain(|(_, w)| w.strong_count() > 0);
-        if let Some(data) = cache.iter().find(|(k, _)| *k == key).and_then(|(_, w)| w.upgrade()) {
-            let mut frame = Frame::new(width, height, fmt, Vec::new());
-            frame.data = data;
-            return frame;
-        }
+    if let Some(data) = cached(&key) {
+        return shared_frame(width, height, fmt, data);
+    }
+    // One render at a time: a miss that waits here finds the frame the first one made
+    static RENDERING: Mutex<()> = Mutex::new(());
+    let _turn = RENDERING.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(data) = cached(&key) {
+        return shared_frame(width, height, fmt, data);
     }
     let rgb = default_screen(width, height);
     let frame = if i420 {
@@ -869,6 +890,22 @@ int main(int, char** argv) {
 mod tests {
     use super::*;
     use telescope_core::output::{Held as _, WaitScreen as _};
+
+    #[test]
+    fn the_wait_screen_fonts_are_loaded_once() {
+        let (Some(a), Some(b)) = (find_font(true), find_font(true)) else { return };
+        assert!(a.same(&b), "each redraw would otherwise keep another copy of the font file");
+    }
+
+    #[test]
+    fn cameras_that_miss_the_cache_together_share_one_render() {
+        // A size no other test uses, so the cache starts empty for it
+        let frames: Vec<Frame> = std::thread::scope(|s| {
+            let jobs: Vec<_> = (0..4).map(|_| s.spawn(|| shared_default_frame(642, 362, true, false))).collect();
+            jobs.into_iter().map(|j| j.join().unwrap()).collect()
+        });
+        assert!(frames.iter().all(|f| Arc::ptr_eq(&f.data, &frames[0].data)));
+    }
 
     #[derive(Default)]
     struct Log {

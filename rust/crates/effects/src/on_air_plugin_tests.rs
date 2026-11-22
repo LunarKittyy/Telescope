@@ -449,14 +449,25 @@ fn quitting_off_air_sends_nothing() {
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(rig.sent_count(), 0);
 
-    // Nor does it wait for one still on its way
+    // Nor does it wait for an off still on its way
     let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
     rig.hold.store(true, Ordering::SeqCst);
-    rig.ui("test-clicked", vec![json!(true)]);
+    rig.ui("test-clicked", vec![json!(false)]);
     let started = Instant::now();
     rig.plugin.shutdown(&mut rig.host);
     assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
     rig.hold.store(false, Ordering::SeqCst);
+}
+
+#[test]
+fn quitting_after_a_test_turned_the_light_on_sends_a_final_off() {
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    rig.bodies();
+    rig.ui("test-clicked", vec![json!(true)]);
+    rig.bodies();
+    rig.sent.lock().unwrap().clear();
+    rig.plugin.shutdown(&mut rig.host);
+    assert_eq!(rig.bodies(), ["{\"on_air\": false}"]);
 }
 
 #[test]

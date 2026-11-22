@@ -132,6 +132,16 @@ fn requeue(slot: &Slot, frame: Frame, offered: Instant) {
     }
 }
 
+/// Ends the thread unless a picture landed meanwhile; the check and the end are one step under the lock, so a picture handed over after it sees the thread gone.
+fn retire(slot: &Slot) -> bool {
+    let latest = slot.latest.lock().unwrap_or_else(|e| e.into_inner());
+    if latest.is_some() {
+        return false;
+    }
+    slot.alive.store(false, Ordering::SeqCst);
+    true
+}
+
 fn stopped(slot: &Slot) -> bool {
     slot.stop.load(Ordering::SeqCst)
 }
@@ -150,8 +160,10 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
         let (frame, offered) = match next(slot, idle) {
             // A picture retried past the idle time counts as no picture, so a stream that stopped doesn't send its last one late
             Next::Picture(_, offered) if offered.elapsed() >= idle => {
-                if keep {
-                    tell(State::Idle);
+                if keep || !retire(slot) {
+                    if keep {
+                        tell(State::Idle);
+                    }
                     continue;
                 }
                 break;
@@ -161,6 +173,7 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
                 tell(State::Idle);
                 continue;
             }
+            Next::Quiet if !retire(slot) => continue,
             Next::Quiet | Next::Stopped => break,
         };
         let size = (frame.width, frame.height);
