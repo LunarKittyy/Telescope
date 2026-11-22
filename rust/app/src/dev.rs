@@ -181,7 +181,7 @@ extern "C" fn on_signal(_: libc::c_int) {
 
 /// Runs this program as the app with `args`, until it quits; stops it too if the launcher is stopped.
 fn run_app(args: &[String], env: &Env) -> i32 {
-    let Ok(exe) = std::env::current_exe() else { return 1 };
+    let Ok(exe) = telescope_core::system::current_exe() else { return 1 };
     let mut command = std::process::Command::new(exe);
     command.args(args).env_remove(RESUME_ENV).envs(env);
     let Ok(child) = command.spawn() else { return 1 };
