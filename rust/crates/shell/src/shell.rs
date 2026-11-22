@@ -3576,6 +3576,20 @@ mod tests {
 
 
     #[test]
+    fn show_or_hide_answers_which_one_it_does() {
+        use telescope_core::host::HostShell;
+        let mut s = state();
+        s.register(Box::new(Hears("shortcuts".into(), Arc::default()))).unwrap();
+        (s.shown, s.window_active) = (Some(true), true);
+        assert_eq!(s.call(0, |_, host| host.toggle_window()), Some(false), "up and in front: it goes away");
+        (s.shown, s.window_active) = (Some(true), false);
+        assert_eq!(s.call(0, |_, host| host.toggle_window()), Some(true), "behind another window or minimized: it comes up");
+        (s.shown, s.window_active) = (Some(false), false);
+        assert_eq!(s.call(0, |_, host| host.toggle_window()), Some(true));
+        assert_eq!(s.effects.iter().filter(|e| matches!(e, Effect::ToggleWindow)).count(), 3);
+    }
+
+    #[test]
     fn picking_a_phone_while_nothing_streams_is_left_to_connection() {
         use telescope_core::host::HostStreams;
         let mut s = state();

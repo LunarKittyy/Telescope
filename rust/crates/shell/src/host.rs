@@ -337,7 +337,8 @@ impl HostShell for Ctx<'_> {
     }
     fn toggle_window(&mut self) -> bool {
         self.state.effects.push(Effect::ToggleWindow);
-        true
+        // As Window::toggle_window decides: a window on screen and in front goes away, anything else comes up
+        !(self.state.shown == Some(true) && self.state.window_active)
     }
     fn quit_app(&mut self) {
         self.state.effects.push(Effect::Quit);
