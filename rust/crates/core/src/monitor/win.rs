@@ -63,6 +63,9 @@ struct Gpu {
     buf: Vec<u64>,
 }
 
+// SAFETY: a PDH query and counter are plain handles that any one thread may use at a time, and the reader is only used behind the hub's lock
+unsafe impl Send for Gpu {}
+
 impl Gpu {
     fn open() -> Option<Gpu> {
         let mut query = PDH_HQUERY::default();
