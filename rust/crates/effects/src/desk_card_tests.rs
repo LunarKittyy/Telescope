@@ -180,7 +180,7 @@ fn the_desk_on_the_card_keeps_the_cpus_chroma_for_yuv_frames() {
                 let (card, cpu) = both_of(config, coloured(w, h, format));
                 let (max, mean, psnr, over) = difference(&card, &cpu);
                 println!("desk {format:?} {w}x{h} {name}: max {max}, mean {mean:.3}, psnr {psnr:.1} dB, {:.3}% of values off by more than 3", over * 100.0);
-                assert!(psnr >= 45.0 && mean < 1.0 && over < 0.01, "{format:?} {w}x{h} {name}: max {max}, psnr {psnr}, mean {mean}, over {over}");
+                assert!(psnr >= 52.0 && mean < 0.2 && over < 0.01, "{format:?} {w}x{h} {name}: max {max}, psnr {psnr}, mean {mean}, over {over}");
             }
         }
     }
@@ -281,5 +281,21 @@ fn bench_desk_between_other_steps() {
                     times[7], (after.up - before.up) as f64 / 15.0, (after.down - before.down) as f64 / 15.0, telescope_core::balance::Balance::shared().place());
             }
         }
+    }
+}
+
+#[test]
+fn the_desk_on_the_card_never_darkens_black_or_white_yuv_frames() {
+    if !real_card() {
+        eprintln!("no graphics card here: the shader comparison is skipped");
+        return;
+    }
+    let (w, h) = (640usize, 360usize);
+    for (name, luma) in [("black", 16u8), ("below black", 0), ("white", 235), ("above white", 255)] {
+        let mut frame = Frame::new(w as u32, h as u32, PixelFormat::I420, vec![128; PixelFormat::I420.size(w as u32, h as u32)]);
+        frame.data_mut()[..w * h].fill(luma);
+        let (card, cpu) = both_of(json!({"shape": "fill"}), frame);
+        let (max, mean, ..) = difference(&card, &cpu);
+        assert!(max <= 1 && mean < 0.1, "{name}: max {max}, mean {mean}");
     }
 }
