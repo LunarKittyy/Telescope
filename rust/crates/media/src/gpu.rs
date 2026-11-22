@@ -872,7 +872,8 @@ impl Gpu {
         if slot.wants_planes(held.width, held.height) {
             if let Some(input_planes) = self.take_planes(held) {
                 let blurred = slot.blur(self, &mut held.enc, size, None, Some(&input_planes), &mut held.used);
-                if let Some((_, room)) = &blurred {
+                let room = blurred.as_ref().map(|(_, room)| room.clone()).or_else(|| slot.room_picture());
+                if let Some(room) = &room {
                     if let Some(composed) = slot.compose(self, &mut held.enc, &input_planes, room) {
                         // When compose produced the I420 planes, slot.draw is dead work unless keep() reads the drawn RGBA for history.
                         if slot.wants_history {
@@ -1605,6 +1606,12 @@ impl ShaderSlot {
         draw(enc, &built.pipeline, &binds, &dst_view);
     }
 
+    /// The step's picture for the room (shader::ROOM_PICTURE) as it is bound now.
+    fn room_picture(&self) -> Option<wgpu::TextureView> {
+        let Some(Ok(Built { views, .. })) = &self.built else { return None };
+        self.step.textures.iter().position(|(n, _)| n == shader::ROOM_PICTURE).map(|i| views[i].clone())
+    }
+
     fn blur_bindings(&self) -> Option<(u32, u32)> {
         shader::blur_bindings(&self.step)
     }
@@ -1624,6 +1631,8 @@ impl ShaderSlot {
     /// Records the passes that make the blurred copies of src (shrunk, from planes when it has them, blurred and, where the CPU half gave weights, blurred without what they leave out) and gives (plain, weighted) as views; None for a step that doesn't ask.
     fn blur(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, size: (u32, u32), src: Option<&wgpu::Texture>, planes: Option<&[wgpu::Texture; 3]>, used: &mut Vec<wgpu::Texture>) -> Option<(wgpu::TextureView, wgpu::TextureView)> {
         let Some(Ok(Built { blur: Some(kit), views, .. })) = &self.built else { return None };
+        // A step with a picture for its room and no blur of its own only has the kit for composing
+        self.blur_bindings()?;
         let (shrink, sigma) = self.blur_settings();
         let (sw, sh) = shader::blur_size(size.0, size.1, shrink);
         let taps = shader::blur_taps(sigma);
@@ -1669,6 +1678,7 @@ impl ShaderSlot {
 
     /// Takes the pictures the CPU half has for the shader (see CpuStep::card_textures) in place of the step's own of those names; one it leaves out goes back to the first. A picture goes up only when its data isn't the one already there. A picture the card refuses is an error, and the shader isn't to be drawn with what was there before it.
     pub fn set_textures(&mut self, gpu: &Gpu, given: &[(String, Frame)]) -> Result<(), String> {
+        let has_blur = shader::blur_bindings(&self.step).is_some();
         let Some(Ok(built)) = &mut self.built else { return Ok(()) };
         let mut changed = false;
         let mut refused = None;
@@ -1702,7 +1712,7 @@ impl ShaderSlot {
                 None => {}
             }
         }
-        if changed && built.blur.is_none() {
+        if changed && !has_blur {
             built.extras = built.extras_layout.as_ref().map(|l| extras_group(gpu, l, built.ubuf.as_ref(), &built.views, None));
         }
         refused.map_or(Ok(()), Err)
@@ -1808,7 +1818,7 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     let ubuf = has_uniforms.then(|| gpu.uniform(&params));
     // With a blur the group is made for each frame, as its copies are new each time
     let extras = extras_layout.as_ref().filter(|_| blur_bindings.is_none()).map(|l| extras_group(gpu, l, ubuf.as_ref(), &views, None));
-    let blur = blur_bindings.map(|_| BlurKit::new(gpu));
+    let blur = (blur_bindings.is_some() || step.textures.iter().any(|(n, _)| n == shader::ROOM_PICTURE)).then(|| BlurKit::new(gpu));
     if let Some(e) = pollster::block_on(scope.pop()) {
         return Err(e.to_string());
     }

@@ -18,7 +18,7 @@ use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{over_rows, planes_up_to_420, resize_linear_fixed, rgb_planes, rgb_to_420, small_rgb, spare_bytes, with_spares};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::settings::{off_default, reset_config};
-use telescope_core::shader::{BLUR_CUTOUT, BLUR_WEIGHTS};
+use telescope_core::shader::{BLUR_CUTOUT, BLUR_WEIGHTS, ROOM_PICTURE};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "background";
@@ -182,6 +182,8 @@ struct Step {
     card: CardPictures,
     /// The single mask snapshot shared by the card's textures and cutout for a frame.
     card_mask: Option<CardMask>,
+    /// The picture covering a frame of this size, as the card takes it (the same data for as long as nothing changes, so it goes up once).
+    card_room: Option<((usize, usize), Frame)>,
 }
 
 struct CardMask {
@@ -320,14 +322,16 @@ impl CpuStep for Step {
         let mask = self.mask_at(frame, ctx, size);
         self.card_mask = Some(CardMask { source: ctx.source_id().to_string(), number: frame.number, size, mask: mask.clone() });
         let quarter = by_planes.then(|| mask.clone()).flatten();
+        let blur = matches!(self.backdrop(), Backdrop::Blur);
+        let room = self.card_room_picture((w, h)).map(|f| (ROOM_PICTURE.to_string(), f));
         let Some(src) = mask else {
             self.quarter = None;
             self.card = CardPictures::default();
-            return Some(Vec::new());
+            return Some(room.into_iter().collect());
         };
         let key: CardKey = (src.clone(), (self.settings.edges, self.settings.cut_in), (w, h));
         if let Some(src) = quarter {
-            let q = self.derive(src, (w, h), true);
+            let q = self.derive(src, (w, h), blur);
             if self.card.soft.as_ref().is_none_or(|(k, _)| !same_card_key(k, &key)) {
                 let soft = q.soft.as_ref().map(|(_, g)| g).filter(|g| g.data.iter().any(|&v| v != 0));
                 self.card.soft = Some((key.clone(), soft.map(|g| card_picture(g.w, g.h, g.data.iter().copied()))));
@@ -345,11 +349,26 @@ impl CpuStep for Step {
         for (name, kept) in [(BLUR_CUTOUT, &self.card.soft), (BLUR_WEIGHTS, &self.card.weights)] {
             out.extend(kept.as_ref().and_then(|(_, f)| f.clone()).map(|f| (name.to_string(), f)));
         }
+        out.extend(room);
         Some(out)
     }
 }
 
 impl Step {
+    /// The picture of Picture mode scaled to cover a frame of this size, as the Rgba picture the card takes; None in blur mode.
+    fn card_room_picture(&mut self, size: (usize, usize)) -> Option<Frame> {
+        let Backdrop::Picture(picture) = self.backdrop() else { return None };
+        if self.card_room.as_ref().is_none_or(|(s, _)| *s != size) {
+            let covered = cover(&picture, size.0, size.1);
+            let mut rgba = Frame::new(size.0 as u32, size.1 as u32, PixelFormat::Rgba, vec![255; size.0 * size.1 * 4]);
+            for (o, p) in rgba.data_mut().as_chunks_mut::<4>().0.iter_mut().zip(covered.data.as_chunks::<3>().0) {
+                o[..3].copy_from_slice(p);
+            }
+            self.card_room = Some((size, rgba));
+        }
+        self.card_room.as_ref().map(|(_, f)| f.clone())
+    }
+
     /// The pictures for a frame the CPU way does with its full-size mask: the cutout is the mask itself when there's no feathering or cutting in, else what `soften_cut` makes before it's scaled up (the card scales it as it samples), and the share is the mask shrunk to the blur's size.
     fn full_card_pictures(&mut self, src: &Arc<Vec<u8>>, key: CardKey, (w, h): (usize, usize)) {
         let (edges, cut) = (self.settings.edges, self.settings.cut_in);
@@ -390,6 +409,14 @@ const CARD_BLUR: &str = include_str!("background.wgsl");
 fn card_blur(strength: i64) -> ShaderStep {
     let nothing = || Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]);
     ShaderStep { keeps_geometry: false, wgsl: CARD_BLUR.into(), uniforms: card_uniforms(strength), textures: vec![(BLUR_CUTOUT.into(), nothing()), (BLUR_WEIGHTS.into(), nothing())] }
+}
+
+/// Picture mode on the card: the frame over the picture where the cutout says, laid over by planes for an I420 frame as the blur is.
+const CARD_PICTURE: &str = include_str!("background_picture.wgsl");
+
+fn card_picture_step() -> ShaderStep {
+    let nothing = || Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]);
+    ShaderStep { keeps_geometry: false, wgsl: CARD_PICTURE.into(), uniforms: json!({"blur_planes": 1}), textures: vec![(BLUR_CUTOUT.into(), nothing()), (ROOM_PICTURE.into(), nothing())] }
 }
 
 impl Step {
@@ -947,9 +974,15 @@ impl Plugin for BackgroundPlugin {
         }
         let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, cut_in: self.cut_in, picture: self.picture.clone(), high_quality: self.high_quality };
         let blur = MODES[self.mode].0 == "blur";
-        let step = Box::new(Step { settings, wanted: self.wanted.clone(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default(), card_mask: None });
-        // Blur can go to the graphics card; Picture mode stays on the CPU
-        Some(if blur { FrameStep::Either(card_blur(self.blur), step) } else { FrameStep::Cpu(step) })
+        let step = Box::new(Step { settings, wanted: self.wanted.clone(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default(), card_mask: None, card_room: None });
+        // Both go to the graphics card while it has room; a picture that can't be read leaves Picture mode on the CPU, where it blurs
+        Some(if blur {
+            FrameStep::Either(card_blur(self.blur), step)
+        } else if self.picture.is_some() {
+            FrameStep::Either(card_picture_step(), step)
+        } else {
+            FrameStep::Cpu(step)
+        })
     }
 
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
