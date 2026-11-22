@@ -32,4 +32,4 @@ When a release bumps the pinned version of a dependency listed here, check its e
 - **Symptom:** Telescope closes at start on laptops with these Intel cards (#489). wgpu 29 was fine.
 - **Workaround:** on Windows, Intel cards are tried through DX12 before Vulkan and with a graphics preference set their Vulkan comes after every other real card.
 - **Code:** `order` in [`rust/crates/core/src/gpu_pick.rs`](../../rust/crates/core/src/gpu_pick.rs)
-- **Fixed when:** a wgpu release has [gfx-rs/wgpu#10124](https://github.com/gfx-rs/wgpu/pull/10124) (merged on trunk in September 2026, not in 30.0.2). Then this entry and the bug ID comments go. The order can be left as it is because DX12 works well on these cards.
+- **Fixed when:** a wgpu release has [gfx-rs/wgpu#10124](https://github.com/gfx-rs/wgpu/pull/10124) (merged on trunk in September 2026 and missing from 30.0.2). Then this entry and the bug ID comments go. The order can be left unchanged because DX12 works well on these cards.

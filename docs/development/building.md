@@ -17,7 +17,7 @@ This is a self-signed debug build for development.
 
 ## Run the desktop app from source
 
-The desktop app is a Rust workspace in `rust/`. You need a recent stable Rust (from [rustup](https://rustup.rs)). On Linux it also wants FFmpeg's headers (bindgen reads them and needs `clang` too), fontconfig and a few fonts. On Debian and Ubuntu:
+The desktop app is a Rust workspace in `rust/`. You need a recent stable Rust (from [rustup](https://rustup.rs)). On Linux it also needs FFmpeg's headers (bindgen reads them and needs `clang` too), fontconfig and a few fonts. On Debian and Ubuntu:
 
 ```bash
 sudo apt-get install clang pkg-config libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
@@ -65,7 +65,7 @@ A dev phone app and a dev desktop run next to the real ones and pair only with e
 
 Run both from the repository root.
 
-- The dev app has its own data, pairings and phone identity. The dev desktop keeps its config and log in a profile folder in your temp dir, runs alongside the real desktop, never writes menu or sign-in entries and uses its own virtual mic ("Telescope Microphone (dev)")
+- The dev app has its own data, pairings and phone identity. The dev desktop stores its config and log in a profile folder in your temp dir, runs alongside the real desktop, writes no menu or sign-in entries and uses its own virtual mic ("Telescope Microphone (dev)")
 - **Install over USB** installs the dev APK once `assembleDev` or `installDev` has built it
 - Without `--keep` the profile is fresh on every run and you pair again each time. With it the profile remains (in `telescope-dev-profile-<user>` under your temp dir) until `telescope-rs dev --reset`
 - `--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop on every save. See [Writing a plugin](writing-plugins.md#checking-your-plugin)
@@ -87,7 +87,7 @@ ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=30 -pix_fmt yuyv422 -f v4l2 /
 Some things are shared because there's only one of them:
 
 - Only one of the phone apps can be open at a time because they use the same ports. The one you open takes the ports over within a few seconds of the other closing
-- Only one desktop can stream at a time because both stream into the same virtual camera. The dev desktop leaves that camera alone while nothing streams (no wait screen, no watching who reads it); pass `--device /dev/videoN` to give it a camera of its own
+- Only one desktop can stream at a time because both stream into the same virtual camera. The dev desktop leaves that camera alone while nothing streams (it shows no wait screen and doesn't watch who reads it); pass `--device /dev/videoN` to give it a camera of its own
 - Settings actions that change the system (loading v4l2loopback, installing the Windows driver) affect both
 
 ## Versions

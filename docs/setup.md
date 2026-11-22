@@ -9,7 +9,7 @@ You need the `v4l2loopback` package. `adb` is optional.
 
 ### The AppImage
 
-`Telescope-x86_64.AppImage` is one file that holds the whole app. Make it executable (`chmod +x Telescope-x86_64.AppImage`, or Properties in your file manager) and run it. It needs Ubuntu 22.04, Debian 12, Fedora 36 or something newer. `libfuse2` doesn't have to be installed. The first start adds Telescope to your app menu and starting the file from a new place points the entry there.
+`Telescope-x86_64.AppImage` is one file that contains the complete app. Make it executable (`chmod +x Telescope-x86_64.AppImage`, or Properties in your file manager) and run it. It needs Ubuntu 22.04, Debian 12, Fedora 36 or something newer. `libfuse2` doesn't have to be installed. The first start adds Telescope to your app menu and starting the file from a new place points the entry there.
 
 Put it somewhere you can write to, like `~/Applications`. Updating replaces the file in that folder, removing the old one only once the new one has started. In a folder you can't write to, Update opens the download page instead.
 
@@ -37,7 +37,7 @@ sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
   card_label="OBS Virtual Camera,Telescope" exclusive_caps=1
 ```
 
-Setups from before the camera was renamed still call it **Phone Camera** until you click **Unload** and then **Load** under Virtual camera & phone in Settings. Apps like Discord may need the camera picked again afterwards.
+Setups from before the camera was renamed still call it **Phone Camera** until you click **Unload** and then **Load** under Virtual camera & phone in Settings. Apps like Discord sometimes need the camera picked again afterwards.
 
 ### 2. adb (optional)
 
@@ -51,7 +51,7 @@ sudo pacman -S android-tools     # Arch
 
 ### Loading the virtual camera at boot
 
-Switch on **Load when the computer starts** under Virtual camera & phone in Settings. It writes the module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and `/etc/modules-load.d/99-telescope-v4l2loopback.conf`. Unticking it removes them again. It refuses to write if another config already sets `v4l2loopback` options. If you add the [extra cameras](features/sources.md#several-cameras-at-once) while it's on, the file asks for them too and they're there again after a restart.
+Switch on **Load when the computer starts** under Virtual camera & phone in Settings. It writes the module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and `/etc/modules-load.d/99-telescope-v4l2loopback.conf`. Unticking it removes them again. It won't write them if another config already sets `v4l2loopback` options. If you add the [extra cameras](features/sources.md#several-cameras-at-once) while it's on, the file includes them too and they're there again after a restart.
 
 <details>
 <summary><b>The same thing by hand (Fedora, Nobara and other dracut distros)</b></summary>
@@ -78,7 +78,7 @@ flatpak override --user --device=all com.obsproject.Studio
 
 The first-run checklist installs the virtual camera with one click (Windows asks for admin). Which camera you get depends on the Windows version:
 
-- **Windows 11:** Telescope's own camera. Every app can see it, including ones like the Windows Camera app that older virtual cameras never show up in. Apps list it as "Telescope (Windows Virtual Camera)" because Windows adds the part in brackets itself. It goes into `C:\Program Files\Telescope\VirtualCamera`
+- **Windows 11:** Telescope's own camera. Every app can see it, including ones like the Windows Camera app that older virtual cameras don't show up in. Apps list it as "Telescope (Windows Virtual Camera)" because Windows adds the part in brackets itself. It goes into `C:\Program Files\Telescope\VirtualCamera`
 - **Windows 10:** the UnityCapture driver, which apps using DirectShow (OBS, for example) can see but apps that only use Media Foundation can't. It goes into `C:\Program Files\Telescope\UnityCapture`
 
 Only an admin can change either folder. Upgraded to Windows 11 with the older driver installed, or installed it with an older Telescope? **Virtual camera & phone** in Settings shows **Update**, which puts the Windows 11 camera in and takes UnityCapture out so apps don't list Telescope twice.

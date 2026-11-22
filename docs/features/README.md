@@ -1,15 +1,15 @@
 <!-- covers: ; checked: 1cbb8644b -->
 # Features
 
-Everything the apps can do, split by area. Each heading below points to the page that now holds it, to avoid breaking older links.
+Everything the apps can do, split by area. Each heading below points to the page that now contains it, to avoid breaking older links.
 
-- [Camera and quality](camera.md): lenses, exposure, the picture format and how much bandwidth it uses.
-- [Framing and background](picture.md): keeping you in frame and changing or hiding what is behind you.
-- [Effects and overlays](effects.md): fun effects, looks and things drawn on top of the picture.
-- [Sources and layouts](sources.md): other cameras and the browser plus putting several cameras on screen.
-- [Sound, sign and monitoring](output.md): the microphone, the On Air sign and keeping an eye on the stream.
-- [Connection and privacy](connection.md): pairing phones, what the apps send where and updates.
-- [The desktop app](app.md): system integration, keyboard shortcuts, the MCP server and plugins.
+- [Camera and quality](camera.md) covers lenses, exposure, the picture format and how much bandwidth it uses.
+- [Framing and background](picture.md) covers keeping you in frame and changing or hiding what is behind you.
+- [Effects and overlays](effects.md) covers fun effects, looks and things drawn on top of the picture.
+- [Sources and layouts](sources.md) covers other cameras and the browser plus putting several cameras on screen.
+- [Sound, the On Air sign and monitoring the stream](output.md) covers the microphone, the On Air sign and keeping an eye on the stream.
+- [Connection and privacy](connection.md) covers pairing phones, what the apps send where and updates.
+- [The desktop app](app.md) covers system integration, keyboard shortcuts, the MCP server and plugins.
 
 ## Camera control
 
@@ -109,19 +109,19 @@ Moved to [Sources and layouts](sources.md#several-cameras-in-one-picture).
 
 ## Microphone
 
-Moved to [Sound, sign and monitoring](output.md#microphone).
+Moved to [Sound, the On Air sign and monitoring the stream](output.md#microphone).
 
 ## On Air sign
 
-Moved to [Sound, sign and monitoring](output.md#on-air-sign).
+Moved to [Sound, the On Air sign and monitoring the stream](output.md#on-air-sign).
 
 ## Monitoring
 
-Moved to [Sound, sign and monitoring](output.md#monitoring).
+Moved to [Sound, the On Air sign and monitoring the stream](output.md#monitoring).
 
 ## Phones, pairing and connection
 
-Moved to [Connection and privacy](connection.md#phones-pairing-and-connection).
+Moved to [Connection and privacy](connection.md#pairing-phones-and-how-they-connect).
 
 ## Privacy
 

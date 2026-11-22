@@ -13,9 +13,9 @@ Plugins people add, behind core's `Plugin` trait. A plugin is a folder with a `p
 | `load.rs` | Package to running plugin, and the `factory` the binary hands the shell as `Services::plugins` |
 | `testing.rs` | `PluginTest`, `check()` behind `check-plugin`, and `validate_shader` |
 
-The examples in `example-plugins/` are tested end to end in `tests/lua.rs`. `tests/plugin_api.txt` freezes what plugins may use (run with `UPDATE_PLUGIN_API=1` after adding something on purpose).
+The examples in `example-plugins/` are tested end to end in `tests/lua.rs`. `tests/plugin_api.txt` freezes what plugins are allowed to use (run with `UPDATE_PLUGIN_API=1` after adding something you meant to add).
 
-## Writing a shader effect (for the Phase 2 effect sessions)
+## Writing a shader effect (for Phase 2 effect work)
 
 Every effect that changes pixels (Fun pack, chroma key, Desk mode's warp, the scopes' tints) becomes a `FrameStep::Shader`. The contract is in [`core/src/shader.rs`](../core/src/shader.rs) and it's the same whether the effect is a built-in Rust plugin or a Lua plugin someone adds. Media's executor runs it on the GPU with no plugin code involved per frame.
 
@@ -32,17 +32,17 @@ The shortest path to a working effect:
        }))
    }
    ```
-   Call `host.refresh_frame_step()` whenever a setting changes and the shell asks again. `PluginInfo::frame_stage` decides where the step runs (`effects` by default, `background` for chroma key, `geometry` for warps, `overlay` for things drawn on top). A Lua plugin returns `{ shader = "mirror.wgsl", uniforms = { amount = 0.5 } }` from `plugin.frame_step()` instead.
+   Call `host.refresh_frame_step()` whenever a setting changes and the shell requests the step again. `PluginInfo::frame_stage` sets where the step runs (`effects` by default, `background` for chroma key, `geometry` for warps, `overlay` for things drawn on top). A Lua plugin returns `{ shader = "mirror.wgsl", uniforms = { amount = 0.5 } }` from `plugin.frame_step()` instead.
 3. **Check that it compiles** in a unit test, without a GPU: `telescope_plugin_host::testing::validate_shader(&step, "mirror.wgsl")` assembles it the way media will and validates it with naga, with errors pointing at the shader's own lines. For a Lua plugin `cargo run -p telescope-plugin-host --bin check-plugin -- path/to/plugin` does that and more.
-4. **Try it on real frames.** `Media::pipeline()` gives a `FramePipeline`. `set_steps(vec![StagedStep { owner, stage, step }])` and then `process(frame, &ctx)` runs your step on a real I420 frame on the GPU, which is how the plugin-host session checked the example turning a coloured frame grey. Only the binary may depend on media, which puts a test like that where both are available (the `app` crate, or media's own tests with the WGSL inlined).
+4. **Try it on real frames.** `Media::pipeline()` gives a `FramePipeline`. `set_steps(vec![StagedStep { owner, stage, step }])` and then `process(frame, &ctx)` runs your step on a real I420 frame on the GPU, which is how the example turning a coloured frame grey was checked. Only the binary is allowed to depend on media, which puts a test like that where both are available (the `app` crate, or media's own tests with the WGSL inlined).
 
-Things that trip you up:
+Common mistakes:
 
-- Params fields can be `f32`, `i32`, `u32`, `vec2/3/4<f32>` and `mat4x4<f32>`. A missing uniform is 0, a bool arrives as 0 or 1, a vector as a JSON array and a matrix as 16 numbers column by column. `pack_uniforms` refuses anything else.
+- Params fields can be `f32`, `i32`, `u32`, `vec2/3/4<f32>` and `mat4x4<f32>`. A missing uniform is 0, a bool arrives as 0 or 1, a vector as a JSON array and a matrix as 16 numbers column by column. `pack_uniforms` rejects any other type.
 - Don't declare `@group`/`@binding` yourself. Extra pictures (a LUT, a logo, a mask) go in `ShaderStep::textures` as `(name, Frame)` and arrive as `var <name>: texture_2d<f32>` in list order. Read them with `sample_texture(<name>, uv)`.
 - `person_mask(uv)` gives how sure the vision service is that a person is at `uv` (0..1) and `has_person_mask()` reports whether there's a mask at all (`person_mask` is 0 everywhere while there isn't). Calling either is all it takes. A mask is only worked out for a shader that does and it's uploaded only when it changes. The mask belongs to the picture as it reaches your step. A mask shader that isn't first on the card sends the picture down once for the model. `core::shader` has the contract.
 - `previous(uv)` gives what your shader drew for the stream's last frame and `has_previous()` reports whether there is one (there isn't for the first frame, after the picture's size changed or when the last frame is more than 250 ms older). Averaging each pixel with `previous` is how a step denoises over time. Calling either is all it takes. A copy is only stored for a shader that does. Write a little noise into what you return, or an 8-bit copy rounds a slow change away. `core::shader` has the contract.
-- A shader that needs pictures worked out first (a shrunk copy, a sum over a window) defines `fn pass_0(at: vec2<i32>) -> vec4<f32>` (or `-> f32` for one exact number), then `pass_1` and so on, up to 8. Each runs before `effect()` into a picture of its own, at the size the uniform `pass_sizes` (`[[w, h], ...]`) gives it or the frame's size, `at` being the pixel it makes. Later passes and `effect()` read pass k with `passed_k(at)` (edges repeat) and its size with `passed_size_k()`. A vec4 pass is kept in 8 bits a channel, an f32 one exactly (its bits packed into 8-bit RGBA so every card can draw it). Desk mode's cleanup is built this way. `core::shader` has the contract.
+- A shader that needs pictures worked out first (a shrunk copy, a sum over a window) defines `fn pass_0(at: vec2<i32>) -> vec4<f32>` (or `-> f32` for one exact number), then `pass_1` and so on, up to 8. Each runs before `effect()` into a picture of its own, at the size the uniform `pass_sizes` (`[[w, h], ...]`) gives it or the frame's size, `at` being the pixel it makes. Later passes and `effect()` read pass k with `passed_k(at)` (edges repeat) and its size with `passed_size_k()`. A vec4 pass is stored in 8 bits a channel, an f32 one exactly (its bits packed into 8-bit RGBA so every card can draw it). Desk mode's cleanup is built this way. `core::shader` has the contract.
 - Colour changes that only map colours to colours (grades, LUTs) belong in the colour pipeline through `host.set_colour_stage()`, not in a shader. They get baked into one LUT per stream with every other plugin's.
-- Lua plugins can't hand over textures yet (frames aren't plain data a script should carry). An effect that needs a LUT or a mask image is a built-in for now.
+- Lua plugins can't hand over textures yet (frames aren't plain data that belong in a script). An effect that needs a LUT or a mask image is a built-in for now.
 - A step that fails to compile is logged once and frames pass through untouched. Check the log or run `validate_shader` first if an effect seems to do nothing.

@@ -1,7 +1,7 @@
 <!-- covers: rust/crates/plugin-host/src rust/crates/plugin-host/tests/plugin_api.txt rust/crates/plugin-host/example-plugins rust/crates/plugin-host/tests/lua.rs; checked: 141b7ea82 -->
 # Writing a plugin
 
-Plugins are written in Lua, with GPU shaders for anything that changes the picture. To switch plugins on and off or install ones other people made, see [Plugins](../features/plugins.md). Plugins written in Python for the old Telescope (API 1) don't run any more.
+Plugins are written in Lua, with GPU shaders for whatever changes the picture. To switch plugins on and off or install ones other people made, see [Plugins](../features/plugins.md). Plugins written in Python for the old Telescope (API 1) don't run any more.
 
 - [Start from an example](#start-from-an-example)
 - [Checking your plugin](#checking-your-plugin)
@@ -15,7 +15,7 @@ Plugins are written in Lua, with GPU shaders for anything that changes the pictu
 - [Ground rules](#ground-rules)
 - [Sharing it](#sharing-it)
 
-A plugin is a folder. It needs a `plugin.json` describing it and a `main.lua` with its code. Most plugins also add a `card.slint` for their card in the window and a `.wgsl` shader or two. You don't need to know Rust or anything about how Telescope works inside to write one. If you've written a bit of Lua, JavaScript or Python before you'll recognise most of it.
+A plugin is a folder. It needs a `plugin.json` describing it and a `main.lua` with its code. Most plugins also add a `card.slint` for their card in the window and a `.wgsl` shader or two. You don't need to know Rust or how Telescope works inside to write one. With a little Lua, JavaScript or Python behind you, you'll recognise most of it.
 
 ## Start from an example
 
@@ -56,9 +56,9 @@ Telescope loads a plugin you're working on straight from its folder when it runs
 ```
 
 - `name` is your plugin's id, made of lowercase letters, digits and `_` and starting with a letter. Your settings are saved under it. Don't change it once people use your plugin or their settings won't find their way back.
-- `title`, `version`, `author` and `description` show on the Plugins tab. Write the description for someone who has never heard of your plugin.
+- `title`, `version`, `author` and `description` show on the Plugins tab. Write the description for someone who hasn't heard of your plugin.
 - `api` is the plugin API you wrote it for, which is `2` (Python plugins were `1`). It only goes up for a change that would break existing plugins.
-- `category` picks the group on the Plugins tab: `camera`, `look`, `vision` (People), `preview`, `on_screen`, `sound` or `streaming`. Anything else lands under Extras.
+- `category` picks the group on the Plugins tab: `camera`, `look`, `vision` (People), `preview`, `on_screen`, `sound` or `streaming`. Any other value lands under Extras.
 - `when_off` tells people what goes missing when they switch your plugin off.
 - `repo` is an optional `https://` link to your plugin's source, shown next to the author. A GitHub address also lets Telescope tell people about new versions (see [Sharing it](#sharing-it)).
 - `permissions` lists the parts of the host API your plugin needs that could surprise someone. See the table under [Events and the host](#events-and-the-host).
@@ -115,11 +115,11 @@ return plugin
 | `diagnostics()` | A few `{ "Label", "value" }` pairs for Copy diagnostics, with no names, addresses or tokens |
 | `shutdown()` | Telescope is quitting |
 
-`get_config()` returns a plain table of what you want remembered and `set_config()` gets it back on the next start. It might also get a table saved by an older version of your plugin or edited by hand. Check each value the way the example checks `cfg.on == true`. Raising an error in `set_config()` turns those settings down and Telescope keeps the values that do load on their own, with your defaults for the rest. Call `host.schedule_save()` after something changes and Telescope saves a moment later along with everything else.
+`get_config()` returns a plain table of what you want remembered and `set_config()` gets it back on the next start. It can also get a table saved by an older version of your plugin or edited by hand. Check each value the way the example checks `cfg.on == true`. Raising an error in `set_config()` turns those settings down and Telescope uses the values that do load on their own, with your defaults for the rest. Call `host.schedule_save()` after something changes and Telescope saves a moment later along with the rest.
 
-Set `in_presets` when your settings shape the picture or how the plugin behaves. A preset like "Studio" then brings them all back. Folders, paths, devices, accounts and tokens are left out of a preset because they belong to one computer or one person. A preset saved before your plugin took part has no section for it and leaves it alone. Recalling a preset gives the saved settings to your `set_config(cfg)`. A key missing from them gets its default, as in a settings file. A plugin's preset is its whole `get_config()`. Make sure `set_config` never starts anything a person starts by hand. Built-in plugins that opt out are listed with a reason in `rust/app/tests/plugin_removal.rs`.
+Set `in_presets` when your settings shape the picture or how the plugin behaves. A preset like "Studio" then restores them all. Folders, paths, devices, accounts and tokens are left out of a preset because they belong to one computer or one person. A preset saved before your plugin took part has no section for it and leaves it alone. Recalling a preset gives the saved settings to your `set_config(cfg)`. A key missing from them gets its default, as in a settings file. A plugin's preset is its whole `get_config()`. Make sure `set_config` doesn't start the things a person starts by hand. Built-in plugins that opt out are listed with a reason in `rust/app/tests/plugin_removal.rs`.
 
-Lua's own `table`, `string`, `math`, `utf8` and `coroutine` libraries are there, along with `os.time`, `os.clock`, `os.date` and `os.difftime`. Your plugin can't open files, start programs or reach the network. Lua's own pattern matching can get stuck backtracking for hours and nothing can stop it halfway. So `string.find`, `string.match`, `string.gmatch` and `string.gsub` use a copy of Lua 5.4's matcher that counts its work. It gives the same results as Lua's, until one call has used up about a third of a second of work. Then it stops with an error saying the pattern took too many steps. Only a pattern with a lot of `*`, `+`, `-` or `?` in it, or `%b` on a long text, gets there. Use a simpler pattern or cut the text down first. Ordinary patterns on ordinary texts never get near it. A `gsub` with a function calls it as usual. The time that function takes counts towards the hook's own time limit. On top of Lua's own you get:
+Lua's own `table`, `string`, `math`, `utf8` and `coroutine` libraries are there, along with `os.time`, `os.clock`, `os.date` and `os.difftime`. Your plugin can't open files, start programs or reach the network. Lua's own pattern matching can get stuck backtracking for hours and it can't be stopped halfway. So `string.find`, `string.match`, `string.gmatch` and `string.gsub` use a copy of Lua 5.4's matcher that counts its work. It gives the same results as Lua's, until one call has used up about a third of a second of work. Then it stops with an error saying the pattern took too many steps. Only a pattern with a lot of `*`, `+`, `-` or `?` in it, or `%b` on a long text, gets there. Use a simpler pattern or cut the text down first. Ordinary patterns on ordinary texts don't get near it. A `gsub` with a function calls it as usual. The time that function takes counts towards the hook's own time limit. On top of Lua's own you get:
 
 - `host`, Telescope's side of things (see [Events and the host](#events-and-the-host))
 - `tr`, `trn` and `N_` for texts people read
@@ -174,7 +174,7 @@ Inherit `Card` and give it a `title` and an `icon` from the kit's `Icons`, the w
 
 ## Changing the picture
 
-Plugins change the picture with a shader written in [WGSL](https://www.w3.org/TR/WGSL/), the GPU language that runs everywhere Telescope does. Your Lua code never touches pixels. It hands Telescope the shader and its values from `frame_step()` and calls `host.refresh_frame_step()` whenever they change:
+Plugins change the picture with a shader written in [WGSL](https://www.w3.org/TR/WGSL/), the GPU language that runs everywhere Telescope does. Your Lua code doesn't touch pixels. It hands Telescope the shader and its values from `frame_step()` and calls `host.refresh_frame_step()` whenever they change:
 
 ```lua
 function plugin.frame_step()
@@ -205,7 +205,7 @@ fn effect(uv: vec2<f32>) -> vec4<f32> {
 - `frame` has the picture's `size` in pixels, the stream's `time` in seconds and the frame's `number`, for effects that move.
 - Don't declare bindings of your own. Telescope adds those around your code.
 
-The shader runs on the GPU for every frame of every stream your plugin is on. Keeping up with 60 fps costs your Lua code nothing because it isn't involved per frame at all. `check-plugin` compiles every `.wgsl` file in your plugin and points at the line of any error.
+The shader runs on the GPU for every frame of every stream your plugin is on. Keeping up with 60 fps is free for your Lua code because it isn't involved per frame at all. `check-plugin` compiles every `.wgsl` file in your plugin and points at the line of any error.
 
 ## Events and the host
 
@@ -221,7 +221,7 @@ end
 
 Each function gets the event as a table with its fields (`e.source_id` here). The names and fields are the ones listed as `event` in [`tests/plugin_api.txt`](../../rust/crates/plugin-host/tests/plugin_api.txt), from `stream_started` and `phone_state_updated` to `people_tracked` and `still_saved`. Your plugin can also send its own events with `host.emit("my_plugin.something", { ... })` and listen for them under the same name, as long as the name starts with your plugin's name and a dot. The app's own events (`stream_stopped` and the like) are the app's to send and `host.emit` refuses them.
 
-`host` has everything else a plugin may ask of Telescope. The full list with each function's arguments is in [`tests/plugin_api.txt`](../../rust/crates/plugin-host/tests/plugin_api.txt). A few you'll use most:
+`host` has the rest of what a plugin can ask of Telescope. The full list with each function's arguments is in [`tests/plugin_api.txt`](../../rust/crates/plugin-host/tests/plugin_api.txt). A few you'll use most:
 
 | Call | What it does |
 |---|---|
@@ -239,7 +239,7 @@ Each function gets the event as a table with its fields (`e.source_id` here). Th
 
 Methods that need an owner (the view, preview layers, motion zones) use your plugin's title, which is also what the window shows when your plugin has the view.
 
-`host.set_preview_message(message, source_id)` shows a message on that stream's preview (the shown stream when `source_id` is omitted). Pass a table with translated `text`, `detail` and `step`, optional `remaining_ms` and `total_ms`, `dim` and a required `max_ms` timeout. The host counts down from `remaining_ms`; plugins don't need to send ticks. Pass `nil` to clear your message. Each plugin has one message per stream and the newest appears on top. Clearing it brings back the one underneath. Messages never reach the virtual camera output. A host without Preview ignores the call.
+`host.set_preview_message(message, source_id)` shows a message on that stream's preview (the shown stream when `source_id` is omitted). Pass a table with translated `text`, `detail` and `step`, optional `remaining_ms` and `total_ms`, `dim` and a required `max_ms` timeout. The host counts down from `remaining_ms`; plugins don't need to send ticks. Pass `nil` to clear your message. Each plugin has one message per stream and the newest appears on top. Clearing it shows the one underneath again. Messages don't reach the virtual camera output. A host without Preview ignores the call.
 
 The host also clears a message when its plugin stops, its stream ends or `max_ms` passes. Your plugin receives `preview_message_ended` with `source_id` when the host clears it. Clearing it yourself doesn't send that event.
 
@@ -261,7 +261,7 @@ Some calls need a permission in `plugin.json`. People see the permissions on the
 | `settings` | Reading other plugins' settings, applying presets and moving a phone's settings |
 | `notifications` | Desktop notifications |
 
-A call without its permission raises an error naming the one it needs. A banner button from `host.show_issue` is held to the same rule: one that starts a stream or turns the camera on needs `streams`, and a button that opens a link only takes an `http` or `https` address.
+A call without its permission raises an error naming the one it needs. A banner button from `host.show_issue` is held to the same rule. One that starts a stream or turns the camera on needs `streams`, and a button that opens a link only takes an `http` or `https` address.
 
 `card()`, `frame_step()`, `get_config()`, `set_config()` and the other functions that describe your plugin run without the host because the window can ask for them at any time. Asking the host something there raises an error, but `set_ui_props`, `refresh_frame_step`, `schedule_save`, `update_tray_action`, `emit`, `schedule` and `cancel_schedule` still work. They're sent once the next event or hook comes along. That's how the example updates its card from `set_config()`.
 
@@ -285,11 +285,11 @@ cargo run -p telescope-plugin-host --bin plugin-texts -- new sv path/to/my_plugi
 
 Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use remain as they are. `status` shows how far each language is. A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it remains as you wrote it. `sv_SE` uses `sv.po` when there's no `sv_SE.po`. Texts in your `.slint` file use Slint's `@tr()`. [Translating](translating.md) explains the `.po` format.
 
-A `.po` file that can't be read never stops your plugin from loading. The plugin remains in English and the log names the file. `check-plugin` lists broken catalogs, along with translations that have a `{field}` the English doesn't (those show in English). Catalogs count as part of your plugin's files. People have to switch it on again after you change one.
+A `.po` file that can't be read doesn't stop your plugin from loading. The plugin remains in English and the log names the file. `check-plugin` lists broken catalogs, along with translations that have a `{field}` the English doesn't (those show in English). Catalogs count as part of your plugin's files. People have to switch it on again after you change one.
 
 ## Testing it
 
-`check-plugin` covers the basics. For anything more specific the plugin host has a test harness in Rust, `telescope_plugin_host::testing::PluginTest`, which runs your plugin exactly the way Telescope does against a stand-in host that writes down every call:
+`check-plugin` covers the basics. For more specific checks the plugin host has a test harness in Rust, `telescope_plugin_host::testing::PluginTest`, which runs your plugin exactly the way Telescope does against a stand-in host that writes down every call:
 
 ```rust
 use telescope_plugin_host::testing::PluginTest;
@@ -311,14 +311,14 @@ fn a_drop_shows_one_notification() {
 
 - **Don't reach into other plugins.** Use events and the host. Other plugins can be switched off and yours has to work without them.
 - **Keep your functions quick.** They run on the window's thread. One that takes longer than 3 seconds is stopped with an error. A plugin can use up to 64 MB of memory.
-- **A failing `frame_step()` in a plugin that hides things shows a dark picture.** For `background`, `privacy` and `cover` plugins an error or a timeout in `frame_step()` isn't taken as "no shader" (that would show the clear picture). Return `nil` when there's nothing to hide.
+- **A failing `frame_step()` in a plugin that hides things shows a dark picture.** For `background`, `privacy` and `cover` plugins an error or a timeout in `frame_step()` isn't taken as "no shader" (that would show the clear picture). Return `nil` when nothing needs hiding.
 - **Don't flood the bus.** A plugin can have about 4000 of its own events waiting to be delivered. `host.emit` raises an error past that.
 - **Name files differently on Windows.** Two files in a `.zip` whose names differ only in capital letters can't be installed, since Windows treats them as one file.
 - **Don't count on the order of a table's keys.** Lua doesn't preserve it and neither does `json.encode`.
-- **Don't write files into your plugin's folder.** Telescope doesn't let your code do that anyway. If you or anyone else changes a file there by hand it counts as a new version, which remains off until it's switched on again.
+- **Don't write files into your plugin's folder.** Telescope doesn't let your code do that anyway. A file you or another person changes there by hand counts as a new version, which remains off until it's switched on again.
 - **Ship source code.** A plugin with compiled files in it (Lua bytecode, `.so`, `.dll` and the like) isn't loaded.
 
-When something in your plugin raises an error Telescope logs it with the file and line and carries on. The other plugins still hear about everything. An error while loading shows on your plugin's tile on the Plugins tab.
+When something in your plugin raises an error Telescope logs it with the file and line and carries on. The other plugins still receive every event. An error while loading shows on your plugin's tile on the Plugins tab.
 
 ## Sharing it
 
