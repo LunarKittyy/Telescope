@@ -131,7 +131,7 @@ fn the_setup_runs_silently_and_the_installed_copy_takes_over() {
     let run = Run::ok();
     let result = install(&run, &root.join("TelescopeSetup.exe"), &old, Some(inst.clone()), &[]).unwrap();
     assert_eq!(*run.calls.borrow(), [[root.join("TelescopeSetup.exe").to_string_lossy().into_owned(), "/VERYSILENT".into(), "/SUPPRESSMSGBOXES".into(),
-                                      "/NORESTART".into(), "/SP-".into()]]);
+                                      "/NORESTART".into(), "/SP-".into(), "/CURRENTUSER".into()]]);
     assert_eq!(result.relaunch, [inst.join(EXE_NAME).to_string_lossy().into_owned(), "--after-update".into(), "--moved-from".into(), old.to_string_lossy().into_owned()]);
 }
 
@@ -624,4 +624,67 @@ fn the_adb_folder_matches_adb_download_py() {
     assert_eq!(downloaded_adb_dir(Some("C:/Users/l/AppData/Local"), home), Path::new("C:/Users/l/AppData/Local/Telescope/platform-tools"));
     assert_eq!(downloaded_adb_dir(None, home), home.join("AppData").join("Local").join("Telescope").join("platform-tools"));
     assert_eq!(downloaded_adb_dir(Some(""), home), downloaded_adb_dir(None, home));
+}
+
+// An install for all users has its uninstall entry under HKEY_LOCAL_MACHINE
+#[test]
+fn an_all_users_install_is_found_by_its_machine_entry() {
+    struct Machine(Option<&'static str>);
+    impl Uninstall for Machine {
+        fn read(&self, hive: &str, _key: &str, _name: &str) -> Option<String> {
+            if hive == "HKLM" { self.0.map(String::from) } else { None }
+        }
+        fn write_text(&self, _key: &str, _name: &str, _value: &str) -> io::Result<()> {
+            unreachable!()
+        }
+        fn write_number(&self, _key: &str, _name: &str, _value: u32) -> io::Result<()> {
+            unreachable!()
+        }
+    }
+    let dir = scratch_dir("all-users");
+    let mine: &'static str = Box::leak(dir.to_string_lossy().into_owned().into_boxed_str());
+    assert!(installed_for_all_users_in(&dir, &Machine(Some(mine))));
+    assert!(!installed_for_all_users_in(&dir, &Machine(Some(r"C:\Somewhere\Else"))));
+    assert!(!installed_for_all_users_in(&dir, &Machine(Some(""))));
+    assert!(!installed_for_all_users_in(&dir, &Machine(None)), "a per-user install has no machine entry");
+}
+
+#[test]
+fn the_admin_setup_keeps_the_mode_and_folder_and_restarts_telescope() {
+    let args = admin_setup_args(Path::new(r"C:\Program Files\Telescope Desktop"));
+    assert!(args.contains("/VERYSILENT") && args.contains("/ALLUSERS") && args.contains("/RELAUNCH=1"));
+    assert!(args.ends_with(r#"/DIR="C:\Program Files\Telescope Desktop""#), "{args}");
+}
+
+/// What update_as_admin did: the program and arguments it started.
+fn admin_update(answer: Result<(), i32>, streaming: bool) -> (Result<InstallResult, UpdateError>, Vec<(PathBuf, String)>) {
+    let started = RefCell::new(Vec::new());
+    let start = |program: &Path, args: &str| {
+        started.borrow_mut().push((program.to_path_buf(), args.to_string()));
+        answer
+    };
+    let is_streaming = || streaming;
+    let result = update_as_admin(Path::new("Setup.exe"), Path::new(r"C:\Program Files\Telescope Desktop"), &AdminEnv { start: &start, streaming: &is_streaming });
+    (result, started.into_inner())
+}
+
+#[test]
+fn an_accepted_prompt_starts_the_setup_and_leaves_the_restart_to_it() {
+    let (result, started) = admin_update(Ok(()), false);
+    assert_eq!(result.unwrap(), InstallResult { relaunch: Vec::new(), skipped: Vec::new() });
+    assert_eq!(started, [(PathBuf::from("Setup.exe"), admin_setup_args(Path::new(r"C:\Program Files\Telescope Desktop")))]);
+}
+
+#[test]
+fn a_no_at_the_prompt_says_so_and_another_failure_is_a_message_too() {
+    assert_eq!(admin_update(Err(1223), false).0.unwrap_err().0, declined_text());
+    assert_eq!(admin_update(Err(-268435457), false).0.unwrap_err().0, not_started_text());
+    assert_eq!(admin_update(Err(2), false).0.unwrap_err().0, not_started_text());
+}
+
+#[test]
+fn a_stream_that_started_during_the_download_stops_the_update_before_the_prompt() {
+    let (result, started) = admin_update(Ok(()), true);
+    assert!(result.unwrap_err().0.contains("Stop streaming"));
+    assert!(started.is_empty(), "no prompt for an update that won't run");
 }

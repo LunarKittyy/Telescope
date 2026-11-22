@@ -127,6 +127,9 @@ def ps(src: str, **values) -> str:
 APP = r"$env:LOCALAPPDATA\Programs\Telescope"
 MENU = r"$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Telescope.lnk"
 UNINSTALL_KEY = r"HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}_is1"
+ALL_USERS_APP = r"$env:ProgramFiles\Telescope Desktop"
+ALL_USERS_KEY = r"HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}_is1"
+ALL_USERS_MENU = r"$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Telescope.lnk"
 UAC_KEY = r"HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
 PROCESS_AUDIT = "{0CCE922B-69AE-11D9-BED3-505054503030}"  # the Process Creation subcategory, whatever the language
 
@@ -139,6 +142,12 @@ if (Test-Path "$app\unins000.exe") {
     Start-Process "$app\unins000.exe" '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
     for ($i = 0; $i -lt 60 -and (Test-Path "$app\unins000.exe"); $i++) { Start-Sleep 1 }
 }
+$all = "$env:ProgramFiles\Telescope Desktop"
+if (Test-Path "$all\unins000.exe") {
+    Start-Process "$all\unins000.exe" '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+    # The uninstaller hands over to a copy of itself and returns; what it deletes after that would hit a setup started next
+    for ($i = 0; $i -lt 60 -and ((Test-Path "$all\unins000.exe") -or (Get-Process -Name '_unins*', 'unins*' -ErrorAction SilentlyContinue)); $i++) { Start-Sleep 1 }
+}
 foreach ($view in 'HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\WOW6432Node\Classes') {
     Get-ChildItem "$view\CLSID" -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like '{5C2CD55C-92AD-4999-8666-912BD3E7*' } |
         Remove-Item -Recurse -Force
@@ -148,11 +157,11 @@ foreach ($view in 'HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\WOW6432Node\Classes'
 # The Windows 11 camera: its cameras go with its registration (Frame Server keeps the DLL loaded, so the folder may stay)
 $vcam = "$env:ProgramFiles\Telescope\VirtualCamera\TelescopeCamera.dll"
 if (Test-Path $vcam) { Start-Process "$env:windir\System32\regsvr32.exe" '/s', '/u', "`"$vcam`"" -Wait }
-Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:ProgramFiles\Telescope", $app, "$env:APPDATA\Telescope",
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:ProgramFiles\Telescope", "$all", "<<allkey>>", "<<allmenu>>", $app, "$env:APPDATA\Telescope",
     "$env:LOCALAPPDATA\Telescope", "$env:TEMP\Telescope", "$HOME\Downloads\Telescope*", "<<uninstall>>"
 Remove-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Run Telescope -ErrorAction SilentlyContinue
 Get-NetFirewallRule | Where-Object DisplayName -like '*telescope*' | Remove-NetFirewallRule
-""".replace("<<uninstall>>", UNINSTALL_KEY)
+""".replace("<<uninstall>>", UNINSTALL_KEY).replace("<<allkey>>", ALL_USERS_KEY).replace("<<allmenu>>", ALL_USERS_MENU)
 
 # The cameras apps see: what DirectShow lists UnityCapture under, 64 and 32-bit, and the Windows 11 camera's ("mf")
 CAMERAS = r"""
@@ -910,6 +919,151 @@ Wait-Restart { Press-Control "Update and restart" "Button" 120 }
     need(after and after != release(a.previous), f"still {after or 'nothing'} installed")
     need(not elevations(a, since), "the update asked for admin")
     return f"{release(a.previous)} to {after} ({channel} channel)"
+
+
+@check
+def install_mode_dialog(a):
+    """The setup's first page offers an install for all users and says it needs admin; per user is the recommended one."""
+    setup = upload(a, a.build / "TelescopeSetup.exe")
+    clean(a)
+    out = a.win.desktop(ps(r"""
+Open-AsUser <<setup>>
+if (-not (Wait-Until { (Get-Texts 'TelescopeSetup') -match 'Select install mode' } 60 1)) { throw "no install mode dialog: $((Get-Texts 'TelescopeSetup') -join ' / ')" }
+Get-Texts 'TelescopeSetup' | ForEach-Object { "TEXT $_" }
+Get-Process TelescopeSetup*, _iu* -ErrorAction SilentlyContinue | Stop-Process -Force
+""", setup=setup), timeout=180)
+    texts = [t[5:] for t in out.splitlines() if t.startswith("TEXT ")]
+    need(any("Install for all users (requires admin)" in t for t in texts), f"the all-users option doesn't say it needs admin: {texts}")
+    need(any("Install for me only (recommended)" in t for t in texts), f"per user isn't the recommended option: {texts}")
+    return "all users says (requires admin), per user is recommended"
+
+
+@check
+def all_users_install(a):
+    """An install for all users: Program Files\\Telescope Desktop, a machine uninstall entry, a Start menu entry for everyone,
+    and the app opens from a folder it can't write to."""
+    setup = upload(a, a.build / "TelescopeSetup.exe")
+    clean(a)
+    a.win.admin(ps("Start-Process <<s>> '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/ALLUSERS' -Wait", s=setup))
+    out = a.win.admin(BUILD_OF + ps(r"""
+"FILES $(Test-Path "<<app>>\TelescopeDesktop.exe") $(Test-Path "<<app>>\unins000.exe")"
+"MENU $(Test-Path "<<menu>>")"
+"KEY $((Get-ItemProperty <<key>> -ErrorAction SilentlyContinue).InstallLocation)"
+"USERKEY $(Test-Path <<userkey>>)"
+"CAMERAFOLDER $(Test-Path "$env:ProgramFiles\Telescope\TelescopeDesktop.exe")"
+"BUILD $(Build-Of "<<app>>")"
+""", key=ALL_USERS_KEY, userkey=UNINSTALL_KEY).replace("<<app>>", ALL_USERS_APP).replace("<<menu>>", ALL_USERS_MENU))
+    need(line(out, "FILES") == "True True", f"the app or its uninstaller is missing from Program Files: {out}")
+    need(line(out, "MENU") == "True", "no Start menu entry for everyone")
+    need(line(out, "KEY").rstrip("\\").lower().endswith(r"\telescope desktop"), f"the machine uninstall entry points at {line(out, 'KEY') or 'nothing'}")
+    need(line(out, "USERKEY") == "False", "an install for all users also wrote a per-user entry")
+    need(line(out, "CAMERAFOLDER") == "False", "it went into the camera's Program Files\\Telescope")
+    need(line(out, "BUILD") == str(manifest(a.build)["build"]), f"the installed build is {line(out, 'BUILD')}")
+    opened = a.win.desktop(ps(r"""
+Open-AsUser ($ExecutionContext.InvokeCommand.ExpandString(<<app>>) + "\TelescopeDesktop.exe")
+if (-not (Main-Window 180)) { throw "Telescope didn't open from Program Files" }
+Start-Sleep 5
+"OK"
+""", app=ALL_USERS_APP), timeout=300)
+    need("OK" in opened, opened[-300:])
+    a.win.admin("Get-Process TelescopeDesktop* -ErrorAction SilentlyContinue | Stop-Process -Force")
+    return "installs to Program Files\\Telescope Desktop, opens from there"
+
+
+@check
+def all_users_update(a):
+    """An all-users install can't write to its folder, so Update runs the new setup as admin (one prompt) and the setup restarts it."""
+    if not a.previous:
+        raise Skip("no --previous release to update from")
+    setup = upload(a, a.previous / "TelescopeSetup.exe")
+    clean(a)
+    a.win.admin(ps("Start-Process <<s>> '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/ALLUSERS' -Wait", s=setup))
+    if a.win.admin(f'Test-Path "{ALL_USERS_APP}\\TelescopeDesktop.exe"').strip() != "True":
+        raise Skip("the previous release's setup can't install for all users")
+    since = win_now(a)
+    channel = "Nightly" if manifest(a.build)["channel"] == "nightly" else "Stable"
+    out = a.win.desktop(ps(r"""
+Open-AsUser ($ExecutionContext.InvokeCommand.ExpandString(<<app>>) + "\TelescopeDesktop.exe")
+if (-not (Main-Window 180)) { throw "Telescope isn't running" }
+Open-Settings "Updates & About"
+Choose "Channel" <<channel>>
+Press-Control "Check now" "Button"
+if (-not (Wait-Until { (Get-Texts) -match "is available" } 120 2)) { throw "no update offered: $((Get-Texts) -join ' / ')" }
+"ASKS $([bool]((Get-Texts) -match 'needs admin permission'))"
+Wait-Restart { Press-Control "Update and restart" "Button" 120 }
+$p = Get-Process TelescopeDesktop | Select-Object -First 1
+"RUNNING $($p.Path)"
+"OK"
+""", app=ALL_USERS_APP, channel=channel), timeout=900)
+    need("OK" in out, out[-300:])
+    need(line(out, "ASKS") == "True", "the update didn't say it needs admin permission")
+    need(line(out, "RUNNING").lower().endswith(r"\program files\telescope desktop\telescopedesktop.exe"), f"it came back running from {line(out, 'RUNNING') or 'nowhere'}")
+    after = a.win.admin(BUILD_OF + f'Build-Of "{ALL_USERS_APP}"').strip()
+    need(after and after != str(manifest(a.previous)["build"]), f"still on build {after or 'nothing'}")
+    prompts = elevations(a, since)
+    need(len(prompts) == 1 and prompts[0].startswith("TelescopeSetup.exe from"), f"expected one admin prompt for the setup, got {prompts or 'none'}")
+    return f"{release(a.previous)} to build {after}, one admin prompt"
+
+
+@check
+def all_users_uninstall(a):
+    """Uninstalling an all-users install takes its folder, entries, firewall rules and camera. The uninstaller runs elevated, which
+    the desktop job can't press buttons in, so this one is silent (as admin it removes the camera without asking)."""
+    setup = upload(a, a.build / "TelescopeSetup.exe")
+    clean(a)
+    a.win.admin(ps("Start-Process <<s>> '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/ALLUSERS' -Wait", s=setup))
+    register_driver(a, rf"{ALL_USERS_APP}\unitycapture", "Telescope")
+    a.win.admin(ps(r"""New-NetFirewallRule -DisplayName "telescopedesktop.exe" -Direction Inbound -Program <<exe>> -Action Allow | Out-Null""",
+                   exe=r"C:\Program Files\Telescope Desktop\TelescopeDesktop.exe"))
+    before = a.win.admin(CAMERAS).splitlines()
+    need("64 Telescope" in before, f"couldn't set the camera up: {before}")
+    a.win.admin(rf"""
+$app = "{ALL_USERS_APP}"
+Start-Process "$app\unins000.exe" '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+for ($i = 0; $i -lt 60 -and (Test-Path "$app\unins000.exe"); $i++) {{ Start-Sleep 1 }}""")
+    left = a.win.admin(rf"""
+Start-Sleep 3
+if (Test-Path "{ALL_USERS_APP}") {{ "app folder" }}
+if (Test-Path "{ALL_USERS_MENU}") {{ "Start menu entry" }}
+if (Test-Path "{ALL_USERS_KEY}") {{ "uninstall entry" }}
+if (Get-NetFirewallApplicationFilter | Where-Object {{ $_.Program -like '*\Telescope Desktop\*' }}) {{ "firewall rule" }}
+""" + CAMERAS.replace('"$bits " +', '"camera " +'))
+    need(not left.strip(), f"left behind: {', '.join(left.split(chr(10)))}")
+    return "takes the folder, entries, camera and firewall rule"
+
+
+@check
+def chosen_folder(a):
+    """A folder picked on the setup's folder page (/DIR here): the app goes there for the user, and uninstalling clears it."""
+    setup = upload(a, a.build / "TelescopeSetup.exe")
+    clean(a)
+    folder = r"$env:PUBLIC\Telescope-chosen"
+    a.win.admin(ps(r"""
+$dir = $ExecutionContext.InvokeCommand.ExpandString(<<dir>>)
+Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+$p = Start-Process <<setup>> -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', ('/DIR="' + $dir + '"') -Wait -PassThru
+if ($p.ExitCode) { "SETUP $($p.ExitCode)" }
+""", dir=folder, setup=setup))
+    out = a.win.admin(BUILD_OF + ps(r"""
+$dir = $ExecutionContext.InvokeCommand.ExpandString(<<dir>>)
+"FILES $(Test-Path "$dir\TelescopeDesktop.exe") $(Test-Path "$dir\unins000.exe")"
+"DEFAULT $(Test-Path "$env:LOCALAPPDATA\Programs\Telescope\TelescopeDesktop.exe")"
+"KEY $((Get-ItemProperty <<key>> -ErrorAction SilentlyContinue).InstallLocation)"
+"BUILD $(Build-Of $dir)"
+""", dir=folder, key=UNINSTALL_KEY))
+    need("SETUP" not in out, out)
+    need(line(out, "FILES") == "True True", f"the chosen folder didn't get the app: {out}")
+    need(line(out, "DEFAULT") == "False", "it also installed into the default folder")
+    need(line(out, "KEY").rstrip("\\").lower().endswith("telescope-chosen"), f"the uninstall entry points at {line(out, 'KEY') or 'nothing'}")
+    need(line(out, "BUILD") == str(manifest(a.build)["build"]), f"the installed build is {line(out, 'BUILD')}")
+    a.win.admin(ps(r"""
+$dir = $ExecutionContext.InvokeCommand.ExpandString(<<dir>>)
+Start-Process "$dir\unins000.exe" '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+for ($i = 0; $i -lt 60 -and (Test-Path $dir); $i++) { Start-Sleep 1 }
+""", dir=folder))
+    gone = a.win.admin(ps(r"""Test-Path ($ExecutionContext.InvokeCommand.ExpandString(<<dir>>))""", dir=folder))
+    need(gone.strip() == "False", "uninstalling left the chosen folder behind")
+    return "installs into the chosen folder and uninstalls from it"
 
 
 UNZIP_AND_OPEN = r"""

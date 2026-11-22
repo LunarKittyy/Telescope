@@ -10331,6 +10331,18 @@ msgstr "설치 프로그램이 중지되었어요(코드: {code}). 현재 실행
 msgid "Telescope was installed but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope가 설치되었지만 예상된 폴더 위치에 없어요. 시작 메뉴에서 여세요."
 
+#: rust/crates/system/src/setup_move.rs:444
+msgid "Windows didn't get permission to update Telescope. Nothing changed. Open the download page to update it yourself, or try again."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:449
+msgid "Windows couldn't start the installer as admin. Nothing changed. Open the download page to update it yourself, or try again."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:471
+msgid "A stream started while the update downloaded. Stop streaming and update again."
+msgstr ""
+
 #: rust/crates/system/src/shortcuts.rs:54
 msgid "This Telescope has no shortcuts."
 msgstr "이 Telescope에는 단축키가 없어요."
@@ -10725,6 +10737,10 @@ msgstr "업데이트되었어요. 스트리밍을 중지하면 Telescope가 다�
 #: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "업데이트하면 시작 메뉴 항목과 함께 현재 사용자용으로 설치되며 압축을 푼 복사본은 제거돼요. 설정과 페어링된 휴대폰은 유지돼요."
+
+#: rust/crates/system/src/updates_plugin.rs:433
+msgid "Updating needs admin permission because Telescope is installed for all users."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."

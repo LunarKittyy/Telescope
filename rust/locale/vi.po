@@ -10331,6 +10331,18 @@ msgstr "Trình cài đặt đã dừng (mã {code}). Bản sao Telescope này kh
 msgid "Telescope was installed but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope đã được cài đặt nhưng thư mục không ở vị trí như mong đợi. Hãy mở ứng dụng từ menu Start."
 
+#: rust/crates/system/src/setup_move.rs:444
+msgid "Windows didn't get permission to update Telescope. Nothing changed. Open the download page to update it yourself, or try again."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:449
+msgid "Windows couldn't start the installer as admin. Nothing changed. Open the download page to update it yourself, or try again."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:471
+msgid "A stream started while the update downloaded. Stop streaming and update again."
+msgstr ""
+
 #: rust/crates/system/src/shortcuts.rs:54
 msgid "This Telescope has no shortcuts."
 msgstr "Bản Telescope này không có phím tắt nào."
@@ -10725,6 +10737,10 @@ msgstr "Đã cập nhật. Telescope sẽ khởi động lại khi bạn dừng 
 #: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "Việc cập nhật cũng sẽ cài đặt ứng dụng cho người dùng của bạn với một mục trong menu Start và gỡ bỏ bản sao đã giải nén này. Cài đặt và các điện thoại đã ghép đôi được giữ lại."
+
+#: rust/crates/system/src/updates_plugin.rs:433
+msgid "Updating needs admin permission because Telescope is installed for all users."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."

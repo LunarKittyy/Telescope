@@ -10353,6 +10353,18 @@ msgstr "Das Installationsprogramm wurde abgebrochen (Code {code}). Diese Install
 msgid "Telescope was installed but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope wurde installiert, aber sein Ordner befand sich nicht am erwarteten Ort. Öffne es über das Startmenü."
 
+#: rust/crates/system/src/setup_move.rs:444
+msgid "Windows didn't get permission to update Telescope. Nothing changed. Open the download page to update it yourself, or try again."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:449
+msgid "Windows couldn't start the installer as admin. Nothing changed. Open the download page to update it yourself, or try again."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:471
+msgid "A stream started while the update downloaded. Stop streaming and update again."
+msgstr ""
+
 #: rust/crates/system/src/shortcuts.rs:54
 msgid "This Telescope has no shortcuts."
 msgstr "Dieses Telescope hat keine Tastenkombinationen."
@@ -10749,6 +10761,10 @@ msgstr "Aktualisiert. Telescope startet neu, wenn du das Streaming stoppst."
 #: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "Das Update installiert es auch für dein Benutzerkonto mit einem Startmenü-Eintrag und entfernt diese entpackte Kopie. Einstellungen und gekoppelte Smartphones werden übernommen."
+
+#: rust/crates/system/src/updates_plugin.rs:433
+msgid "Updating needs admin permission because Telescope is installed for all users."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."
