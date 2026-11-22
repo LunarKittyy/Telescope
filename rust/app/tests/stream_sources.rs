@@ -175,6 +175,17 @@ fn a_source_that_waits_gets_a_tile_with_the_panels_on_it() {
 }
 
 #[test]
+fn a_waiting_tile_goes_with_its_source() {
+    let (r, waiting) = with_waiting_tile("waiting-source-gone");
+    r.w.remove_plugin_source("waiting");
+    r.pump();
+    assert!(r.w.streams.flow.borrow().sessions.pending.is_none());
+    assert_eq!(tiles(&r), ["pixel", "oneplus"]);
+    assert_eq!(waiting.cancels.load(Ordering::SeqCst), 1);
+    assert_eq!(r.shown().as_deref(), Some("pixel"));
+}
+
+#[test]
 fn stop_drops_a_waiting_tile_too() {
     let (r, waiting) = with_waiting_tile("waiting-stop");
     r.w.toggle_stream();
