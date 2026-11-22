@@ -465,7 +465,7 @@ pub trait HostSettings {
         let kept: Vec<String> = changes.keys().filter_map(|key| {
             let spec = group.settings.iter().find(|s| s.key == *key)?;
             let (wanted, got) = (spec.check(&changes[key]).ok()?, spec.read(&after));
-            (wanted != got).then(|| format!("{name} kept {key} at {got} instead of {wanted}"))
+            (!crate::settings::same_value(&wanted, &got)).then(|| format!("{name} kept {key} at {got} instead of {wanted}"))
         }).collect();
         if kept.is_empty() { Ok(after) } else { Err(kept) }
     }
