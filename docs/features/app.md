@@ -34,7 +34,7 @@ Right-click a card's header and pick **Reorder cards** or open **Layout** in Gen
 
 - The **Keyboard shortcuts** tab in Settings binds a key to almost any control. You can also right-click a control in the main window to add one for it
 - Each shortcut has its own settings. One key can raise exposure by 1 EV while another lowers it by 0.3 EV. Switches can toggle or work only while the key is down, for example to use **Mute** as a push to talk
-- **Settings search** (Ctrl+F) finds settings by what they do ("gpu" leads to Hardware acceleration)
+- **Search settings** is focused when Settings opens and finds settings by what they do ("gpu" leads to Hardware acceleration)
 
 <details>
 <summary><b>Global shortcuts and the command line</b></summary>

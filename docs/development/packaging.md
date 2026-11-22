@@ -1,4 +1,4 @@
-<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: 2ba89dc7b -->
+<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: 9acedcd63 -->
 # Packaging and CI
 
 How the desktop app is packaged and what each workflow does. [Building](building.md) covers building and trying a change.
@@ -84,6 +84,16 @@ The Windows setup (`installer/Telescope.iss`) installs for the current user by d
 An update follows what the app can write to. In its default folder or one someone picked, it swaps its files in place. In a folder it can't write to (an all-users install in Program Files), it downloads `TelescopeSetup.exe` and starts it through `ShellExecute` with `runas`, which gives one admin prompt. The switches are `/ALLUSERS /DIR=<its folder> /RELAUNCH=1`. The setup closes Telescope, replaces the files and opens it again through Explorer, which runs it as the user and not elevated. The app quits as soon as Windows accepts the prompt. After a No, or when Windows can't start the setup, the Updates card explains and offers Open download page and Try again. The download remains in `%TEMP%\telescope-update-*` until a later update sweeps it. An unzipped copy moving to the installed one passes `/CURRENTUSER` to stay per-user.
 
 Uninstalling closes a running Telescope and deletes the log, the downloaded adb and the vision download. It asks before deleting settings and pairings. It offers to remove the camera driver and firewall rules, with one UAC prompt or none when the uninstaller already runs as admin. Leave the `AppId` unchanged because Windows finds an existing install by it. The mode dialog's all-users text is overridden for English only (`[Messages]`). Other installer languages use Inno's text until the next translation pass.
+
+### The workflows that run after merges or on a schedule
+
+None of these publish anything or block a pull request.
+
+| Workflow | Runs | What it does |
+|---|---|---|
+| `rust-arm64.yml` | On pushes to `master` that touch `rust/**`, or by hand | Builds the workspace and runs its tests on GitHub's ARM64 runners for Linux (in an Ubuntu 26.04 container, since the code needs FFmpeg 8) and Windows 11. A failure doesn't turn the commit red. See the [ARM64 item](../roadmap/next.md#arm64) for what still fails |
+| `rust-speed.yml` | On pushes to `master`, or by hand | Runs the release-mode test that checks four 1080p streams draw quickly |
+| `deny.yml` | Mondays, or by hand | Runs `cargo deny` on `rust/Cargo.lock` against `rust/deny.toml` (advisories, yanked crates, licences and sources) |
 
 ### `pages.yml`
 
