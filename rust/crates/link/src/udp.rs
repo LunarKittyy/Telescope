@@ -6,7 +6,7 @@ use crate::https::{Aborter, PhoneAuth, Request, Url};
 use base64::Engine;
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -49,15 +49,27 @@ pub const MAX_HELD_BYTES: usize = 64 * 1024 * 1024;
 /// The socket's receive buffer: a 4K keyframe is several hundred KB of datagrams arriving in a burst.
 const RECEIVE_BUFFER: usize = 4 << 20;
 
-/// Phones UDP didn't get through from, for the rest of this run.
-static UDP_FAILED: Mutex<Option<HashSet<String>>> = Mutex::new(None);
+/// Phones UDP didn't get through from, and when.
+static UDP_FAILED: Mutex<Option<HashMap<String, Instant>>> = Mutex::new(None);
+
+/// How long a phone UDP didn't get through from is left on TCP. A firewall stays, so the wait for a first datagram isn't paid on every
+/// reconnect, but a Wi-Fi hiccup or a roam in a stream's first seconds mustn't switch UDP off until the app restarts.
+const FAILED_FOR: Duration = Duration::from_secs(600);
 
 pub fn udp_failed(host: &str) -> bool {
-    UDP_FAILED.lock().unwrap().as_ref().is_some_and(|s| s.contains(host))
+    udp_failed_at(host, Instant::now())
+}
+
+fn udp_failed_at(host: &str, now: Instant) -> bool {
+    UDP_FAILED.lock().unwrap().as_ref().and_then(|s| s.get(host)).is_some_and(|at| now.saturating_duration_since(*at) < FAILED_FOR)
 }
 
 fn mark_failed(host: &str) {
-    UDP_FAILED.lock().unwrap().get_or_insert_with(HashSet::new).insert(host.to_string());
+    mark_failed_at(host, Instant::now());
+}
+
+fn mark_failed_at(host: &str, at: Instant) {
+    UDP_FAILED.lock().unwrap().get_or_insert_with(HashMap::new).insert(host.to_string(), at);
 }
 
 #[cfg(test)]
@@ -1115,6 +1127,18 @@ mod tests {
 
     // The tests that open a feed share UDP_FAILED, so they run one at a time
     static SERIAL: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn a_phone_udp_failed_on_is_tried_again_after_a_while() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let at = Instant::now();
+        mark_failed_at("10.1.2.3", at);
+        assert!(udp_failed_at("10.1.2.3", at + Duration::from_secs(60)), "a firewall isn't waited on again at every reconnect");
+        assert!(!udp_failed_at("10.1.2.3", at + FAILED_FOR + Duration::from_secs(1)), "a hiccup at the start isn't held against it for the whole run");
+        assert!(!udp_failed_at("10.9.9.9", at), "another phone is unaffected");
+        forget_failures();
+    }
 
     #[test]
     fn frames_arrive_over_udp_and_lost_datagrams_are_sent_again() {
