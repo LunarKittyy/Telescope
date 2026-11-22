@@ -780,8 +780,8 @@ impl McpPlugin {
 
     /// The command that starts the MCP server, as the entry an AI app's MCP settings take.
     pub fn connect_entry() -> String {
-        let program = std::env::current_exe().ok().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|| "telescope".into());
-        format!("\"telescope\": {{ \"command\": {}, \"args\": [\"mcp\"] }}", json!(program))
+        // An AppImage's program sits in a mount that goes when it quits, so the entry names the AppImage's file (start_command)
+        entry_for(telescope_core::system::start_command().unwrap_or_default())
     }
 
     fn page_props(&self) -> Value {
@@ -1034,6 +1034,7 @@ impl McpPlugin {
                         host.apply_preset(name, before);
                     }
                     host.schedule_save();
+                    self.forgive_rollback(host, &revs, &source);
                     return Err(format!("Nothing was changed.\n{}", list.join("\n")));
                 }
             }
@@ -1048,6 +1049,21 @@ impl McpPlugin {
     /// somebody else moved the setting before it.
     fn journal_revisions(&self, host: &dyn Host) -> HashMap<Slot, u64> {
         self.journal.iter().map(|c| ((c.plugin.clone(), c.key.clone()), host.setting_revision(&c.plugin, &c.key))).collect()
+    }
+
+    /// A set that went back whole moved its settings there and back again. The newest step on each of them is still the latest word on it, so it
+    /// takes the new revision (as resync does after an undo), and the next undo doesn't take the round trip for somebody's edit.
+    fn forgive_rollback(&mut self, host: &dyn Host, before: &HashMap<Slot, u64>, source: &Option<String>) {
+        for ((plugin, key), rev) in before {
+            let now = host.setting_revision(plugin, key);
+            let value = host.plugin_config(plugin).and_then(|config| get_path(&config, key).cloned());
+            let newest = self.journal.iter_mut().filter(|c| c.plugin == *plugin && c.key == *key && c.source == *source).max_by_key(|c| c.seq);
+            if let (Some(c), Some(value)) = (newest, value) {
+                if now != *rev && c.rev == Some(*rev) && c.now == value {
+                    c.rev = Some(now);
+                }
+            }
+        }
     }
 
     /// Journals writes with no revisions known: only the values tell whose they are.
@@ -1362,6 +1378,14 @@ fn all_configs(host: &dyn Host) -> Vec<(String, Value)> {
     let mut seen = std::collections::HashSet::new();
     names.retain(|name| name != NAME && seen.insert(name.clone()));
     names.into_iter().filter_map(|name| host.plugin_config(&name).map(|config| (name, config))).collect()
+}
+
+/// The MCP settings entry that starts `argv` (the command that starts Telescope) with `mcp` after its own words.
+fn entry_for(argv: Vec<String>) -> String {
+    let mut words = argv.into_iter();
+    let program = words.next().unwrap_or_else(|| "telescope".into());
+    let args: Vec<String> = words.chain(["mcp".to_string()]).collect();
+    format!("\"telescope\": {{ \"command\": {}, \"args\": {} }}", json!(program), json!(args))
 }
 
 /// What moved between two looks at every plugin's config, as (plugin, key, was, now). A declared setting is read the way the plugin's settings read

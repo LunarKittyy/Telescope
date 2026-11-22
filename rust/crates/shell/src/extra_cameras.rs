@@ -61,6 +61,13 @@ impl SlotSetup {
         *self.waiting.borrow_mut() = None;
     }
 
+    /// source_id is gone, so it isn't started once the cameras are ready.
+    pub(crate) fn forget(&self, source_id: &str) {
+        if let Some(ids) = self.waiting.borrow_mut().as_mut() {
+            ids.retain(|id| id != source_id);
+        }
+    }
+
     fn finish(&self) -> Vec<String> {
         self.waiting.borrow_mut().take().unwrap_or_default()
     }

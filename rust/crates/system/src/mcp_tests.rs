@@ -368,6 +368,25 @@ fn no_gain_no_contrast(_: &str, config: &mut Value) {
     }
 }
 
+/// A plugin that keeps a whole-number setting as an integer, as one with a u32 field gives it back.
+fn whole_numbers(name: &str, config: &mut Value) {
+    if let Some(n) = config["level"].as_f64().filter(|_| name == "count") {
+        config["level"] = json!(n as i64);
+    }
+}
+
+#[test]
+fn a_whole_number_setting_takes_a_set_and_a_revert() {
+    let mut r = Rig::new();
+    r.host.preset_rules = Some(whole_numbers);
+    r.host.settings.insert(0, PluginSettings { name: "count".into(), title: "Count".into(), settings: vec![SettingSpec::number("level", "How many", 0.0, 10.0, 0, 5.0)] });
+    r.host.plugin_configs.insert("count".into(), json!({"level": 5}));
+    r.ask("set", json!({"changes": {"count.level": 7}})).unwrap();
+    assert_eq!(r.host.plugin_configs["count"]["level"], json!(7));
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.host.plugin_configs["count"]["level"], json!(5), "{back}");
+}
+
 #[test]
 fn a_set_the_plugin_only_half_takes_is_undone_whole_and_leaves_nothing_to_revert() {
     let mut r = Rig::new();
@@ -380,6 +399,17 @@ fn a_set_the_plugin_only_half_takes_is_undone_whole_and_leaves_nothing_to_revert
     assert_eq!((r.config(), r.host.plugin_configs["alpha"].clone()), before, "the plugin that was fine is back as it was too");
     let back = r.ask("revert", json!({})).unwrap();
     assert_eq!(back["reverted"], json!([]));
+}
+
+#[test]
+fn a_set_that_went_back_whole_leaves_the_one_before_it_to_revert() {
+    let mut r = Rig::new();
+    r.host.preset_rules = Some(no_gain_no_contrast);
+    let start = r.config()["contrast"].clone();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.2}})).unwrap();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4, "grading.masters.gain": 0.0}})).unwrap_err();
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], start, "{back}");
 }
 
 #[test]
@@ -905,6 +935,14 @@ fn the_buttons_open_side_opens_the_mcp_page_and_copy_puts_the_entry_on_the_clipb
     let json: Value = serde_json::from_str(&format!("{{{entry}}}")).expect("a JSON entry to paste inside mcpServers");
     assert_eq!(json["telescope"]["args"], json!(["mcp"]));
     assert!(json["telescope"]["command"].as_str().is_some_and(|c| !c.is_empty()));
+}
+
+#[test]
+fn an_appimage_entry_names_the_appimage_not_its_mount() {
+    let entry = entry_for(vec!["/home/me/Telescope.AppImage".into(), "--appimage-extract-and-run".into()]);
+    let json: Value = serde_json::from_str(&format!("{{{entry}}}")).unwrap();
+    assert_eq!(json["telescope"], json!({"command": "/home/me/Telescope.AppImage", "args": ["--appimage-extract-and-run", "mcp"]}));
+    assert!(entry_for(Vec::new()).contains("\"command\": \"telescope\""));
 }
 
 // ── Outlines: which controls the AI touched ──────────────────────────

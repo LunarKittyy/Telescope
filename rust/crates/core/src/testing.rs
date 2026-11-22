@@ -4,7 +4,7 @@ use crate::event::Event;
 use crate::frame::{Frame, StreamFrame};
 use crate::host::*;
 use crate::plugin::Plugin;
-use crate::settings::{get_path, merge_changes, SettingKind, SettingSpec};
+use crate::settings::{get_path, merge_changes, same_value, SettingKind, SettingSpec};
 use crate::source::{RouteSpec, StreamSource};
 use crate::ui::{ActionSpec, Issue, TrayAction};
 use serde_json::{json, Value};
@@ -965,14 +965,6 @@ impl crate::web::Web for FakeWeb {
         let stopped = Arc::new(AtomicU64::new(0));
         self.served.lock().unwrap().push(FakeServed { serve: serve.clone(), handler, stats: stats.clone(), stopped: stopped.clone() });
         Ok(Box::new(FakeServer { stats, stopped }))
-    }
-}
-
-/// Equal, with numbers compared by value so 5 and 5.0 are the same.
-fn same_value(a: &Value, b: &Value) -> bool {
-    match (a.as_f64(), b.as_f64()) {
-        (Some(x), Some(y)) => (x - y).abs() < 1e-9,
-        _ => a == b,
     }
 }
 

@@ -9,13 +9,14 @@ the network for a while (drop()) and be plugged in over USB (plug()), which fake
 
   python fake_phone.py [CLIP.h264] [--host 127.0.0.2] [--fps 30] [--token TOKEN] [--record FILE]
                        [--video-file ANY_VIDEO] [--res 1080|4k] [--clip-seconds 10] [--heavy [--jpegs DIR]]
-                       [--audio speech|FILE] [--phones N] [--name NAME]
+                       [--audio speech|FILE] [--phones N] [--name NAME] [--session-port 7480] [--stream-port 8080]
 
 Without a clip it makes a short test pattern with ffmpeg.
 For measuring, --video-file serves any video scaled and cropped to --res (cached under ~/.cache/telescope-scratch/stock/derived),
 --heavy sends it as MJPEG on /v1/video instead of H.264, --audio adds /v1/audio (a generated speech-like signal, or any
 audio file as 48 kHz mono s16le) and --phones N starts N phones in one process on 127.0.0.2, .3, ... (one entry line each,
 so a desktop can pair them all). Nothing is downloaded.
+It takes photos too (/v1/still, JPEG only: the picture in fake_phone_still.jpg), so Photos can be tried without a phone.
 Encode the clip with an access unit delimiter per frame and SPS/PPS on every keyframe, like the phone sends, e.g.
   ffmpeg -f lavfi -i "testsrc2=size=1920x1080:rate=30,noise=alls=12:allf=t" -t 60 -c:v libx264 -profile:v high
          -bf 0 -g 30 -b:v 8M -x264-params aud=1:repeat-headers=1 -f h264 clip.h264
@@ -49,6 +50,7 @@ SIZES = {"1080": (1920, 1080), "4k": (3840, 2160)}
 SCRATCH = Path.home() / ".cache" / "telescope-scratch"
 CACHE = SCRATCH / "stock" / "derived"
 AUDIO_RATE = 48000
+STILL_JPEG = Path(__file__).with_name("fake_phone_still.jpg")
 AUDIO_CHUNK_MS = 20
 
 
@@ -346,6 +348,112 @@ class PresenceResponder:
         self.thread.join(timeout=1)
 
 
+class Stills:
+    """The phone's /v1/still requests: a photo waits out its timer, takes a moment a picture and ends at done. Only JPEG, a plain
+    lens. Like the phone it takes one request at a time and keeps the newest four."""
+    PICTURE_S = 0.05
+    KEEP = 4
+    MAX_SHOTS = 60
+    MAX_TIMER_S = 30
+
+    def __init__(self, jpeg: bytes):
+        self.jpeg, self.jobs, self.lock = jpeg, {}, threading.Lock()
+
+    @staticmethod
+    def refuse(code: str, text: str) -> dict:
+        return {"ok": False, "error": text, "code": code}
+
+    def check(self, params: dict):
+        """The count of pictures asked for, or the refusal (the phone's own codes and words)."""
+        fmt = str(params.get("format") or "")
+        fmt = "" if fmt == "none" else fmt
+        raw = str(params.get("raw")) == "1"
+        if not fmt and not raw:
+            return self.refuse("bad_option", "Ask for a format or RAW")
+        if fmt in ("heic", "ultrahdr"):
+            return self.refuse("unsupported", "This lens can't save " + ("HEIC" if fmt == "heic" else "Ultra HDR"))
+        if fmt not in ("", "jpeg"):
+            return self.refuse("bad_option", f"Unknown format '{fmt}'")
+        if raw:
+            return self.refuse("unsupported", "This lens can't save RAW")
+        if str(params.get("max_res")) == "1":
+            return self.refuse("unsupported", "This lens has no full resolution mode")
+        extension = str(params.get("extension") or "")
+        if extension not in ("", "none"):
+            return self.refuse("unsupported", f"This lens has no '{extension}' mode")
+        if any(str(params.get(k) or "").strip() for k in ("exposure_ns", "iso", "bracket_ev")):
+            return self.refuse("unsupported", "This lens has no manual exposure")
+        if any(str(params.get(k) or "").strip() for k in ("focus_steps", "focus_diopters")):
+            return self.refuse("unsupported", "This lens has no manual focus")
+        try:
+            count = int(params.get("count", 1))
+        except (TypeError, ValueError):
+            count = 1
+        if count < 1:
+            return self.refuse("bad_option", "Take at least one picture")
+        if count > self.MAX_SHOTS:
+            return self.refuse("bad_option", f"At most {self.MAX_SHOTS} pictures at once")
+        if str(params.get("distortion")) in ("0", "1"):
+            return self.refuse("unsupported", "This lens can't switch distortion correction")
+        return count
+
+    def take(self, params: dict) -> dict:
+        shots = self.check(params)
+        if isinstance(shots, dict):
+            return shots
+        try:
+            timer = min(max(int(params.get("timer_s") or 0), 0), self.MAX_TIMER_S)
+        except ValueError:
+            timer = 0
+        with self.lock:
+            if any(self.state(job, time.monotonic())[0] != "done" for job in self.jobs.values()):
+                return self.refuse("busy", "The phone is already taking a photo")
+            job = {"id": secrets.token_hex(8), "shots": shots, "at": time.monotonic(), "timer": timer,
+                   "stamp": time.strftime("%Y%m%d_%H%M%S")}
+            self.jobs[job["id"]] = job
+            for old in list(self.jobs)[:-self.KEEP]:
+                del self.jobs[old]
+            return {"ok": True, "id": job["id"]}
+
+    def state(self, job: dict, now: float) -> tuple:
+        """The request's state and how many pictures are in by now."""
+        shooting = now - job["at"] - job["timer"]
+        if shooting < 0:
+            return "waiting", 0
+        taken = min(job["shots"], int(shooting / self.PICTURE_S))
+        return ("done" if taken >= job["shots"] else "capturing"), taken
+
+    def name(self, job: dict, n: int) -> str:
+        return f"IMG_{job['stamp']}_{n + 1:02d}.jpg"
+
+    def status(self, id: str):
+        with self.lock:
+            job = self.jobs.get(id)
+            if job is None:
+                return None
+            now = time.monotonic()
+            state, taken = self.state(job, now)
+            return {"id": id, "state": state, "shots": job["shots"], "taken": taken, "paused": False,
+                    "files": [{"name": self.name(job, n), "size": len(self.jpeg), "type": "image/jpeg"} for n in range(taken)],
+                    **({"countdown_ms": int((job["at"] + job["timer"] - now) * 1000) + 1} if state == "waiting" else {})}
+
+    def file(self, id: str, n: int):
+        """The picture and its name, None for a request or file the phone doesn't have."""
+        with self.lock:
+            job = self.jobs.get(id)
+            if job is None or not 0 <= n < self.state(job, time.monotonic())[1]:
+                return None
+            return self.jpeg, self.name(job, n)
+
+    def forget(self, id: str):
+        with self.lock:
+            self.jobs.pop(id, None)
+
+    def clear(self):
+        with self.lock:
+            self.jobs.clear()
+
+
 class Phone:
     def __init__(self, units: list, fps: float, token: str, version: str, record=None, phone_id=PHONE_ID, name=PHONE_NAME,
                  audio=None, jpegs=None):
@@ -354,6 +462,7 @@ class Phone:
         self.audio = audio  # 48 kHz mono s16le served on /v1/audio; None leaves it out
         self.jpegs = jpegs  # JPEG frames served on /v1/video (Heavy); None leaves it out
         self.record = record or (lambda *_args, **_kw: None)
+        self.stills = Stills(STILL_JPEG.read_bytes())
         self.streaming = False
         self.presence = True
         self.presence_blocked = False
@@ -379,6 +488,9 @@ class Phone:
         self.state.update({"codec": "h264", "codecs": ["mjpeg", "h264"], "stream_width": 1920, "stream_height": 1080,
                            "phone_fps": int(fps), "camera_fps": float(fps), "bitrate": 8000000})
         self.state["cameras"] = self.state["cameras"] + [{**self.state["cameras"][0], **ULTRA_WIDE}]
+        # Photos are plain JPEGs at the size of the picture in fake_phone_still.jpg
+        for cam in self.state["cameras"]:
+            cam["stills"] = {"formats": ["jpeg"], "width": 160, "height": 120, "burstMax": Stills.MAX_SHOTS}
         if jpegs:
             self.state.update({"codec": "mjpeg"})
 
@@ -503,6 +615,8 @@ def handler_for(phone: Phone, port: int = None, via: str = "wifi"):
                                    **({"presence": 1} if phone.presence else {})})
             if path == "/v1/state" and phone.streaming:
                 return self._json(phone.state)
+            if path in ("/v1/still", "/v1/still/file") and self._port() == self.server.stream_port:
+                return self._still(path, parse_qs(urlsplit(self.path).query))
             if path == "/v1/video.h264" and phone.streaming:
                 return self._video()
             if path == "/v1/video" and phone.streaming and phone.jpegs:
@@ -522,7 +636,11 @@ def handler_for(phone: Phone, port: int = None, via: str = "wifi"):
                 return
             if path == "/v1/session":
                 phone.streaming = body.get("action") == "start"
+                if not phone.streaming:
+                    phone.stills.clear()
                 return self._json({"ok": True})
+            if path == "/v1/still" and self._port() == self.server.stream_port:
+                return self._json(self._take(body))
             if path == "/v1/control":
                 action, value = body.get("action"), body.get("value")
                 keys = {"ois": "ois", "torch": "torch", "black_level_lock": "black_level_lock", "nr_mode": "nr_mode",
@@ -540,6 +658,38 @@ def handler_for(phone: Phone, port: int = None, via: str = "wifi"):
             if path == "/v1/unpair":
                 return self._json({"ok": True})
             self._json({"error": "Not Found"}, 404)
+
+        def _take(self, body: dict) -> dict:
+            """POST /v1/still: a photo asked for, or forgotten."""
+            action = body.get("action", "take")
+            if action == "forget":
+                phone.stills.forget(str(body.get("id")))
+                return {"ok": True}
+            if action != "take":
+                return phone.stills.refuse("bad_option", f"unknown action '{action}'")
+            if not phone.streaming or phone.state["camera_off"] or phone.state["camera_taken"]:
+                return phone.stills.refuse("camera_off", "The camera isn't running")
+            return phone.stills.take(body)
+
+        def _still(self, path: str, query: dict):
+            """GET /v1/still?id= (how a photo is getting on) and /v1/still/file?id=&n= (a picture)."""
+            id = (query.get("id") or [None])[0]
+            if path == "/v1/still":
+                status = phone.stills.status(id) if id else None
+                return self._json(status) if status else self._json({"error": "Not Found"}, 404)
+            try:
+                found = phone.stills.file(id, int((query.get("n") or [""])[0])) if id else None
+            except ValueError:
+                found = None
+            if found is None:
+                return self._json({"error": "Not Found"}, 404)
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(found[0])))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(found[0])
+            self.close_connection = True
 
         def _video(self):
             self.send_response(200)
@@ -610,11 +760,11 @@ def handler_for(phone: Phone, port: int = None, via: str = "wifi"):
 
 
 def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None, adb_state=None, phone_id=PHONE_ID, name=PHONE_NAME,
-          audio=None, jpegs=None, size=None, presence=True, presence_blocked=False) -> tuple:
+          audio=None, jpegs=None, size=None, presence=True, presence_blocked=False, ports=(7480, 8080)) -> tuple:
     """Starts the phone's two ports on threads; returns the phone, its entry for a desktop's config, and a stop().
     With adb_state (a file for fake_adb.py) the two ports also listen on 127.0.0.1 for USB forwards. phone_id and name tell
     phones apart (give each its own host too); audio (PCM bytes) adds /v1/audio, jpegs (frames) adds the Heavy /v1/video and
-    size is (width, height) of the stream when it isn't 1080p."""
+    size is (width, height) of the stream when it isn't 1080p. ports are the session and the stream port."""
     folder = Path(tempfile.mkdtemp(prefix="fake-phone-"))
     if clip is None:
         clip = folder / "clip.h264"
@@ -631,12 +781,13 @@ def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None, adb_state=Non
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(cert, key)
     servers = []
-    listens = [(host, port, port, "wifi") for port in (7480, 8080)]
+    listens = [(host, port, port, "wifi") for port in ports]
     if adb_state is not None:
-        listens += [("127.0.0.1", 0, port, "usb") for port in (7480, 8080)]
+        listens += [("127.0.0.1", 0, port, "usb") for port in ports]
     for address, bind, port, via in listens:
         server = ThreadingHTTPServer((address, bind), handler_for(phone, port, via))
         server.daemon_threads = True
+        server.stream_port = ports[1]
         server.socket = ctx.wrap_socket(server.socket, server_side=True)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         servers.append(server)
@@ -675,6 +826,8 @@ def main():
     parser.add_argument("--audio", metavar="speech|FILE", help="serve /v1/audio: a generated speech-like signal, or this file")
     parser.add_argument("--phones", type=int, default=1, help="how many phones to start (127.0.0.2, 127.0.0.3, ...)")
     parser.add_argument("--name", default=PHONE_NAME)
+    parser.add_argument("--session-port", type=int, default=7480)
+    parser.add_argument("--stream-port", type=int, default=8080)
     parser.add_argument("--legacy-presence", action="store_true", help="omit presence capability and disable UDP presence")
     parser.add_argument("--block-presence", action="store_true", help="advertise presence but discard UDP packets")
     args = parser.parse_args()
@@ -698,11 +851,12 @@ def main():
         phone_id = PHONE_ID[:-3] + f"{n + 1:03d}"
         name = args.name if n == 0 else f"{args.name} {n + 1}"
         phone, entry, _stop = serve(clip, host, args.fps, args.token if n == 0 else "", recorder, None, phone_id, name, audio, jpegs,
-                                    SIZES[res] if res else None, not args.legacy_presence, args.block_presence)
+                                    SIZES[res] if res else None, not args.legacy_presence, args.block_presence,
+                                    (args.session_port, args.stream_port))
         print(json.dumps(entry), flush=True)
         hosts.append(host)
     extras = (" heavy" if jpegs else "") + (" audio" if audio else "")
-    print(f"{len(phone.units)} frames at {args.fps:g} fps{extras} on {', '.join(h + ':7480/:8080' for h in hosts)}", flush=True)
+    print(f"{len(phone.units)} frames at {args.fps:g} fps{extras} on {', '.join(f'{h}:{args.session_port}/:{args.stream_port}' for h in hosts)}", flush=True)
     threading.Event().wait()
 
 

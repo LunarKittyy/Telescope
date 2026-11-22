@@ -51,6 +51,7 @@ impl Ctx<'_> {
         }
         if self.state.camera_watcher.as_deref() == Some(me.as_str()) {
             self.state.camera_watcher = None;
+            self.state.watch_cut = true;
             self.state.idle.forget_watched();
         }
     }
@@ -341,7 +342,8 @@ impl HostShell for Ctx<'_> {
     }
     fn toggle_window(&mut self) -> bool {
         self.state.effects.push(Effect::ToggleWindow);
-        true
+        // As Window::toggle_window decides: a window on screen and in front goes away, anything else comes up
+        !(self.state.shown == Some(true) && self.state.window_active)
     }
     fn quit_app(&mut self) {
         self.state.effects.push(Effect::Quit);
@@ -793,6 +795,7 @@ impl Host for Ctx<'_> {
     fn emit(&mut self, event: Event) {
         if matches!(event, Event::CameraWatched { .. }) {
             self.state.camera_watcher = Some(self.me.clone());
+            self.state.watch_cut = false;
         }
         self.state.bus.emit(event);
     }

@@ -330,8 +330,22 @@ pub fn setup_asset(manifest: &Manifest) -> Option<&Asset> {
     manifest.assets.get(WINDOWS_SETUP_ASSET)
 }
 
+/// Deletes the telescope-update-<pid>-<n> folders of other runs in temp that are older than `age`: a setup started as admin runs from
+/// its download after the copy that fetched it has gone. A file still in use stays and goes next time.
+pub fn sweep_downloads(temp: &Path, own_pid: u32, age: Duration) {
+    let Ok(entries) = std::fs::read_dir(temp) else { return };
+    let own = format!("telescope-update-{own_pid}-");
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let old = entry.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|e| e >= age);
+        if name.starts_with("telescope-update-") && !name.starts_with(&own) && old && entry.path().is_dir() {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
 /// Can this folder take a new file (os.access(W_OK) in Python)?
-fn writable(directory: &Path) -> bool {
+pub(crate) fn writable(directory: &Path) -> bool {
     let probe = directory.join(format!(".write-check-{}", std::process::id()));
     let ok = std::fs::File::create(&probe).is_ok();
     let _ = std::fs::remove_file(&probe);
@@ -1387,6 +1401,22 @@ mod tests {
         assert!(!app.join("lib/gphoto2/gone.so").exists());
         assert_eq!(std::fs::read_to_string(app.join(".previous/lib/gphoto2/gone.so")).unwrap(), "old");
         assert_eq!(std::fs::read_to_string(app.join("my-stuff/a.txt")).unwrap(), "mine");
+    }
+
+    #[test]
+    fn old_download_folders_of_other_runs_are_swept_and_nothing_else() {
+        let temp = tmp("sweep");
+        for name in ["telescope-update-100-0", "telescope-update-1000-0", "telescope-update-200-0", "other-folder"] {
+            std::fs::create_dir_all(temp.join(name)).unwrap();
+            std::fs::write(temp.join(name).join("TelescopeSetup.exe"), b"x").unwrap();
+        }
+        std::fs::write(temp.join("telescope-update-300-0"), b"a file").unwrap();
+        // Nothing is old enough yet
+        sweep_downloads(&temp, 100, Duration::from_secs(3600));
+        assert_eq!(listing(&temp).len(), 5);
+        // Everything is, but this run's own folder and what isn't a download folder stay
+        sweep_downloads(&temp, 100, Duration::ZERO);
+        assert_eq!(listing(&temp), ["other-folder", "telescope-update-100-0", "telescope-update-300-0"]);
     }
 
     #[test]

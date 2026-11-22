@@ -694,6 +694,12 @@ impl BrowserCameraPlugin {
         }
         let was = self.selected();
         self.selected_id = sid;
+        if was && !self.selected() && self.waiting() && h.stream_count() == 0 {
+            // Waiting alone was Start with Browser camera picked, and something else is picked now: Start is for that one, and a browser
+            // that comes later mustn't start a stream nobody waits for
+            h.clear_issue("start");
+            self.set_waiting(h, false);
+        }
         if self.selected() {
             self.start_server(h);
         } else if was && !self.waiting() && !self.any_streaming(h) {

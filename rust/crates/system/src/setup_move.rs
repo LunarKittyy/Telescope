@@ -146,6 +146,12 @@ pub fn installed_location_in(registry: &dyn Uninstall) -> Option<PathBuf> {
     registry.read("HKCU", &uninstall_key(), "InstallLocation").filter(|v| !v.is_empty()).map(PathBuf::from)
 }
 
+/// Whether directory is where the installer put Telescope for all users (its entry under HKEY_LOCAL_MACHINE).
+pub fn installed_for_all_users_in(directory: &Path, registry: &dyn Uninstall) -> bool {
+    let place = registry.read("HKLM", &uninstall_key(), "InstallLocation").filter(|v| !v.is_empty()).map(PathBuf::from);
+    same_place(directory, place.as_deref())
+}
+
 /// This computer's registry.
 #[cfg(windows)]
 struct Machine;
@@ -172,6 +178,17 @@ pub fn installed_location() -> Option<PathBuf> {
 #[cfg(not(windows))]
 pub fn installed_location() -> Option<PathBuf> {
     None
+}
+
+/// The same for this computer: an all-users install, which only an admin can change.
+#[cfg(windows)]
+pub fn installed_for_all_users(directory: &Path) -> bool {
+    installed_for_all_users_in(directory, &Machine)
+}
+
+#[cfg(not(windows))]
+pub fn installed_for_all_users(_directory: &Path) -> bool {
+    false
 }
 
 /// In the installed copy, shows this version in Settings > Apps, as an update doesn't run the installer that wrote it; true when the entry changed.
@@ -381,7 +398,8 @@ pub fn install_with_setup(setup: &Path, old_dir: &Path, build: i64, env: &SetupE
             return Err(UpdateError(tr("A newer Telescope is already installed. This copy is left unchanged. Open the installed Telescope from the Start menu.")));
         }
     }
-    let mut argv: Vec<String> = [setup.to_string_lossy().as_ref(), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"].map(String::from).to_vec();
+    // /CURRENTUSER: a move stays per-user, whatever an earlier all-users install would otherwise make the setup do
+    let mut argv: Vec<String> = [setup.to_string_lossy().as_ref(), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/CURRENTUSER"].map(String::from).to_vec();
     if !shortcuts_to(&old_dir.join(EXE_NAME), env.folders).is_empty() {
         argv.push("/MERGETASKS=desktopicon".into()); // installer/Telescope.iss [Tasks]
     }
@@ -414,6 +432,82 @@ pub fn install_with_setup(setup: &Path, old_dir: &Path, build: i64, env: &SetupE
         }
     }
     Ok(InstallResult { relaunch, skipped: Vec::new() })
+}
+
+// ── Updating an all-users install ────────────────────────────────────────────
+
+/// What Windows answers when the person says No at the admin prompt (ERROR_CANCELLED).
+const ERROR_CANCELLED: i32 = 1223;
+
+/// What the update says after a No at the admin prompt.
+pub fn declined_text() -> String {
+    tr("Windows didn't get permission to update Telescope. Nothing changed. Open the download page to update it yourself, or try again.")
+}
+
+/// What it says when Windows couldn't ask or start the setup for another reason (the code is in the log).
+pub fn not_started_text() -> String {
+    tr("Windows couldn't start the installer as admin. Nothing changed. Open the download page to update it yourself, or try again.")
+}
+
+/// The switches that run the setup silently over an install for all users in directory, and have it start Telescope again once it's done.
+pub fn admin_setup_args(directory: &Path) -> String {
+    format!("/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS /RELAUNCH=1 /DIR=\"{}\"", directory.to_string_lossy())
+}
+
+/// What updating in place as admin needs from the computer, so a test can stand in for it.
+pub struct AdminEnv<'a> {
+    /// Starts the program with the arguments as admin and returns once Windows has answered the prompt, without waiting for it to end;
+    /// the Windows error code if it didn't start.
+    pub start: &'a dyn Fn(&Path, &str) -> Result<(), i32>,
+    /// Whether a stream runs right now.
+    pub streaming: &'a dyn Fn() -> bool,
+}
+
+/// Starts the downloaded setup as admin over the install for all users in directory. The setup closes Telescope, replaces its files and
+/// starts it again, so a result with nothing to start means: quit now. Nothing changes when the prompt is answered with No.
+pub fn update_as_admin(setup: &Path, directory: &Path, env: &AdminEnv) -> Result<InstallResult, UpdateError> {
+    // The setup closes this copy and a stream would go with it
+    if (env.streaming)() {
+        return Err(UpdateError(tr("A stream started while the update downloaded. Stop streaming and update again.")));
+    }
+    match (env.start)(setup, &admin_setup_args(directory)) {
+        Ok(()) => Ok(InstallResult { relaunch: Vec::new(), skipped: Vec::new() }),
+        Err(ERROR_CANCELLED) => Err(UpdateError(declined_text())),
+        Err(code) => {
+            log::warn!("The setup didn't start as admin: Windows error {code}");
+            Err(UpdateError(not_started_text()))
+        }
+    }
+}
+
+/// ShellExecuteW with "runas": the person is asked for admin permission, which a No turns into ERROR_CANCELLED.
+#[cfg(windows)]
+pub fn start_as_admin(program: &Path, args: &str) -> Result<(), i32> {
+    use std::os::windows::ffi::OsStrExt;
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(hwnd: *mut std::ffi::c_void, op: *const u16, file: *const u16, params: *const u16, dir: *const u16, show: i32) -> isize;
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetLastError() -> u32;
+    }
+    let wide = |s: &std::ffi::OsStr| s.encode_wide().chain([0]).collect::<Vec<u16>>();
+    let (op, file, params) = (wide("runas".as_ref()), wide(program.as_os_str()), wide(args.as_ref()));
+    // SAFETY: every string is NUL-terminated UTF-16 that outlives the call; the folder may be null and SW_HIDE is 0
+    let result = unsafe { ShellExecuteW(std::ptr::null_mut(), op.as_ptr(), file.as_ptr(), params.as_ptr(), std::ptr::null(), 0) };
+    if result > 32 {
+        return Ok(());
+    }
+    // A No at the prompt leaves ERROR_CANCELLED in the last error; without one, ShellExecute's own code (SE_ERR_*) is what there is
+    // SAFETY: no arguments
+    let last = unsafe { GetLastError() } as i32;
+    Err(if last != 0 { last } else { result as i32 })
+}
+
+#[cfg(not(windows))]
+pub fn start_as_admin(_program: &Path, _args: &str) -> Result<(), i32> {
+    Err(50) // ERROR_NOT_SUPPORTED: only Windows has the setup
 }
 
 /// Called once the installed copy has been started from here. Should it not start, this copy is opened again and shouldn't offer that
@@ -731,7 +825,7 @@ mod tests {
         let run = |argv: &[String]| { *seen.borrow_mut() = argv.to_vec(); SetupRun::Exited(0) };
         let locate = || Some(new.clone());
         let result = install_with_setup(Path::new("Setup.exe"), &old, 200, &SetupEnv { run: &run, locate: &locate, installed_build: &|_| None, folders: &[] }).unwrap();
-        assert_eq!(*seen.borrow(), ["Setup.exe", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"]);
+        assert_eq!(*seen.borrow(), ["Setup.exe", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/CURRENTUSER"]);
         assert_eq!(result.relaunch, [new.join(EXE_NAME).to_string_lossy().into_owned(), "--after-update".into(), MOVED_FROM.into(), old.to_string_lossy().into_owned()]);
         assert!(!new.join(update_guard::JOURNAL).exists(), "the fresh install must not be rolled back to an old journal");
         assert_eq!(pending_move(&new), Some(old.clone()));

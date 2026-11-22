@@ -70,7 +70,7 @@ Run both from the repository root.
 - Without `--keep` the profile is fresh on every run and you pair again each time. With it the profile remains (in `telescope-dev-profile-<user>` under your temp dir) until `telescope-rs dev --reset`
 - `--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop on every save. See [Writing a plugin](writing-plugins.md#checking-your-plugin)
 
-`rust/tools/measure.py` times the first painted window and the CPU, memory and delivered frame rate of a streaming desktop. `rust/tools/stress/` runs it beside game-like loads. `rust/tools/fake_phone.py` is a stand-in phone that serves a recorded clip, for measuring without a phone.
+`rust/tools/measure.py` times the first painted window and the CPU, memory and delivered frame rate of a streaming desktop. `rust/tools/stress/` runs it beside game-like loads. `rust/tools/fake_phone.py` is a stand-in phone that serves a recorded clip and takes photos (JPEG only, the same small picture each time), for measuring and trying Photos without a phone. `python3 -m unittest discover -s rust/tools -p 'test_fake_*.py'` checks it, and `rust/app/tests/fake_phone_photos.rs` runs a photo from it through the desktop's own client into Stargazer's stack.
 
 To try the Webcam plugin without a webcam, add a spare v4l2loopback device, feed it a test picture and start the dev desktop with `TELESCOPE_WEBCAM_LOOPBACK=1`, which lists loopback cameras. Don't use Telescope's own camera or ones named as virtual cameras (like OBS Virtual Camera on `/dev/video10`), as they are left out:
 

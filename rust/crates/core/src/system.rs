@@ -432,7 +432,35 @@ pub fn leave_appimage_environment() {
 pub fn start_command() -> std::io::Result<Vec<String>> {
     match appimage() {
         Some(image) => Ok(image.command()),
-        None => std::env::current_exe().map(|exe| vec![exe.to_string_lossy().into_owned()]),
+        None => current_exe().map(|exe| vec![exe.to_string_lossy().into_owned()]),
+    }
+}
+
+/// This program's file. One replaced on disk while it runs (a new version unpacked over it) reads as "PATH (deleted)" on Linux, and the
+/// new file at PATH is what starts it again.
+pub fn current_exe() -> std::io::Result<PathBuf> {
+    std::env::current_exe().map(|exe| live_path(exe, |p| p.exists()))
+}
+
+fn live_path(exe: PathBuf, exists: impl Fn(&Path) -> bool) -> PathBuf {
+    let replaced = exe.to_str().and_then(|s| s.strip_suffix(" (deleted)")).map(PathBuf::from);
+    match replaced {
+        Some(path) if cfg!(target_os = "linux") && exists(&path) => path,
+        _ => exe,
+    }
+}
+
+#[cfg(test)]
+mod live_path_tests {
+    use super::*;
+
+    #[test]
+    fn a_program_replaced_while_it_runs_starts_again_from_the_new_file() {
+        let gone = PathBuf::from("/opt/telescope/telescope-rs (deleted)");
+        let expected = if cfg!(target_os = "linux") { PathBuf::from("/opt/telescope/telescope-rs") } else { gone.clone() };
+        assert_eq!(live_path(gone.clone(), |_| true), expected);
+        assert_eq!(live_path(gone.clone(), |_| false), gone, "nothing new there: the old name is all there is");
+        assert_eq!(live_path(PathBuf::from("/opt/telescope/telescope-rs"), |_| true), PathBuf::from("/opt/telescope/telescope-rs"));
     }
 }
 

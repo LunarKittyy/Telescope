@@ -44,6 +44,7 @@ mod machine {
         match hive {
             "HKCR" => Ok(0x8000_0000_usize as *mut c_void),
             "HKCU" => Ok(0x8000_0001_usize as *mut c_void),
+            "HKLM" => Ok(0x8000_0002_usize as *mut c_void),
             _ => Err(io::ErrorKind::InvalidInput.into()),
         }
     }
@@ -116,7 +117,7 @@ mod machine {
         }
     }
 
-    /// A string value under hive ("HKCU" or "HKCR") at key, "" for the key's default value; None if it isn't there or isn't text.
+    /// A string value under hive ("HKCU", "HKLM" or "HKCR") at key, "" for the key's default value; None if it isn't there or isn't text.
     pub fn read_text(hive: &str, key: &str, name: &str) -> Option<String> {
         let (kind, data) = read_value(hive, key, name).ok().flatten()?;
         registry_text(kind, &data)

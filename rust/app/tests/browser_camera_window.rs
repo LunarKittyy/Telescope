@@ -161,6 +161,23 @@ fn a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after() {
     r.until("both stream", |r| streams_from(r, "browser:browser-bbbbbbbb") && streams_from(r, "browser:browser-cccccccc"));
 }
 
+#[test]
+fn a_browser_that_leaves_while_the_extra_cameras_are_set_up_isnt_started_as_a_phone() {
+    let (r, b) = window("browser-leaves-during-slots");
+    r.cameras.extras.store(0, Ordering::SeqCst);
+    pick(&r, SOURCE_ID);
+    arrive(&r, &b, "browser-aaaaaaaa", "Chrome");
+    r.until("the first browser streams", |r| r.streaming().len() == 1);
+    arrive(&r, &b, "browser-bbbbbbbb", "Firefox"); // asks about the extra cameras
+    r.w.remove_plugin_source("browser:browser-bbbbbbbb");
+    r.w.slots_question().expect("the question").invoke("answered", &[SValue::Bool(true)]).unwrap();
+    r.until("the cameras are set up", |r| !r.cameras.asked.lock().unwrap().is_empty());
+    r.pump();
+    r.pump();
+    assert_eq!(r.link.logged("start_route browser:browser-bbbbbbbb"), 0, "a source that is gone was started as a phone");
+    assert_eq!(r.streaming().len(), 1);
+}
+
 /// _Source: a source that writes down what's asked of it.
 #[derive(Default)]
 struct Offered {

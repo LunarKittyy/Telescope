@@ -77,6 +77,20 @@ pub trait Backend: Send + Sync {
         -> Result<(i64, InstallResult), String> {
         self.install(manifest, asset, progress, cancelled, streaming)
     }
+    /// An install for all users that this copy can't write to (Program Files): it updates through the release's TelescopeSetup.exe, which asks for admin permission.
+    fn needs_admin_update(&self) -> bool {
+        false
+    }
+    /// install(), but with the release's TelescopeSetup.exe started as admin over this install. Once Windows has answered the prompt the setup
+    /// closes this copy, replaces its files and starts it again, so what comes back has nothing to start: quit.
+    fn install_as_admin(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
+        -> Result<(i64, InstallResult), String> {
+        self.install(manifest, asset, progress, cancelled, streaming)
+    }
+    /// The last install_as_admin ended because Windows didn't start the setup as admin (a No at the prompt, say): nothing was changed.
+    fn admin_refused(&self) -> bool {
+        false
+    }
     /// The installed copy is being started from here (mark_started_elsewhere).
     fn started_elsewhere(&self, _build: i64) {}
 }
@@ -97,6 +111,8 @@ pub struct RealBackend {
     /// Where the installer put Telescope.
     pub locate: Arc<dyn Fn() -> Option<PathBuf> + Send + Sync>,
     unzipped: std::sync::OnceLock<bool>,
+    /// Windows didn't start the last setup run as admin (admin_refused).
+    admin_refused: AtomicBool,
 }
 
 impl Default for RealBackend {
@@ -110,12 +126,14 @@ impl Default for RealBackend {
             run_setup: Arc::new(|argv| setup_move::run_setup(argv, setup_move::SETUP_TIMEOUT)),
             locate: Arc::new(setup_move::installed_location),
             unzipped: Default::default(),
+            admin_refused: AtomicBool::new(false),
         }
     }
 }
 
 /// A new folder for the download (tempfile.mkdtemp): our own, not a shared /tmp path, and nobody else's to read.
 fn download_folder() -> io::Result<PathBuf> {
+    updates::sweep_downloads(&std::env::temp_dir(), std::process::id(), Duration::from_secs(3600));
     let mut made = io::Error::from(io::ErrorKind::AlreadyExists);
     for n in 0..100 {
         let folder = std::env::temp_dir().join(format!("telescope-update-{}-{n}", std::process::id()));
@@ -150,7 +168,11 @@ impl RealBackend {
             }
             put_in(&file, selected.build).map(|r| (selected.build, r))
         });
-        let _ = std::fs::remove_dir_all(&folder);
+        // A setup started as admin runs from this folder after this copy has gone: updates::sweep_downloads clears it later
+        let running = matches!(&done, Ok((_, r)) if r.relaunch.is_empty());
+        if !running {
+            let _ = std::fs::remove_dir_all(&folder);
+        }
         done.map_err(|e| e.0)
     }
 }
@@ -190,6 +212,27 @@ impl Backend for RealBackend {
             let env = setup_move::SetupEnv { run: &run, locate: &locate, installed_build: &setup_move::installed_build, folders: &folders };
             setup_move::install_with_setup(setup, &self.directory, build, &env)
         })
+    }
+
+    fn needs_admin_update(&self) -> bool {
+        setup_move::installed_for_all_users(&self.directory) && !updates::writable(&self.directory)
+    }
+
+    fn install_as_admin(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
+        -> Result<(i64, InstallResult), String> {
+        self.admin_refused.store(false, Ordering::SeqCst);
+        self.download_and(manifest, asset, progress, cancelled, streaming, |setup, _build| {
+            let start = |program: &Path, args: &str| {
+                let started = setup_move::start_as_admin(program, args);
+                self.admin_refused.store(started.is_err(), Ordering::SeqCst);
+                started
+            };
+            setup_move::update_as_admin(setup, &self.directory, &setup_move::AdminEnv { start: &start, streaming })
+        })
+    }
+
+    fn admin_refused(&self) -> bool {
+        self.admin_refused.load(Ordering::SeqCst)
     }
 
     fn started_elsewhere(&self, build: i64) {
@@ -269,6 +312,10 @@ pub struct UpdatesPlugin {
     streaming: Arc<AtomicBool>,
     /// When the camera driver was last looked for in this folder, and what was found: reading the registry once is enough for a while.
     driver_here: Mutex<Option<(std::time::Instant, bool)>>,
+    /// The person said No at the admin prompt of an update, or Windows didn't start it: the release page is offered until the next check or Try again.
+    admin_declined: bool,
+    /// The install running now goes through the setup as admin.
+    updating_as_admin: bool,
 }
 
 impl Default for UpdatesPlugin {
@@ -307,6 +354,8 @@ impl UpdatesPlugin {
             install_build: 0,
             streaming: Arc::new(AtomicBool::new(false)),
             driver_here: Mutex::new(None),
+            admin_declined: false,
+            updating_as_admin: false,
         }
     }
 
@@ -325,6 +374,11 @@ impl UpdatesPlugin {
         setup_move::moves_on_update(self.keep_portable, setup_offered, self.backend.is_unzipped_copy(), || self.driver_in_app_folder())
     }
 
+    /// Whether updating goes through the installer as admin: an install for all users that this copy can't write to, with a setup to use.
+    fn updates_as_admin(&self) -> bool {
+        self.available.as_ref().is_some_and(|m| updates::setup_asset(m).is_some()) && self.backend.needs_admin_update()
+    }
+
     /// The backend's answer, remembered for half a minute since one refresh of the window asks more than once.
     fn driver_in_app_folder(&self) -> bool {
         let mut seen = self.driver_here.lock().unwrap_or_else(|e| e.into_inner());
@@ -340,7 +394,10 @@ impl UpdatesPlugin {
 
     /// Why updating has to go through the release page, or None.
     fn update_blocker(&self) -> Option<String> {
-        if self.moves_on_update() { None } else { self.backend.blocker() }
+        if self.admin_declined {
+            return Some(self.error.clone());
+        }
+        if self.moves_on_update() || self.updates_as_admin() { None } else { self.backend.blocker() }
     }
 
     pub fn status_text(&self, host: &dyn Host) -> (String, &'static str) {
@@ -371,6 +428,9 @@ impl UpdatesPlugin {
             let mut text = with_version("Telescope {version} is available.", m);
             if self.moves_on_update() {
                 text = format!("{text} {}", tr("Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."));
+            }
+            if self.updates_as_admin() {
+                text = format!("{text} {}", tr("Updating needs admin permission because Telescope is installed for all users."));
             }
             if let Some(blocker) = self.update_blocker() {
                 return (format!("{text} {blocker}"), "status_warn");
@@ -422,7 +482,7 @@ impl UpdatesPlugin {
             "status-kind": kind,
             "busy": self.busy(),
             "actions-shown": available,
-            "retry-shown": self.rolled_back.is_some() && !available,
+            "retry-shown": (self.rolled_back.is_some() && !available) || self.admin_declined,
             "update-text": if blocker.is_some() { tr("Open download page") } else { tr("Update and restart") },
             "update-enabled": !self.busy() && (blocker.is_some() || !streaming),
             "reset-shown": self.reset_shown(),
@@ -480,6 +540,7 @@ impl UpdatesPlugin {
         }
         self.backend.forget_rolled_back();
         self.rolled_back = None;
+        self.admin_declined = false;
         self.check(host, true);
     }
 
@@ -501,6 +562,7 @@ impl UpdatesPlugin {
         self.checking = true;
         self.manual = manual;
         self.error.clear();
+        self.admin_declined = false;
         self.refresh(host);
         let (backend, id, channel) = (self.backend.clone(), self.check_id, self.channel.clone());
         self.run(host, move |push| {
@@ -588,7 +650,9 @@ impl UpdatesPlugin {
             return;
         }
         let via_setup = self.moves_on_update();
-        let chosen = if via_setup { updates::setup_asset(&manifest) } else { self.backend.asset(&manifest) };
+        let as_admin = !via_setup && self.updates_as_admin();
+        self.updating_as_admin = as_admin;
+        let chosen = if via_setup || as_admin { updates::setup_asset(&manifest) } else { self.backend.asset(&manifest) };
         let Some(asset) = chosen.cloned() else { return };
         self.phase = Phase::Downloading;
         self.progress = (0, asset.size);
@@ -602,7 +666,9 @@ impl UpdatesPlugin {
             let cancelled = || cancel.load(Ordering::SeqCst);
             let streaming = || stream.load(Ordering::SeqCst);
             let result = catch_unwind(AssertUnwindSafe(|| {
-                if via_setup {
+                if as_admin {
+                    backend.install_as_admin(&manifest, &asset, &mut progress, &cancelled, &streaming)
+                } else if via_setup {
                     backend.install_via_setup(&manifest, &asset, &mut progress, &cancelled, &streaming)
                 } else {
                     backend.install(&manifest, &asset, &mut progress, &cancelled, &streaming)
@@ -623,6 +689,7 @@ impl UpdatesPlugin {
             }
             Err(error) => {
                 self.phase = Phase::Idle;
+                self.admin_declined = self.updating_as_admin && self.backend.admin_refused();
                 self.error = error;
                 self.refresh(host);
                 return;
@@ -630,6 +697,11 @@ impl UpdatesPlugin {
         };
         if !result.skipped.is_empty() {
             log::warn!("Files in use kept their old version: {}", result.skipped.join(", "));
+        }
+        if result.relaunch.is_empty() {
+            // The setup, started as admin, restarts Telescope itself once it has replaced the files
+            host.quit_app();
+            return;
         }
         if in_use(host) {
             // Started (say, by an app opening the camera) while it downloaded: don't cut the stream off
@@ -849,6 +921,13 @@ mod tests {
         /// (asset name, through the installer) for each install.
         asked_for: Mutex<Vec<(String, bool)>>,
         started_from: Mutex<Vec<i64>>,
+        /// An install for all users in a folder this copy can't write to.
+        needs_admin: AtomicBool,
+        /// What the next install as admin ends in (the default is a setup started, which has nothing to relaunch).
+        admin_result: Mutex<Option<Result<(i64, InstallResult), String>>>,
+        admin_asked: Mutex<Vec<String>>,
+        /// Windows didn't start the setup as admin in the last install as admin.
+        admin_refused: AtomicBool,
     }
 
     static NO_NETWORK: Served = Served(Vec::new());
@@ -914,6 +993,16 @@ mod tests {
         }
         fn started_elsewhere(&self, build: i64) {
             self.started_from.lock().unwrap().push(build);
+        }
+        fn needs_admin_update(&self) -> bool {
+            self.needs_admin.load(Ordering::SeqCst)
+        }
+        fn admin_refused(&self) -> bool {
+            self.admin_refused.load(Ordering::SeqCst)
+        }
+        fn install_as_admin(&self, _m: &Manifest, a: &Asset, _p: Progress, _c: &dyn Fn() -> bool, _s: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+            self.admin_asked.lock().unwrap().push(a.name.clone());
+            self.admin_result.lock().unwrap().take().unwrap_or_else(|| Ok((200, InstallResult { relaunch: Vec::new(), skipped: Vec::new() })))
         }
     }
 
@@ -1047,6 +1136,97 @@ mod tests {
         fake.windows.store(true, Ordering::SeqCst); // so the in-place route picks the Windows zip
         *fake.result.lock().unwrap() = Some(Ok(Some(with_setup())));
         (plugin, host, fake)
+    }
+
+    /// An install for all users in Program Files, which this copy can't write to, with a release that has the setup.
+    fn all_users_env() -> (UpdatesPlugin, FakeHost, Arc<Fake>) {
+        let (plugin, host, fake) = env();
+        fake.windows.store(true, Ordering::SeqCst);
+        fake.needs_admin.store(true, Ordering::SeqCst);
+        *fake.blocker.lock().unwrap() = Some("Telescope can't update itself in a folder that isn't writable.".into());
+        *fake.result.lock().unwrap() = Some(Ok(Some(with_setup())));
+        (plugin, host, fake)
+    }
+
+    #[test]
+    fn an_all_users_install_updates_through_the_setup_as_admin_and_quits_for_it() {
+        let (mut plugin, mut host, fake) = all_users_env();
+        plugin.check(&mut host, false);
+        assert!(plugin.updates_as_admin() && !plugin.moves_on_update());
+        assert!(plugin.status_text(&host).0.contains("needs admin permission"));
+        // The folder isn't writable, yet that isn't a blocker: the setup does the work
+        assert_eq!(plugin.update_blocker(), None);
+        assert_eq!(last_props(&host, "updates")["update-text"], "Update and restart");
+        plugin.update_now(&mut host);
+        assert_eq!(*fake.admin_asked.lock().unwrap(), vec![updates::WINDOWS_SETUP_ASSET.to_string()]);
+        assert!(fake.asked_for.lock().unwrap().is_empty(), "nothing was swapped in place");
+        // The setup restarts Telescope itself
+        assert_eq!(quits(&host), 1);
+        assert!(fake.relaunched.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn saying_no_at_the_admin_prompt_says_so_offers_the_release_page_and_can_be_retried() {
+        let (mut plugin, mut host, fake) = all_users_env();
+        plugin.check(&mut host, false);
+        *fake.admin_result.lock().unwrap() = Some(Err(setup_move::declined_text()));
+        fake.admin_refused.store(true, Ordering::SeqCst);
+        plugin.update_now(&mut host);
+        assert_eq!(quits(&host), 0);
+        assert_eq!(plugin.status_text(&host), (setup_move::declined_text(), "status_err"));
+        let props = last_props(&host, "updates");
+        assert_eq!((props["busy"].clone(), props["update-text"].clone(), props["retry-shown"].clone()), (false.into(), "Open download page".into(), true.into()));
+        // The button now opens the release page instead of asking again
+        plugin.update_now(&mut host);
+        assert_eq!(*fake.opened.lock().unwrap(), vec!["https://notes".to_string()]);
+        assert_eq!(fake.admin_asked.lock().unwrap().len(), 1);
+        // Try again checks once more and the update is offered as before
+        plugin.try_again(&mut host);
+        assert!(!plugin.admin_declined);
+        assert_eq!(last_props(&host, "updates")["update-text"], "Update and restart");
+        plugin.update_now(&mut host);
+        assert_eq!(fake.admin_asked.lock().unwrap().len(), 2);
+        assert_eq!(quits(&host), 1);
+    }
+
+    #[test]
+    fn a_failure_before_the_setup_ran_is_a_message_and_the_update_can_be_tried_again() {
+        let (mut plugin, mut host, fake) = all_users_env();
+        plugin.check(&mut host, false);
+        // The download failed: the setup never got to ask for admin
+        *fake.admin_result.lock().unwrap() = Some(Err("The download failed. Check the internet connection and try again.".into()));
+        plugin.update_now(&mut host);
+        assert_eq!(plugin.status_text(&host), ("The download failed. Check the internet connection and try again.".to_string(), "status_err"));
+        assert!(!plugin.admin_declined);
+        assert_eq!(last_props(&host, "updates")["update-text"], "Update and restart");
+        // Windows couldn't start the setup as admin: the release page is offered, as after a No
+        *fake.admin_result.lock().unwrap() = Some(Err(setup_move::not_started_text()));
+        fake.admin_refused.store(true, Ordering::SeqCst);
+        plugin.update_now(&mut host);
+        assert_eq!(plugin.status_text(&host), (setup_move::not_started_text(), "status_err"));
+        assert_eq!(last_props(&host, "updates")["update-text"], "Open download page");
+    }
+
+    #[test]
+    fn an_all_users_install_without_a_setup_in_the_release_gets_the_release_page() {
+        let (mut plugin, mut host, fake) = all_users_env();
+        *fake.result.lock().unwrap() = Some(Ok(Some(newer())));
+        plugin.check(&mut host, false);
+        assert!(!plugin.updates_as_admin());
+        assert!(plugin.update_blocker().is_some());
+        assert_eq!(last_props(&host, "updates")["update-text"], "Open download page");
+    }
+
+    #[test]
+    fn a_per_user_install_updates_in_place_with_no_prompt() {
+        let (mut plugin, mut host, fake) = env();
+        fake.windows.store(true, Ordering::SeqCst);
+        *fake.result.lock().unwrap() = Some(Ok(Some(with_setup())));
+        plugin.check(&mut host, false);
+        assert!(!plugin.updates_as_admin());
+        plugin.update_now(&mut host);
+        assert!(fake.admin_asked.lock().unwrap().is_empty());
+        assert_eq!(*fake.asked_for.lock().unwrap(), vec![(updates::WINDOWS_ASSET.to_string(), false)]);
     }
 
     #[test]

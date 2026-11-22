@@ -1,4 +1,4 @@
-# Installs TelescopeSetup.exe for this user, looks at what it made, plays a self-update and "Open at sign-in", then
+# Installs TelescopeSetup.exe for this user (then for all users and into a chosen folder), looks at what it made, plays a self-update and "Open at sign-in", then
 # uninstalls and checks it took everything with it. CI runs it on a fresh runner: rust-package.yml on pull requests,
 # release.yml on the setup it publishes.
 param(
@@ -126,8 +126,45 @@ else {
     Remove-ItemProperty $runOnce -Name "TelescopeCleanup"
 }
 
+# An install for all users (the runner is admin, so /ALLUSERS needs no prompt): its own folder in Program Files, never the camera's
+# Program Files\Telescope, an entry for the machine and none for this user, and an uninstall that takes the same things away
+$all = "$env:ProgramFiles\Telescope Desktop"
+$allKey = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}_is1"
+$userKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}_is1"
+$allMenu = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Telescope.lnk"
+$p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/ALLUSERS" -Wait -PassThru
+if ($p.ExitCode -ne 0) { $problems += "the all-users setup exited with $($p.ExitCode)" }
+foreach ($want in "$all\TelescopeDesktop.exe", "$all\unins000.exe", $allMenu) {
+    if (-not (Test-Path $want)) { $problems += "after an all-users install, missing $want" }
+}
+if ((Get-ItemProperty $allKey -ErrorAction SilentlyContinue).InstallLocation -notlike "$all*") { $problems += "the all-users install has no machine uninstall entry for its folder" }
+if (Test-Path $userKey) { $problems += "an all-users install also wrote a per-user uninstall entry" }
+if (Test-Path "$app\TelescopeDesktop.exe") { $problems += "an all-users install also went into the user's folder" }
+if (Test-Path "$env:ProgramFiles\Telescope\TelescopeDesktop.exe") { $problems += "an all-users install went into the camera's Program Files\Telescope" }
+# The app's update runs the same setup over it with these switches
+$p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/ALLUSERS", "/RELAUNCH=0", "/DIR=`"$all`"" -Wait -PassThru
+if ($p.ExitCode -ne 0) { $problems += "updating the all-users install exited with $($p.ExitCode)" }
+if (-not (Test-Path "$all\TelescopeDesktop.exe") -or (Test-Path $userKey) -or (Test-Path "$app\TelescopeDesktop.exe")) { $problems += "updating the all-users install changed its mode or folder" }
+$p = Start-Process -FilePath "$all\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+if ($p.ExitCode -ne 0) { $problems += "uninstalling the all-users install exited with $($p.ExitCode)" }
+for ($i = 0; $i -lt 60 -and (Test-Path $all); $i++) { Start-Sleep -Seconds 1 }
+if (Test-Path $all) { $problems += "after uninstalling for all users, $all is still there" }
+if (Test-Path $allKey) { $problems += "after uninstalling for all users, the machine uninstall entry is still there" }
+if (Test-Path $allMenu) { $problems += "after uninstalling for all users, the Start menu entry is still there" }
+
+# A folder someone picked: files go there, per user, and the uninstall clears them without touching what else is there
+$chosen = Join-Path $env:RUNNER_TEMP "TelescopeFolder"
+if (-not $env:RUNNER_TEMP) { $chosen = Join-Path $env:TEMP "TelescopeFolder" }
+$p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER", "/DIR=`"$chosen`"" -Wait -PassThru
+if ($p.ExitCode -ne 0) { $problems += "the setup into a chosen folder exited with $($p.ExitCode)" }
+if (-not (Test-Path "$chosen\TelescopeDesktop.exe")) { $problems += "a chosen folder didn't get the app" }
+if (Test-Path "$app\TelescopeDesktop.exe") { $problems += "a chosen folder also installed into the default one" }
+$p = Start-Process -FilePath "$chosen\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+for ($i = 0; $i -lt 60 -and (Test-Path $chosen); $i++) { Start-Sleep -Seconds 1 }
+if (Test-Path $chosen) { $problems += "after uninstalling from a chosen folder, it is still there" }
+
 if ($problems) {
     $problems | ForEach-Object { Write-Host "::error::$_" }
     exit 1
 }
-Write-Host "Installer verified: per-user install, Start menu entry, clean uninstall."
+Write-Host "Installer verified: per-user, all-users and chosen-folder installs, Start menu entry, clean uninstall."

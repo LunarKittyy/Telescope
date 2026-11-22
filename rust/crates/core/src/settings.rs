@@ -164,6 +164,14 @@ pub fn leaf_changes(before: &Value, after: &Value) -> Vec<(String, Value, Value)
         .collect()
 }
 
+/// Whether two setting values are the same, counting 3 and 3.0 as one number (a plugin can hold a whole number its check gave as a float).
+pub fn same_value(a: &Value, b: &Value) -> bool {
+    match (a.as_f64(), b.as_f64()) {
+        (Some(x), Some(y)) => (x - y).abs() < 1e-9,
+        _ => a == b,
+    }
+}
+
 /// Whether two dotted paths are the same spot or one is inside the other.
 pub fn paths_overlap(a: &str, b: &str) -> bool {
     a == b || a.strip_prefix(b).is_some_and(|rest| rest.starts_with('.')) || b.strip_prefix(a).is_some_and(|rest| rest.starts_with('.'))
