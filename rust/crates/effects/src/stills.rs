@@ -117,10 +117,10 @@ impl ShotChoice {
     }
 }
 
-/// "Like the video" for none, else the shutter speed (1/250 s, 8 s).
+/// "Video" for none, else the shutter speed (1/250 s, 8 s).
 pub fn exposure_text(seconds: f64) -> String {
     if seconds == 0.0 {
-        tr("Like the video")
+        tr("Video")
     } else if let Some(n) = shutter_n(seconds) {
         tr("1/{n} s").field("n", n)
     } else {

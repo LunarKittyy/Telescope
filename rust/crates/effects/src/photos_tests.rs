@@ -473,7 +473,7 @@ fn the_folder_is_picked_in_a_dialog_and_opened_from_the_last_photo() {
 
 #[test]
 fn exposures_read_like_the_python_app() {
-    assert_eq!((exposure_text(0.0).as_str(), exposure_text(0.5).as_str(), exposure_text(8.0).as_str()), ("Like the video", "1/2 s", "8 s"));
+    assert_eq!((exposure_text(0.0).as_str(), exposure_text(0.5).as_str(), exposure_text(8.0).as_str()), ("Video", "1/2 s", "8 s"));
     assert_eq!(exposure_text(1.0 / 4000.0), "1/4000 s");
 }
 
@@ -702,7 +702,7 @@ fn a_dslr_has_its_dials_then_the_format_and_a_phone_its_named_choices() {
         phone.ui("tile-picked", vec![json!("shots"), json!(0)]);
         tile(&phone.props(), "exposure_s").unwrap().0
     };
-    assert_eq!((long[0].as_str(), long[1].as_str(), long.last().map(String::as_str)), ("Like the video", "1 s", Some("30 s")));
+    assert_eq!((long[0].as_str(), long[1].as_str(), long.last().map(String::as_str)), ("Video", "1 s", Some("30 s")));
 }
 
 #[test]
