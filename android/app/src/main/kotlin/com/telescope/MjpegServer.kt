@@ -53,6 +53,8 @@ class MjpegServer(
     val stillFile: (String, Int) -> Pair<java.io.File, String>? = { _, _ -> null },
     // A file download that makes no progress for this long is cut off
     private val fileTimeoutMs: Int = FILE_TIMEOUT_MS,
+    // Every interval here runs on a monotonic clock, so a wall-clock step (network time, a manual change) can't stretch or cut one
+    private val clock: () -> Long = PhoneStats::monotonicMs,
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -85,19 +87,19 @@ class MjpegServer(
     @Volatile private var heldUntilMs = 0L
 
     fun holdViewers(on: Boolean) {
-        if (holding && !on) heldUntilMs = System.currentTimeMillis()
+        if (holding && !on) heldUntilMs = clock()
         holding = on
     }
 
     // Updated on every authorized request; feeds battery-saving watchdog.
-    @Volatile private var lastAuthorizedRequestAtMs: Long = System.currentTimeMillis()
+    @Volatile private var lastAuthorizedRequestAtMs: Long = clock()
 
     // Bounds concurrent authorized streams; taken only after the token check, so strangers can't fill it.
     private val streamSlots = Semaphore(MAX_CONCURRENT_STREAMS)
 
     fun start() {
         running.set(true)
-        lastAuthorizedRequestAtMs = System.currentTimeMillis()
+        lastAuthorizedRequestAtMs = clock()
         // Set SO_REUSEADDR before binding to avoid EADDRINUSE on quick restart.
         val socket = socketFactory.createServerSocket()
         try {
@@ -167,7 +169,7 @@ class MjpegServer(
     }
 
     private fun sampleH264Link() {
-        val now = System.currentTimeMillis()
+        val now = clock()
         if (now - lastLinkSampleMs < LINK_SAMPLE_MS) return
         val first = lastLinkSampleMs == 0L
         // Counted apart from encodedBytes, which a late report carries over to the next sample, over a span that doesn't
@@ -417,17 +419,17 @@ class MjpegServer(
     private fun isAuthorized(request: HttpWire.Request): Boolean {
         val ok = HttpWire.bearerMatchesAny(tokens(), request)
         if (ok) {
-            lastAuthorizedRequestAtMs = System.currentTimeMillis()
+            lastAuthorizedRequestAtMs = clock()
             HttpWire.bearerToken(request)?.let { lastSeenByToken[it] = lastAuthorizedRequestAtMs }
         }
         return ok
     }
 
     /** Milliseconds since the last request that passed token auth. */
-    fun idleForMs(): Long = System.currentTimeMillis() - lastAuthorizedRequestAtMs
+    fun idleForMs(): Long = clock() - lastAuthorizedRequestAtMs
 
     // A computer taking the video or the mic right now; only a recent write counts, as a dead link can stay open for minutes.
-    fun hasActiveViewer(now: Long = System.currentTimeMillis()): Boolean =
+    fun hasActiveViewer(now: Long = clock()): Boolean =
         clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
             h264Clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
             udpClients.any { it.hasActiveViewer() } ||
@@ -479,7 +481,7 @@ class MjpegServer(
 
     // Also checked by the senders: a viewer whose write is blocked on a dead link never polls, and closing unblocks it
     private fun givenUp(lastWriteAtMs: Long): Boolean =
-        !holding && System.currentTimeMillis() - maxOf(lastWriteAtMs, heldUntilMs) >= viewerGiveUpMs
+        !holding && clock() - maxOf(lastWriteAtMs, heldUntilMs) >= viewerGiveUpMs
 
     // A long-lived stream socket. Nagle off: otherwise the last piece of each frame can sit waiting for the
     // computer's ACK, which Windows delays by up to 200 ms.
@@ -527,7 +529,7 @@ class MjpegServer(
     inner class MjpegClient(private val socket: Socket, private val request: HttpWire.Request) {
         private val queue = ArrayBlockingQueue<ByteArray>(2)
         private val alive = AtomicBoolean(true)
-        @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
+        @Volatile var lastWriteAtMs: Long = clock()
             private set
 
         fun stream() {
@@ -554,7 +556,7 @@ class MjpegServer(
                     out.write(wire, 0, total)
                     out.flush()
                     first = false
-                    lastWriteAtMs = System.currentTimeMillis()
+                    lastWriteAtMs = clock()
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
@@ -573,7 +575,7 @@ class MjpegServer(
     inner class H264Client(private val socket: Socket, private val request: HttpWire.Request) {
         val queue = H264ClientQueue(onWaited = { PhoneStats.shared.addQueue(it) })
         private val alive = AtomicBoolean(true)
-        @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
+        @Volatile var lastWriteAtMs: Long = clock()
             private set
 
         fun stream() {
@@ -593,7 +595,7 @@ class MjpegServer(
                         queue.written(n, done = off == packet.size)
                     }
                     out.flush()
-                    lastWriteAtMs = System.currentTimeMillis()
+                    lastWriteAtMs = clock()
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
@@ -615,7 +617,7 @@ class MjpegServer(
     inner class AudioClient(private val socket: Socket, private val request: HttpWire.Request) {
         val queue = PcmClientQueue()
         private val alive = AtomicBoolean(true)
-        @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
+        @Volatile var lastWriteAtMs: Long = clock()
             private set
 
         fun stream() {
@@ -628,7 +630,7 @@ class MjpegServer(
                     val chunk = queue.poll(pollMs()) ?: if (givenUp(lastWriteAtMs)) break else continue
                     out.write(chunk)
                     out.flush()
-                    lastWriteAtMs = System.currentTimeMillis()
+                    lastWriteAtMs = clock()
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
@@ -653,12 +655,12 @@ class MjpegServer(
                 val token = HttpWire.bearerToken(request)
                 val sent = mutableMapOf<String, Long>()
                 var lightAt = 0L
-                var lastWrite = System.currentTimeMillis()
+                var lastWrite = clock()
                 while (alive.get() && stillPaired(request)) {
                     Thread.sleep(SENSOR_TICK_MS)
-                    val now = System.currentTimeMillis()
+                    val now = clock()
                     // A computer that vanished without closing sends no keepalive: noticed even while the lines still fit
-                    if (now - (token?.let { lastSeenByToken[it] } ?: 0L) >= sensorAliveMs) {
+                    if (now - (token?.let { lastSeenByToken[it] } ?: (Long.MIN_VALUE / 2)) >= sensorAliveMs) {
                         runCatching { android.util.Log.i("MjpegServer", "No keepalive from a computer, stopping its sensors") }
                         break
                     }
@@ -677,7 +679,7 @@ class MjpegServer(
         }
 
         private fun write(out: java.io.OutputStream, text: String) {
-            writingSinceMs = System.currentTimeMillis()
+            writingSinceMs = clock()
             out.write(text.toByteArray(Charsets.UTF_8))
             out.flush()
             writingSinceMs = 0L
@@ -688,7 +690,7 @@ class MjpegServer(
             while (alive.get()) {
                 try { Thread.sleep(minOf(500L, sensorStallMs / 4)) } catch (_: InterruptedException) { return }
                 val since = writingSinceMs
-                if (since != 0L && System.currentTimeMillis() - since >= sensorStallMs) {
+                if (since != 0L && clock() - since >= sensorStallMs) {
                     close()
                     runCatching { android.util.Log.i("MjpegServer", "A computer stopped taking sensor readings, stopping them") }
                 }

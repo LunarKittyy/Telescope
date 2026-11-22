@@ -547,7 +547,7 @@ class UdpVideoClient(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, UdpFrame>) = size > KEEP_FRAMES
     }
     private var frameSeq = 0
-    private var lastKeyAskMs = 0L
+    private var lastKeyAskMs = Long.MIN_VALUE / 2  // monotonic ms have no fixed zero, so "never" is far in the past
     @Volatile private var lastFeedbackMs = 0L
     private val openedAtMs = nowMs()
 
@@ -639,7 +639,7 @@ class UdpVideoClient(
             }
             UdpWire.REPORT -> UdpReport.parse(plain)?.let { link.report(it, nowMs()) }
             UdpWire.KEYFRAME -> {
-                val now = System.currentTimeMillis()
+                val now = PhoneStats.monotonicMs()
                 if (now - lastKeyAskMs >= KEY_ASK_GAP_MS) { lastKeyAskMs = now; requestKeyFrame() }
             }
         }

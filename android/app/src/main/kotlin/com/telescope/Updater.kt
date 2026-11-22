@@ -25,7 +25,7 @@ object Updater {
         object CheckFailed : State()  // offline, or GitHub didn't answer
         data class Available(val manifest: UpdateManifest) : State()
         data class Downloading(val manifest: UpdateManifest, val percent: Int) : State()
-        data class Installing(val manifest: UpdateManifest, val sinceMs: Long = System.currentTimeMillis()) : State()
+        data class Installing(val manifest: UpdateManifest, val sinceMs: Long = PhoneStats.monotonicMs()) : State()
         data class Failed(val message: String, val manifest: UpdateManifest?) : State()
     }
 
@@ -65,7 +65,7 @@ object Updater {
     // An install the user walked away from goes back to Available, so the button works again.
     fun recoverStuckInstall() {
         val installing = state as? State.Installing ?: return
-        if (canUpdate() && UpdateLogic.installStuck(installing.sinceMs, System.currentTimeMillis())) installCancelled()
+        if (canUpdate() && UpdateLogic.installStuck(installing.sinceMs, PhoneStats.monotonicMs())) installCancelled()
     }
 
     // Once each time the app starts, then daily while it stays open.
