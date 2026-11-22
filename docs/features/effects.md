@@ -108,6 +108,8 @@ Android only lets an app open a screen while it's in front. With Telescope in th
 
 An early version for a phone clipped to a telescope, in Lab. Switch it on under **Camera** in the Plugins tab of Settings. It stacks many frames into one sharper or cleaner picture and has a **Focus** readout that shows how sharp the picture is now and the best so far. Turn the focuser to the highest number.
 
+Each phone has its own Stargazer settings. The photo settings for one camera don't carry over to another.
+
 - **Lucky imaging** is for the moon and planets. It collects **Frames** and stacks the **Sharpest** share of them
 - **Live stack** adds every frame and leaves out what only shows once, like satellites and noise. It is for faint things
 - **Star trails** takes the brightest value of one frame every few seconds (**Every**), which draws the stars as lines
