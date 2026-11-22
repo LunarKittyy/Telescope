@@ -256,9 +256,9 @@ fn the_balance_can_still_move_the_step_to_the_cpu_where_it_gives_the_cpu_picture
     pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step }]);
     (0..8).for_each(|_| balance.note_wait(50_000_000));
     assert_eq!(balance.place(), Place::Cpu);
-    let before = transfers::totals();
     let out = pipeline.process(frame.clone(), &ctx);
-    assert_eq!(transfers::totals().up, before.up, "nothing went up");
+    // this pipeline's own count, so a frame another test sends to the card doesn't show here
+    assert_eq!(pipeline.last_transfers(), (0, 0), "nothing went up or came down");
     let Some(FrameStep::Either(_, mut cpu)) = p.frame_step() else { panic!("a step") };
     let mut want = frame.clone();
     cpu.process(&mut want, &ctx);
