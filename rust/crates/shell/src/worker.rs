@@ -1237,11 +1237,16 @@ impl Shared {
         self.status("info", &if self.plugin_source { tr("Connecting...") } else { fill(&tr("Connecting to {url}..."), &[("url", &url)]) });
         let mut failed = false; // the phone may be reachable another way by now, so the host looks for it (see "waiting")
         while !self.stopped() {
+            let url = self.url.lock().unwrap().clone();
             let mut cap = match self.open_cap() {
                 Ok(cap) => cap,
                 Err(e) => {
                     log::info!("Opening the stream failed: {e}");
                     failed = true;
+                    // Counted as a reconnect's are, so recovery can tell a USB forward that never worked from one that is new
+                    if url == *self.url.lock().unwrap() {
+                        self.failed_tries.fetch_add(1, Ordering::SeqCst);
+                    }
                     let secs = RECONNECT_DELAY.as_secs().to_string();
                     let own = self.waiting_text.as_ref().map(|f| f()).filter(|t| !t.is_empty());
                     self.status("waiting", &own.unwrap_or_else(|| fill(&tr("Can't reach the phone's stream. Trying again in {seconds} s…"), &[("seconds", &secs)])));
@@ -1256,6 +1261,9 @@ impl Shared {
                 Err(_) => {
                     drop(cap);
                     failed = true;
+                    if url == *self.url.lock().unwrap() {
+                        self.failed_tries.fetch_add(1, Ordering::SeqCst);
+                    }
                     self.status("waiting", &tr("Waiting for the first frame…"));
                     self.restart_vcam.wait(RECONNECT_DELAY);
                     self.restart_vcam.clear();
@@ -2522,6 +2530,15 @@ mod tests {
         assert!(log.iter().any(|e| matches!(e, WorkerEvent::CameraFailed(why) if why.contains("MJPG"))));
         let phone = |e: &&WorkerEvent| matches!(e, WorkerEvent::Status(k, _) if k == "waiting" || k == "reconnecting") || **e == WorkerEvent::Reconnected;
         assert_eq!(log.iter().filter(phone).count(), 0, "{log:?}");
+    }
+
+    #[test]
+    fn a_stream_that_never_opened_counts_its_tries_for_recovery() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let opener: Opener = Arc::new(|_| Err("refused".into()));
+        let w = worker_with(opener, None, cams, log, false);
+        wait_for(|| w.failed_tries() >= 1);
+        w.stop();
     }
 
     #[test]
