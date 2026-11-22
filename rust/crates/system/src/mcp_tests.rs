@@ -402,6 +402,17 @@ fn a_set_the_plugin_only_half_takes_is_undone_whole_and_leaves_nothing_to_revert
 }
 
 #[test]
+fn a_set_that_went_back_whole_leaves_the_one_before_it_to_revert() {
+    let mut r = Rig::new();
+    r.host.preset_rules = Some(no_gain_no_contrast);
+    let start = r.config()["contrast"].clone();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.2}})).unwrap();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4, "grading.masters.gain": 0.0}})).unwrap_err();
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], start, "{back}");
+}
+
+#[test]
 fn revert_puts_back_what_a_change_moved_on_its_own_and_all_together() {
     let mut r = Rig::new();
     r.host.preset_rules = Some(no_gain_no_contrast);

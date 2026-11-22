@@ -1034,6 +1034,7 @@ impl McpPlugin {
                         host.apply_preset(name, before);
                     }
                     host.schedule_save();
+                    self.forgive_rollback(host, &revs, &source);
                     return Err(format!("Nothing was changed.\n{}", list.join("\n")));
                 }
             }
@@ -1048,6 +1049,21 @@ impl McpPlugin {
     /// somebody else moved the setting before it.
     fn journal_revisions(&self, host: &dyn Host) -> HashMap<Slot, u64> {
         self.journal.iter().map(|c| ((c.plugin.clone(), c.key.clone()), host.setting_revision(&c.plugin, &c.key))).collect()
+    }
+
+    /// A set that went back whole moved its settings there and back again. The newest step on each of them is still the latest word on it, so it
+    /// takes the new revision (as resync does after an undo), and the next undo doesn't take the round trip for somebody's edit.
+    fn forgive_rollback(&mut self, host: &dyn Host, before: &HashMap<Slot, u64>, source: &Option<String>) {
+        for ((plugin, key), rev) in before {
+            let now = host.setting_revision(plugin, key);
+            let value = host.plugin_config(plugin).and_then(|config| get_path(&config, key).cloned());
+            let newest = self.journal.iter_mut().filter(|c| c.plugin == *plugin && c.key == *key && c.source == *source).max_by_key(|c| c.seq);
+            if let (Some(c), Some(value)) = (newest, value) {
+                if now != *rev && c.rev == Some(*rev) && c.now == value {
+                    c.rev = Some(now);
+                }
+            }
+        }
     }
 
     /// Journals writes with no revisions known: only the values tell whose they are.
