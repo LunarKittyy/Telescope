@@ -888,6 +888,61 @@ impl Gpu {
         let Some(imported) = surface.import(&self.device, &self.import_capabilities)? else { return Ok(None) };
         let (w, h) = (frame.width, frame.height);
         let vulkan = imported.backend == wgpu::Backend::Vulkan;
+        let (a, kept_planes) = self.scoped(|| -> Result<_, String> {
+            // wgpu refuses one encoder that mixes its own commands with raw ones, so the two barriers get encoders of their own
+            let mut acquire = self.device.create_command_encoder(&Default::default());
+            if vulkan {
+                crate::d3d11_import::Surface::ownership(&self.device, &mut acquire, &imported.texture, true)?;
+            }
+            let mut enc = self.device.create_command_encoder(&Default::default());
+            let plane = |aspect, format| imported.texture.create_view(&wgpu::TextureViewDescriptor { aspect, format: Some(format), ..Default::default() });
+            let views = [plane(wgpu::TextureAspect::Plane0, wgpu::TextureFormat::R8Unorm), plane(wgpu::TextureAspect::Plane1, wgpu::TextureFormat::Rg8Unorm), self.blank.clone()];
+            let out = if frame.format == PixelFormat::I420 {
+                let i420 = [
+                    self.texture(w, h, wgpu::TextureFormat::R8Unorm),
+                    self.texture(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
+                    self.texture(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
+                ];
+                let flags = FROM_NV12 | surface.colour();
+                for (plane, mode) in i420.iter().zip([Mode::ToY, Mode::ToU, Mode::ToV]) {
+                    self.convert_pass_encoded(&mut enc, &views, mode, plane, 1, (w, h), false, flags);
+                }
+                (None, Some(i420))
+            } else {
+                let a = self.texture(w, h, WORK);
+                self.convert_pass_encoded(&mut enc, &views, Mode::Nv12, &a, 1, (w, h), block_chroma, surface.colour());
+                (Some(a), None)
+            };
+            let mut release = self.device.create_command_encoder(&Default::default());
+            if vulkan {
+                crate::d3d11_import::Surface::ownership(&self.device, &mut release, &imported.texture, false)?;
+            }
+            self.queue.submit([acquire.finish(), enc.finish(), release.finish()]);
+            // Keep the decoder's AVFrame, the shared texture's slot and the imported image until the conversion submission has finished.
+            self.queue.on_submitted_work_done(move || drop((source, imported)));
+            Ok(out)
+        })??;
+        Ok(Some(Held { enc: self.device.create_command_encoder(&Default::default()), a, b: None, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: true }))
+    }
+
+    /// Ensures held.a holds the current picture as RGBA, converting from held.planes on demand.
+    fn ensure_rgba(&self, held: &mut Held) -> wgpu::Texture {
+        if let Some(a) = &held.a {
+            return a.clone();
+        }
+        let planes = held.planes.as_ref().expect("held picture has neither RGBA nor I420 planes");
+        let views = planes.each_ref().map(|t| t.create_view(&Default::default()));
+        let a = self.texture(held.width, held.height, WORK);
+        self.convert_pass_with(&mut held.enc, &views, Mode::I420, &a, 1, (held.width, held.height), held.block_chroma);
+        held.a = Some(a.clone());
+        a
+    }
+
+    #[cfg(all(windows, ffmpeg))]
+    fn lift_d3d11(&self, frame: &Frame, source: Arc<dyn telescope_core::frame::DecodedSurface>, surface: &crate::d3d11_import::Surface, block_chroma: bool) -> Result<Option<Held>, String> {
+        let Some(imported) = surface.import(&self.device, &self.import_capabilities)? else { return Ok(None) };
+        let (w, h) = (frame.width, frame.height);
+        let vulkan = imported.backend == wgpu::Backend::Vulkan;
         let converted = self.scoped(|| -> Result<_, String> {
             // wgpu refuses one encoder that mixes its own commands with raw ones, so the two barriers get encoders of their own
             let mut acquire = self.device.create_command_encoder(&Default::default());
