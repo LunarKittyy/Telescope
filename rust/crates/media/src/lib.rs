@@ -97,7 +97,7 @@ static FFMPEG_WHY: OnceLock<String> = OnceLock::new();
 /// (error 4551) blocks unsigned DLLs like FFmpeg's, which looks like a missing decoder unless it is said.
 fn decoder_missing(what: &str, why: Option<&str>) -> String {
     match why {
-        Some(why) if why.contains("4551") => {
+        Some(why) if why.contains("os error 4551") => {
             format!("{what} decoding needs FFmpeg, and Windows blocked its DLLs (Smart App Control or an application control policy): {why}")
         }
         Some(why) => format!("{what} decoding needs FFmpeg, which couldn't be loaded: {why}"),
@@ -358,6 +358,10 @@ mod tests {
         let blocked = decoder_missing("H264", Some("LoadLibraryExW failed: An Application Control policy has blocked this file. (os error 4551)"));
         assert!(blocked.contains("Smart App Control") && blocked.contains("os error 4551"), "{blocked}");
         assert!(decoder_missing("Opus", Some("file not found (os error 126)")).contains("couldn't be loaded"));
+        // The decoder that can't be made gives that reason once FFmpeg failed to load
+        let _ = FFMPEG_WHY.set("LoadLibraryExW failed: An Application Control policy has blocked this file. (os error 4551)".into());
+        let error = make_decoder(Codec::H264, &DecodeOptions::default(), new_tap(), false).err().expect("no decoder");
+        assert!(error.contains("Smart App Control"), "{error}");
     }
 
     /// Flat salmon pink: Y 180, U 100, V 160.

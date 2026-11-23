@@ -25,8 +25,8 @@ Another account on this PC has Telescope open and both use the same local port. 
 **"Your settings couldn't be read"**
 Telescope started with defaults and paired phones need pairing again because `telescope_config.json` was damaged or edited wrongly. The banner shows where the old file was copied (`telescope_config.json.invalid-...`). Fix it and restore it, or pair again.
 
-**Light (H.264) streams fail with FFmpeg missing from the log (Windows)**
-Windows 11's Smart App Control, or an application control policy at work, blocked one of FFmpeg's DLLs, which aren't signed. The log line ends in "(os error 4551)" and the stream error names Smart App Control. Without FFmpeg only Heavy (MJPEG) works. Smart App Control can't be allowed per app. Switch it off in Windows Security under App & browser control, or set the stream to Heavy. Turning it back on later means reinstalling Windows, which is worth weighing first.
+**Light (H.264) streams fail and the log has "os error 4551" (Windows)**
+Smart App Control on Windows 11, or an application control policy at work, blocked one of FFmpeg's DLLs because they aren't signed. The stream error names Smart App Control. Without FFmpeg only Heavy (MJPEG) works, and the phone's sound can't be decoded either. Smart App Control can't allow a single app. Turn it off in Windows Security under App & browser control, or set the stream to Heavy. Windows only lets you turn it back on by reinstalling it.
 
 **"Cannot mount AppImage" (Linux)**
 The AppImage needs `fusermount` or `fusermount3`, which nearly every desktop has. Install `fuse3` from your distro, or start it with `./Telescope-x86_64.AppImage --appimage-extract-and-run`, which unpacks it into your temp folder and needs no FUSE at all. It starts slower that way and the unpacked copy is left in the temp folder until it's cleared.
