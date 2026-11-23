@@ -54,7 +54,8 @@ fn mode() -> Mode {
 
 #[cfg(unix)]
 fn default_mode() -> Mode {
-    Mode::Nice(10)
+    // Measured best of nice 10, nice 19 and idle: the frame path's delay fell by a third and fewer masks were lost than at nice 19
+    Mode::Idle
 }
 
 #[cfg(windows)]
