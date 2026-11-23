@@ -809,17 +809,14 @@ class CameraSessionController(
         } catch (_: Exception) { null }
     }
 
-    // An encoder timestamp (us) on the clock the camera's results use, which differ by the time asleep when one is realtime
-    private fun sensorClockUs(ptsUs: Long): Long {
-        val source = PhoneStats.shared.realtimeStamps ?: return ptsUs
-        val mono = System.nanoTime()
-        val realtime = SystemClock.elapsedRealtimeNanos()
-        val clock = PhoneStats.stampClock(ptsUs, mono, realtime, source) ?: return ptsUs
-        return when {
-            clock == source -> ptsUs
-            source -> ptsUs + (realtime - mono) / 1000
-            else -> ptsUs - (realtime - mono) / 1000
-        }
+    // What to add to an encoder timestamp (us) to put it on the clock the camera's results use, likeliest first. A camera on the
+    // realtime clock has its frames moved to the monotonic one on their way into an encoder, so its results are ahead by the time
+    // the phone has slept. Worked out once per encoder; the other clock is a fallback only when the two are too far apart to mix up.
+    private fun sensorOffsetsUs(): LongArray {
+        val asleepUs = (SystemClock.elapsedRealtimeNanos() - System.nanoTime()) / 1000
+        val likely = if (PhoneStats.shared.realtimeStamps == true) asleepUs else 0L
+        val other = if (likely == 0L) asleepUs else 0L
+        return if (kotlin.math.abs(asleepUs) > 10_000_000L) longArrayOf(likely, other) else longArrayOf(likely)
     }
 
     // The camera's stream output at the current size: the JPEG reader, or the H.264 encoder's
@@ -827,6 +824,8 @@ class CameraSessionController(
     private fun buildOutputs() {
         if (codec == H264Stream.CODEC_H264) {
             PhoneStats.shared.realtimeStamps = stampsAreRealtime()
+            CropLog.shared.clear()
+            val offsets = sensorOffsetsUs()
             try {
                 lateinit var built: H264Encoder
                 // Queued behind a size change, a report from the old encoder must not count against the new one
@@ -845,7 +844,7 @@ class CameraSessionController(
                         if (!keep && previewRecovery.requestKeyframe(SystemClock.uptimeMillis())) built.requestKeyFrame()
                         keep
                     },
-                    cropFor = { ptsUs, waitMs -> CropLog.shared.take(sensorClockUs(ptsUs), waitMs) },
+                    cropFor = { ptsUs, waitMs -> CropLog.shared.take(LongArray(offsets.size) { ptsUs + offsets[it] }, waitMs) },
                     onPacket = onH264, onError = { e -> post { if (encoder === built) encoderFailed(e) } },
                     onReorder = { post { if (encoder === built && codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
                 encoder = built

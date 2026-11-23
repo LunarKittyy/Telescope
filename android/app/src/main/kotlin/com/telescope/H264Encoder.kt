@@ -41,8 +41,8 @@ class H264Encoder(
 
     companion object {
         private const val MIME = MediaFormat.MIMETYPE_VIDEO_AVC
-        // How long a frame's packet waits for the camera's result with its crop, which now and then comes a few ms after the frame
-        private const val CROP_WAIT_MS = 20L
+        // How long a frame's packet waits at most for the camera's result with its crop, which now and then comes a few ms after the frame
+        private const val CROP_WAIT_MS = 8L
 
         val ATTEMPTS: List<Attempt> = listOf(
             Attempt(Extra.values().toSet(), Profile.HIGH),

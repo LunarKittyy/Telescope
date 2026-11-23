@@ -198,41 +198,66 @@ class H264ClientQueue(
 }
 
 /**
- * The crop the camera reported for each recent frame, by its sensor time in microseconds (what the encoder's output
- * carries), for the encoder to tag the frame with. The camera's result usually comes a few ms before the encoded frame,
- * now and then a few ms after it, so [take] waits a little for one that hasn't come yet.
+ * The crop the camera reported for each recent frame, by its sensor time in microseconds, for the encoder to tag the frame
+ * with. A frame gets the crop whose time is nearest its own within half a frame, so a clock offset sampled a little off or
+ * a time cut to microseconds still finds it. The camera's result usually comes a few ms before the encoded frame, now and
+ * then a few ms after it, so [take] waits a little, but only while that frame's result is the next one due.
  */
 class CropLog(private val capacity: Int = 64) {
     private val lock = ReentrantLock()
     private val arrived = lock.newCondition()
-    private val shares = LinkedHashMap<Long, FloatArray>()
-    private var misses = 0  // lookups in a row that found nothing; at [MAX_MISSES] the wait stops until one hits
+    private val shares = java.util.TreeMap<Long, FloatArray>()
 
     fun put(timeUs: Long, share: FloatArray) = lock.withLock {
         shares[timeUs] = share
-        while (shares.size > capacity) shares.remove(shares.keys.first())
+        while (shares.size > capacity) shares.pollFirstEntry()
         arrived.signalAll()
     }
 
     /**
-     * The crop of the frame taken at [timeUs], waiting up to [waitMs] for it; null when none came. After [MAX_MISSES]
-     * misses in a row (times that never match, say) it stops waiting, so the caller is never held for every frame.
+     * The crop of the frame taken at the first of [timesUs] that has one, the clocks the encoder's time may be on with the
+     * likeliest first; null when none came. Only the first waits, up to [waitMs], and only while no later frame's result
+     * has come and its own is the next one due, so a time on the wrong clock never holds the caller.
      */
-    fun take(timeUs: Long, waitMs: Long): FloatArray? = lock.withLock {
-        var waitNs = if (misses >= MAX_MISSES) 0L else TimeUnit.MILLISECONDS.toNanos(waitMs)
-        var share = shares.remove(timeUs)
-        while (share == null && waitNs > 0) {
-            waitNs = arrived.awaitNanos(waitNs)
-            share = shares.remove(timeUs)
+    fun take(timesUs: LongArray, waitMs: Long): FloatArray? = lock.withLock {
+        val first = timesUs.firstOrNull() ?: return null
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitMs)
+        while (true) {
+            nearest(first)?.let { return it }
+            val newest = if (shares.isEmpty()) null else shares.lastKey()
+            val due = newest != null && (first > newest && first - newest <= 2 * interval())
+            val left = deadline - System.nanoTime()
+            if (!due || left <= 0) break
+            arrived.awaitNanos(left)
         }
-        misses = if (share == null) minOf(misses + 1, MAX_MISSES) else 0
-        share
+        for (i in 1 until timesUs.size) nearest(timesUs[i])?.let { return it }
+        null
     }
 
-    fun clear() = lock.withLock { shares.clear(); misses = 0 }
+    fun take(timeUs: Long, waitMs: Long): FloatArray? = take(longArrayOf(timeUs), waitMs)
+
+    fun clear() = lock.withLock { shares.clear() }
+
+    // The crop logged within half a frame of timeUs, the nearer of the two either side
+    private fun nearest(timeUs: Long): FloatArray? {
+        val tolerance = interval() / 2
+        val below = shares.floorEntry(timeUs)
+        val above = shares.ceilingEntry(timeUs)
+        val best = listOfNotNull(below, above).minByOrNull { kotlin.math.abs(it.key - timeUs) } ?: return null
+        return best.value.takeIf { kotlin.math.abs(best.key - timeUs) <= tolerance }
+    }
+
+    // The time between the last two frames logged (us), within reason; a default before there are two
+    private fun interval(): Long {
+        if (shares.size < 2) return DEFAULT_INTERVAL_US
+        val last = shares.lastKey()
+        return (last - shares.lowerKey(last)).coerceIn(MIN_INTERVAL_US, MAX_INTERVAL_US)
+    }
 
     companion object {
-        const val MAX_MISSES = 3
+        private const val DEFAULT_INTERVAL_US = 33_333L
+        private const val MIN_INTERVAL_US = 4_000L
+        private const val MAX_INTERVAL_US = 100_000L
 
         // One camera streams H.264 at a time: its session writes here and its encoder reads
         val shared = CropLog()
