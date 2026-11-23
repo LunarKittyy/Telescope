@@ -2957,8 +2957,9 @@ pub(crate) mod tests {
     #[test]
     fn a_step_that_only_needs_the_mask_gets_a_small_picture_of_the_cards_work_and_the_picture_comes_down_once() {
         assert_eq!([vision_size(3840, 2160), vision_size(1920, 1080), vision_size(1080, 1920), vision_size(1280, 720), vision_size(640, 360)], [Some((640, 360)), Some((640, 360)), Some((360, 640)), Some((640, 360)), None]);
-        if Gpu::shared().is_none() {
-            return eprintln!("no graphics card; skipped");
+        // A card the processor draws in software gains nothing from it, so there the picture comes down as before
+        if Gpu::shared().is_none_or(|gpu| gpu.is_software()) {
+            return eprintln!("no graphics card in hardware; skipped");
         }
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         let step = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
