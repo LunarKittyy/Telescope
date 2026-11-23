@@ -7,7 +7,11 @@ use windows::core::{Interface, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0};
 use windows::Win32::Graphics::Direct3D11::*;
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_NV12, DXGI_SAMPLE_DESC};
+use windows::Win32::Graphics::Dxgi::IDXGIDevice;
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
+
+/// PCI vendor number of NVIDIA's cards.
+const NVIDIA: u32 = 0x10de;
 
 /// The card's own pieces for copying pictures of one decoder: a staging texture, a fence and the event its waits end on.
 #[derive(Default)]
@@ -66,15 +70,15 @@ impl Copier {
         !self.failed
     }
 
-    /// The picture in `frame` (a D3D11VA surface) as NV12 in `out`; on failure the copier stays off for this decoder.
-    pub(crate) unsafe fn copy(&mut self, frame: *const ff::AVFrame, out: *mut ff::AVFrame) -> Result<(), String> {
+    /// The picture in `frame` (a D3D11VA surface) as NV12 in `out`, or false for a card this isn't used on; on failure the copier stays off for this decoder.
+    pub(crate) unsafe fn copy(&mut self, frame: *const ff::AVFrame, out: *mut ff::AVFrame) -> Result<bool, String> {
         // SAFETY: the caller owns both live frames for this call.
         let result = unsafe { self.try_copy(frame, out) };
-        self.failed |= result.is_err();
+        self.failed |= !matches!(result, Ok(true));
         result
     }
 
-    unsafe fn try_copy(&mut self, frame: *const ff::AVFrame, out: *mut ff::AVFrame) -> Result<(), String> {
+    unsafe fn try_copy(&mut self, frame: *const ff::AVFrame, out: *mut ff::AVFrame) -> Result<bool, String> {
         // SAFETY: frame is a live D3D11VA frame; everything taken from it lives as long as its device context.
         unsafe {
             let (d3d, texture, index) = frame_parts(frame)?;
@@ -85,6 +89,11 @@ impl Copier {
                 self.device = d3d.device as usize;
                 self.staging = None;
                 self.fence = None;
+                // Only NVIDIA's driver was seen spinning a core in Map; an integrated Intel card sleeps there and lost frames at 4K with the fence
+                let vendor = device.cast::<IDXGIDevice>().and_then(|d| d.GetAdapter()).and_then(|a| a.GetDesc()).map(|d| d.VendorId).map_err(|e| e.to_string())?;
+                if vendor != NVIDIA && !cfg!(test) {
+                    return Ok(false);
+                }
             }
             if self.fence.is_none() {
                 let mut fence: Option<ID3D11Fence> = None;
@@ -144,7 +153,7 @@ impl Copier {
                 }
             }
             context.Unmap(&staging, 0);
-            Ok(())
+            Ok(true)
         }
     }
 }

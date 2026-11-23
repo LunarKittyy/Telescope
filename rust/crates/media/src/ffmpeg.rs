@@ -528,11 +528,12 @@ impl Codec {
             if !measured {
                 let began = monotonic_ns();
                 match self.copier.copy(self.frame, self.sw_frame) {
-                    Ok(()) => {
+                    Ok(true) => {
                         span("transfer", began);
                         transfers::decoded_down();
                         return Ok(());
                     }
+                    Ok(false) => {}
                     Err(why) => {
                         log::warn!("Copying a decoded picture with a fence failed ({why}); FFmpeg's copy takes over for this decoder");
                         ff::av_frame_unref(self.sw_frame);
