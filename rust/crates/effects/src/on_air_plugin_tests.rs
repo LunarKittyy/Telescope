@@ -148,6 +148,15 @@ impl Rig {
         self.host.scheduled.iter().find(|(_, t)| t == T_RETRY).map(|(ms, _)| *ms)
     }
 
+    fn url_timer(&self) -> Option<u64> {
+        self.host.scheduled.iter().find(|(_, t)| t == T_URL).map(|(ms, _)| *ms)
+    }
+
+    fn fire_url(&mut self) {
+        assert!(self.url_timer().is_some(), "a try was scheduled");
+        self.event(Event::TimerFired { owner: NAME.into(), token: T_URL.into() });
+    }
+
     fn fire_retry(&mut self) {
         self.event(Event::TimerFired { owner: NAME.into(), token: "retry".into() });
     }
@@ -550,6 +559,45 @@ fn a_failed_state_is_sent_again_with_backoff_until_it_works() {
     assert_eq!(rig.tags(), vec![tag; 7]); // always the same change, sent again
     rig.answered("");
     assert!(rig.retry_timer().is_none() && rig.issue().is_none());
+}
+
+#[test]
+fn a_new_address_is_tried_right_away_and_ends_the_failure_before_it() {
+    let mut rig = Rig::new(json!({"webhook_url": "http://old.local/hook", "webhook_on": "on", "webhook_off": "off"}));
+    rig.answered("Connection refused");
+    assert!(rig.issue().is_some() && rig.retry_timer() == Some(5000));
+    rig.ui("url-edited", vec![json!("http://hub.local/hook")]);
+    // Once typing has stopped, not on each key
+    assert_eq!(rig.sent_count(), 1);
+    rig.fire_url();
+    assert_eq!((rig.sent_count(), rig.sent.lock().unwrap()[1].url.as_str()), (2, "http://hub.local/hook"));
+    assert!(rig.retry_timer().is_none() && rig.issue().is_none());
+    rig.answered("");
+    assert!(rig.issue().is_none() && rig.retry_timer().is_none());
+}
+
+#[test]
+fn an_address_entered_while_on_air_gets_the_state_it_missed() {
+    let mut rig = Rig::new(json!({"webhook_on": "on", "webhook_off": "off"}));
+    rig.watched(true);
+    rig.later(2.0);
+    assert!(rig.plugin.on() && rig.sent_count() == 0);
+    rig.ui("url-edited", vec![json!("http://hub.local/hook")]);
+    rig.ui("url-edited", vec![json!("http://hub.local/hook2")]);
+    rig.fire_url();
+    assert_eq!(rig.bodies(), ["on"]);
+    // Typing it again changes nothing
+    rig.host.scheduled.clear();
+    rig.ui("url-edited", vec![json!("http://hub.local/hook2")]);
+    assert!(rig.url_timer().is_none());
+}
+
+#[test]
+fn an_address_that_stops_being_usable_before_its_try_is_not_tried() {
+    let mut rig = Rig::new(json!({}));
+    rig.ui("url-edited", vec![json!("http://hub.local/hook")]);
+    rig.ui("url-edited", vec![json!("")]);
+    assert!(rig.url_timer().is_none());
 }
 
 #[test]
