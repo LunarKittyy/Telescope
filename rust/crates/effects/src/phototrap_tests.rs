@@ -849,3 +849,30 @@ fn a_problem_the_trap_ran_into_is_not_shown_on_another_phone() {
     p.on_event(&mut h, &Event::SourceSelected { source_id: "phone".into() });
     assert_eq!(card(&h)["status-kind"], json!("status_err"), "it is still there on its own phone");
 }
+
+/// The settings another phone brings along while the trap is armed on this one.
+fn other_phones_settings() -> Value {
+    json!({"zones": [[0.0, 0.0, 0.2, 0.2], [0.5, 0.5, 0.9, 0.9], [0.1, 0.6, 0.3, 0.8]], "sensitivity": 9, "count": 7, "pause": 60, "night": true})
+}
+
+#[test]
+fn an_armed_trap_keeps_its_own_settings_when_another_phone_is_shown() {
+    let (mut p, mut h, _) = armed();
+    click(&mut p, &mut h, "count-moved", json!(4.0));
+    assert_eq!(watches(&h), ["watch_motion phototrap 1 5"]);
+    // The panels move to another phone, and its settings are loaded into the plugin
+    h.focused = Some("other".into());
+    h.live = vec!["phone".into()];
+    p.set_config(&other_phones_settings()).unwrap();
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    assert_eq!(watches(&h).last().unwrap().as_str(), "watch_motion phototrap 1 5", "still the zones and sensitivity it was armed with");
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 1);
+    assert_eq!(h.stills_taken[0].0["count"], 4, "the burst it was armed with");
+    assert!(h.stills_taken[0].0.get("extension").is_none(), "and no Night mode the other phone picked");
+    // Back on the phone it watches, its own settings are the ones on the card
+    h.focused = Some("phone".into());
+    p.set_config(&json!({"count": 4})).unwrap();
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "phone".into() });
+    assert_eq!(watches(&h).last().unwrap().as_str(), "watch_motion phototrap 1 5");
+}

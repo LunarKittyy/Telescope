@@ -12,6 +12,7 @@ pub mod colour_cpu;
 pub mod config;
 pub mod dev_profile;
 pub mod diagnostics;
+pub mod effort;
 pub mod event;
 pub mod frame;
 pub mod gpu_marker;

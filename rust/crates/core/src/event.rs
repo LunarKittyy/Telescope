@@ -214,6 +214,9 @@ events! {
     "vision_download_finished" => VisionDownloadFinished { error: String, switch_on: String },
     /// Not in plugin.py: about once a second while a stream runs, how it's going as numbers (core::stats::Snapshot), with the last minute of each series.
     "stats_updated" => StatsUpdated { snapshot: Snapshot },
+    /// Not in plugin.py: how hard the heavy effects work changed (0 is full quality, up to 3 for the lightest), from the app's own step down
+    /// while frames run late, power-saving effects or a setting. Told about once a second after the change, with no stream needed.
+    "effort_changed" => EffortChanged { level: u8 },
     /// Not in plugin.py: the readouts pinned to the bottom bar changed (a pin, an unpin, or the bar's own readouts came or went): every id
     /// pinned now, left side first. A card with a star for each readout redraws it from this.
     "bar_pins_changed" => BarPinsChanged { pinned: Vec<String> },

@@ -95,7 +95,8 @@ mod unix {
         send(&child, libc::SIGTERM);
         assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGTERM));
         assert_eq!(read_journal(&app).unwrap()["state"], "trial", "still on trial");
-        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some(), "the new build failing still rolls back");
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None, "the new build gets a second start");
+        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some(), "the new build failing again still rolls back");
         assert_eq!(failed_build(&app), Some(131));
         assert_eq!(std::fs::read_to_string(app.join(EXE_NAME)).unwrap(), "exe 130");
     }
@@ -105,7 +106,8 @@ mod unix {
         let mut child = start_child(&app); // installed, but never run: a hard kill or a crash
         send(&child, libc::SIGKILL);
         assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGKILL));
-        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None, "a second start");
+        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some(), "killed again");
         assert_eq!(failed_build(&app), Some(131));
         assert_eq!(std::fs::read_to_string(app.join(EXE_NAME)).unwrap(), "exe 130");
     }
