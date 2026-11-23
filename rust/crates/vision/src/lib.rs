@@ -18,6 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use telescope_core::bus::BusSender;
+use telescope_core::effort::Effort;
 use telescope_core::event::Event;
 use telescope_core::frame::{Frame, MaskSpace, PixelFormat};
 use telescope_core::image::{frame_rgb, small_grey, small_rgb};
@@ -211,10 +212,16 @@ impl VisionHost {
 
     /// The parts given: find makes the backend, there says whether a pack is there without loading it.
     pub fn with(find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>, dir: PathBuf, info: PackInfo, opener: WebOpener) -> VisionHost {
+        VisionHost::with_effort(Effort::shared(), find, there, dir, info, opener)
+    }
+
+    /// The same, reading how hard to work from effort instead of the app's own.
+    pub fn with_effort(effort: Arc<Effort>, find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>, dir: PathBuf, info: PackInfo, opener: WebOpener) -> VisionHost {
         let bus: Arc<Mutex<Option<BusSender>>> = Arc::new(Mutex::new(None));
         let tracking = Arc::new(Mutex::new(PeopleTracking::new()));
         let (people_bus, people_tracking, state_bus) = (bus.clone(), tracking.clone(), bus.clone());
-        let vision = Vision::new(
+        let vision = Vision::with_effort(
+            effort,
             Box::new(move |key, people| {
                 emit(&people_bus, Event::PeopleSeen { source_id: key.to_string(), people: people.iter().map(|p| p.to_value()).collect() });
                 let (tracks, count) = people_tracking.lock().unwrap().update(key, &people, service::monotonic());
