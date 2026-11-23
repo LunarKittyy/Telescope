@@ -264,7 +264,10 @@ impl PhototrapPlugin {
     }
 
     fn night_offered(&self) -> bool {
-        let Some(caps) = &self.caps else { return false };
+        self.caps.as_ref().is_some_and(Self::night_in)
+    }
+
+    fn night_in(caps: &StillCaps) -> bool {
         let mut choices = defaults();
         choices.insert("mode".into(), json!("night"));
         offered(caps, &choices).modes.contains(&"night")
@@ -283,8 +286,9 @@ impl PhototrapPlugin {
         }
     }
 
+    /// What the phone on screen can do, which is what the card offers; the armed phone's own caps are read where it takes photos.
     fn read_caps(&self, host: &dyn Host) -> Option<StillCaps> {
-        let id = self.target(host)?;
+        let id = host.focused_source_id()?;
         host.still_caps(Some(&id)).and_then(|v| serde_json::from_value(v).ok())
     }
 
@@ -305,7 +309,8 @@ impl PhototrapPlugin {
         let burst = caps.burst_max >= 2;
         choices.insert("shots".into(), json!(if burst { "burst" } else { "single" }));
         choices.insert("burst".into(), json!(self.count_now().max(2)));
-        if self.night && self.night_offered() {
+        let night = self.night && Self::night_in(caps);
+        if night {
             choices.insert("mode".into(), json!("night"));
         }
         let rotation = host.view().rotation.filter(|r| [90, 180, 270].contains(r)).unwrap_or(0);
@@ -313,7 +318,7 @@ impl PhototrapPlugin {
         if caps.camera {
             if let Some(map) = options.as_object_mut() { map.remove("quality"); }
         }
-        add_shot(&mut options, &self.shot, true, self.night && self.night_offered());
+        add_shot(&mut options, &self.shot, true, night);
         options
     }
 
