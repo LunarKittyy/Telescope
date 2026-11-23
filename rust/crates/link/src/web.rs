@@ -335,7 +335,16 @@ impl Server {
                 if quit.load(Ordering::SeqCst) {
                     return;
                 }
-                let Ok(conn) = conn else { continue };
+                let conn = match conn {
+                    Ok(conn) => conn,
+                    Err(e) => {
+                        // Out of file handles fails at once every time: a pause keeps the loop from spinning a core until one frees up
+                        if !matches!(e.kind(), std::io::ErrorKind::ConnectionAborted | std::io::ErrorKind::Interrupted) {
+                            std::thread::sleep(Duration::from_millis(50));
+                        }
+                        continue;
+                    }
+                };
                 let Some(place) = conn.peer_addr().ok().and_then(|a| open.enter(a.ip())) else {
                     let _ = conn.shutdown(Shutdown::Both);
                     continue;
