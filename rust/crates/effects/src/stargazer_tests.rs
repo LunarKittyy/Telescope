@@ -1802,3 +1802,24 @@ fn the_first_photos_default_gives_way_to_camera_on_a_dial_the_camera_cant_set() 
     photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
     assert_eq!((plugin.shot.shutter_s, plugin.shot.iso), (Some(10.0), Some(800)));
 }
+
+#[test]
+fn stacks_saved_at_the_same_moment_never_replace_each_other() {
+    let dir = telescope_core::testing::scratch_dir("stargazer-same-moment");
+    let frame = Frame::new(4, 4, PixelFormat::Rgba, vec![200; 4 * 4 * 4]);
+    let threads = 16;
+    for _ in 0..20 {
+        let gate = std::sync::Barrier::new(threads);
+        let before = std::fs::read_dir(&dir).unwrap().count();
+        let paths: Vec<PathBuf> = std::thread::scope(|scope| {
+            let jobs: Vec<_> = (0..threads).map(|_| scope.spawn(|| {
+                gate.wait();
+                save_png(&frame, &dir).unwrap()
+            })).collect();
+            jobs.into_iter().map(|j| j.join().unwrap()).collect()
+        });
+        let distinct: std::collections::HashSet<_> = paths.iter().collect();
+        assert_eq!(distinct.len(), threads, "two saves got the same file");
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count() - before, threads, "a save replaced another");
+    }
+}

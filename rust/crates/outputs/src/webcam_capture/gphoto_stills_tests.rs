@@ -598,6 +598,21 @@ fn two_photos_in_the_same_second_dont_overwrite_each_other() {
 }
 
 #[test]
+fn a_raw_and_its_jpeg_share_a_name_when_the_name_of_one_is_taken() {
+    for taken in ["Telescope_20261123_010203.jpg", "Telescope_20261123_010203.nef"] {
+        let dir = folder("pair-names");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(taken), b"old").unwrap();
+        let shots = vec![Shot { name: "DSC_1.NEF".into(), data: vec![1] }, Shot { name: "DSC_1.JPG".into(), data: vec![2] }];
+        let files = save_as(&dir, "Telescope_20261123_010203", &shots, &|| false, None).unwrap();
+        let names: Vec<_> = files.iter().map(|f| f.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        assert_eq!(names, ["Telescope_20261123_010203 (2).nef", "Telescope_20261123_010203 (2).jpg"], "with {taken} there already");
+        assert_eq!(std::fs::read(dir.join(taken)).unwrap(), b"old");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+#[test]
 fn a_raw_and_jpeg_photo_with_a_file_missing_says_so_and_keeps_the_file_that_came() {
     let state = d5100(true);
     state.lock().unwrap().partial = true;

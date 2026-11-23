@@ -6386,9 +6386,6 @@ msgstr ""
 msgid "The photo was interrupted because the camera stopped."
 msgstr "Quá trình chụp ảnh bị gián đoạn do camera đã dừng."
 
-msgid "The photo was interrupted by a change to the camera."
-msgstr "Việc chụp ảnh đã bị gián đoạn do có thay đổi trên camera."
-
 msgid "The photo was interrupted."
 msgstr ""
 
@@ -10506,6 +10503,9 @@ msgstr ""
 
 #~ msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 #~ msgstr "Mic điện thoại cần có VB-Audio Virtual Cable trên Windows."
+
+#~ msgid "The photo was interrupted by a change to the camera."
+#~ msgstr "Việc chụp ảnh đã bị gián đoạn do có thay đổi trên camera."
 
 #~ msgid "The picture apps see on the virtual camera while nothing is streaming."
 #~ msgstr "Ảnh các ứng dụng nhìn thấy trên camera ảo trong khi không có luồng truyền phát nào."

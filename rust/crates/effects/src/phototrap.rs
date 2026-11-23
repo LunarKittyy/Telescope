@@ -320,6 +320,10 @@ impl PhototrapPlugin {
     // ── What the card shows ───────────────────────────────────────────
 
     fn status(&self, host: &dyn Host) -> (String, &'static str) {
+        // The card tells about the phone on screen, and nothing is armed on that one
+        if self.armed && !self.on_armed_source(host) {
+            return (tr("Not armed"), "status_dim");
+        }
         // A reason it disarmed itself stays up after it has
         if let Some(problem) = &self.problem {
             return (problem.clone(), "status_err");
@@ -341,8 +345,10 @@ impl PhototrapPlugin {
         (text, "status_ok")
     }
 
-    fn tally(&self) -> String {
-        if self.triggers > 0 {
+    fn tally(&self, host: &dyn Host) -> String {
+        if self.armed && !self.on_armed_source(host) {
+            String::new()
+        } else if self.triggers > 0 {
             tr("Triggers: {triggers}, photos: {photos}, last at {time}")
                 .field("triggers", self.triggers).field("photos", self.photos).field("time", &self.last)
         } else if self.armed {
@@ -364,7 +370,7 @@ impl PhototrapPlugin {
         let preview = host.has_plugin("preview");
         let here = self.on_armed_source(host);
         let mut props = json!({
-            "active": self.paired.on(), "armed": self.armed, "status": status, "status-kind": kind, "tally": self.tally(),
+            "active": self.paired.on(), "armed": self.armed && here, "status": status, "status-kind": kind, "tally": self.tally(host),
             "zone-count": self.zones.len(), "draw-enabled": self.zones.len() < MAX_ZONES && preview && here, "clear-enabled": !self.zones.is_empty(),
             "draw-tip": tr(if !preview { DRAW_OFF_TIP } else if !here { DRAW_ELSEWHERE_TIP } else { DRAW_TIP }),
             "folder-text": self.shown_folder(), "folder-tip": self.folder,
