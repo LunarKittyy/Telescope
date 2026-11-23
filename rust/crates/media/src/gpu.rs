@@ -1111,6 +1111,53 @@ impl Gpu {
         Ok(result)
     }
 
+    /// The picture so far shrunk on the card to an I420 picture of `size` and read back, for the vision models that only need a small one. The held picture stays as it was, so the steps after go on from it.
+    pub fn land_small(&self, held: &mut Held, size: (u32, u32), cancel: &dyn Fn() -> bool) -> Result<Frame, String> {
+        self.guarded("reading a small picture back", || {
+            self.card_ok()?;
+            let (w, h) = (held.width, held.height);
+            let (sw, sh) = size;
+            // One output pixel averages a grid of this many samples a side, enough to cover the source pixels it stands for
+            let taps = |from: u32, to: u32| from.div_ceil(to.max(1)).clamp(1, 16);
+            let mut enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
+            let mut targets = Vec::new();
+            let planes = [self.texture(sw, sh, wgpu::TextureFormat::R8Unorm), self.texture(chroma(sw), chroma(sh), wgpu::TextureFormat::R8Unorm), self.texture(chroma(sw), chroma(sh), wgpu::TextureFormat::R8Unorm)];
+            match (&held.planes, &held.a) {
+                // Each plane on its own, so no colour is turned into another and back
+                (Some(source), _) if held.format == PixelFormat::I420 => {
+                    for (i, (from, to)) in source.iter().zip(&planes).enumerate() {
+                        let size = if i == 0 { (w, h) } else { (chroma(w), chroma(h)) };
+                        let views = [from.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+                        self.convert_pass(&mut enc, &views, Mode::Rgba, to, taps(size.0, to.width()), size);
+                    }
+                }
+                (_, Some(a)) => {
+                    let small = self.texture(sw, sh, WORK);
+                    let views = [a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+                    self.convert_pass(&mut enc, &views, Mode::Rgba, &small, taps(w, sw), (w, h));
+                    let work = [small.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+                    for (plane, mode) in planes.iter().zip([Mode::ToY, Mode::ToU, Mode::ToV]) {
+                        self.convert_pass(&mut enc, &work, mode, plane, 1, (sw, sh));
+                    }
+                    targets.push(small);
+                }
+                _ => {
+                    held.enc = enc;
+                    self.give_back(planes);
+                    return Err("the card holds no picture to shrink".into());
+                }
+            }
+            let read = self.download_until(enc, &[&planes[0], &planes[1], &planes[2]], &[1, 1, 1], cancel);
+            targets.extend(planes);
+            self.give_back(targets);
+            let (out, waited) = read?;
+            held.waited_ns += waited;
+            let mut small = Frame::new(sw, sh, PixelFormat::I420, out);
+            (small.number, small.time_ns, small.capture_ns) = (held.number, held.time_ns, held.capture_ns);
+            Ok(small)
+        })
+    }
+
     /// Submit the recorded steps without copying any pixels to RAM, after the pipeline's own last submission has finished.
     pub(crate) fn submit_held(&self, held: &mut Held, pacing: &mut Pacing, cancel: &dyn Fn() -> bool) -> Result<(), String> {
         self.guarded("submitting a card picture", || {

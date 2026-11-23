@@ -286,6 +286,10 @@ impl CpuStep for Step {
         Some(true)
     }
 
+    fn card_textures_from_mask(&self) -> bool {
+        true
+    }
+
     /// The cut-out for a stream that wants it, made on the CPU the way `run` makes it, since the card's blur never gives the frame one.
     fn card_cut_out(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Arc<Alpha>> {
         let snapshot = self.card_mask.take();
@@ -293,7 +297,7 @@ impl CpuStep for Step {
             return None;
         }
         let (w, h) = (frame.width as usize, frame.height as usize);
-        let by_planes = frame.format == PixelFormat::I420 && w >= 2 && h >= 2 && frame.i420_planes().is_some();
+        let by_planes = frame.format == PixelFormat::I420 && w >= 2 && h >= 2 && (frame.i420_planes().is_some() || frame.surface().is_some());
         let size = if by_planes { ((w / 4).max(1), (h / 4).max(1)) } else { (w, h) };
         let mask = match snapshot.filter(|s| s.source == ctx.source_id() && s.number == frame.number && s.size == size) {
             Some(snapshot) => snapshot.mask,
@@ -317,7 +321,7 @@ impl CpuStep for Step {
     /// The cutout and the share of the room the blur may take from, made from the mask the way the CPU way makes them for this frame's format (a quarter-size mask for planes, the full-size one otherwise); with no mask or nobody in it they're left out, which the shader reads as no cutout and a plain blur.
     fn card_textures(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
         let (w, h) = (frame.width as usize, frame.height as usize);
-        let by_planes = frame.format == PixelFormat::I420 && w >= 2 && h >= 2 && frame.i420_planes().is_some();
+        let by_planes = frame.format == PixelFormat::I420 && w >= 2 && h >= 2 && (frame.i420_planes().is_some() || frame.surface().is_some());
         let size = if by_planes { ((w / 4).max(1), (h / 4).max(1)) } else { (w, h) };
         let mask = self.mask_at(frame, ctx, size);
         self.card_mask = Some(CardMask { source: ctx.source_id().to_string(), number: frame.number, size, mask: mask.clone() });

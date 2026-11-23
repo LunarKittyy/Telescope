@@ -899,7 +899,7 @@ impl Pipeline {
         if !matches!(self.steps[i].kind, Kind::Either(..)) || self.steps[i].no_textures {
             return None;
         }
-        let ask = |entry: &mut Entry, frame: &Frame| -> Result<Option<Vec<(String, Frame)>>, ()> {
+        let ask = |entry: &mut Entry, frame: &Frame, ctx: &dyn FrameContext| -> Result<Option<Vec<(String, Frame)>>, ()> {
             let Kind::Either(_, cpu) = &mut entry.kind else { return Ok(None) };
             catch_unwind(AssertUnwindSafe(|| cpu.card_textures(frame, ctx))).map_err(|_| ())
         };
@@ -913,13 +913,23 @@ impl Pipeline {
             return None;
         }
         if offered.is_none() && !self.steps[i].has_textures && !chain.ahead.is_empty() {
-            if let Ok(None) = ask(&mut self.steps[i], frame) {
+            if let Ok(None) = ask(&mut self.steps[i], frame, ctx) {
                 self.steps[i].no_textures = true;
                 return None;
             }
         }
-        self.bring_down(chain, frame, ctx, true);
-        let asked = ask(&mut self.steps[i], frame);
+        // A step that only needs the person mask gets it from a small copy the card makes, and the picture stays up there
+        let mask_only = matches!(&self.steps[i].kind, Kind::Either(_, cpu) if catch_unwind(AssertUnwindSafe(|| cpu.card_textures_from_mask())).unwrap_or(false));
+        let small = if mask_only { self.small_for_vision(frame, chain, ctx) } else { None };
+        let vision = small.as_ref().map(|small| SmallVision { inner: ctx, small });
+        let ctx: &dyn FrameContext = match &vision {
+            Some(vision) => vision,
+            None => {
+                self.bring_down(chain, frame, ctx, true);
+                ctx
+            }
+        };
+        let asked = ask(&mut self.steps[i], frame, ctx);
         // The shader makes no cut-out, so the CPU half gives it now and it comes back with the picture
         if asked.is_ok() {
             if let Kind::Either(_, cpu) = &mut self.steps[i].kind {
@@ -938,6 +948,45 @@ impl Pipeline {
                 some
             }
             Err(()) => Some(Vec::new()),
+        }
+    }
+
+    /// The picture as it is now, shrunk on the card to the size the vision models take and read back, so the whole one needn't come down. None (and the caller brings it down as before) when the card doesn't hold it and can't take it in where it is, or the card fails.
+    fn small_for_vision(&mut self, frame: &Frame, chain: &mut Chain, ctx: &dyn FrameContext) -> Option<Frame> {
+        if !vision_on_card() || self.card_lost {
+            return None;
+        }
+        let gpu = self.gpu().filter(|gpu| !gpu.is_lost() && !gpu.is_software())?;
+        let size = vision_size(frame.width, frame.height)?;
+        if chain.held.is_none() {
+            // Only a decoder's picture the card takes in where it is: one in memory has its pixels at hand already
+            if !Gpu::importable(frame) {
+                return None;
+            }
+            let block_chroma = self.steps.iter().any(|e| matches!(&e.kind, Kind::Either(_, cpu) if cpu.card_block_chroma()));
+            match gpu.lift_with(frame, block_chroma) {
+                Ok(held) if held.was_imported() => chain.held = Some(held),
+                Ok(held) => {
+                    gpu.put_down(held);
+                    return None;
+                }
+                Err(_) => return None,
+            }
+        }
+        let began = monotonic_ns();
+        let small = gpu.land_small(chain.held.as_mut()?, size, &|| ctx.stopped());
+        span("vision_small", began);
+        match small {
+            Ok(mut small) => {
+                small.geometry = frame.geometry.clone();
+                small.mask_space = frame.mask_space;
+                small.number = frame.number;
+                Some(small)
+            }
+            Err(why) => {
+                log::warn!("The graphics card couldn't make the small picture for vision ({why}); it comes down whole");
+                None
+            }
         }
     }
 
@@ -1042,6 +1091,66 @@ impl Drop for Trial {
 
 /// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
 /// The width a person mask goes up to the card at.
+/// Whether a step that only needs the person mask has the card make the small picture the models take (TELESCOPE_VISION_ON_CARD=0 turns it off).
+fn vision_on_card() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("TELESCOPE_VISION_ON_CARD").is_none_or(|v| v != "0"))
+}
+
+/// The pixels the biggest vision model takes (the high quality cutout's 640 x 360): the small picture has as many in the frame's own shape, with even sides. None for a frame no bigger than twice that, which comes down whole as before.
+const VISION_PIXELS: u64 = 640 * 360;
+
+fn vision_size(w: u32, h: u32) -> Option<(u32, u32)> {
+    if (w as u64) * (h as u64) <= 2 * VISION_PIXELS {
+        return None;
+    }
+    let scale = (VISION_PIXELS as f64 / (w as f64 * h as f64)).sqrt();
+    let even = |n: u32| ((n as f64 * scale / 2.0).round() as u32).max(1) * 2;
+    Some((even(w), even(h)))
+}
+
+/// The frame step's context with the person mask asked for on the small picture the card made, which has the frame's number, crop and view.
+struct SmallVision<'a> {
+    inner: &'a dyn FrameContext,
+    small: &'a Frame,
+}
+
+impl FrameContext for SmallVision<'_> {
+    fn source_id(&self) -> &str {
+        self.inner.source_id()
+    }
+    fn entry_epoch(&self) -> Option<u64> {
+        self.inner.entry_epoch()
+    }
+    fn stopped(&self) -> bool {
+        self.inner.stopped()
+    }
+    fn hurried(&self) -> bool {
+        self.inner.hurried()
+    }
+    fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_at(self.small, frame.width as usize, frame.height as usize)
+    }
+    fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_at(self.small, w, h)
+    }
+    fn person_mask_hq(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_hq_at(self.small, frame.width as usize, frame.height as usize)
+    }
+    fn person_mask_hq_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_hq_at(self.small, w, h)
+    }
+    fn background_mask_at(&self, _frame: &Frame, w: usize, h: usize, high_quality: bool) -> Option<Arc<Vec<u8>>> {
+        self.inner.background_mask_at(self.small, w, h, high_quality)
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        self.inner.colour_preview(frame)
+    }
+    fn effort(&self) -> u8 {
+        self.inner.effort()
+    }
+}
+
 const MASK_UP_WIDTH: u32 = 640;
 
 /// The size a shader's person mask is asked at for a frame of w x h: the frame's own when it is no wider than MASK_UP_WIDTH, else that wide in the frame's shape.
