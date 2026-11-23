@@ -1211,8 +1211,8 @@ impl Gpu {
         Ok(waited)
     }
 
-    /// As if this were the processor drawing in software, for tests.
-    #[cfg(test)]
+    /// As if this were the processor drawing in software, for tests (only the Linux VA-API ones use it).
+    #[cfg(all(test, target_os = "linux"))]
     pub(crate) fn pretend_software(mut self) -> Self {
         self.wait_limit = SOFTWARE_READBACK_WAIT;
         self
