@@ -13,6 +13,9 @@ use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 /// PCI vendor number of NVIDIA's cards.
 const NVIDIA: u32 = 0x10de;
 
+/// How long to wait for the fence, well under the H.264 stall detector's 500 ms.
+const FENCE_WAIT_MS: u32 = 100;
+
 /// The card's own pieces for copying pictures of one decoder: a staging texture, a fence and the event its waits end on.
 #[derive(Default)]
 pub(crate) struct Copier {
@@ -22,6 +25,9 @@ pub(crate) struct Copier {
     event: Option<HANDLE>,
     value: u64,
     failed: bool,
+    removed: bool,
+    #[cfg_attr(not(test), allow(dead_code))]
+    no_fence: bool,
 }
 
 // SAFETY: the D3D11 objects are free-threaded and used under FFmpeg's device lock; the event handle is only waited on by the decoder's thread.
@@ -65,6 +71,17 @@ impl Copier {
         self.failed = true;
     }
 
+    /// True when the last failure came with the card's device removed; FFmpeg's own copy must not run on it.
+    pub(crate) fn device_removed(&self) -> bool {
+        self.removed
+    }
+
+    /// Tests: the driver has no fences at all.
+    #[cfg(test)]
+    pub(crate) fn fence_unavailable(&self) -> bool {
+        self.no_fence
+    }
+
     /// False once it failed for this decoder.
     pub(crate) fn usable(&self) -> bool {
         !self.failed
@@ -75,6 +92,13 @@ impl Copier {
         // SAFETY: the caller owns both live frames for this call.
         let result = unsafe { self.try_copy(frame, out) };
         self.failed |= !matches!(result, Ok(true));
+        if result.is_err() {
+            // SAFETY: as above; the device outlives the frame.
+            self.removed = unsafe { frame_parts(frame) }
+                .ok()
+                .and_then(|(d3d, _, _)| unsafe { ID3D11Device::from_raw_borrowed(&d3d.device) }.map(|d| unsafe { d.GetDeviceRemovedReason() }.is_err()))
+                .unwrap_or(false);
+        }
         result
     }
 
@@ -97,8 +121,10 @@ impl Copier {
             }
             if self.fence.is_none() {
                 let mut fence: Option<ID3D11Fence> = None;
-                device.cast::<ID3D11Device5>().map_err(|e| e.to_string())?.CreateFence(0, D3D11_FENCE_FLAG_NONE, &mut fence).map_err(|e| e.to_string())?;
-                let context4 = context.cast::<ID3D11DeviceContext4>().map_err(|e| e.to_string())?;
+                let made = device.cast::<ID3D11Device5>().and_then(|d| d.CreateFence(0, D3D11_FENCE_FLAG_NONE, &mut fence));
+                let context4 = made.and_then(|_| context.cast::<ID3D11DeviceContext4>());
+                self.no_fence = context4.is_err();
+                let context4 = context4.map_err(|e| e.to_string())?;
                 self.fence = Some((fence.ok_or("no fence")?, context4));
             }
             if self.event.is_none() {
@@ -129,8 +155,10 @@ impl Copier {
                 context.Flush();
             }
             fence.SetEventOnCompletion(self.value, event).map_err(|e| e.to_string())?;
-            if WaitForSingleObject(event, 2000) != WAIT_OBJECT_0 {
-                return Err("the card took over 2 s to finish a picture".into());
+            // A missed signal must not stall the picture: Map below waits for the card anyway, and the fence is dropped after one miss
+            if WaitForSingleObject(event, FENCE_WAIT_MS) != WAIT_OBJECT_0 {
+                log::warn!("The card didn't signal the copy fence in {FENCE_WAIT_MS} ms; waiting in Map and using FFmpeg's copy from now on");
+                self.failed = true;
             }
             let _locked = Locked::new(d3d);
             let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
@@ -184,7 +212,11 @@ mod tests {
             let Ok(mut plain) = Codec::h264(Some(Hw::D3d11va)) else { return eprintln!("no D3D11VA device; skipped") };
             plain.fenced_copy_off();
             let (a, b) = (decoded(&mut fenced, &packets), decoded(&mut plain, &packets));
-            assert!(fenced.fenced_copy_works(), "{w}x{h}: the fenced copy failed and FFmpeg's took over");
+            if fenced.fence_unavailable() {
+                eprintln!("{w}x{h}: the driver has no fences; only the bytes are compared");
+            } else {
+                assert!(fenced.fenced_copy_works(), "{w}x{h}: the fenced copy failed and FFmpeg's took over");
+            }
             assert_eq!(a.len(), b.len(), "{w}x{h}: picture count");
             assert!(!a.is_empty());
             for (n, (x, y)) in a.iter().zip(&b).enumerate() {

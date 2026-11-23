@@ -210,6 +210,12 @@ impl Codec {
         self.copier.disable();
     }
 
+    /// Tests: the driver has no fences.
+    #[cfg(all(test, windows, ffmpeg))]
+    pub(crate) fn fence_unavailable(&self) -> bool {
+        self.copier.fence_unavailable()
+    }
+
     /// Tests: whether the fenced copy is still in use.
     #[cfg(all(test, windows, ffmpeg))]
     pub(crate) fn fenced_copy_works(&self) -> bool {
@@ -534,6 +540,10 @@ impl Codec {
                         return Ok(());
                     }
                     Ok(false) => {}
+                    Err(why) if self.copier.device_removed() => {
+                        // FFmpeg's copy would make its staging texture on the removed device and could return with the device lock held
+                        return Err(Fault::Broken(format!("the card's device was removed during a copy ({why})")));
+                    }
                     Err(why) => {
                         log::warn!("Copying a decoded picture with a fence failed ({why}); FFmpeg's copy takes over for this decoder");
                         ff::av_frame_unref(self.sw_frame);
