@@ -119,11 +119,12 @@ struct Watch {
     /// When the last trial came back.
     trial_back: Option<u64>,
     clear_for: u64,
-    /// When frames last moved, or when frames came again after a pause while on the card: how long a stay has lasted counts from there.
-    moved_at: u64,
+    /// How long frames have been on the card since they last came back, counting only while they came (a pause or a lost link isn't a stay), and when the last came.
+    stayed: u64,
+    frame_at: Option<u64>,
     next_trial: u64,
-    /// The trial out, and how many were sent: only the one out may say what it saw.
-    trial: Option<u64>,
+    /// The trial out, and whether it may say what it saw (not one sent before a setting held frames on the card); how many were sent.
+    trial: Option<(u64, bool)>,
     trials: u64,
 }
 
@@ -131,7 +132,7 @@ impl Watch {
     fn new(interval: u64) -> Watch {
         let mut w = Watch {
             place: Place::Card, interval, recent: [Seen::default(); LOOKED_AT], next: 0, cpu: [0; LOOKED_AT], cpu_seen: 0, cpu_at: 0, cpu_kept: CPU_KEPT,
-            late_when_left: 0, clear_since: None, no_worse_since: None, trial_back: None, clear_for: CLEAR_FOR, moved_at: 0, next_trial: 0, trial: None, trials: 0,
+            late_when_left: 0, clear_since: None, no_worse_since: None, trial_back: None, clear_for: CLEAR_FOR, stayed: STAYED, frame_at: None, next_trial: 0, trial: None, trials: 0,
         };
         w.late_when_left = w.late();
         w
@@ -176,6 +177,10 @@ impl Watch {
         if self.place != Place::Card {
             return None;
         }
+        if let Some(at) = self.frame_at.filter(|at| now.saturating_sub(*at) <= self.gap()) {
+            self.stayed += now - at;
+        }
+        self.frame_at = Some(now);
         let late = wait > self.late();
         self.recent[self.next] = Seen { wait, late };
         self.next = (self.next + 1) % LOOKED_AT;
@@ -189,7 +194,7 @@ impl Watch {
             return None;
         }
         // Coming back didn't last, so the next time has to wait longer, and a long stay starts over
-        self.clear_for = if now.saturating_sub(self.moved_at) < STAYED { (self.clear_for * 2).min(CLEAR_FOR_MOST) } else { CLEAR_FOR };
+        self.clear_for = if self.stayed < STAYED { (self.clear_for * 2).min(CLEAR_FOR_MOST) } else { CLEAR_FOR };
         if known.is_some() {
             self.cpu_kept = CPU_KEPT;
         }
@@ -241,11 +246,9 @@ impl Watch {
     }
 
     /// Frames come again after a pause: what was seen before it says nothing of the time it lasted.
-    fn resumed(&mut self, now: u64) {
+    fn resumed(&mut self) {
         self.start_over();
-        if self.place == Place::Card {
-            self.moved_at = now;
-        }
+        self.frame_at = None;
     }
 
     /// Back on the card and nothing kept from before, for a setting that holds frames there.
@@ -254,12 +257,15 @@ impl Watch {
         self.recent = [Seen::default(); LOOKED_AT];
         self.start_over();
         self.cpu_seen = 0;
-        self.trial = None;
+        // One still out stays out, so the next isn't sent while it runs, but what it saw was before the setting
+        if let Some((_, counts)) = &mut self.trial {
+            *counts = false;
+        }
     }
 
     fn moved(&mut self, place: Place, now: u64, why: Why, wait_ns: u64, cpu: Option<u64>) -> Option<Move> {
         self.place = place;
-        self.moved_at = now;
+        (self.stayed, self.frame_at) = (0, None);
         let cpu = cpu.map_or(String::from("not measured yet"), |ns| format!("{:.1} ms", ns as f64 / 1e6));
         log::info!("A stream's frame steps moved to the {} ({why:?}) after a {:.1} ms wait (late past {:.1} ms; the CPU's cost: {cpu})",
                    if place == Place::Card { "graphics card" } else { "CPU" }, wait_ns as f64 / 1e6, self.late() as f64 / 1e6);
@@ -272,27 +278,31 @@ impl Watch {
             return (None, None);
         }
         self.next_trial = now + TRIAL_EVERY;
-        if self.trial.is_some() {
+        match self.trial {
             // Still out when the next was due, so the card isn't clear; a stuck card gets no second one
-            return (None, self.note_trial(TRIAL_FAILED, now));
+            Some((_, true)) => return (None, self.note_trial(TRIAL_FAILED, now)),
+            Some((_, false)) => return (None, None),
+            None => {}
         }
         self.trials += 1;
-        self.trial = Some(self.trials);
-        (self.trial, None)
+        self.trial = Some((self.trials, true));
+        (Some(self.trials), None)
     }
 
     /// A trial came back, in one go so nothing comes between it being in and what it saw. One that isn't the trial out (sent before a
     /// setting held frames on the card) has nothing to say.
     fn trial_done(&mut self, ticket: u64, wait: Option<u64>, now: u64) -> Option<Move> {
-        if self.trial != Some(ticket) {
-            return None;
+        match self.trial {
+            Some((out, counts)) if out == ticket => {
+                self.trial = None;
+                counts.then(|| self.note_trial(wait.unwrap_or(TRIAL_FAILED), now)).flatten()
+            }
+            _ => None,
         }
-        self.trial = None;
-        self.note_trial(wait.unwrap_or(TRIAL_FAILED), now)
     }
 
     fn trial_called_off(&mut self, ticket: u64) {
-        if self.trial == Some(ticket) {
+        if self.trial.is_some_and(|(out, _)| out == ticket) {
             self.trial = None;
         }
     }
@@ -464,7 +474,7 @@ impl Balance {
 
     /// That trial came back: what it waited, or None when it failed.
     pub fn trial_done(&self, wait_ns: Option<u64>) {
-        let ticket = self.lanes.lock().unwrap().watch(NO_STREAM).trial;
+        let ticket = self.lanes.lock().unwrap().watch(NO_STREAM).trial.map(|(ticket, _)| ticket);
         if let Some(ticket) = ticket {
             self.trial_done_for(NO_STREAM, ticket, wait_ns);
         }
@@ -547,7 +557,7 @@ impl Lane {
 
     /// Frames come again after a pause.
     pub fn resumed(&self) {
-        self.with(|w| w.resumed(monotonic_ns()));
+        self.with(Watch::resumed);
     }
 
     /// The ticket of a trial this stream should run now, which has to end with trial_done or trial_called_off. Only one is out at a time.
@@ -778,8 +788,12 @@ mod tests {
         b.keep_on_card(false);
         (0..4).for_each(|_| lane.note_wait(40 * MS));
         assert_eq!(lane.place(), Place::Cpu);
+        lane.with(|w| w.next_trial = 0);
+        assert_eq!(lane.trial_due(), None, "the old one is still out, so a new one doesn't wait on it");
         lane.trial_done(ticket, Some(2 * MS));
-        assert_eq!(lane.with(|w| w.clear_since), None);
+        assert_eq!(lane.with(|w| w.clear_since), None, "and what it saw was before the setting");
+        lane.with(|w| w.next_trial = 0);
+        assert!(lane.trial_due().is_some());
     }
 
     #[test]
@@ -988,7 +1002,7 @@ mod tests {
         s.trial(35 * MS, t + 2 * TRIAL_EVERY);
         // Frames stop for less than the gap a missing trial is noticed after, and the stream says when they come again
         let resumed = t + 2 * TRIAL_EVERY + 1_200 * MS;
-        s.w.resumed(resumed);
+        s.w.resumed();
         s.trial(35 * MS, resumed);
         assert_eq!(s.place(), Place::Cpu, "the time paused says nothing of the card");
         let mut t = resumed;
@@ -1015,10 +1029,10 @@ mod tests {
             t += TRIAL_EVERY;
         }
         let back = s.w.clear_for;
+        // Frames stop for a minute (a lost link) without anyone saying so
         t = s.frames(t, 10, 3 * MS) + 60_000 * MS;
-        s.w.resumed(t);
         s.frames(t, 4, 40 * MS);
-        assert_eq!(s.w.clear_for, (back * 2).min(CLEAR_FOR_MOST), "a minute paused isn't a minute on the card");
+        assert_eq!(s.w.clear_for, (back * 2).min(CLEAR_FOR_MOST), "a minute without frames isn't a minute on the card");
     }
 
     #[test]

@@ -131,6 +131,13 @@ impl Entry {
         }
     }
 
+    /// Whether this step, run on the card, still has the picture brought into memory first for the pictures its shader samples
+    /// (card_textures), so a decoder's copy off the card is paid whichever way it runs.
+    fn textures_from_memory(&self) -> bool {
+        let Kind::Either(_, cpu) = &self.kind else { return false };
+        !self.no_textures && (self.has_textures || catch_unwind(AssertUnwindSafe(|| cpu.card_textures_offered())).ok().flatten() == Some(true))
+    }
+
     /// Whether this step puts a picture of its own over the whole frame, so what runs before it on this frame is thrown away.
     fn covers(&self) -> bool {
         !self.skipped() && match &self.kind {
@@ -177,8 +184,12 @@ struct Chain {
     downs: u32,
     /// The person mask this frame asked for and the size it was asked at: a second shader using it needn't bring the picture down.
     mask: Option<(u32, u32, Option<(u32, u32, Arc<Vec<u8>>)>)>,
-    /// What it has waited for the card so far.
+    /// What it has waited for the card so far, on the landings of work that could move off it, and how many of those there were.
     waited_ns: u64,
+    waits: u32,
+    /// Work that could move off the card (a step with two ways, a plain stream's conversion) is on held, not landed yet: only a wait
+    /// for that says where those steps should run, not one a step that only runs on the card makes on its own.
+    movable: bool,
     /// How long the readbacks took, which isn't the cost of the step that happened to trigger one.
     down_ns: u64,
     /// The frame in hand was replaced by a dark one to hide the picture, so a step that could bring the picture back from its own history is left out.
@@ -357,7 +368,7 @@ impl Pipeline {
         // What the CPU does this frame that the card would have done, for the balance: the decoder's copy off the card (noted on the frame
         // when the card's way would have spared it) and making a surface's picture ready in memory, when the first step would have taken
         // the picture on the card
-        let card_takes_it = self.steps.iter().find(|e| !e.skipped()).is_none_or(|e| matches!(e.kind, Kind::Either(..)));
+        let card_takes_it = self.steps.iter().find(|e| !e.skipped()).is_none_or(|e| matches!(e.kind, Kind::Either(..)) && !e.textures_from_memory());
         let mut cpu_ns = frame.copied_off_card().filter(|_| card_takes_it).unwrap_or(0);
         // A picture of another size costs the CPU something else
         if (frame.width, frame.height) != self.size {
@@ -385,9 +396,10 @@ impl Pipeline {
         let mut chain = Chain::default();
         // Asked once, so a frame doesn't change its mind halfway
         let on_card = self.balance.place() == Place::Card;
+        if let Some(stats) = &self.stats {
+            stats.set_steps_on_card(on_card);
+        }
         let mut off_card = false;
-        // Whether work that could move off the card ran there: only then does what the frame waited for the card say where it should run
-        let mut movable = false;
         // Asked once a frame: a step is only timed while the stats panel wants every plugin's time
         let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
         // A step that covers the whole picture makes what pixel-only steps before it did on this frame pointless; the cover itself always runs
@@ -429,7 +441,7 @@ impl Pipeline {
                 cpu_ns += monotonic_ns().saturating_sub(began).saturating_sub(chain.down_ns - down_before);
                 off_card = true;
             } else if either || matches!(self.steps[i].kind, Kind::Shader(_)) {
-                movable |= either;
+                chain.movable |= either;
                 self.run_shader(i, &mut frame, &mut chain, ctx, time);
             } else {
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
@@ -465,7 +477,7 @@ impl Pipeline {
         // No step took the decoder's picture: it is converted on the card into the camera's format, and only that comes down
         if chain.held.is_none() && !chain.withheld && !ctx.stopped() && Gpu::importable(&frame) && self.plain_on_card() {
             self.lift_plain(&frame, &mut chain);
-            movable |= chain.plain;
+            chain.movable |= chain.plain;
         }
         let mut picture = None;
         if matches!(finish, Finish::Card) && chain.pending() && !ctx.stopped() {
@@ -473,7 +485,7 @@ impl Pipeline {
             match gpu.submit_held(chain.held.as_mut().unwrap(), &mut self.pacing, &|| ctx.stopped()) {
                 Ok(()) => {
                     let waited = chain.held.as_mut().unwrap().take_waited();
-                    if movable {
+                    if chain.movable {
                         self.balance.note_wait(waited);
                     }
                     let hides = chain.ahead.iter().any(|&i| self.steps[i].hides());
@@ -482,7 +494,7 @@ impl Pipeline {
                         self.steps[i].fails = 0;
                     }
                     chain.plain = false;
-                    picture = Some(Arc::new(gpu::CardFrame::new(gpu, chain.held.take().unwrap(), frame.clone(), fallback, self.deferred_failed.clone(), movable.then(|| self.balance.clone()))) as Arc<dyn telescope_core::media::CardPicture>);
+                    picture = Some(Arc::new(gpu::CardFrame::new(gpu, chain.held.take().unwrap(), frame.clone(), fallback, self.deferred_failed.clone(), chain.movable.then(|| self.balance.clone()))) as Arc<dyn telescope_core::media::CardPicture>);
                 }
                 Err(why) => self.card_failed(&why, &mut chain, &mut frame, ctx, &gpu),
             }
@@ -493,7 +505,7 @@ impl Pipeline {
         frame.number = number;
         frame.capture_ns = capture_ns;
         self.last_readback_ns = chain.down_ns;
-        if chain.downs > 0 && movable {
+        if chain.waits > 0 {
             self.balance.note_wait(chain.waited_ns);
         }
         // A plain stream that would convert on the card but was moved off it tries the card again like a step with both ways
@@ -557,7 +569,11 @@ impl Pipeline {
                     if let Some(alpha) = alpha {
                         frame.set_alpha(alpha);
                     }
-                    chain.waited_ns += held.take_waited();
+                    let waited = held.take_waited();
+                    if std::mem::take(&mut chain.movable) {
+                        chain.waited_ns += waited;
+                        chain.waits += 1;
+                    }
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
                     }
@@ -2647,6 +2663,20 @@ pub(crate) mod tests {
             p.process(grey(8, 8, 100).with_copied_off_card(40_000_000), &NoContext);
         }
         assert!(p.balance.cpu_cost().unwrap() >= 40_000_000, "{:?}", p.balance.cpu_cost());
+        // A step whose shader samples pictures made in memory has the decoder's picture brought there on the card too
+        struct Masked;
+        impl CpuStep for Masked {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+            fn card_textures_offered(&self) -> Option<bool> {
+                Some(true)
+            }
+        }
+        let step = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "masked".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(Masked)) }]);
+        for _ in 0..8 {
+            p.process(grey(8, 8, 100).with_copied_off_card(40_000_000), &NoContext);
+        }
+        assert!(p.balance.cpu_cost().unwrap() < 40_000_000, "paid either way: {:?}", p.balance.cpu_cost());
     }
 
     #[test]

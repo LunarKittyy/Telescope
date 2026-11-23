@@ -388,3 +388,15 @@ fn the_rate_is_there_without_the_lock() {
     stats.set_target_fps(60);
     assert_eq!(stats.target_fps(), 60);
 }
+
+#[test]
+fn each_stream_says_where_its_own_steps_run() {
+    let hub = Hub::new();
+    let (a, b) = (hub.register("a", 0), hub.register("b", 1));
+    a.set_steps_on_card(false);
+    b.set_steps_on_card(true);
+    let snap = hub.snapshot_at(crate::time::monotonic_ns() + SECOND, None, None);
+    let on = |id: &str| snap.sources.iter().find(|s| s.source_id == id).unwrap().steps_on_card;
+    assert_eq!((on("a"), on("b")), (Some(false), Some(true)));
+    assert_eq!(hub.register("c", 2).steps_on.load(Ordering::Relaxed), STEPS_UNKNOWN, "nothing said yet");
+}
