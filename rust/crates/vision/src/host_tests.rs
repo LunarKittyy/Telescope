@@ -519,10 +519,11 @@ fn a_matting_library_swapped_after_the_download_was_checked_is_not_loaded() {
     std::fs::write(folder.join("lib/libonnxruntime.so"), b"swapped").unwrap();
     assert!(info.installed(&dir), "the marker still says it's fine");
     match find_matting(&dir, &info) {
-        Err(LoadError::Failed(e)) => assert!(e.message.contains("changed since"), "{}", e.message),
+        Err(LoadError::Missing(why)) => assert!(why.contains("damaged"), "{why}"),
         Err(_) => panic!("the swap went unnoticed: the library was handed to the loader"),
         Ok(_) => panic!("loaded"),
     }
+    assert!(!info.installed(&dir), "a download that no longer matches is offered again");
 }
 
 #[test]
@@ -587,9 +588,69 @@ fn a_pack_file_swapped_after_the_marker_was_written_is_not_loaded() {
     let found = find_pack(&dir, &info, &load);
     assert_eq!(loads.load(Ordering::SeqCst), 1, "the swapped library was handed to the loader");
     match found {
-        Err(LoadError::Failed(e)) => assert!(e.message.contains("changed since"), "{}", e.message),
+        Err(LoadError::Missing(why)) => assert!(why.contains("damaged"), "{why}"),
         _ => panic!("expected a refusal"),
     }
+    assert!(!info.installed(&dir), "a pack that no longer matches is offered again");
+}
+
+const PACK_FILES: [(&str, &[u8]); 2] = [("site/lib.so", b"library"), ("models/a.task", b"model")];
+
+/// A pack unpacked the way a download leaves it, with its marker, and the zip it came from.
+fn installed_pack(name: &str) -> (PathBuf, PackInfo, PathBuf) {
+    let tmp = scratch_dir(name);
+    let zip = tmp.join("pack.zip");
+    std::fs::write(&zip, crate::pack::tests::zipped(&PACK_FILES)).unwrap();
+    let expected = tmp.join("expected");
+    for (file, data) in PACK_FILES {
+        std::fs::create_dir_all(expected.join(file).parent().unwrap()).unwrap();
+        std::fs::write(expected.join(file), data).unwrap();
+    }
+    let tree = pack::tree_hash(&expected).unwrap();
+    let size = std::fs::metadata(&zip).unwrap().len();
+    let info = PackInfo::from_json(&serde_json::json!({"linux": {"id": tree, "size": size}}), Some("linux"));
+    let dir = tmp.join("vision");
+    pack::install_zip(&info, &dir, &zip).unwrap();
+    assert!(info.installed(&dir));
+    (dir, info, zip)
+}
+
+#[test]
+fn a_pack_whose_file_security_software_removed_is_offered_again_and_installs_over_the_damaged_one() {
+    let (dir, info, zip) = installed_pack("vision-removed");
+    std::fs::remove_file(info.folder(&dir).join("site/lib.so")).unwrap();
+    assert!(info.installed(&dir), "the marker still says it's fine");
+    let loads = std::sync::atomic::AtomicUsize::new(0);
+    let load = |_: &Path| -> Result<Arc<dyn Backend>, LoadError> {
+        loads.fetch_add(1, Ordering::SeqCst);
+        Err(LoadError::Missing("stop".into()))
+    };
+    assert!(matches!(find_pack(&dir, &info, &load), Err(LoadError::Missing(why)) if why.contains("damaged")));
+    assert_eq!(loads.load(Ordering::SeqCst), 0, "nothing was handed to the loader");
+    assert!(!info.installed(&dir));
+    pack::install_zip(&info, &dir, &zip).unwrap();
+    assert!(info.installed(&dir));
+    assert!(matches!(find_pack(&dir, &info, &load), Err(LoadError::Missing(why)) if why == "stop"));
+    assert_eq!(loads.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn the_card_of_a_pack_with_a_missing_file_offers_the_download_and_not_a_failure() {
+    let (dir, info, zip) = installed_pack("vision-card");
+    std::fs::remove_file(info.folder(&dir).join("models/a.task")).unwrap();
+    let (find_dir, find_info) = (dir.clone(), info.clone());
+    let find: crate::service::Find = Box::new(move || find_pack(&find_dir, &find_info, &|_| Ok(Fake::new() as Arc<dyn Backend>)));
+    let (there_dir, there_info) = (dir.clone(), info.clone());
+    let served = std::fs::read(&zip).unwrap();
+    let h = VisionHost::with(find, Some(Box::new(move || there_info.installed(&there_dir))), dir, info, Box::new(move |_, _| Ok(Box::new(Cursor::new(served.clone())) as Box<dyn Read>)));
+    assert!(h.pack().ready, "before anything looks at it");
+    h.load();
+    wait(|| h.state() == MISSING);
+    assert!(!h.pack().ready);
+    // Downloading it again puts the pack back and vision loads it on the next ask
+    h.download("");
+    wait(|| h.pack().ready && !h.pack().downloading);
+    wait(|| h.state() == OFF || h.state() == READY);
 }
 
 fn pack_zip_for(h: &VisionHost, name: &str) -> PathBuf {
