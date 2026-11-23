@@ -351,8 +351,11 @@ unsafe fn rgb4_pair_sse41<const BGRA: bool>(top_px: &[u8], bot_px: &[u8], top_y:
 #[allow(clippy::too_many_arguments)]
 fn rgb_band_to_i420(pixels: &[u8], (w, h): (usize, usize), channels: usize, [ro, go, bo]: [usize; 3], mirror: bool, first: usize, luma: &mut [u8], us: &mut [u8], vs: &mut [u8]) {
     let (t, cw) = (terms(), w.div_ceil(2));
+    // Decided once, so scalar mode switching on mid-call can't land on the SSE4.1 loop
     #[cfg(target_arch = "x86_64")]
-    let simd_blocks = if channels == 4 && !mirror && ([ro, go, bo] == [0, 1, 2] || [ro, go, bo] == [2, 1, 0]) && (telescope_core::image::avx2_wanted() || telescope_core::image::sse41_wanted()) { w / 16 } else { 0 };
+    let wide = telescope_core::image::avx2_wanted();
+    #[cfg(target_arch = "x86_64")]
+    let simd_blocks = if channels == 4 && !mirror && ([ro, go, bo] == [0, 1, 2] || [ro, go, bo] == [2, 1, 0]) && (wide || telescope_core::image::sse41_wanted()) { w / 16 } else { 0 };
     #[cfg(not(target_arch = "x86_64"))]
     let simd_blocks = 0usize;
     // Each pixel's U and V, and its luma written, from the pixel at output column x of row y (luma starting at row `first` * 2)
@@ -378,7 +381,7 @@ fn rgb_band_to_i420(pixels: &[u8], (w, h): (usize, usize), channels: usize, [ro,
                     let bot_px = &pixels[(2 * cy + 1) * w * 4..][..w * 4];
                     // SAFETY: the processor was asked for AVX2 or SSE4.1 and simd_blocks * 16 <= w keeps every load and store in bounds.
                     unsafe {
-                        if telescope_core::image::avx2_wanted() {
+                        if wide {
                             if ro == 2 {
                                 rgb4_pair_avx2::<true>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
                             } else {
@@ -766,6 +769,7 @@ mod tests {
         assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[..64], &u[..32], &v[..32], false, &mut [0u8; 64 * 4 - 4]), 32);
     }
 
+    #[cfg(target_arch = "x86_64")]
     #[test]
     fn the_sse41_rows_make_the_bytes_the_avx2_rows_do() {
         if !std::arch::is_x86_feature_detected!("avx2") {

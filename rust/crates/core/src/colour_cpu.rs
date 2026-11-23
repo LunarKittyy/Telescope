@@ -514,6 +514,7 @@ mod tests {
         }
     }
 
+    #[cfg(target_arch = "x86_64")]
     #[test]
     fn the_sse41_way_through_the_cube_gives_the_avx2_bytes() {
         if !std::arch::is_x86_feature_detected!("avx2") {
