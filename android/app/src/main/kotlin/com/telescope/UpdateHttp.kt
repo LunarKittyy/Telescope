@@ -36,14 +36,14 @@ internal class UpdateHttp(private val userAgent: String, private val timeoutMs: 
                 var done = 0L
                 var lastPct = -1
                 conn.inputStream.use { input ->
-                    partial.outputStream().use { out ->
+                    saving { partial.outputStream() }.use { out ->
                         val buf = ByteArray(64 * 1024)
                         while (true) {
                             val n = input.read(buf)
                             if (n < 0) break
                             done += n
                             if (done > asset.size) return strings.get(R.string.update_error_too_big)
-                            out.write(buf, 0, n)
+                            saving { out.write(buf, 0, n) }
                             val pct = (done * 100 / asset.size).toInt()
                             if (pct != lastPct) { lastPct = pct; progress(pct) }
                         }
@@ -59,6 +59,8 @@ internal class UpdateHttp(private val userAgent: String, private val timeoutMs: 
             }
             if (!partial.renameTo(dest)) return strings.get(R.string.update_error_save)
             null
+        } catch (e: SaveFailed) {  // a full or unwritable cache is not a bad connection
+            strings.get(R.string.update_error_save)
         } catch (e: Exception) {  // not only IOException: this runs on a bare thread, where anything else would crash the app
             strings.get(R.string.update_error_offline)
         } finally {
@@ -78,6 +80,11 @@ internal class UpdateHttp(private val userAgent: String, private val timeoutMs: 
         progress(latest, 0)
         return latest to download(replacement, dest, strings) { progress(latest, it) }
     }
+
+    private class SaveFailed(cause: Throwable) : Exception(cause)
+
+    // Tells a failure on this phone's own storage apart from one on the network, which share IOException
+    private fun <T> saving(block: () -> T): T = try { block() } catch (e: IOException) { throw SaveFailed(e) }
 
     private fun open(url: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
