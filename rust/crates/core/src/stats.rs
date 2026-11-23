@@ -278,6 +278,10 @@ struct Meta {
     transport: Option<Transport>,
 }
 
+const STEPS_UNKNOWN: u8 = 0;
+const STEPS_ON_CARD: u8 = 1;
+const STEPS_ON_CPU: u8 = 2;
+
 /// One stream's live numbers, written by its threads and read by the hub. Everything is a relaxed atomic.
 pub struct SourceStats {
     started_ns: u64,
@@ -288,6 +292,10 @@ pub struct SourceStats {
     repeated: AtomicU64,
     drops: [AtomicU64; 7],
     stages: [StageAcc; STAGES.len()],
+    /// Meta's target_fps, for the frame path to read without the lock.
+    fps: AtomicU32,
+    /// Where this stream's frame steps that can run either way ran last: STEPS_UNKNOWN, STEPS_ON_CARD or STEPS_ON_CPU.
+    steps_on: AtomicU8,
     steps: Timers,
     meta: Mutex<Meta>,
 }
@@ -303,6 +311,8 @@ impl SourceStats {
             repeated: AtomicU64::new(0),
             drops: [const { AtomicU64::new(0) }; 7],
             stages: std::array::from_fn(|_| StageAcc::default()),
+            fps: AtomicU32::new(0),
+            steps_on: AtomicU8::new(STEPS_UNKNOWN),
             steps: Timers::new(detailed),
             meta: Mutex::new(Meta { source_id: source_id.into(), slot, url: String::new(), plugin_source: false, target_fps: 0, transport: None }),
         }
@@ -364,6 +374,17 @@ impl SourceStats {
 
     pub fn set_target_fps(&self, fps: u32) {
         self.meta.lock().unwrap_or_else(|p| p.into_inner()).target_fps = fps;
+        self.fps.store(fps, Ordering::Relaxed);
+    }
+
+    /// The rate the stream is meant to keep, 0 before it is set.
+    /// Where this stream's frame steps that can run either way ran on its last frame.
+    pub fn set_steps_on_card(&self, on_card: bool) {
+        self.steps_on.store(if on_card { STEPS_ON_CARD } else { STEPS_ON_CPU }, Ordering::Relaxed);
+    }
+
+    pub fn target_fps(&self) -> u32 {
+        self.fps.load(Ordering::Relaxed)
     }
 
     fn totals(&self) -> Counts {
@@ -519,6 +540,9 @@ pub struct SourceSnapshot {
     /// Each plugin's frame step, while something asked for it.
     pub plugins: Vec<NamedTiming>,
     pub series: SourceSeries,
+    /// Whether this stream's frame steps that can run either way run on the card, None before it said.
+    #[serde(default)]
+    pub steps_on_card: Option<bool>,
 }
 
 /// A move of the balancer: frame steps that can run either way went to the card or the CPU.
@@ -787,7 +811,7 @@ impl Hub {
             wait_ms: m.wait_ns as f32 / 1e6,
         }).collect();
         BalanceSnapshot {
-            on_card: self.balance.place() == Place::Card,
+            on_card: self.balance.all_on_card(),
             pinned: self.balance.is_pinned(),
             moves: self.balance.swaps(),
             last_wait_ms: self.balance.last_wait() as f32 / 1e6,
@@ -888,6 +912,11 @@ fn sample(e: &mut Entry, now_ns: u64) -> SourceSnapshot {
         stages: stages.into_iter().filter(|s| s.timing.count > 0).collect(),
         plugins: e.stats.steps.take_all(),
         series: e.series.clone(),
+        steps_on_card: match e.stats.steps_on.load(Ordering::Relaxed) {
+            STEPS_ON_CARD => Some(true),
+            STEPS_ON_CPU => Some(false),
+            _ => None,
+        },
     }
 }
 

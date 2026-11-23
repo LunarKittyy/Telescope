@@ -8518,6 +8518,9 @@ msgstr "le téléphone ne répond pas via USB"
 msgid "the phone plugged in over USB is a different one"
 msgstr "le téléphone branché en USB est différent"
 
+msgid "the processor was late too and not much quicker than the card"
+msgstr ""
+
 msgid "the shutter speed"
 msgstr ""
 
