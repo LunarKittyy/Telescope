@@ -584,7 +584,11 @@ impl UpdatesPlugin {
             }
         };
         if self.backend.threaded() {
-            std::thread::spawn(move || work(&push));
+            std::thread::spawn(move || {
+                // Looking for or fetching an update can wait for a busy computer
+                telescope_core::priority::behind_the_frames();
+                work(&push)
+            });
         } else {
             let queue = self.done.clone();
             work(&move |d| queue.lock().unwrap_or_else(|e| e.into_inner()).push(d));
