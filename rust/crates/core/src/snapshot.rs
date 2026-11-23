@@ -96,6 +96,7 @@ mod tests {
             let name = folder.file_name().unwrap().to_string_lossy().into_owned();
             let expected: Value = json::loads(&std::fs::read_to_string(folder.join("expected.json")).unwrap()).unwrap();
             let ours = snapshot(&folder, &scratch_dir(&name), &[], &[]).unwrap();
+            let input = std::fs::read_to_string(folder.join("telescope_config.json")).ok().and_then(|t| json::loads(&t).ok()).unwrap_or(Value::Null);
             let (want, got) = (&expected["saved"], &ours["saved"]);
             assert_eq!(ours["set_aside"], expected["set_aside"], "{name}: set_aside");
             assert_eq!(sections(got), sections(want), "{name}: top-level keys");
@@ -104,6 +105,8 @@ mod tests {
                     "plugin_configs" | "devices" => {}
                     // Connection picks a phone when the saved choice was unusable
                     "selected_device" if got[key].is_null() && !value.is_null() => assert_eq!(name, "damaged-sections", "{name}: selected_device"),
+                    // The app also drops a camera slot of a phone that isn't paired (profiles::drop_unpaired_phones), which this snapshot doesn't do
+                    "output_slots" => assert!(value.as_object().unwrap().iter().all(|(k, v)| got[key].get(k) == Some(v)), "{name}: {key}"),
                     _ => assert_eq!(&got[key], value, "{name}: {key}"),
                 }
             }
@@ -127,7 +130,12 @@ mod tests {
             for device in sections(&want["devices"]) {
                 // Connection's picked phone gets its device-local plugins' settings
                 let picked = want["selected_device"].as_str() == Some(device.as_str());
-                assert!(got["devices"].get(&device).is_some() || picked, "{name}: devices.{device} missing");
+                // A paired phone that had no settings gets its entry from the spread, which this snapshot has no plugins for:
+                // it has to be a phone the file pairs, and hold nothing but copies of the file's own shared sections
+                let paired = input.pointer("/plugin_configs/connection/phones").and_then(Value::as_array).is_some_and(|p| p.iter().any(|p| p["id"].as_str() == Some(device.as_str())));
+                let copies = sections(&want["devices"][&device]["plugin_configs"]).iter().all(|k| input["plugin_configs"].get(k).is_some());
+                let spread_only = input["devices"].get(&device).is_none() && paired && copies;
+                assert!(got["devices"].get(&device).is_some() || picked || spread_only, "{name}: devices.{device} missing");
             }
         }
     }

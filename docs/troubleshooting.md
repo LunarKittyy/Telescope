@@ -98,7 +98,7 @@ Hover the status line of the Connection panel and its tooltip names the reason (
 Telescope isn't open on the phone, or the phone is on another network and not plugged in. Open Telescope on the phone and leave it on screen.
 
 **"Can't reach the phone" after reinstalling the phone app**
-A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. A banner asks whether it's the same phone and **Yes** moves the old settings and presets over to it.
+A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. A banner asks whether it's the same phone and **Yes** moves the old settings and presets over to it and takes the old entry out of the list. If you answer **No**, or remove the old entry yourself first, its settings go with it.
 
 **"Can't reach <phone>" banner while streaming**
 The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If the stream is still running the picture returns without you doing anything. Otherwise click **Start streaming**.
@@ -107,7 +107,7 @@ The phone app was closed or killed, or the phone left the network. Open Telescop
 Android's power saving closed Telescope. Tap **Allow** next to Battery in the phone app's Get set up card if it's still there (that turns battery optimisation off for Telescope). Some phones close apps anyway and on those it helps to leave Telescope on screen and tap **Black screen** next to Preview instead of turning the screen off.
 
 **"Needs pairing again"**
-The phone removed this computer. Click **Add phone** and pair again. Its settings on this computer are still there.
+The phone removed this computer. It remains in the list here with its settings. Click **Add phone** and pair again. Settings only go when you remove the phone from the list on the computer.
 
 **"Another app on the phone is using the camera"**
 Android gives the camera to the app on screen (the Camera app, a video call). Close or switch away from it and the stream picks back up.

@@ -106,6 +106,8 @@ The file is versioned (3 today) and has `selected_device`, `plugin_configs` (eac
 
 `fixtures/configs` has eight settings files (real ones with all personal details swapped out and made-up ones for Windows, old versions, damaged sections and broken files), each with an `expected.json` recorded from the last Python app. `telescope-rs config-snapshot <folder>` prints what this app makes of one, and `app/tests/config_fixtures.rs` and `core/src/snapshot.rs` check every fixture. That one check covers upgrading, pairings, presets, shortcuts and broken files.
 
+A phone's entry in `devices` (and its `output_slots`) lasts as long as the phone is in Connection's list. Removing the phone deletes it and a start drops the entries of phone ids that aren't listed (browser and webcam ids carry a prefix and are kept). A phone paired again under a new id gets a copy first, and the old entry goes after the save that lists the new phone. No file written in between holds settings under an id that isn't paired.
+
 A release build uses the real settings folder. A build from source uses `~/.config/telescope-rs` (`%APPDATA%\telescope-rs` on Windows, or `$TELESCOPE_RS_PROFILE`) as a dev profile unless `TELESCOPE_RS_REAL_CONFIG=1`. Trying it leaves the real settings alone. `telescope-rs dev` runs a dev desktop next to the real one (see [Building and CI](../docs/development/building.md#try-a-change-without-touching-your-real-install)).
 
 ## UI

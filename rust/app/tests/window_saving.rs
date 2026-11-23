@@ -97,6 +97,11 @@ fn a_phone_back_with_a_new_id_takes_its_settings_and_virtual_camera() {
     asks(&r, |host| host.move_device_settings("old", "new"));
     let cfg = r.w.state.borrow().file.load();
     assert_eq!(cfg["devices"]["new"]["plugin_configs"], presets);
+    assert_eq!(cfg["devices"]["old"]["plugin_configs"], presets, "the old entry waits for the save that writes the new pairing");
+    assert_eq!(cfg["output_slots"], json!({"old": 2, "new": 2}));
+    assert_eq!(cfg["selected_device"], "new");
+    assert!(r.w.state.borrow_mut().save_now());
+    let cfg = r.w.state.borrow().file.load();
     assert!(cfg["devices"].get("old").is_none());
     assert_eq!(cfg["output_slots"], json!({"new": 2}));
     assert_eq!(cfg["selected_device"], "new");
@@ -253,11 +258,12 @@ fn these_built_in_plugins_keep_their_settings_per_phone() {
         Box::new(fx::colour_grading::ColourGradingPlugin::new()), Box::new(fx::fun_pack::FunPackPlugin::new()),
         Box::new(fx::background::BackgroundPlugin::new()), Box::new(fx::chroma_key::ChromaKeyPlugin::new()),
         Box::new(fx::framing::FramingPlugin::new()), Box::new(fx::face_exposure::FaceExposurePlugin::new()), Box::new(fx::name_tag::NameTagPlugin::new()),
+        Box::new(fx::photos::PhotosPlugin::new()),
     ];
     let names: Vec<String> = per_phone.iter().filter(|p| p.info().device_local).map(|p| p.info().name).collect();
-    assert_eq!(names, ["camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk", "colour_grading", "fun_pack", "background", "chroma_key", "framing", "face_exposure", "name_tag"]);
+    assert_eq!(names, ["camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk", "colour_grading", "fun_pack", "background", "chroma_key", "framing", "face_exposure", "name_tag", "photos"]);
     let whole_app: Vec<Box<dyn Plugin>> = vec![
-        Box::new(fx::cinema::CinemaPlugin::new()), Box::new(fx::privacy_blur::PrivacyBlurPlugin::new()), Box::new(fx::photos::PhotosPlugin::new()),
+        Box::new(fx::cinema::CinemaPlugin::new()), Box::new(fx::privacy_blur::PrivacyBlurPlugin::new()),
         Box::new(fx::notes::NotesPlugin::new()), Box::new(fx::qr_reader::QrReaderPlugin::new()),
     ];
     assert!(whole_app.iter().all(|p| !p.info().device_local));

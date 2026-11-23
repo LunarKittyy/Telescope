@@ -189,6 +189,32 @@ fn recovery_keeps_looking_while_the_phone_is_unreachable() {
 }
 
 #[test]
+fn recovery_looks_less_often_for_a_phone_that_stays_gone_but_still_notices_it_coming_back() {
+    let r = unreachable("drop-calms-down");
+    // The first minute or so it looks every few seconds
+    for _ in 0..20 {
+        probe_again(&r);
+    }
+    let before = checks(&r);
+    for _ in 0..60 {
+        r.skip(1000);
+        std::thread::sleep(std::time::Duration::from_millis(15));
+    }
+    let looked = checks(&r) - before;
+    assert!((10..=13).contains(&looked), "{looked} looks in the next minute, 20 at the old pace");
+    // Back on the network: noticed within the slowed pace
+    let usb = RouteSpec::Usb { serial: "SER".into() };
+    r.link.answers_recovery("pixel", ready(usb.clone(), true));
+    let before = checks(&r);
+    for _ in 0..5 {
+        r.skip(1000);
+        std::thread::sleep(std::time::Duration::from_millis(15));
+    }
+    r.until("it looked again within 5 s", |r| checks(r) > before);
+    r.until("the worker moved", |r| r.worker(0).did("retarget https://usb-SER:8080/v1/video.h264"));
+}
+
+#[test]
 fn recovery_moves_the_stream_once_per_route() {
     let r = dropped("drop-once", ready(wifi(), true));
     r.until("the worker moved", |r| r.worker(0).did(&format!("retarget {WIFI_URL}")));
