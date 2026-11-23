@@ -21,19 +21,13 @@ use telescope_core::ui::{IssueAction, IssueDoes};
 pub const RECOVER_RETRY: Duration = Duration::from_secs(3);
 /// Looks at that pace before the phone counts as gone for a while (about a minute), and then at the next pace.
 const QUICK_LOOKS: u32 = 20;
-/// The pace for a phone gone for a while, and how many looks it lasts (about five minutes); after that, the pace for one that stays gone.
-const GONE_RETRY: Duration = Duration::from_secs(10);
-const GONE_LOOKS: u32 = 30;
-const LONG_GONE_RETRY: Duration = Duration::from_secs(15);
+/// The pace for a phone gone for a while: one look is a connection attempt per address it might be on, so this is kept
+/// well under what a returning phone should wait to be noticed.
+const GONE_RETRY: Duration = Duration::from_secs(5);
 
-/// How long to wait before look number `round` (from 0) for a phone that dropped: the phone's own idle watchdog has stopped its
-/// stream within a minute, so after that only its coming back matters, and that needn't be noticed within three seconds.
+/// How long to wait before look number `round` (from 0) for a phone that dropped.
 pub fn recovery_wait(round: u32) -> Duration {
-    match round {
-        r if r < QUICK_LOOKS => RECOVER_RETRY,
-        r if r < QUICK_LOOKS + GONE_LOOKS => GONE_RETRY,
-        _ => LONG_GONE_RETRY,
-    }
+    if round < QUICK_LOOKS { RECOVER_RETRY } else { GONE_RETRY }
 }
 /// A stream gone this long: its virtual camera shows the wait screen, not a frozen frame.
 pub const PARK_AFTER: Duration = Duration::from_secs(10);

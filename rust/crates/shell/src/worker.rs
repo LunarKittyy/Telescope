@@ -430,6 +430,8 @@ struct Shared {
     retry_now: AtomicBool,
     /// Wakes the wait between tries of a dropped stream: a stop, a new route, a route ready to take over.
     nudge: Flag,
+    /// How long a dropped stream waits after its nth failed try (drop_retry_delay, except in tests).
+    retry_pace: Mutex<fn(u32) -> Duration>,
     failed_tries: AtomicU32,
     parked: AtomicBool,
     vcam_free: Flag,
@@ -614,7 +616,7 @@ impl StreamWorker {
             slot_number: setup.slot, source_id: setup.source_id, vision: setup.vision, hardware: setup.hardware_decode, hardware_default: setup.hardware_default,
             plugin_source: setup.plugin_source, size: Mutex::new((setup.width, setup.height)),
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
-            restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), nudge: Flag::default(), failed_tries: AtomicU32::new(0),
+            restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), nudge: Flag::default(), retry_pace: Mutex::new(drop_retry_delay), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), surface_wish, publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
@@ -1488,7 +1490,7 @@ impl Shared {
                 quiet = false;
                 self.status("reconnecting", &tr("Stream dropped - reconnecting"));
             }
-            let delay = drop_retry_delay(failures);
+            let delay = (*self.retry_pace.lock().unwrap())(failures);
             let (until, slept_at) = (Instant::now() + delay, std::time::SystemTime::now());
             while Instant::now() < until {
                 if self.stopped() {
@@ -2916,6 +2918,64 @@ mod tests {
         assert_eq!(drop_retry_delay(QUICK_TRIES + SLOW_TRIES - 1), Duration::from_secs(3));
         assert_eq!(drop_retry_delay(QUICK_TRIES + SLOW_TRIES), Duration::from_secs(5));
         assert_eq!(drop_retry_delay(u32::MAX), Duration::from_secs(5));
+    }
+
+    /// A worker whose reconnect() runs on a thread against a route that never opens, with the pace of `pace`; the times of its tries.
+    fn dialling(pace: fn(u32) -> Duration) -> (StreamWorker, Arc<Mutex<Vec<Instant>>>, std::thread::JoinHandle<bool>) {
+        let (first, _) = scripted(vec![Some(vec![])]);
+        let times: Arc<Mutex<Vec<Instant>>> = Arc::default();
+        let seen = times.clone();
+        let opener: Opener = Arc::new(move |a| {
+            seen.lock().unwrap().push(Instant::now());
+            first(a)
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(setup(opener), &cams, &log);
+        wait_for(|| times.lock().unwrap().len() == 1);
+        *w.shared.retry_pace.lock().unwrap() = pace;
+        let shared = w.shared.clone();
+        let thread = std::thread::spawn(move || shared.reconnect().is_none());
+        (w, times, thread)
+    }
+
+    #[test]
+    fn a_dropped_stream_dials_at_the_pace_it_has_settled_into() {
+        let (w, times, thread) = dialling(|failures| Duration::from_millis(if failures < 3 { 20 } else { 400 }));
+        wait_for(|| times.lock().unwrap().len() >= 7);
+        w.request_stop();
+        assert!(thread.join().unwrap());
+        let times = times.lock().unwrap();
+        let gaps: Vec<Duration> = times.windows(2).map(|t| t[1] - t[0]).collect();
+        // gaps[0] is the first read to the first retry; the retries after three failures are the slow ones
+        assert!(gaps[1..3].iter().all(|g| *g < Duration::from_millis(300)), "{gaps:?}");
+        assert!(gaps[4..].iter().all(|g| *g >= Duration::from_millis(350)), "{gaps:?}");
+        drop(times);
+        w.stop();
+    }
+
+    #[test]
+    fn a_stop_ends_a_slow_wait_between_tries_at_once() {
+        let (w, times, thread) = dialling(|_| Duration::from_secs(60));
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(times.lock().unwrap().len(), 1, "it is waiting out the pace");
+        let started = Instant::now();
+        w.request_stop();
+        assert!(thread.join().unwrap());
+        assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
+        w.stop();
+    }
+
+    #[test]
+    fn a_new_url_ends_a_slow_wait_between_tries_at_once() {
+        let (w, times, thread) = dialling(|_| Duration::from_secs(60));
+        std::thread::sleep(Duration::from_millis(200));
+        let (new, new_opens) = scripted(vec![Some(vec![Step::Frame(5)])]);
+        let started = Instant::now();
+        w.retarget("http://10.0.0.5:8080/v1/video", new);
+        assert!(!thread.join().unwrap(), "the retry opened the new url");
+        assert!(started.elapsed() < Duration::from_secs(2), "{:?}", started.elapsed());
+        assert_eq!((times.lock().unwrap().len(), new_opens.calls()), (1, 1));
+        w.stop();
     }
 
     #[test]

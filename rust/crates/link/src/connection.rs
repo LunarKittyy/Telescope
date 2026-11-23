@@ -22,8 +22,8 @@ use telescope_core::source::{PairedPhone, RouteSpec};
 pub const STATUS_POLL: Duration = Duration::from_secs(3);
 /// Checks in a row that found no phone (about a minute of ticks) before the window checks less often.
 pub const GONE_AFTER_CHECKS: u32 = 20;
-/// How long a phone that has been gone a while waits between ticks' checks.
-pub const GONE_POLL_S: f64 = 10.0;
+/// The least time a phone that has been gone a while waits between checks (a tick later than that).
+pub const GONE_POLL_S: f64 = 5.0;
 /// An idle check that never answers stops blocking new ones.
 pub const CHECK_GIVE_UP_S: f64 = 60.0;
 /// Tray, after starting once the phone was ready: only its going away matters.
@@ -1389,7 +1389,7 @@ mod tests {
         assert_eq!(unreachable_checks(&mut c, 10.0, 60.0), 20);
         // After that the window isn't on a phone that is plainly not there
         let calm = unreachable_checks(&mut c, 70.0, 120.0);
-        assert!((1..=12).contains(&calm), "{calm} checks in two minutes");
+        assert!((18..=22).contains(&calm), "{calm} checks in two minutes (40 ticks)");
         // Seen again: every tick once more
         let check = c.poll_status(190.0).or_else(|| c.poll_status(200.0)).unwrap();
         c.on_resolved(check.check_id, "id-a", ready(wifi()));
