@@ -12,6 +12,8 @@ const PW_STREAM_FLAG_MAP_BUFFERS: u32 = 4;
 /// The picture the next cycle puts in a buffer, and the size every one has.
 struct Latest {
     streaming: AtomicBool,
+    /// Why the stream is in an error state, until it leaves it.
+    error: Mutex<Option<String>>,
     width: AtomicU32,
     height: AtomicU32,
     /// The size the stream has settled on with whoever reads it, 0 x 0 while it renegotiates after a resize.
@@ -22,6 +24,16 @@ struct Latest {
 }
 
 impl Latest {
+    fn on_state(&self, state: StreamState, error: Option<String>) {
+        self.streaming.store(state == StreamState::Streaming, Ordering::SeqCst);
+        let why = (state == StreamState::Error).then(|| error.unwrap_or_else(|| "unknown error".into()));
+        *self.error.lock().unwrap_or_else(|e| e.into_inner()) = why;
+    }
+
+    fn failure(&self) -> Option<String> {
+        self.error.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
     fn size(&self) -> (u32, u32) {
         (self.width.load(Ordering::SeqCst), self.height.load(Ordering::SeqCst))
     }
@@ -58,8 +70,8 @@ fn buffers(width: u32, height: u32) -> Pod {
 struct Producer(Arc<Latest>);
 
 impl StreamHandler for Producer {
-    fn state_changed(&mut self, _stream: &StreamRef, state: StreamState, _error: Option<String>) {
-        self.0.streaming.store(state == StreamState::Streaming, Ordering::SeqCst);
+    fn state_changed(&mut self, _stream: &StreamRef, state: StreamState, error: Option<String>) {
+        self.0.on_state(state, error);
     }
 
     fn param_changed(&mut self, stream: &StreamRef, id: u32, format: Option<ObjectPod>) {
@@ -145,15 +157,15 @@ impl VideoSender {
         let hash = description.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3));
         let node = format!("telescope-{readable}-{:08x}", hash >> 32);
         let props = [("media.class", "Video/Source"), ("node.name", node.as_str()), ("node.description", description), ("media.role", "Camera")];
-        let latest = Arc::new(Latest { streaming: AtomicBool::new(false), width: AtomicU32::new(width), height: AtomicU32::new(height), ready_width: AtomicU32::new(0), ready_height: AtomicU32::new(0), bytes: Mutex::new(Arc::default()) });
+        let latest = Arc::new(Latest { streaming: AtomicBool::new(false), error: Mutex::new(None), width: AtomicU32::new(width), height: AtomicU32::new(height), ready_width: AtomicU32::new(0), ready_height: AtomicU32::new(0), bytes: Mutex::new(Arc::default()) });
         let config = StreamConfig { name: description, props: &props, direction: PW_DIRECTION_OUTPUT, target: SPA_ID_INVALID, flags: PW_STREAM_FLAG_DRIVER | PW_STREAM_FLAG_MAP_BUFFERS };
         let stream = Stream::connect(connection, &config, &[enum_format(width, height)], Box::new(Producer(latest.clone())))?;
         Ok(VideoSender { connection: connection.clone(), stream, latest })
     }
 
-    /// Whether a reader is ready for pictures, or a send needs to report a lost connection.
+    /// Whether a reader is ready for pictures, or a send needs to report a lost connection or a failed stream.
     pub fn wants_frame(&self) -> bool {
-        self.latest.streaming.load(Ordering::SeqCst) || self.connection.is_dead()
+        self.latest.streaming.load(Ordering::SeqCst) || self.connection.is_dead() || self.latest.failure().is_some()
     }
 
     /// Offers the same source at another size, which whoever reads it renegotiates, so the node and its id stay.
@@ -191,6 +203,9 @@ impl VideoSender {
         if self.connection.is_dead() {
             return Err("PipeWire went away".into());
         }
+        if let Some(why) = self.latest.failure() {
+            return Err(format!("the PipeWire stream failed: {why}"));
+        }
         let (width, height) = self.latest.size();
         let wanted = width as usize * height as usize * 4;
         if len != wanted {
@@ -209,6 +224,24 @@ impl VideoSender {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn latest() -> Latest {
+        Latest { streaming: AtomicBool::new(false), error: Mutex::new(None), width: AtomicU32::new(4), height: AtomicU32::new(4), ready_width: AtomicU32::new(0), ready_height: AtomicU32::new(0), bytes: Mutex::new(Arc::default()) }
+    }
+
+    #[test]
+    fn a_stream_error_is_kept_until_the_stream_leaves_it() {
+        let l = latest();
+        l.on_state(StreamState::Streaming, None);
+        assert_eq!(l.failure(), None);
+        l.on_state(StreamState::Error, Some("no memory".into()));
+        assert_eq!(l.failure().as_deref(), Some("no memory"));
+        assert!(!l.streaming.load(Ordering::SeqCst));
+        l.on_state(StreamState::Error, None);
+        assert!(l.failure().is_some());
+        l.on_state(StreamState::Paused, None);
+        assert_eq!(l.failure(), None);
+    }
 
     #[test]
     fn a_negotiated_format_says_which_size_it_was_agreed_for() {

@@ -380,3 +380,51 @@ fn the_computer_is_slow_when_a_tenth_of_the_frames_are_shed_for_a_few_seconds() 
     assert!(four_a_second.computer_is_slow(), "{:?}", four_a_second.shed_share(4));
     assert_eq!(four_a_second.shed_share(100), None, "not that many seconds counted yet");
 }
+
+fn power_hub() -> (Hub, Arc<Effort>) {
+    let effort = Arc::new(Effort::free());
+    (Hub::with_parts(Arc::new(Balance::free()), effort.clone()), effort)
+}
+
+#[test]
+fn the_effects_follow_the_computers_power_saving_only_when_asked_to_and_only_on_a_clear_yes() {
+    let (hub, effort) = power_hub();
+    hub.note_power(Some(true));
+    assert_eq!(effort.level(), 0, "nothing follows it until a plugin switches that on");
+    hub.set_power_aware(true);
+    hub.note_power(Some(true));
+    assert_eq!((effort.level(), effort.snapshot().machine_floor), (1, 1));
+    hub.note_power(None);
+    assert_eq!(effort.level(), 0, "can't tell is no saving");
+    hub.note_power(Some(true));
+    hub.note_power(Some(false));
+    assert_eq!(effort.level(), 0);
+    // Switching it off lets go at once, whatever the computer says
+    hub.note_power(Some(true));
+    hub.set_power_aware(false);
+    assert_eq!(effort.level(), 0);
+    hub.note_power(Some(true));
+    assert_eq!(effort.level(), 0);
+}
+
+#[test]
+fn the_computer_is_asked_at_once_when_a_stream_starts_and_then_every_few_ticks_and_never_without_one() {
+    let (hub, effort) = power_hub();
+    hub.set_power_aware(true);
+    let asked = std::cell::Cell::new(0);
+    let tick = |streaming: bool, saving: bool| hub.follow_power(streaming, || { asked.set(asked.get() + 1); Some(saving) });
+    tick(false, true);
+    assert_eq!((asked.get(), effort.level()), (0, 0), "no stream, no asking");
+    tick(true, true);
+    assert_eq!((asked.get(), effort.level()), (1, 1), "the first tick of a stream asks");
+    for _ in 0..4 {
+        tick(true, false);
+    }
+    assert_eq!((asked.get(), effort.level()), (1, 1), "the next few ticks don't");
+    tick(true, false);
+    assert_eq!((asked.get(), effort.level()), (2, 0), "and then it does, and the change shows");
+    // A stream that stops and starts again is asked straight away
+    tick(false, false);
+    tick(true, true);
+    assert_eq!((asked.get(), effort.level()), (3, 1));
+}

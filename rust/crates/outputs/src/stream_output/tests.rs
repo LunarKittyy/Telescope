@@ -955,6 +955,7 @@ fn the_declared_settings_round_trip() {
 fn a_fixed_bitrate_request_reaches_every_phone_not_only_the_shown_one() {
     let (mut p, mut host) = phone_a();
     host.background = vec![telescope_core::host::BackgroundStream { source_id: "phone-b".into(), name: "B".into(), session: 1 }];
+    host.device_configs.insert(("phone-b".into(), NAME.into()), json!({"bitrate_mbps": -1}));
     start(&mut p, &mut host, "https://192.168.1.5:8443/v1/video.h264");
     p.bitrate = DYNAMIC_POS;
     host.calls.clear();
@@ -963,6 +964,29 @@ fn a_fixed_bitrate_request_reaches_every_phone_not_only_the_shown_one() {
     assert_eq!(calls.len(), 2, "{calls:?}");
     assert!(calls.iter().any(|c| c.contains("phone-a")) && calls.iter().any(|c| c.contains("phone-b")));
     assert!(calls.iter().all(|c| c.contains("\"value\":0")));
+    host.calls.clear();
+    p.on_event(&mut host, &Event::FixedBitrateRequested { on: false });
+    let calls: Vec<&String> = host.calls.iter().filter(|c| c.starts_with("phone_control")).collect();
+    assert!(calls.len() == 2 && calls.iter().all(|c| c.contains("\"value\":-1")), "{calls:?}");
+}
+
+#[test]
+fn a_fixed_bitrate_request_leaves_a_phone_on_its_own_bitrate_alone() {
+    let (mut p, mut host) = phone_a();
+    host.background = vec![
+        telescope_core::host::BackgroundStream { source_id: "phone-b".into(), name: "B".into(), session: 1 },
+        telescope_core::host::BackgroundStream { source_id: "phone-c".into(), name: "C".into(), session: 1 },
+    ];
+    host.device_configs.insert(("phone-b".into(), NAME.into()), json!({"bitrate_mbps": 8}));
+    host.device_configs.insert(("phone-c".into(), NAME.into()), json!({"bitrate_mbps": 0}));
+    start(&mut p, &mut host, "https://192.168.1.5:8443/v1/video.h264");
+    p.bitrate = DYNAMIC_POS;
+    for on in [true, false] {
+        host.calls.clear();
+        p.on_event(&mut host, &Event::FixedBitrateRequested { on });
+        let calls: Vec<&String> = host.calls.iter().filter(|c| c.starts_with("phone_control")).collect();
+        assert!(calls.iter().all(|c| !c.contains("phone-b") && !c.contains("phone-c")), "{calls:?}");
+    }
 }
 
 // ── Sending less than was picked ──────────────────────────────────────────

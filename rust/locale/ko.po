@@ -2213,7 +2213,7 @@ msgstr ""
 msgid "Heavy"
 msgstr "무겁게"
 
-msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
+msgid "Heavy effects work less often while frames run late or the computer is saving power. They return to full quality once there is room."
 msgstr ""
 
 msgid "Height"
@@ -2765,6 +2765,9 @@ msgid "Lighter"
 msgstr ""
 
 msgid "Lighter effects"
+msgstr ""
+
+msgid "Lighter effects when saving power"
 msgstr ""
 
 msgid "Like the camera"
@@ -5385,6 +5388,9 @@ msgctxt "setting"
 msgid "Start"
 msgstr "시작"
 
+msgid "Start Background and Auto framing at Power-saving level while the computer is in battery saver or a power-saver mode. Telescope only looks at this while a stream runs and doesn't keep or send it."
+msgstr ""
+
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "실행 중인 스트림들을 이렇게 배치하여 새 레이아웃을 시작해요."
 
@@ -5600,6 +5606,9 @@ msgid "Stops Telescope asking the phone for a smaller picture when frames run la
 msgstr ""
 
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when the computer is saving power, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
@@ -6309,6 +6318,9 @@ msgid "The computer is low on memory."
 msgstr ""
 
 msgid "The computer is running on battery."
+msgstr ""
+
+msgid "The computer is saving power"
 msgstr ""
 
 msgid "The computer is too slow for the effects in use."
@@ -8046,6 +8058,10 @@ msgstr "자동 시작 로그인 부팅 시작 시 실행 컴퓨터 켤 때 시�
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "배터리 전원 에너지 와트 노트북 프로세서 cpu 사용량 팬 발열 느림 흐림 효과 프레이밍 mediapipe 가벼운 효과 품질 battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
+
+msgctxt "search"
+msgid "battery saver power saver profile mode laptop effects power saving"
+msgstr ""
 
 msgid "blue"
 msgstr "파란색"

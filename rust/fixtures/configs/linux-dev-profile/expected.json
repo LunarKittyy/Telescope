@@ -194,6 +194,7 @@
         "dynamic": true,
         "effects": true,
         "heads": true,
+        "power": true,
         "stream_size": true
       },
       "browser_camera": {

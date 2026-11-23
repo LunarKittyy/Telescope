@@ -113,10 +113,18 @@ pub fn uc_is_ours(reg: &dyn Registry, num: u32, uc_dir: &Path) -> bool {
         .any(|f| f.join(UC_DLL_64).to_string_lossy().to_lowercase() == value.to_lowercase())
 }
 
-/// The number pyvirtualcam would give the camera called name, or the first registered one, as open_camera falls back to.
-pub fn uc_number(reg: &dyn Registry, name: &str) -> u32 {
+/// The UnityCapture camera slot's picture goes to: the one named for the slot, else (the main camera only) Telescope's own
+/// filter registered before it was named Telescope, never another app's. The writer, the watcher and the probe all go by this.
+pub fn uc_filter_for(reg: &dyn Registry, uc_dir: &Path, slot: u32) -> Option<u32> {
     let names = uc_names(reg);
-    names.iter().find(|(_, n)| n == name).or(names.first()).map_or(0, |(n, _)| *n)
+    let label = slot_label(slot);
+    if let Some((num, _)) = names.iter().find(|(_, n)| *n == label) {
+        return Some(*num);
+    }
+    if slot != 0 {
+        return None;
+    }
+    names.iter().find(|(num, _)| uc_is_ours(reg, *num, uc_dir)).map(|(num, _)| *num)
 }
 
 /// A UnityCapture shared object's name ("Want", "Sent", "Mutx", "Data") for camera number num.
@@ -354,20 +362,32 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn windows_opens_the_camera_named_telescope_or_any_older_registration() {
-        assert_eq!(uc_number(&FakeRegistry::uc(&[(0, "OBS"), (3, "Telescope")]), UC_NAME), 3);
-        assert_eq!(uc_number(&FakeRegistry::uc(&[(2, "Telescope Webcam"), (5, "Other")]), UC_NAME), 2, "the first one there is");
-        assert_eq!(uc_number(&FakeRegistry::uc(&[]), UC_NAME), 0);
+    fn windows_opens_the_camera_named_telescope_or_its_own_older_registration() {
+        let dir = Path::new(r"C:\Telescope\UnityCapture");
+        let dll = dir.join(UC_DLL_64);
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[(0, "OBS"), (3, "Telescope")]), dir, 0), Some(3));
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[(2, "Telescope Webcam"), (5, "Other")]).with_uc_dll(2, &dll), dir, 0), Some(2));
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[(2, "Telescope Webcam"), (5, "Other")]), dir, 0), None, "never another app's");
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[]), dir, 0), None);
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[(0, "Telescope")]), dir, 1), None);
+    }
+
+    #[test]
+    fn the_filter_to_watch_is_the_one_the_writer_picks() {
+        // Another app's filter first, Telescope's own older one at a higher number
+        let dir = Path::new(r"C:\Telescope\UnityCapture");
+        let reg = FakeRegistry::uc(&[(0, "Unity Video Capture"), (3, "Telescope Webcam")]).with_uc_dll(3, &dir.join(UC_DLL_64));
+        assert_eq!(uc_filter_for(&reg, dir, 0), Some(3));
     }
 
     // test_vcam.py::test_unitycapture_event_follows_the_camera_number
     #[test]
     fn unitycapture_objects_follow_the_camera_number() {
+        let dir = Path::new("");
         let reg = FakeRegistry::uc(&[(0, "Unity Video Capture"), (1, "Telescope")]);
-        assert_eq!(uc_object_name("Want", uc_number(&reg, "Telescope")), "UnityCapture_Want1");
-        assert_eq!(uc_object_name("Data", uc_number(&reg, "Something else")), "UnityCapture_Data");
-        let without_first = FakeRegistry::uc(&[(1, "Telescope")]);
-        assert_eq!(uc_object_name("Want", uc_number(&without_first, "Something else")), "UnityCapture_Want1");
+        assert_eq!(uc_object_name("Want", uc_filter_for(&reg, dir, 0).unwrap()), "UnityCapture_Want1");
+        assert_eq!(uc_object_name("Data", 0), "UnityCapture_Data");
+        assert_eq!(uc_object_name("Want", 1), "UnityCapture_Want1");
     }
 
     #[test]

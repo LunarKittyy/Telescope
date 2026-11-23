@@ -18,6 +18,11 @@ mod other;
 #[cfg(not(any(target_os = "linux", windows)))]
 use other as os;
 
+/// Whether the computer says it is saving power (battery saver, a power-saver profile, Windows' best power efficiency mode); None where it can't tell. Cheap enough to ask every few seconds.
+pub fn power_saver() -> Option<bool> {
+    os::power_saver()
+}
+
 /// How many busy programs a reading names.
 const TOP: usize = 3;
 /// One program using more than this much of the whole computer is the likely reason for a slow stream.

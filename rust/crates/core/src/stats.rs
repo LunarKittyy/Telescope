@@ -20,6 +20,8 @@ use std::sync::{Arc, LazyLock, Mutex};
 pub const KEPT: usize = 60;
 /// How often the hub makes a snapshot.
 pub const EVERY_MS: u64 = 1000;
+/// The computer's power saving is asked about every this many ticks of that.
+const POWER_EVERY: u32 = 5;
 
 const SECOND: u64 = 1_000_000_000;
 
@@ -623,6 +625,9 @@ pub struct Hub {
     had_sources: AtomicBool,
     bus: Mutex<Option<BusSender>>,
     ticking: AtomicBool,
+    /// Whether the effects follow the computer's power saving (an Adjustments switch), and the ticks since it was last asked.
+    power_aware: AtomicBool,
+    power_ticks: AtomicU32,
 }
 
 static SHARED: LazyLock<Arc<Hub>> = LazyLock::new(|| Arc::new(Hub::with_parts(Balance::shared(), Effort::shared())));
@@ -660,6 +665,8 @@ impl Hub {
             had_sources: AtomicBool::new(false),
             bus: Mutex::new(None),
             ticking: AtomicBool::new(false),
+            power_aware: AtomicBool::new(false),
+            power_ticks: AtomicU32::new(0),
         }
     }
 
@@ -694,6 +701,32 @@ impl Hub {
         } else if system.0.remove(owner) && system.0.is_empty() {
             // The next reading after a pause would average over the whole pause, so it starts over
             system.1 = Monitor::new();
+        }
+    }
+
+    /// The effects run at Power-saving level while the computer says it is saving power, or stop doing that. Off until a plugin says so.
+    pub fn set_power_aware(&self, on: bool) {
+        self.power_aware.store(on, Ordering::Relaxed);
+        if !on {
+            self.effort.set_machine_saving(false);
+        }
+    }
+
+    /// What the computer says about saving power, as far as it can tell: only a clear yes moves the effects.
+    pub fn note_power(&self, saving: Option<bool>) {
+        if self.power_aware.load(Ordering::Relaxed) {
+            self.effort.set_machine_saving(saving == Some(true));
+        }
+    }
+
+    /// One tick of the stats thread: while a stream runs and the effects follow power saving, asks the computer every POWER_EVERY ticks (at once when a stream begins).
+    fn follow_power(&self, streaming: bool, ask: impl FnOnce() -> Option<bool>) {
+        if !streaming || !self.power_aware.load(Ordering::Relaxed) {
+            self.power_ticks.store(0, Ordering::Relaxed);
+            return;
+        }
+        if self.power_ticks.fetch_add(1, Ordering::Relaxed).is_multiple_of(POWER_EVERY) {
+            self.note_power(ask());
         }
     }
 
@@ -784,6 +817,8 @@ impl Hub {
             if let Some(bus) = bus.as_ref().filter(|_| hub.told_effort.swap(level, Ordering::Relaxed) != level) {
                 bus.emit(Event::EffortChanged { level });
             }
+            let streaming = !hub.sources.lock().unwrap_or_else(|p| p.into_inner()).is_empty();
+            hub.follow_power(streaming, crate::monitor::power_saver);
             if let Some(bus) = bus.filter(|_| hub.worth_sending()) {
                 bus.emit(Event::StatsUpdated { snapshot: hub.snapshot() });
             }

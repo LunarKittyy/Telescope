@@ -11,6 +11,7 @@ System integration, keyboard shortcuts, the MCP server and plugins.
 - Closing the window while streaming hides Telescope to the tray
 - When Start can't go ahead a banner explains why and has a button that fixes it
 - While the window is in the tray Telescope checks on the phone less often to save its battery
+- The preview stops drawing while the window is minimised, in the tray or, on Windows, completely hidden behind another program's window such as a full screen game, which leaves the graphics card to that program. Apps reading the camera still get every frame
 - **Reset all settings** (General in Settings) resets every setting to its default and restarts Telescope. The plugin switches return to the standard selection. Paired phones, presets, notes, saved layouts, files you picked (a LUT, the photo folder) and plugins you installed are left alone and a copy of the old settings file is saved next to it
 - Every card has a Reset button in its header and so do the sections in Settings. It resets only that card or section to its defaults and lights up once something on it differs from the default. Things you made or paired, like notes and layouts, are left alone
 

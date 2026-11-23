@@ -683,6 +683,35 @@ fn a_new_link_that_lands_while_a_browser_is_still_joining_cuts_it_off_too() {
 }
 
 #[test]
+fn a_browser_that_finishes_connecting_after_stop_is_turned_away() {
+    let web = Arc::new(FakeWeb::default());
+    let (maker, _) = fake_rtc(false);
+    let server = BrowserServer::new(Arc::new(BrowserHub::single(Arc::new(BrowserFeed::new()))), web.clone(), cert(), || {}, 0, "127.0.0.1", maker);
+    server.set_timings(Duration::from_millis(50), Duration::from_secs(5));
+    server.start().unwrap();
+    let (handler, stats) = {
+        let served = web.served.lock().unwrap();
+        (served[0].handler.clone(), served[0].stats.clone())
+    };
+    let request = Request {
+        method: "GET".into(),
+        target: format!("/ws?token={}", server.token()),
+        headers: vec![("Upgrade".into(), "websocket".into()), ("Sec-WebSocket-Key".into(), "dGhlIHNhbXBsZSBub25jZQ==".into()),
+                      ("Sec-WebSocket-Version".into(), "13".into())],
+    };
+    // The handshake passed, and the server is stopped before the connection registers
+    let upgrade = handler.upgrade(&request, &stats).expect("the token was good");
+    server.stop();
+    let wrote: Arc<Mutex<Vec<u8>>> = Arc::default();
+    let sock = Mute { wrote: wrote.clone(), born: Instant::now(), wait: None };
+    let run = upgrade.run;
+    std::thread::spawn(move || run(Box::new(sock)));
+    let said = ws::close_frame(1001, "");
+    assert!(wait(|| wrote.lock().unwrap().windows(said.len()).any(|w| w == said.as_slice()), Duration::from_millis(900)), "it was turned away");
+    assert!(!server.feed().unwrap().connected(), "and never took the feed");
+}
+
+#[test]
 fn an_old_links_late_handshake_leaves_the_new_links_browser_alone() {
     let web = Arc::new(FakeWeb::default());
     let (maker, _) = fake_rtc(false);
