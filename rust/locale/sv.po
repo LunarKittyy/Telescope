@@ -2004,6 +2004,10 @@ msgstr "Bildrutor ut"
 msgid "Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."
 msgstr "Bildrutor per sekund för både telefonens kamera och den virtuella kameran. Lägre sparar data och batteri."
 
+#, python-brace-format
+msgid "Frames ran late and the camera can't use more than {sent}, picked {picked}"
+msgstr ""
+
 msgid "Frames to collect"
 msgstr ""
 
@@ -2682,6 +2686,9 @@ msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Mindre intervall ger finare steg. Större intervall hjälper en tyst telefon."
 
 msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
+msgstr ""
+
+msgid "Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked."
 msgstr ""
 
 msgid "Let an AI app read and change Telescope's settings."
@@ -4774,6 +4781,9 @@ msgstr "Sändaren körs inte"
 msgid "Sending…"
 msgstr "Skickar…"
 
+msgid "Sends the size you picked until you close Telescope, even while frames run late."
+msgstr ""
+
 msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
 msgstr ""
 
@@ -5239,6 +5249,9 @@ msgstr "Längre slutartider gör bilden ljusare men ger rörelseoskärpa."
 msgid "Small"
 msgstr "Liten"
 
+msgid "Smaller stream size"
+msgstr ""
+
 msgid "Smear"
 msgstr "Utsmetning"
 
@@ -5601,6 +5614,9 @@ msgid "Stops Auto framing following your face to save effort, until you switch i
 msgstr ""
 
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
@@ -6543,6 +6559,9 @@ msgstr "Telefonen avvisade mikrofonförfrågan (HTTP {code})."
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "Telefonen avvisade begäran om att starta strömning ({error})."
 
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It moves up to the picked size when you zoom in or use Auto framing. A photo keeps the size it began at."
+msgstr ""
+
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Telefonen skickade data som den här versionen inte kan läsa. Uppdatera båda apparna till samma version."
 
@@ -7432,6 +7451,9 @@ msgstr "Använd telefonens mikrofon på den här datorn under strömning. Appar 
 msgid "Use the phone's microphone on this computer."
 msgstr "Använd telefonens mikrofon på den här datorn."
 
+msgid "Use the size I picked"
+msgstr ""
+
 msgid "Use zoom"
 msgstr ""
 
@@ -8031,7 +8053,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "automatisk start stopp kamera app öppnas discord obs zoom meet teams telefon enhet redo overksam handsfree auto start stop camera opens phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k"
 msgstr ""
 
 msgctxt "search"
@@ -8453,6 +8475,10 @@ msgstr "vårgrön"
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "stabil nightly beta utgåva kanal spår byggen test testning stable release track builds testing"
+
+msgctxt "search"
+msgid "stream size resolution 4k 1080p 720p smaller lower decode slow late frames"
+msgstr ""
 
 msgctxt "search"
 msgid "stretch squish aspect tall"

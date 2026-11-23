@@ -73,6 +73,8 @@ pub enum WorkerEvent {
     MoveFailed(String),
     /// The virtual camera opened at this width and height.
     VcamOpened(u32, u32),
+    /// The size the virtual camera's frames are fitted to changed (the size it opened at, then the one an app reading it picked).
+    CameraFit(u32, u32),
     /// The frames coming in changed size (also the first frame's size), at this width and height.
     FrameSizeChanged(u32, u32),
     /// A picture for the preview, RGB24 at the size set_preview_size() asked for.
@@ -1692,6 +1694,7 @@ impl Shared {
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
         let mut fitted_to = (cam_w, cam_h);
+        let mut told_fit = (0, 0);
         // Frames that came in while the last one was being paced, each with how many had been published by then, and the newest one sent
         let mut queued: std::collections::VecDeque<(Frame, u64)> = std::collections::VecDeque::new();
         // How many times the steps that hide things had been run on the frame already out when the queue was last looked at
@@ -1785,6 +1788,10 @@ impl Shared {
                 let started = Instant::now();
                 // An app that took another size than the camera was opened at gets frames fitted to that one, or they'd be fitted twice
                 let want = cam.fit_size().unwrap_or((cam_w, cam_h));
+                if want != told_fit {
+                    told_fit = want;
+                    (self.events)(WorkerEvent::CameraFit(want.0, want.1));
+                }
                 let (src, fresh_at) = match next {
                     Some((src, at)) => {
                         // A frame a plugin replaced in the slot goes out again but isn't another one

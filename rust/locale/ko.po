@@ -2002,6 +2002,10 @@ msgstr "출력 프레임"
 msgid "Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."
 msgstr "휴대폰 촬영과 가상 카메라 모두에 적용되는 초당 프레임 수예요. 낮추면 데이터와 배터리를 절약해요."
 
+#, python-brace-format
+msgid "Frames ran late and the camera can't use more than {sent}, picked {picked}"
+msgstr ""
+
 msgid "Frames to collect"
 msgstr ""
 
@@ -2677,6 +2681,9 @@ msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "범위가 좁을수록 더 세밀하게 조절할 수 있어요. 범위가 넓으면 소리가 작은 휴대폰에 도움이 돼요."
 
 msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
+msgstr ""
+
+msgid "Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked."
 msgstr ""
 
 msgid "Let an AI app read and change Telescope's settings."
@@ -4763,6 +4770,9 @@ msgstr "센더 실행 중 아님"
 msgid "Sending…"
 msgstr "전송 중…"
 
+msgid "Sends the size you picked until you close Telescope, even while frames run late."
+msgstr ""
+
 msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
 msgstr ""
 
@@ -5228,6 +5238,9 @@ msgstr "셔터 속도가 느릴수록 화면이 밝아지지만 움직임이 흐
 msgid "Small"
 msgstr "작게"
 
+msgid "Smaller stream size"
+msgstr ""
+
 msgid "Smear"
 msgstr "번짐"
 
@@ -5587,6 +5600,9 @@ msgid "Stops Auto framing following your face to save effort, until you switch i
 msgstr ""
 
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
@@ -6527,6 +6543,9 @@ msgstr "휴대폰이 마이크 요청을 거부했어요(HTTP {code})."
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "휴대폰이 스트리밍 시작 요청을 거부했어요({error})."
 
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It moves up to the picked size when you zoom in or use Auto framing. A photo keeps the size it began at."
+msgstr ""
+
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "휴대폰에서 이 버전이 읽을 수 없는 데이터를 보냈어요. 두 앱을 모두 동일한 버전으로 업데이트하세요."
 
@@ -7416,6 +7435,9 @@ msgstr "스트리밍하는 동안 이 컴퓨터에서 휴대폰 마이크를 사
 msgid "Use the phone's microphone on this computer."
 msgstr "이 컴퓨터에서 휴대폰의 마이크를 사용해요."
 
+msgid "Use the size I picked"
+msgstr ""
+
 msgid "Use zoom"
 msgstr ""
 
@@ -8014,7 +8036,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "자동 시작 중지 카메라 앱 열림 디스코드 obs 줌 미트 팀즈 휴대폰 기기 준비 대기 핸즈프리 auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k"
 msgstr ""
 
 msgctxt "search"
@@ -8436,6 +8458,10 @@ msgstr "봄초록색"
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "안정 nightly 베타 릴리스 트랙 빌드 테스트 stable nightly beta release track builds testing"
+
+msgctxt "search"
+msgid "stream size resolution 4k 1080p 720p smaller lower decode slow late frames"
+msgstr ""
 
 msgctxt "search"
 msgid "stretch squish aspect tall"
