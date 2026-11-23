@@ -7984,7 +7984,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "자동 시작 중지 카메라 앱 열림 디스코드 obs 줌 미트 팀즈 휴대폰 기기 준비 대기 핸즈프리 auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments lag slow computer old pc frames late step down effects dynamic bitrate frame rate hot throttle fallback"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate hot throttle fallback"
 msgstr ""
 
 msgctxt "search"

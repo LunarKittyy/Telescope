@@ -183,7 +183,7 @@ fn the_banner_names_the_cause_and_what_helps() {
     assert!(say(Some(Cause::LowMemory), None).text.contains("low on memory"));
     let own = say(Some(Cause::TelescopeItself), Some("People tracking"));
     assert_eq!(own.text, "Telescope's own effects are using most of the computer. Turning off People tracking will help the most.");
-    assert!(say(None, None).text.starts_with("The computer can't keep up"));
+    assert!(say(None, None).text.starts_with("The computer is too slow"));
 }
 
 #[test]

@@ -310,6 +310,8 @@ export component IconButton inherits Rectangle {
     in property <bool> enabled: true;
     // On no fill at rest, for an icon that sits inside a field (the cross that clears a text box); every other icon button is a raised square like a Button
     in property <bool> bare;
+    // On a raised strip (a ListRow's buttons): the card's colour, since the strip's own raise would hide a raised square
+    in property <bool> on-strip;
     // Kept for callers that still pass it; raised is now the only look unless `bare`
     in property <bool> raised: true;
     out property <string> control-kind: "icon-button";
@@ -317,7 +319,7 @@ export component IconButton inherits Rectangle {
     width: Theme.row;
     height: Theme.row;
     border-radius: Theme.r-ctl;
-    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : bare ? transparent : Theme.raise;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : bare ? transparent : on-strip ? Theme.card : Theme.raise;
     border-width: !enabled ? Theme.outline-w : bare && !touch.has-hover && !touch.pressed ? 0px : Theme.ctl-outline-w(touch.has-hover, touch.pressed);
     border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, touch.pressed);
     animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }

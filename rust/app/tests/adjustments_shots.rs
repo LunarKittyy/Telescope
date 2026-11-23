@@ -74,6 +74,13 @@ fn feed(r: &Rig, snap: Snapshot) {
     }
 }
 
+/// The phone reporting that it lowered its frame rate for heat, the third kind of adjustment in the shots.
+fn phone_hot(r: &Rig, on: bool) {
+    let id = r.streaming().remove(0);
+    r.phone_says(&id, rig::state_with(json!({"heat_fps": if on { 20 } else { 0 }})));
+    r.pump();
+}
+
 fn dress(r: &Rig, look: f64, large: bool) {
     let appearance = Appearance { text: if large { TextSize::Large } else { TextSize::Normal }, ..Default::default() };
     telescope_shell::appearance::apply_to(&r.w.ui, &appearance);
@@ -130,18 +137,22 @@ fn the_chip_at_every_width_and_text_size_never_pushes_start_out_or_widens_the_wi
             let bare_narrowest = narrowest(&r);
             feed(&r, snapshot(1, 0, 2));
             shot(&r, &dir, &format!("chip-1-wide-{look_name}{size}"), 1380.0, 40.0);
+            feed(&r, snapshot(2, 0, 2));
+            shot(&r, &dir, &format!("chip-2-wide-{look_name}{size}"), 1380.0, 40.0);
+            phone_hot(&r, true);
             feed(&r, snapshot(3, 0, 2));
             let wide_chip = chip(&r).expect("the chip").size().width;
-            shot(&r, &dir, &format!("chip-2-wide-{look_name}{size}"), 1380.0, 40.0);
+            shot(&r, &dir, &format!("chip-3-wide-{look_name}{size}"), 1380.0, 40.0);
             let least = narrowest(&r);
             assert!(least <= bare_narrowest + 0.5, "{look_name}{size}: the chip raises the least width from {bare_narrowest} to {least}");
             for width in [least, least + 80.0, 700.0, 900.0, 1100.0, 1380.0] {
                 settle(&r, width);
                 assert!(start_right(&r) <= width + 0.5, "{look_name}{size} at {width}: Start ends at {}", start_right(&r));
             }
-            shot(&r, &dir, &format!("chip-2-narrowest-{look_name}{size}"), least, 40.0);
+            shot(&r, &dir, &format!("chip-3-narrowest-{look_name}{size}"), least, 40.0);
             let narrow_chip = chip(&r).expect("the chip").size().width;
             assert!(narrow_chip < wide_chip, "{look_name}{size}: the chip shrinks when narrow ({narrow_chip} against {wide_chip})");
+            phone_hot(&r, false);
         }
     }
 }
@@ -152,6 +163,10 @@ fn the_list_and_the_banner() {
     let r = rig();
     for (look_name, look) in LOOKS {
         dress(&r, look, false);
+        phone_hot(&r, true);
+        // Frames shed with the effects as light as they go, with the list closed
+        feed(&r, snapshot(3, 6, MOST));
+        shot(&r, &dir, &format!("banner-{look_name}"), 1100.0, 200.0);
         feed(&r, snapshot(3, 0, 2));
         settle(&r, 1100.0);
         chip(&r).expect("the chip").invoke_accessible_default_action();
@@ -167,9 +182,7 @@ fn the_list_and_the_banner() {
             r.skip(40);
             r.w.process();
         }
-        // Frames shed with the effects as light as they go
-        feed(&r, snapshot(3, 6, MOST));
-        shot(&r, &dir, &format!("banner-{look_name}"), 1100.0, 200.0);
+        phone_hot(&r, false);
         feed(&r, snapshot(0, 0, 0));
     }
 }
@@ -183,7 +196,7 @@ fn the_settings_card() {
         telescope_shell::settings::open(&r.w, "video");
         let settings = telescope_shell::settings::current().expect("the settings window");
         assert!(settings.show_tab("video"));
-        settings.ui.window().set_size(slint::LogicalSize::new(940.0, 1400.0));
+        settings.ui.window().set_size(slint::LogicalSize::new(940.0, 520.0));
         settings.ui.set_global_property("Theme", "look", Value::Number(look)).unwrap();
         for _ in 0..20 {
             offscreen::pump();
@@ -195,7 +208,7 @@ fn the_settings_card() {
             assert!(ElementHandle::find_by_accessible_label(&settings.ui, label).next().is_some(), "{label} is on the card");
         }
         if let Some(dir) = &dir {
-            let pic = offscreen::draw(settings.ui.window(), 940.0, 1400.0, 1.5).expect("a picture");
+            let pic = offscreen::draw(settings.ui.window(), 940.0, 520.0, 1.5).expect("a picture");
             pic.save_png(&dir.join(format!("settings-video-{look_name}.png"))).unwrap();
         }
     }

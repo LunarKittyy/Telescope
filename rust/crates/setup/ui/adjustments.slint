@@ -30,6 +30,7 @@ component AdjustItem inherits Rectangle {
         title: item.name;
         sub: item.why;
         if item.a-icon != "": IconButton {
+            on-strip: true;
             icon: Icons.named(item.a-icon);
             label: item.a-label;
             tip: item.a-label;
@@ -37,6 +38,7 @@ component AdjustItem inherits Rectangle {
             clicked => { root.override-clicked(root.index, 0); }
         }
         if item.b-icon != "": IconButton {
+            on-strip: true;
             icon: Icons.named(item.b-icon);
             label: item.b-label;
             tip: item.b-label;
@@ -133,7 +135,7 @@ export component AdjustmentsSettings inherits Card {
     reset-label: @tr("Reset");
     reset-detail: @tr("Switch every automatic adjustment back on.");
     reset => { root.reset-clicked(); }
-    keywords: @tr("search" => "automatic adjustments lag slow computer old pc frames late step down effects dynamic bitrate frame rate hot throttle fallback");
+    keywords: @tr("search" => "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate hot throttle fallback");
     icon: Icons.sliders;
     hue: Theme.plugin-hue("streaming");
 
