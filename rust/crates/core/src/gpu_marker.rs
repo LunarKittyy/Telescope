@@ -1,6 +1,8 @@
 //! A graphics driver that crashes the whole program can't be caught, so before a card is opened it goes in a small file, and the
 //! file is removed once the window has shown. A file still there at the next start means that card (with that driver version) took
-//! the last start down, and it is left out of the order from then on. Both files sit in the settings folder, a dev profile's own.
+//! the last start down, and it is left out of the order for a while. The wait grows each time the card fails again, so a driver that really
+//! crashes stays out of the way and a card that was only unlucky (the system killed Telescope when memory ran out) comes back.
+//! Both files sit in the settings folder, a dev profile's own.
 
 use crate::gpu_pick::has_version;
 use crate::i18n::{tr, Fields};
@@ -51,17 +53,78 @@ pub const MARKER_FILE: &str = "gpu_trying.json";
 pub const SKIP_FILE: &str = "gpu_skipped.json";
 /// More than this and the oldest is forgotten, so the list can't grow without end.
 const MAX_SKIPPED: usize = 8;
+/// A skipped card is tried again after this many starts, or the time below, whichever comes first.
+const WAIT_STARTS: u32 = 3;
+const WAIT_SECS: u64 = 24 * 60 * 60;
+/// Each failure in a row doubles the wait, this many times at most (48 starts, 16 days).
+const MAX_DOUBLINGS: u32 = 4;
 
-/// The skip list once a marker was found: the card is added (once), and the oldest go when there are too many. The card is what
-/// the last start closed on, if anything.
-pub fn after_start(marker: Option<Card>, mut skipped: Vec<Card>) -> (Vec<Card>, Option<Card>) {
+fn one() -> u32 {
+    1
+}
+
+/// A card on the skip list. The extra fields are optional in the file: an entry from before the wait existed is one failure that
+/// starts counting from the first start that reads it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Skipped {
+    #[serde(flatten)]
+    pub card: Card,
+    /// How many starts in a row ended on this card.
+    #[serde(default = "one")]
+    pub strikes: u32,
+    /// Starts since the last failure.
+    #[serde(default)]
+    pub starts: u32,
+    /// When the last failure was found, in seconds since 1970 (0 when unknown).
+    #[serde(default)]
+    pub since: u64,
+}
+
+impl Skipped {
+    fn new(card: Card, now: u64) -> Skipped {
+        Skipped { card, strikes: 1, starts: 0, since: now }
+    }
+
+    /// Whether the wait is over and the card gets another try. A clock set back never ends it early.
+    fn due(&self, now: u64) -> bool {
+        let doublings = self.strikes.saturating_sub(1).min(MAX_DOUBLINGS);
+        self.starts >= WAIT_STARTS << doublings || (self.since != 0 && now.saturating_sub(self.since) >= WAIT_SECS << doublings)
+    }
+}
+
+/// The skip list after a start, `now` in seconds since 1970. This start counts for every card that wasn't what the last one closed on.
+/// The card the last start closed on (the marker) is added, or has one more failure and a fresh wait if it was on the list already
+/// (it was given another try). The oldest go when there are too many. The card is what the last start closed on, if anything.
+pub fn after_start(marker: Option<Card>, mut skipped: Vec<Skipped>, now: u64) -> (Vec<Skipped>, Option<Card>) {
+    let hit = marker.as_ref().and_then(|card| skipped.iter().position(|s| card.is_listed_as(&s.card)));
+    for (i, s) in skipped.iter_mut().enumerate() {
+        if s.since == 0 {
+            s.since = now;
+        }
+        if Some(i) != hit {
+            s.starts = s.starts.saturating_add(1);
+        }
+    }
     let Some(card) = marker else { return (skipped, None) };
-    if !skipped.iter().any(|s| card.is_listed_as(s)) {
-        skipped.push(card.clone());
+    match hit {
+        Some(i) => {
+            let s = &mut skipped[i];
+            (s.strikes, s.starts, s.since) = (s.strikes.saturating_add(1), 0, now);
+        }
+        None => skipped.push(Skipped::new(card.clone(), now)),
     }
     let extra = skipped.len().saturating_sub(MAX_SKIPPED);
     skipped.drain(..extra);
     (skipped, Some(card))
+}
+
+/// The cards still to be left out: the ones whose wait isn't over.
+fn left_out(skipped: &[Skipped], now: u64) -> Vec<Card> {
+    skipped.iter().filter(|s| !s.due(now)).map(|s| s.card.clone()).collect()
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 /// What is left of a list of adapters after the skipped cards go, in the same order.
@@ -79,13 +142,18 @@ struct State {
     last: Option<Card>,
     /// A start in the tray: no surface exists yet, so the marker was cleared and is armed again when the window first shows.
     deferred: bool,
+    /// The cards left out of this start.
     skipped: Vec<Card>,
+    /// The skip list as the file has it, the cards given another try this start included.
+    entries: Vec<Skipped>,
+    /// The cards given another try this start: one that draws the window comes off the list (`confirmed`).
+    on_trial: Vec<Card>,
     /// Goes up with every `clear`, so work that marked something meanwhile can tell it was cleared underneath.
     generation: u64,
 }
 
 fn state() -> MutexGuard<'static, State> {
-    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new(), generation: 0 });
+    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new(), entries: Vec::new(), on_trial: Vec::new(), generation: 0 });
     STATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -104,28 +172,64 @@ fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     })
 }
 
-/// Reads what the last start left, in `folder`. The card it closed on (if any) is logged, skipped from now on and returned, so the
-/// window can say so once. Until `clear` is called, `mark` writes the marker.
+/// Reads what the last start left, in `folder`. The card it closed on (if any) is logged, skipped for a while and returned, so the
+/// window can say so once. A card whose wait is over is tried again. Until `clear` is called, `mark` writes the marker.
 pub fn begin_start(folder: &Path) -> Option<Card> {
+    begin_start_at(folder, unix_now())
+}
+
+fn begin_start_at(folder: &Path, now: u64) -> Option<Card> {
     let marker = read::<Card>(&folder.join(MARKER_FILE));
-    let (skipped, crashed) = after_start(marker, read(&folder.join(SKIP_FILE)).unwrap_or_default());
+    let (entries, crashed) = after_start(marker, read(&folder.join(SKIP_FILE)).unwrap_or_default(), now);
     if let Some(card) = &crashed {
-        log::error!("The last start closed while opening the graphics card {card}, so it is skipped from now on");
-        // The marker goes only once the list is saved: losing both would let the card be tried again
-        let saved = serde_json::to_string(&skipped).map_err(|e| e.to_string()).and_then(|text| write_atomic(&folder.join(SKIP_FILE), &text).map_err(|e| e.to_string()));
-        match saved {
-            Ok(()) => {
-                let _ = std::fs::remove_file(folder.join(MARKER_FILE));
-            }
-            Err(e) => log::warn!("Couldn't save the skipped graphics cards, the note stays for the next start: {e}"),
+        let strikes = entries.iter().find(|s| card.is_listed_as(&s.card)).map_or(1, |s| s.strikes);
+        log::error!("The last start closed while opening the graphics card {card} (failure {strikes} in a row), so it is skipped for a while");
+    }
+    if crashed.is_some() || !entries.is_empty() {
+        let saved = save_entries(folder, &entries);
+        if let Err(e) = &saved {
+            log::warn!("Couldn't save the skipped graphics cards: {e}");
         }
+        // The marker goes only once the list is saved: losing both would let the card be tried again at once
+        if crashed.is_some() && saved.is_ok() {
+            let _ = std::fs::remove_file(folder.join(MARKER_FILE));
+        }
+    }
+    let on_trial: Vec<Card> = entries.iter().filter(|s| s.due(now)).map(|s| s.card.clone()).collect();
+    for card in &on_trial {
+        log::info!("The graphics card {card} was skipped after a start that closed on it, and gets another try");
     }
     let mut state = state();
     state.folder = Some(folder.to_path_buf());
     state.home = Some(folder.to_path_buf());
     state.deferred = false;
-    state.skipped = skipped;
+    state.skipped = left_out(&entries, now);
+    state.entries = entries;
+    state.on_trial = on_trial;
     crashed
+}
+
+fn save_entries(folder: &Path, entries: &[Skipped]) -> Result<(), String> {
+    let text = serde_json::to_string(entries).map_err(|e| e.to_string())?;
+    write_atomic(&folder.join(SKIP_FILE), &text).map_err(|e| e.to_string())
+}
+
+/// The window drew on the card it opened, so a card that was given another try and is that one is no longer skipped, and its failures are
+/// forgotten. When the card probe was given another try, any card that draws the window clears it.
+pub fn confirmed() {
+    let mut state = state();
+    let Some(home) = state.home.clone() else { return };
+    let (trial, last) = (state.on_trial.clone(), state.last.clone());
+    let cleared = |s: &Skipped| trial.contains(&s.card) && (s.card.name == PROBE_NAME || last.as_ref().is_some_and(|l| l.is_listed_as(&s.card)));
+    let kept: Vec<Skipped> = state.entries.iter().filter(|s| !cleared(s)).cloned().collect();
+    if kept.len() == state.entries.len() {
+        return;
+    }
+    state.on_trial.retain(|c| kept.iter().any(|s| &s.card == c));
+    state.entries = kept;
+    if let Err(e) = save_entries(&home, &state.entries) {
+        log::warn!("Couldn't save the skipped graphics cards: {e}");
+    }
 }
 
 /// Whether the card is on the skip list (always false before `begin_start`).
@@ -178,9 +282,10 @@ impl Confirm {
 }
 
 /// Reads the skip list from `folder` without starting a window start: for commands that open a card but never mark one (snapshot).
+/// Nothing is counted or saved.
 pub fn load_skipped(folder: &Path) {
-    let skipped: Vec<Card> = read(&folder.join(SKIP_FILE)).unwrap_or_default();
-    state().skipped = skipped;
+    let entries: Vec<Skipped> = read(&folder.join(SKIP_FILE)).unwrap_or_default();
+    state().skipped = left_out(&entries, unix_now());
 }
 
 static KEPT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -308,25 +413,93 @@ mod tests {
         Card::new(name, "Vulkan", driver)
     }
 
+    const T0: u64 = 1_800_000_000;
+    const DAY: u64 = 24 * 60 * 60;
+
+    /// An entry as a start long ago would have left it, to use in the tests.
+    fn entry(card: Card, strikes: u32, starts: u32, since: u64) -> Skipped {
+        Skipped { card, strikes, starts, since }
+    }
+
+    /// A card that stays skipped through any start the tests make.
+    fn long_skipped(card: Card) -> Skipped {
+        entry(card, MAX_DOUBLINGS + 1, 0, u64::MAX)
+    }
+
+    /// How many starts, a minute apart, until the card is given another try.
+    fn starts_until_due(mut list: Vec<Skipped>) -> u32 {
+        for n in 1..1000 {
+            list = after_start(None, list, T0).0;
+            if list[0].due(T0) {
+                return n;
+            }
+        }
+        panic!("never due");
+    }
+
     #[test]
-    fn no_marker_changes_nothing() {
-        let list = vec![card("A", "1")];
-        assert_eq!(after_start(None, list.clone()), (list, None));
+    fn no_marker_only_counts_the_start() {
+        let (list, crashed) = after_start(None, vec![entry(card("A", "1"), 1, 0, T0)], T0);
+        assert_eq!((list, crashed), (vec![entry(card("A", "1"), 1, 1, T0)], None));
     }
 
     #[test]
     fn a_marker_puts_its_card_on_the_list_once() {
-        let (list, crashed) = after_start(Some(card("A", "1")), vec![card("B", "1")]);
-        assert_eq!((list.clone(), crashed), (vec![card("B", "1"), card("A", "1")], Some(card("A", "1"))));
-        let (again, crashed) = after_start(Some(card("A", "1")), list.clone());
-        assert_eq!((again, crashed), (list, Some(card("A", "1"))));
+        let (list, crashed) = after_start(Some(card("A", "1")), vec![entry(card("B", "1"), 1, 0, T0)], T0);
+        assert_eq!((list.clone(), crashed), (vec![entry(card("B", "1"), 1, 1, T0), entry(card("A", "1"), 1, 0, T0)], Some(card("A", "1"))));
+        // The same card again is the same entry, with another failure
+        let (again, crashed) = after_start(Some(card("A", "1")), list, T0 + 5);
+        assert_eq!((again.len(), again[1].strikes, again[1].since, crashed), (2, 2, T0 + 5, Some(card("A", "1"))));
     }
 
     #[test]
     fn the_list_stays_small_and_forgets_the_oldest() {
-        let full: Vec<Card> = (0..MAX_SKIPPED).map(|i| card(&format!("C{i}"), "1")).collect();
-        let (list, _) = after_start(Some(card("New", "1")), full);
-        assert_eq!((list.len(), &list[0], list.last()), (MAX_SKIPPED, &card("C1", "1"), Some(&card("New", "1"))));
+        let full: Vec<Skipped> = (0..MAX_SKIPPED).map(|i| entry(card(&format!("C{i}"), "1"), 1, 0, T0)).collect();
+        let (list, _) = after_start(Some(card("New", "1")), full, T0);
+        assert_eq!((list.len(), &list[0].card, list.last().map(|s| &s.card)), (MAX_SKIPPED, &card("C1", "1"), Some(&card("New", "1"))));
+    }
+
+    #[test]
+    fn a_skipped_card_comes_back_after_a_few_starts_and_waits_longer_each_time_it_fails() {
+        let mut list = after_start(Some(card("A", "1")), vec![], T0).0;
+        assert!(!list[0].due(T0));
+        let mut waits = vec![];
+        for _ in 0..7 {
+            waits.push(starts_until_due(list.clone()));
+            // Given another try, and it fails again
+            list = after_start(Some(card("A", "1")), list, T0).0;
+        }
+        // Doubling, up to a limit
+        assert_eq!(waits, [3, 6, 12, 24, 48, 48, 48]);
+        assert_eq!(list[0].strikes, 8);
+    }
+
+    #[test]
+    fn a_skipped_card_comes_back_after_a_day_even_without_starts_and_a_repeat_waits_longer() {
+        let list = after_start(Some(card("A", "1")), vec![], T0).0;
+        assert!(!list[0].due(T0 + DAY - 1) && list[0].due(T0 + DAY));
+        let twice = after_start(Some(card("A", "1")), list, T0 + DAY).0;
+        assert!(!twice[0].due(T0 + 3 * DAY - 1) && twice[0].due(T0 + 3 * DAY), "two days after the second failure");
+        let capped = entry(card("A", "1"), 99, 0, T0);
+        assert!(!capped.due(T0 + 16 * DAY - 1) && capped.due(T0 + 16 * DAY));
+    }
+
+    #[test]
+    fn a_clock_set_back_or_an_unknown_time_never_ends_the_wait_early() {
+        assert!(!entry(card("A", "1"), 1, 0, T0).due(T0 - 10 * DAY));
+        assert!(!entry(card("A", "1"), 1, 0, 0).due(T0), "no time known: only starts count");
+        assert!(entry(card("A", "1"), 1, 3, 0).due(T0));
+    }
+
+    #[test]
+    fn an_entry_from_before_the_wait_existed_starts_waiting_at_its_first_start() {
+        let old: Vec<Skipped> = serde_json::from_str(r#"[{"name":"A","backend":"Vulkan","driver":"1"},{"name":"B","backend":"Vulkan","driver":"2","bus":"0000:01:00.0"}]"#).unwrap();
+        assert_eq!(old[0], entry(card("A", "1"), 1, 0, 0));
+        assert_eq!(old[1].card.bus, "0000:01:00.0");
+        let (list, _) = after_start(None, old, T0);
+        assert!(list.iter().all(|s| s.since == T0 && !s.due(T0)), "{list:?}");
+        // What is written is read back the same
+        assert_eq!(serde_json::from_str::<Vec<Skipped>>(&serde_json::to_string(&list).unwrap()).unwrap(), list);
     }
 
     #[test]
@@ -340,7 +513,7 @@ mod tests {
         let skipped = [card("A", "Intel driver")];
         let list = vec![card("A", "Intel driver 31.0.101.2141"), card("A", "Other 31.0.101.2141"), card("A", "Intel driver"), card("B", "Intel driver 1.2")];
         assert_eq!(without_skipped(list, |c| c.clone(), &skipped), [card("A", "Other 31.0.101.2141"), card("B", "Intel driver 1.2")]);
-        let (list, _) = after_start(Some(card("A", "Intel driver 31.0.101.2141")), skipped.to_vec());
+        let (list, _) = after_start(Some(card("A", "Intel driver 31.0.101.2141")), vec![entry(skipped[0].clone(), 1, 0, T0)], T0);
         assert_eq!(list.len(), 1);
     }
 
@@ -424,7 +597,7 @@ mod tests {
         mark(&probe_card());
         assert_eq!(begin_start(&folder), Some(probe_card()));
         assert!(probe_failed());
-        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[card("A", "1")]).unwrap()).unwrap();
+        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[long_skipped(card("A", "1"))]).unwrap()).unwrap();
         begin_start(&folder);
         assert!(!probe_failed());
         clear();
@@ -444,14 +617,60 @@ mod tests {
         clear_unless_kept();
         assert!(!folder.join(MARKER_FILE).exists());
         // A command that marks nothing still reads the list
-        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[card("S", "9")]).unwrap()).unwrap();
+        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[long_skipped(card("S", "9"))]).unwrap()).unwrap();
         load_skipped(&folder);
         assert!(is_skipped(&card("S", "9")));
-        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[card("A", "1")]).unwrap()).unwrap();
+        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[long_skipped(card("A", "1"))]).unwrap()).unwrap();
         load_skipped(&folder);
         // A damaged file is ignored
         std::fs::write(folder.join(MARKER_FILE), "not json").unwrap();
         assert_eq!(begin_start(&folder), None);
+        clear();
+        // A skipped card is tried again after a few starts, and waits longer when that fails too
+        let folder = scratch_dir("gpu-marker-expiry");
+        let file = || read::<Vec<Skipped>>(&folder.join(SKIP_FILE)).unwrap();
+        begin_start_at(&folder, T0);
+        mark(&card("X", "1"));
+        assert_eq!(begin_start_at(&folder, T0 + 10), Some(card("X", "1")));
+        assert!(is_skipped(&card("X", "1")));
+        for n in 1..3 {
+            begin_start_at(&folder, T0 + 10 + n);
+            assert!(is_skipped(&card("X", "1")), "start {n} after the failure");
+        }
+        begin_start_at(&folder, T0 + 13);
+        assert!(!is_skipped(&card("X", "1")) && skipped().is_empty(), "the third start gives it another try");
+        assert_eq!(file().len(), 1, "it stays on the list until it has drawn the window");
+        // Too early a confirmation by another card doesn't clear it
+        mark(&card("Y", "1"));
+        confirmed();
+        assert_eq!(file().len(), 1);
+        clear();
+        // Another failure: skipped again, and for twice as long
+        begin_start_at(&folder, T0 + 14);
+        assert!(!is_skipped(&card("X", "1")));
+        mark(&card("X", "1"));
+        assert_eq!(begin_start_at(&folder, T0 + 20), Some(card("X", "1")));
+        assert_eq!((file()[0].strikes, file()[0].starts), (2, 0));
+        for n in 1..6 {
+            begin_start_at(&folder, T0 + 20 + n);
+            assert!(is_skipped(&card("X", "1")), "start {n} after the second failure");
+        }
+        begin_start_at(&folder, T0 + 26);
+        assert!(!is_skipped(&card("X", "1")));
+        // This time the card draws the window, so it is forgotten
+        mark(&card("X", "1"));
+        confirmed();
+        clear();
+        assert!(file().is_empty());
+        begin_start_at(&folder, T0 + 27);
+        assert!(skipped().is_empty() && !is_skipped(&card("X", "1")));
+        // A day later is another way back, with no starts in between
+        mark(&card("Z", "1"));
+        begin_start_at(&folder, T0 + 30);
+        begin_start_at(&folder, T0 + 30 + DAY - 1);
+        assert!(is_skipped(&card("Z", "1")));
+        begin_start_at(&folder, T0 + 30 + DAY);
+        assert!(!is_skipped(&card("Z", "1")));
         clear();
     }
 }
