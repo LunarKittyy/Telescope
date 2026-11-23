@@ -395,6 +395,12 @@ pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn
         if state == "trial" && started && first_start_still_loading(&journal, running_elsewhere, grace) {
             return Ok(None); // a second launch while the new version was still starting up: that one takes the lock
         }
+        if state == "trial" && started && journal["retried"].as_bool() != Some(true) {
+            // Nothing says the first start failed: it may have been killed while the window was still coming up (a slow scan of the new exe,
+            // a shutdown). It gets one more start before the build is rolled back and not offered again
+            write_journal_with(directory, &with(&journal, json!({"retried": true, "started_at": now()})), mv)?;
+            return Ok(None);
+        }
         if state == "rolling_back" || (state == "trial" && started) {
             roll_back(directory, &journal, true, mv)?;
             return Ok(Some(relaunch_command(directory, false)));
@@ -927,7 +933,8 @@ mod tests {
         let app = updated_windows_app(&base);
         assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None); // the new version's first start
         assert_eq!(read_journal(&app).unwrap()["started"], true);
-        // It crashed before confirming, so the next start goes back (once it's had its time to start up)
+        // It never confirmed twice, so the start after that goes back (once it's had its time to start up)
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
         let relaunch = recover(&app, Duration::ZERO, &nobody, Duration::ZERO).expect("rolls back");
         assert!(!relaunch.contains(&"--after-update".to_string()));
         assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
@@ -942,6 +949,36 @@ mod tests {
         // The old version's clean-up takes the failed one's leftovers, lib folders and all
         clean_up_after_update(&app, Some(130));
         assert!(!app.join(FAILED_EXE_NAME).exists() && !app.join("lib-131").exists());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_new_version_killed_once_before_it_confirms_gets_another_start_before_it_is_rolled_back() {
+        let base = root("win-retry");
+        let app = updated_windows_app(&base);
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None); // the first start
+        // Killed before its window was up: nothing says it failed, so it starts again
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        assert_eq!(failed_build(&app), None);
+        // and killed again
+        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
+        assert_eq!(failed_build(&app), Some(131));
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_second_start_that_gets_going_keeps_the_update() {
+        let base = root("win-retry-ok");
+        let app = updated_windows_app(&base);
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
+        confirm(&app);
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        assert!(read_journal(&app).is_none());
+        assert_eq!(failed_build(&app), None);
         std::fs::remove_dir_all(&base).unwrap();
     }
 
@@ -1027,7 +1064,9 @@ mod tests {
         let base = root("underneath");
         let app = updated_windows_app(&base);
         assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None); // the new version starts, slowly
-        // A second launch gives up waiting for it to take the lock, and puts the old version back
+        // The first start never confirmed (killed, or slow): it gets one more before it is rolled back
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
+        // A third launch gives up waiting for it to take the lock, and puts the old version back
         assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
         assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
         // The slow first start carries on regardless (renamed, still 131) and gets as far as its clean-up
@@ -1077,6 +1116,8 @@ mod tests {
         assert!(result.skipped.is_empty(), "{:?}", result.skipped);
         assert_eq!(read(&app.join("avcodec-62.dll")), "codec 131");
         assert_eq!(read(&app.join(PREVIOUS_DIR).join("avcodec-62.dll")), "codec 130");
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
+        // The first start never confirmed (killed, or slow): it gets one more before it is rolled back
         assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
         assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
         assert_eq!(read(&app.join("avcodec-62.dll")), "codec 130");
@@ -1351,6 +1392,8 @@ mod tests {
         let base = root("lin-roll");
         let app = linux_app(&base);
         install_linux(&linux_tarball(&base.join("u.tar.gz")), &app, 131, &mut rename).unwrap();
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
+        // The first start never confirmed (killed, or slow): it gets one more before it is rolled back
         assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
         assert_eq!(tree(&app), new_tree());
         let relaunch = recover(&app, Duration::ZERO, &nobody, Duration::ZERO);

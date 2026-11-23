@@ -297,31 +297,6 @@ fn a_mean_never_passes_its_slowest() {
 }
 
 #[test]
-fn the_snapshot_carries_the_effects_level_and_an_old_one_without_it_still_loads() {
-    let effort = Arc::new(Effort::free());
-    let hub = Hub::with_parts(Arc::new(Balance::free()), effort.clone());
-    assert_eq!(hub.snapshot_at(1, None, None).app.effort.level, 0);
-    effort.set_floor(1);
-    let snap = hub.snapshot_at(2, None, None);
-    assert_eq!((snap.app.effort.level, snap.app.effort.floor, snap.app.effort.moves.len()), (1, 1, 1));
-    let mut json = serde_json::to_value(&snap).unwrap();
-    json["app"].as_object_mut().unwrap().remove("effort");
-    assert_eq!(serde_json::from_value::<Snapshot>(json).unwrap().app.effort, crate::effort::EffortSnapshot::default());
-}
-
-#[test]
-fn the_hub_tells_the_bus_when_the_effects_level_changed_even_with_no_stream() {
-    let bus = crate::EventBus::new();
-    let effort = Arc::new(Effort::free());
-    let hub = Arc::new(Hub::with_parts(Arc::new(Balance::free()), effort.clone()));
-    hub.start(bus.sender());
-    effort.set_floor(2);
-    std::thread::sleep(std::time::Duration::from_millis(EVERY_MS + 600));
-    assert_eq!(bus.next(), Some(Event::EffortChanged { level: 2 }));
-    assert!(bus.is_empty(), "once per change");
-}
-
-#[test]
 fn model_runs_are_timed_always_and_the_computer_only_while_asked() {
     let (hub, _stats, began) = running();
     crate::stats::note_model("mask", 4 * MS);
@@ -357,6 +332,31 @@ fn what_the_computer_is_doing_never_reaches_a_plugin_as_json() {
     assert!(!text.contains("secret program") && !text.contains("system"), "{text}");
     let back: Snapshot = serde_json::from_str(&text).unwrap();
     assert!(back.app.system.is_none());
+}
+
+#[test]
+fn the_snapshot_carries_the_effects_level_and_an_old_one_without_it_still_loads() {
+    let effort = Arc::new(Effort::free());
+    let hub = Hub::with_parts(Arc::new(Balance::free()), effort.clone());
+    assert_eq!(hub.snapshot_at(1, None, None).app.effort.level, 0);
+    effort.set_floor(1);
+    let snap = hub.snapshot_at(2, None, None);
+    assert_eq!((snap.app.effort.level, snap.app.effort.floor, snap.app.effort.moves.len()), (1, 1, 1));
+    let mut json = serde_json::to_value(&snap).unwrap();
+    json["app"].as_object_mut().unwrap().remove("effort");
+    assert_eq!(serde_json::from_value::<Snapshot>(json).unwrap().app.effort, crate::effort::EffortSnapshot::default());
+}
+
+#[test]
+fn the_hub_tells_the_bus_when_the_effects_level_changed_even_with_no_stream() {
+    let bus = crate::EventBus::new();
+    let effort = Arc::new(Effort::free());
+    let hub = Arc::new(Hub::with_parts(Arc::new(Balance::free()), effort.clone()));
+    hub.start(bus.sender());
+    effort.set_floor(2);
+    std::thread::sleep(std::time::Duration::from_millis(EVERY_MS + 600));
+    assert_eq!(bus.next(), Some(Event::EffortChanged { level: 2 }));
+    assert!(bus.is_empty(), "once per change");
 }
 
 #[test]
