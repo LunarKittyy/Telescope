@@ -534,7 +534,7 @@ pub struct AppSnapshot {
     /// How long each vision model's runs took over the last second (the ones that ran), whether or not anything asked.
     #[serde(default)]
     pub models: Vec<NamedTiming>,
-    /// The whole computer's load, only while something asked (`Hub::want_system`). Live only: never logged, saved or sent, so plugins never hear it.
+    /// The whole computer's load, only while something asked (`Hub::want_system`). Live only: never logged, saved or sent, and left out of a snapshot's JSON, so a script plugin never hears it.
     #[serde(default, skip_serializing)]
     pub system: Option<SystemReading>,
     pub series: AppSeries,
