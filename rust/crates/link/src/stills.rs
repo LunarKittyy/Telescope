@@ -22,6 +22,8 @@ const CHUNK: usize = 1 << 20;
 /// The most one photo file may be, whatever the phone says it is.
 const MAX_FILE_BYTES: u64 = 1 << 30;
 const MAX_REPLY: usize = 1 << 20;
+/// The most pictures one request may be said to take: the card lists every count up to it, so a nonsense number from a phone can't be taken at its word.
+const MAX_BURST: i64 = 1000;
 /// How often a download's watcher looks at the clock, the stop flag and whether the stream is still the same.
 const WATCH_EVERY: Duration = Duration::from_millis(25);
 
@@ -168,7 +170,7 @@ impl StillCaps {
             max_res_raw: flag("maxResRaw"), extensions: words("extensions"), extension_sizes,
             exposure_max_ns: number("exposureMaxNs"), bracketing: flag("bracketing"), focus_bracketing: flag("focusBracketing"),
             noise_reduction_hq: flag("noiseReductionHq"), sharpening_hq: flag("sharpeningHq"), hot_pixel_hq: flag("hotPixelHq"),
-            distortion: flag("distortionCorrection"), burst_max: number("burstMax").max(1),
+            distortion: flag("distortionCorrection"), burst_max: number("burstMax").clamp(1, MAX_BURST),
         })
     }
 }
@@ -479,6 +481,11 @@ impl Runner<'_> {
         if is_hidden() {
             return StillResult::failed("hidden", "", &[]);
         }
+        // Before the phone is asked: a photo it takes (a long exposure, a burst) for a folder that can't be made would only be thrown away
+        if let Err(e) = std::fs::create_dir_all(folder) {
+            log::warn!("Can't make the photo folder {}: {e}", folder.display());
+            return StillResult::failed("save", "", &[]);
+        }
         let t = self.timings();
         let exposure = exposure_duration(exposure_seconds(&Value::Object(options.clone())));
         let mut body = options;
@@ -506,10 +513,6 @@ impl Runner<'_> {
         let (begun, mut heard, mut moved) = (Instant::now(), Instant::now(), Instant::now());
         let mut last: Option<Value> = None;
         let (stall_after, longest) = (t.stall + exposure, t.longest + exposure);
-        if let Err(e) = std::fs::create_dir_all(folder) {
-            log::warn!("Can't make the photo folder {}: {e}", folder.display());
-            return StillResult::failed("save", "", &[]);
-        }
         // Behind a lock so a download's watcher thread can ask it too
         let alive = Mutex::new(alive);
         let alive_now = || alive.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_none_or(|a| a());
@@ -891,6 +894,12 @@ mod tests {
     }
 
     #[test]
+    fn a_burst_size_nobody_could_take_is_kept_to_a_list_the_card_can_show() {
+        let c = caps(json!({"burstMax": 4_000_000_000_000i64})).unwrap();
+        assert_eq!(c.burst_max, 1000);
+    }
+
+    #[test]
     fn a_name_already_taken_gets_a_number() {
         let dir = telescope_core::testing::scratch_dir("stills-names");
         assert_eq!(free_path(&dir, "IMG_1.jpg"), dir.join("IMG_1.jpg"));
@@ -1236,8 +1245,10 @@ mod tests {
     fn a_folder_that_cant_be_made_fails_cleanly() {
         let dir = telescope_core::testing::scratch_dir("stills-blocked");
         std::fs::write(dir.join("file"), "not a folder").unwrap();
-        let (r, _, _) = take(Phone::default(), &dir.join("file").join("Photos"));
+        let (r, _, p) = take(Phone::default(), &dir.join("file").join("Photos"));
         assert!(!r.ok && r.code == "save");
+        // The phone is never asked for a photo that has nowhere to go
+        assert!(p.posts.is_empty() && p.forgotten.is_empty(), "{:?}", p.posts);
     }
 
     #[test]
