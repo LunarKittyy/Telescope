@@ -1,5 +1,6 @@
 //! Whether a decoder keeps up with the stream: how long each picture takes to decode and be handed over (on a card, until it is copied off or
-//! kept there), judged over a few seconds. A card that looks too slow hands over to software only if software turns out quicker.
+//! kept there), judged over a few seconds. A card that looks too slow hands over to software only if software turns out quicker and also
+//! gets more new pictures to the virtual camera.
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -73,12 +74,21 @@ pub fn stall(hiccups_ms: &[f64]) -> Option<f64> {
 
 /// Software must take less than this share of the card's time a picture to be called quicker: a tie goes to the card, which costs the processor less.
 pub const CLEARLY_QUICKER: f64 = 0.8;
-/// How long software gets to show its speed after a card looked too slow, before the card is taken back anyway.
+/// How long software gets to show its speed once it has the stream, before the card is taken back anyway.
 pub const TRIAL_LIMIT: Duration = Duration::from_secs(10);
+/// How long a decoder started beside the running one gets to give its first picture (it starts at the next keyframe) before it is given up on.
+pub const START_LIMIT: Duration = Duration::from_secs(8);
+/// Software must deliver this much more than the card, new pictures a second, to be called better: the same rate is a tie, and a tie goes to the card.
+pub const RATE_MARGIN: f64 = 1.05;
 
 /// Whether software, at software_ms a picture, is clearly quicker than a card at card_ms.
 pub fn software_quicker(card_ms: f64, software_ms: f64) -> bool {
     software_ms < card_ms * CLEARLY_QUICKER
+}
+
+/// Whether software's new pictures a second beat the card's by the margin; a rate that couldn't be measured beats nothing.
+pub fn delivers_more(card: Option<f64>, software: Option<f64>) -> bool {
+    matches!((card, software), (Some(card), Some(software)) if software > 0.0 && software >= card * RATE_MARGIN)
 }
 
 /// How long software decodes after the card was too slow, the first time.
@@ -131,6 +141,42 @@ impl Cooldown {
     }
 }
 
+/// A rate older than this has nothing to say about now.
+const FRESH: Duration = Duration::from_secs(1);
+/// The least time a rate is read over.
+const MIN_SPAN: Duration = Duration::from_secs(2);
+
+/// How many new pictures a second reached the virtual camera, read from a running total over the last WINDOW.
+#[derive(Default)]
+pub struct Rate {
+    samples: VecDeque<(Instant, u64)>,
+}
+
+impl Rate {
+    /// The running total of new pictures sent on as of now.
+    pub fn record(&mut self, now: Instant, total: u64) {
+        // A total that went back is another stream's count: start over
+        if self.samples.back().is_some_and(|&(_, last)| total < last) {
+            self.samples.clear();
+        }
+        self.samples.push_back((now, total));
+        // Keeps one sample at or before the start of the window
+        while self.samples.len() >= 2 && now.duration_since(self.samples[1].0) >= WINDOW {
+            self.samples.pop_front();
+        }
+    }
+
+    /// New pictures a second over the last window, or None when the newest sample is stale or they span too little time to say.
+    pub fn per_second(&self, now: Instant) -> Option<f64> {
+        let (&(first_at, first), &(last_at, last)) = (self.samples.front()?, self.samples.back()?);
+        let span = last_at.duration_since(first_at);
+        if now.saturating_duration_since(last_at) > FRESH || span < MIN_SPAN {
+            return None;
+        }
+        Some((last - first) as f64 / span.as_secs_f64())
+    }
+}
+
 /// What a decoder took for its recent pictures.
 #[derive(Default)]
 pub struct Timings {
@@ -156,7 +202,7 @@ impl Timings {
         if now.duration_since(self.since?) < WINDOW {
             return None;
         }
-        too_slow(&self.times(), interval_ms)
+        too_slow(&self.times_at(now), interval_ms)
     }
 
     /// The speed over the pictures of the last window.
@@ -179,16 +225,26 @@ impl Timings {
         stall(&self.hiccups.iter().map(|(_, ms)| *ms).collect::<Vec<_>>())
     }
 
-    /// The median picture of the last window once a whole window was timed (endless when the window had none); None before a whole window.
+    /// The median picture of the last window once a whole window was timed and it holds enough pictures to say; None before that. Pictures
+    /// older than the window are left out even when no newer one came to push them off.
     pub fn per_picture(&self, now: Instant) -> Option<f64> {
         if now.duration_since(self.since?) < WINDOW {
             return None;
         }
-        Some(self.recent().map_or(f64::INFINITY, |s| s.median_ms))
+        let times = self.times_at(now);
+        if times.len() < MIN_PICTURES {
+            return None;
+        }
+        speed(&times).map(|s| s.median_ms)
     }
 
     fn times(&self) -> Vec<f64> {
         self.recent.iter().map(|(_, ms)| *ms).collect()
+    }
+
+    /// The times of the pictures within the last window as of now.
+    fn times_at(&self, now: Instant) -> Vec<f64> {
+        self.recent.iter().filter(|(t, _)| now.saturating_duration_since(*t) <= WINDOW).map(|(_, ms)| *ms).collect()
     }
 }
 
@@ -337,10 +393,80 @@ mod tests {
         }
         assert!(t.per_picture(start + Duration::from_secs(2)).is_none());
         assert_eq!(t.per_picture(start + Duration::from_secs(3)), Some(20.0));
-        // Nothing for a whole window since: no picture is endlessly slow
-        t.record(start + Duration::from_secs(9), 20.0);
-        t.recent.clear();
-        assert_eq!(t.per_picture(start + Duration::from_secs(9)), Some(f64::INFINITY));
+    }
+
+    #[test]
+    fn per_picture_needs_enough_pictures_to_say() {
+        let start = Instant::now();
+        let mut t = Timings::default();
+        // One quick picture and then nothing: that is no verdict, let alone a quick one
+        t.record(start, 2.0);
+        assert!(t.per_picture(start + Duration::from_secs(3)).is_none());
+        for i in 0..MIN_PICTURES as u64 - 2 {
+            t.record(start + Duration::from_millis(100 * i), 2.0);
+        }
+        assert!(t.per_picture(start + Duration::from_secs(3)).is_none());
+        t.record(start + Duration::from_millis(2900), 2.0);
+        assert_eq!(t.per_picture(start + Duration::from_secs(3)), Some(2.0));
+    }
+
+    #[test]
+    fn pictures_that_were_never_pushed_off_still_expire() {
+        let start = Instant::now();
+        let mut t = Timings::default();
+        for i in 0..100 {
+            t.record(start + Duration::from_millis(i * 30), 5.0);
+        }
+        // Nothing came after, so nothing evicted them: they are old all the same
+        assert!(t.per_picture(start + Duration::from_secs(3)).is_some());
+        assert!(t.per_picture(start + Duration::from_secs(9)).is_none());
+        assert!(t.slow(start + Duration::from_secs(9), 1.0).is_none());
+    }
+
+    #[test]
+    fn the_rate_reads_the_last_window_of_a_running_total() {
+        let start = Instant::now();
+        let mut r = Rate::default();
+        for i in 0..=150u64 {
+            // 20 a second for the first three seconds, then 10 a second
+            let total = if i <= 60 { i } else { 60 + (i - 60) / 2 };
+            r.record(start + Duration::from_millis(i * 50), total);
+        }
+        let rate = r.per_second(start + Duration::from_millis(7500)).unwrap();
+        assert!((rate - 10.0).abs() < 0.5, "{rate}");
+    }
+
+    #[test]
+    fn a_rate_needs_time_and_a_fresh_sample() {
+        let start = Instant::now();
+        let mut r = Rate::default();
+        assert!(r.per_second(start).is_none());
+        r.record(start, 0);
+        r.record(start + Duration::from_millis(1000), 30);
+        assert!(r.per_second(start + Duration::from_millis(1000)).is_none(), "one second says little");
+        r.record(start + Duration::from_millis(2500), 75);
+        assert_eq!(r.per_second(start + Duration::from_millis(2500)), Some(30.0));
+        assert!(r.per_second(start + Duration::from_millis(3800)).is_none(), "the last sample is stale");
+    }
+
+    #[test]
+    fn a_total_that_goes_back_starts_the_rate_over() {
+        let start = Instant::now();
+        let mut r = Rate::default();
+        r.record(start, 100);
+        r.record(start + Duration::from_secs(3), 200);
+        r.record(start + Duration::from_millis(3100), 5);
+        assert!(r.per_second(start + Duration::from_millis(3100)).is_none());
+    }
+
+    #[test]
+    fn software_has_to_deliver_clearly_more_pictures_than_the_card() {
+        assert!(delivers_more(Some(15.0), Some(25.0)));
+        assert!(delivers_more(Some(0.0), Some(5.0)));
+        assert!(!delivers_more(Some(25.0), Some(15.0)));
+        assert!(!delivers_more(Some(25.0), Some(25.5)), "inside the margin is a tie");
+        assert!(!delivers_more(Some(0.0), Some(0.0)));
+        assert!(!delivers_more(None, Some(30.0)) && !delivers_more(Some(10.0), None));
     }
 
     #[test]
