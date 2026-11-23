@@ -313,7 +313,11 @@ class CameraStreamService : Service() {
             "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n"
 
         // One line per camera: what the hardware says it can do, for bug reports about a specific phone.
-        fun cameraReport(cameras: List<CameraEntry>): String = buildString {
+        fun cameraReport(
+            cameras: List<CameraEntry>,
+            raw: Map<String, Pair<Int, Int>?> = emptyMap(),
+            encoders: List<EncoderEntry>? = null,
+        ): String = buildString {
             appendLine("Cameras:")
             if (cameras.isEmpty()) appendLine("  (none found)")
             for (c in cameras) {
@@ -321,6 +325,7 @@ class CameraStreamService : Service() {
                 c.logicalId?.let { append(" (in $it)") }
                 append(" ${c.label}: ${c.hwLevel}, ISO ${c.isoMin}-${c.isoMax}")
                 c.supportedSizes.firstOrNull()?.let { append(", max ${it.width}x${it.height}") }
+                append(DiagnosticsExtras.rawNote(raw.containsKey(c.id), raw[c.id]))
                 if (c.aeFpsRanges.isNotEmpty())
                     append(", fps ${c.aeFpsRanges.joinToString(" ") { "${it.lower}-${it.upper}" }}")
                 if (c.zoomRatioMax > 1f) append(", zoom to ${"%.1f".format(c.zoomRatioMax)}x")
@@ -337,6 +342,7 @@ class CameraStreamService : Service() {
                 appendLine()
                 if (c.highSpeed.isNotEmpty()) appendLine("      high-speed only: ${c.highSpeed.joinToString("; ")}")
             }
+            if (encoders != null) appendLine(DiagnosticsExtras.encoderLine(encoders))
         }
 
         fun equivalentFocal(chars: CameraCharacteristics): Float {
@@ -639,7 +645,8 @@ class CameraStreamService : Service() {
                 sb.appendLine()
             }
         }
-        sb.append(cameraReport(allCameras))
+        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
+        sb.append(cameraReport(allCameras, DiagnosticsExtras.readRaw(manager, allCameras.map { it.id }), DiagnosticsExtras.readEncoders()))
         return sb.toString()
     }
 
