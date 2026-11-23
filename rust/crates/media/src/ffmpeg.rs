@@ -165,6 +165,9 @@ pub struct Codec {
     /// Tests: this many pictures are refused as a card that can't take the stream would.
     #[cfg(test)]
     pub refusals: u32,
+    /// Tests: how long each decode call and each copy off the card seem to take on the speed check's clock.
+    #[cfg(test)]
+    pub delays: (std::time::Duration, std::time::Duration),
     // A JPEG decoder: JFIF pictures are always full range BT.601, whatever the frame says (OpenCV decodes them so)
     jpeg: bool,
     converter: yuv::Converter,
@@ -259,6 +262,8 @@ impl Codec {
                 copy_ns: None,
                 #[cfg(test)]
                 refusals: 0,
+                #[cfg(test)]
+                delays: Default::default(),
                 jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
                 converter: yuv::Converter::default(),
                 sws_out: Padded::default(),
@@ -406,6 +411,8 @@ impl Codec {
             }
             ff::av_frame_unref(self.frame);
             ff::av_frame_move_ref(self.frame, self.held);
+            #[cfg(test)]
+            crate::slow::advance(self.delays.1);
             let began = monotonic_ns();
             let taken = self.take_frame()?;
             span("take_frame", began);
@@ -431,6 +438,8 @@ impl Codec {
             Some(Forced::Silent) => return Ok(0),
             _ => {}
         }
+        #[cfg(test)]
+        crate::slow::advance(self.delays.0);
         let mut count = 0;
         let input = padded(&mut self.unit_buf, unit).as_ptr();
         // SAFETY: the packet points at a padded copy of unit for the length of send_packet, which copies it (the packet

@@ -7,7 +7,7 @@ use crate::ffmpeg::{Codec, Fault, Forced, Hw};
 use crate::packets::{Steps, Tap};
 use crate::slow::{self, Timings};
 use crate::stamp::{self, Stamp};
-use std::time::Instant;
+use std::time::Duration;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -210,7 +210,7 @@ impl H264 {
         // The card was too slow lately: software until the wait is over, and then the card again
         let mut retry_hw = None;
         if let Some(h) = wanted {
-            let now = Instant::now();
+            let now = slow::now();
             let mut cooldown = COOLDOWN.lock().unwrap();
             if cooldown.waiting(now) {
                 log::info!("Decoding this stream in software: the graphics card was too slow lately");
@@ -295,7 +295,6 @@ impl H264 {
         }
         // Joined the stream before its headers: nothing can decode that, so it says nothing about the card
         let strict = self.codec.hw.is_some() && !self.hw_proven && self.headers.sps.is_some() && self.headers.pps.is_some();
-        let began = Instant::now();
         #[cfg(test)]
         let result = if std::mem::take(&mut self.break_next) {
             Err("the driver failed after receiving setup".to_string())
@@ -304,12 +303,10 @@ impl H264 {
         };
         #[cfg(not(test))]
         let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take);
-        // Pictures left on the decoder took less than a picture handed over does, which says nothing about keeping up
-        let timed = if take { 1 } else { 0 };
         match result {
             Ok(fed) if self.codec.hw.is_none() => {
                 self.note_picture_back(fed.count);
-                self.time(began, fed.count * timed);
+                self.time(fed.decoding, fed.count);
                 if let Some(hw) = self.retry_hw.filter(|_| has_keyframe(&data)) {
                     if let Some(back) = self.go_back_to(hw, &data) {
                         return if back.0.is_some() { back } else { (fed.newest, fed.count) };
@@ -324,7 +321,7 @@ impl H264 {
                     let why = format!("no picture from the last {} pieces of the stream", self.silent);
                     return self.fall_back(why, &data);
                 }
-                if let Some(why) = self.time(began, fed.count * timed) {
+                if let Some(why) = self.time(fed.decoding, fed.count) {
                     // The card's picture is good, so it stays if software has none yet
                     return match self.fall_back_slow(why, &data) {
                         (None, _) => (fed.newest, fed.count),
@@ -362,7 +359,7 @@ impl H264 {
     /// Swaps the card for software because it's too slow, for a while: the card isn't called failed, and gets another go later.
     fn fall_back_slow(&mut self, why: String, data: &[u8]) -> (Option<Frame>, u32) {
         let hw = self.codec.hw.expect("only a card decoder falls back");
-        let wait = COOLDOWN.lock().unwrap().fell(Instant::now());
+        let wait = COOLDOWN.lock().unwrap().fell(slow::now());
         log::warn!("Hardware decoding ({}) is {why}; decoding in software for {} minutes, then trying the card again", hw.name(), wait.as_secs() / 60);
         let fed = self.swap_to_software(hw, data);
         if self.codec.hw.is_none() {
@@ -373,7 +370,7 @@ impl H264 {
 
     /// Goes back to the card once the wait after it was too slow is over and software kept up meanwhile, at the next keyframe.
     fn go_back_to(&mut self, hw: Hw, data: &[u8]) -> Option<(Option<Frame>, u32)> {
-        let now = Instant::now();
+        let now = slow::now();
         {
             let mut cooldown = COOLDOWN.lock().unwrap();
             if cooldown.waiting(now) {
@@ -446,13 +443,14 @@ impl H264 {
         fed
     }
 
-    /// Notes what each picture this data finished took, and says why the card is too slow for the stream if it has been for a whole window.
-    fn time(&mut self, began: Instant, count: u32) -> Option<String> {
+    /// Notes what each picture this data finished took to decode (decoding alone: not the copy off the card, and not the steps,
+    /// whose cost depends on where they run), and says why the card is too slow for the stream if it has been for a whole window.
+    fn time(&mut self, decoding: Duration, count: u32) -> Option<String> {
         if count == 0 {
             return None;
         }
-        let now = Instant::now();
-        let each = now.duration_since(began).as_secs_f64() * 1000.0 / f64::from(count);
+        let now = slow::now();
+        let each = decoding.as_secs_f64() * 1000.0 / f64::from(count);
         let fps = self.target_fps.load(Ordering::Relaxed).max(1);
         let interval = 1000.0 / f64::from(fps);
         let mut timed = self.timings.lock().unwrap();
@@ -466,7 +464,7 @@ impl H264 {
         }
         let hw = self.codec.hw?;
         if let Some(worst) = timed.times.stalled() {
-            return Some(format!("stalled: pictures took up to {worst:.0} ms (decode and copy off the card), more than 500 ms once or 200 ms twice within {} s, on {}", slow::STALL_WINDOW.as_secs(), hw.name()));
+            return Some(format!("stalled: pictures took up to {worst:.0} ms (decoding alone), more than 500 ms once or 200 ms twice within {} s, on {}", slow::STALL_WINDOW.as_secs(), hw.name()));
         }
         let s = timed.times.slow(now, interval)?;
         Some(format!(
@@ -495,6 +493,8 @@ struct Fed {
     newest: Option<Frame>,
     count: u32,
     units: u32,
+    /// How long the decoder itself took: the copy off the card and the steps are not in it.
+    decoding: Duration,
 }
 
 /// Parses data into access units, runs them through the packet steps and decodes them. strict: data the decoder
@@ -505,6 +505,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
     let mut newest = None;
     let mut count = 0;
     let mut units_in = 0;
+    let mut decoding = Duration::ZERO;
     let mut fault = None;
     let steps = steps.filter(|s| s.on());
     codec.parse(data, |codec, unit| {
@@ -521,7 +522,10 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
                 mark_constrained_baseline(&mut u);
             }
             units_in += 1;
-            match codec.decode_newest_at(&u, pts) {
+            let began = slow::now();
+            let decoded = codec.decode_newest_at(&u, pts);
+            decoding += slow::now().saturating_duration_since(began);
+            match decoded {
                 Ok(n) => count += n,
                 // Joined mid-GOP, say: skip until a keyframe
                 Err(Fault::Invalid) if !strict => {}
@@ -551,7 +555,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
     codec.drop_newest();
     match fault {
         Some(why) => Err(why),
-        None => Ok(Fed { newest, count, units: units_in }),
+        None => Ok(Fed { newest, count, units: units_in, decoding }),
     }
 }
 
@@ -602,7 +606,7 @@ impl Decoder for H264 {
         Some(Arc::new(move || {
             let timed = timed.lock().unwrap();
             let s = timed.times.recent()?;
-            Some(format!("Decoding on {}: p95 {:.1} ms, max {:.1} ms a picture (decode and copy) over the last {} s", timed.backend, s.p95_ms, s.max_ms, slow::WINDOW.as_secs()))
+            Some(format!("Decoding on {}: p95 {:.1} ms, max {:.1} ms a picture (decoding alone) over the last {} s", timed.backend, s.p95_ms, s.max_ms, slow::WINDOW.as_secs()))
         }))
     }
 }
@@ -1197,7 +1201,7 @@ pub(crate) mod tests {
 
     /// A card that took ms a picture for the last few seconds at 30 fps, as the decoder would have timed it.
     fn card_that_took(dec: &H264, ms: f64) {
-        let now = Instant::now();
+        let now = slow::now();
         let mut times = slow::Timings::default();
         for i in 0..100u32 {
             times.record(now - std::time::Duration::from_millis(3400 - u64::from(i) * 33), ms);
@@ -1218,6 +1222,52 @@ pub(crate) mod tests {
         let switched = dec.hw().is_none() && !hardware_failed() && hardware_slow() && dec.retry_hw == Some(Hw::Cuda);
         *COOLDOWN.lock().unwrap() = slow::Cooldown::new();
         assert!(switched, "still on {:?}", dec.hw());
+    }
+
+    /// Feeds one picture at a time for a few seconds on the speed check's clock, with the card's decode taking `decode` ms,
+    /// the copy off the card `copy` ms and a step on each unit `step` ms (at least 50 ms apart). The decoder it ends on and its median ms.
+    fn four_seconds_of_pictures(decode: u64, copy: u64, step: u64) -> (Option<Hw>, Option<f64>) {
+        use std::time::Duration;
+        let values: Vec<u8> = (0..150).map(|i| 40 + (i % 100) as u8).collect();
+        let Some(packets) = testenc::h264(&values, 64, 48, 5) else { return (Some(Hw::Cuda), None) };
+        let _turn = card_test();
+        *COOLDOWN.lock().unwrap() = slow::Cooldown::new();
+        let tap = tap_with(maker(move || {
+            Box::new(FnStep(move |u: &[u8]| {
+                slow::advance(Duration::from_millis(step));
+                vec![u.to_vec()]
+            }))
+        }));
+        let mut dec = pretend_hardware(Some(tap));
+        dec.codec.delays = (Duration::from_millis(decode), Duration::from_millis(copy));
+        for p in &packets {
+            slow::advance(Duration::from_millis(50u64.saturating_sub(decode + copy + step)));
+            dec.feed(p);
+        }
+        *COOLDOWN.lock().unwrap() = slow::Cooldown::new();
+        let median = dec.timings.lock().unwrap().times.recent().map(|s| s.median_ms);
+        (dec.hw(), median)
+    }
+
+    #[test]
+    fn the_copy_off_the_card_is_not_part_of_the_decoders_speed() {
+        // 5 ms to decode, then 60 ms to copy each picture into memory (every frame step on the processor): the decoder is fast
+        let (ended, median) = four_seconds_of_pictures(5, 60, 0);
+        assert_eq!(ended, Some(Hw::Cuda), "left the card, median {median:?}");
+        assert!(median.is_none_or(|m| m < 10.0), "{median:?}");
+    }
+
+    #[test]
+    fn what_the_steps_cost_is_not_part_of_the_decoders_speed() {
+        let (ended, median) = four_seconds_of_pictures(5, 0, 60);
+        assert_eq!(ended, Some(Hw::Cuda), "left the card, median {median:?}");
+    }
+
+    #[test]
+    fn a_decoder_that_is_slow_at_decoding_still_loses_the_card() {
+        // 45 ms of decoding against 33 ms between pictures, with a free copy
+        let (ended, _) = four_seconds_of_pictures(45, 0, 0);
+        assert_ne!(ended, Some(Hw::Cuda));
     }
 
     #[test]

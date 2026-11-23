@@ -144,7 +144,7 @@ pub trait Decoder: Send {
     fn target_fps_cell(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU32>> {
         None
     }
-    /// Asks how decoding has gone lately: one plain line (the decoder in use, decode and copy time a picture), for the log when a stream struggles.
+    /// Asks how decoding has gone lately: one plain line (the decoder in use, decode time a picture), for the log when a stream struggles.
     fn timing_probe(&self) -> Option<TimingProbe> {
         None
     }

@@ -1,7 +1,26 @@
-//! Whether a decoder keeps up with the stream: how long each picture takes to decode (and come off the card), judged over a few seconds.
+//! Whether a decoder keeps up with the stream: how long each picture takes to decode, judged over a few seconds. Only the decoding is timed, not the copy of a picture off the card or the steps that follow.
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
+
+#[cfg(test)]
+thread_local! {
+    static SKEW: std::cell::Cell<Duration> = const { std::cell::Cell::new(Duration::ZERO) };
+}
+
+/// The time for the decode speed check: the real clock, which tests move forward by hand.
+pub fn now() -> Instant {
+    #[cfg(test)]
+    return Instant::now() + SKEW.with(|s| s.get());
+    #[cfg(not(test))]
+    Instant::now()
+}
+
+/// Tests: moves the speed check's clock forward, as if that long had passed.
+#[cfg(test)]
+pub fn advance(by: Duration) {
+    SKEW.with(|s| s.set(s.get() + by));
+}
 
 /// How long the pictures are watched before a decoder is called too slow.
 pub const WINDOW: Duration = Duration::from_secs(3);
