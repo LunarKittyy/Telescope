@@ -205,6 +205,11 @@ impl UsbTunnels {
     }
 }
 
+/// Whether something still listens at the local end of an adb forward (adb's server, as long as it hasn't been restarted).
+fn forward_is_up(local: u16) -> bool {
+    std::net::TcpStream::connect_timeout(&([127, 0, 0, 1], local).into(), Duration::from_millis(300)).is_ok()
+}
+
 /// A phone that speaks another session protocol: which side needs the update.
 fn version_mismatch(hello: &Hello, route: RouteSpec) -> Option<Resolution> {
     if hello.protocol == SESSION_PROTOCOL {
@@ -276,8 +281,10 @@ impl RouteResolver {
             let Some((local, lingered)) = self.tunnels.acquire_noting(serial, PING_PORT) else { continue };
             let before = (saw_other, old_app_serial.clone());
             let mut found = self.probe_usb(phone, serial, local, &mut saw_other, &mut old_app_serial);
-            if found.is_none() && lingered {
-                // A forward kept from the last check may be gone (adb restarted): one try on a fresh one before saying no
+            if found.is_none() && lingered && !forward_is_up(local) {
+                // A forward kept from the last check is gone (adb restarted): one try on a fresh one before saying no.
+                // One that adb still serves just means the phone's app isn't answering, and a fresh one would say the same
+                // while starting two adb processes every check
                 self.tunnels.release_broken(serial, PING_PORT);
                 (saw_other, old_app_serial) = before;
                 let Some(fresh) = self.tunnels.acquire(serial, PING_PORT) else { continue };
@@ -784,6 +791,53 @@ pub(crate) mod tests {
         assert_eq!(tunnels.acquire("A", 8080), Some(5000));
         tunnels.release("A", 8080);
         assert_eq!(calls.lock().unwrap().len(), 4);
+    }
+
+    /// A resolver whose forwards go to `ports` in turn (and are counted), as a session port that lingers between checks.
+    fn lingering_resolver(net: &FakeNet, ports: Vec<u16>) -> (RouteResolver, Arc<Mutex<usize>>) {
+        let forwards: Arc<Mutex<usize>> = Arc::default();
+        let counted = forwards.clone();
+        let tunnels = UsbTunnels::new(move |_, _| {
+            let mut n = counted.lock().unwrap();
+            *n += 1;
+            ports.get(*n - 1).or(ports.last()).copied()
+        }, |_, _| {}).with_linger(PING_PORT, Duration::from_secs(30));
+        (RouteResolver {
+            adb_available: Box::new(|| true),
+            adb_device_states: Box::new(|| vec![("SER".to_string(), "device".to_string())]),
+            tunnels: Arc::new(tunnels),
+            discover: Box::new(|_| Vec::new()),
+            client: net.factory(),
+            wifi_timeout: Duration::from_millis(100),
+        }, forwards)
+    }
+
+    fn closed_port() -> u16 {
+        std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+    }
+
+    #[test]
+    fn a_plugged_in_phone_whose_app_is_closed_is_not_forwarded_again_on_every_check() {
+        // adb is up (something listens at the forward's end) and nobody answers behind it
+        let adb = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let (resolver, forwards) = lingering_resolver(&FakeNet::default(), vec![adb.local_addr().unwrap().port()]);
+        for _ in 0..4 {
+            let res = resolver.resolve(&phone(), RoutePreference::Usb);
+            assert_eq!((res.status, res.usb_note), (PhoneStatus::UsbNeedsAttention, Some(UsbNote::AppClosed)));
+        }
+        assert_eq!(*forwards.lock().unwrap(), 1, "every check started adb again");
+    }
+
+    #[test]
+    fn a_forward_adb_lost_is_replaced_by_the_next_check() {
+        let alive = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let (dead, alive_port) = (closed_port(), alive.local_addr().unwrap().port());
+        let net = FakeNet::new(&[(&format!("https://127.0.0.1:{alive_port}"), answers("ph-1", PingStatus::Paired, false))]);
+        let (resolver, forwards) = lingering_resolver(&net, vec![dead, alive_port]);
+        assert_eq!(resolver.resolve(&phone(), RoutePreference::Usb).status, PhoneStatus::UsbNeedsAttention, "the first forward was already dead");
+        let res = resolver.resolve(&phone(), RoutePreference::Usb);
+        assert_eq!((res.status, res.route), (PhoneStatus::Ready, Some(RouteSpec::Usb { serial: "SER".into() })), "the kept forward was dead and wasn't replaced");
+        assert_eq!(*forwards.lock().unwrap(), 2);
     }
 
     #[test]
