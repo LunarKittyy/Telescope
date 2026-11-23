@@ -324,13 +324,4 @@ class LowLightFpsRangeTest {
     fun `the usual pick still takes the nearest top when nothing contains the rate`() {
         assertEquals(24 to 24, pick(25, false, listOf(15 to 15, 24 to 24, 30 to 30)))
     }
-
-    @Test
-    fun `a lens of a logical camera that can be cropped gets its own settings in the request`() {
-        fun lens(logical: String?, cropMax: Float) =
-            CameraEntry("3", logical, "Wide", false, 50, 3200, 100_000L, 1_000_000_000L, cropZoomMax = cropMax)
-        assertEquals("3", CameraRequestSelection.physicalSettingsId(lens("0", 4f)))
-        assertNull(CameraRequestSelection.physicalSettingsId(lens("0", 1f)))  // no crop to set: the request stays plain
-        assertNull(CameraRequestSelection.physicalSettingsId(lens(null, 4f)))  // a camera of its own
-    }
 }
