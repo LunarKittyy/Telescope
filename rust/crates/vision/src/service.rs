@@ -18,7 +18,7 @@ use telescope_core::effort::{Effort, MOST};
 use telescope_core::pose::Person;
 use telescope_core::frame::MaskSpace;
 use telescope_core::view::{shown_to_view, view_to_shown, Geometry};
-use telescope_core::vision::{Upright, FAILED, LOADING, MISSING, OFF, READY};
+use telescope_core::vision::{Turn, Upright, FAILED, LOADING, MISSING, OFF, READY};
 
 /// How often people are looked for while something moves (about 12 a second); framing smooths in between.
 pub const PEOPLE_EVERY_S: f64 = 0.08;
@@ -430,6 +430,8 @@ pub(crate) struct StreamVision {
     pub(crate) people: Mutex<PeopleState>,
     pub(crate) woken: Condvar,
     pub(crate) stopping: AtomicBool,
+    /// While people are followed by their faces: the pose model is doing the work (a group, no face, the face finder failing), so frames come at its pace and not the face finder's.
+    pub(crate) posing: AtomicBool,
 }
 
 impl StreamVision {
@@ -443,6 +445,7 @@ impl StreamVision {
             people: Mutex::new(PeopleState { frame: None, at: 0.0, probed: 0.0, motion: Motion::default(), thread: None, quit: None, wake: false, fed: 0.0 }),
             woken: Condvar::new(),
             stopping: AtomicBool::new(false),
+            posing: AtomicBool::new(false),
         }
     }
 
@@ -1039,10 +1042,10 @@ impl Vision {
         self.inner.following_heads()
     }
 
-    /// How often people are looked for now.
-    fn people_gaps(&self) -> Gaps {
+    /// How often people are looked for now on a stream: by faces at the face finder's pace, unless the pose model is doing the work (then at its own).
+    fn people_gaps(&self, sv: &StreamVision) -> Gaps {
         let cadence = self.cadence();
-        cadence.faces.filter(|_| self.following_heads()).unwrap_or(cadence.people)
+        cadence.faces.filter(|_| self.following_heads() && !sv.posing.load(Ordering::SeqCst)).unwrap_or(cadence.people)
     }
 
     pub fn wants_people(&self) -> bool {
@@ -1059,8 +1062,8 @@ impl Vision {
             return false;
         }
         let sv = self.stream(key);
+        let every = self.people_gaps(&sv).moving;
         let p = sv.people.lock().unwrap();
-        let every = self.people_gaps().moving;
         let now = self.now();
         now - p.at >= every && now - p.probed >= every
     }
@@ -1079,9 +1082,9 @@ impl Vision {
         }
         let sv = self.stream(key);
         let now = self.now();
+        let Gaps { moving: every, still: still_every } = self.people_gaps(&sv);
         let mut p = sv.people.lock().unwrap();
         p.fed = now;
-        let Gaps { moving: every, still: still_every } = self.people_gaps();
         if now - p.at < every || now - p.probed < every {
             return;
         }
@@ -1480,6 +1483,7 @@ fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<
     let mut clock = Timestamps::new();
     // The face finder, made the first time faces are followed (None in a pack without one, and the pose model does it all)
     let (mut faces, mut face_clock, mut heads, mut by_faces) = (None::<Box<dyn FaceModel>>, Timestamps::new(), Heads::new(), false);
+    let mut turn = None::<Turn>;
     let done = || sv.stopping.load(Ordering::SeqCst) || quit.load(Ordering::SeqCst);
     while !done() {
         let waiting = {
@@ -1510,26 +1514,37 @@ fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<
         if follow_faces != by_faces {
             by_faces = follow_faces;
             log::info!("People on {key} are followed by {}", if follow_faces { "their faces" } else { "their whole bodies" });
+            sv.posing.store(false, Ordering::SeqCst);
             if follow_faces {
                 heads.restart();
             }
         }
+        // Landmarks from before a flip or turn of the picture aren't where they were
+        if let Some(old) = turn.filter(|old| *old != upright.turn) {
+            heads.turned(old.flip_h != upright.turn.flip_h, old.rotation != upright.turn.rotation);
+        }
+        turn = Some(upright.turn);
         let found = match faces.as_mut().filter(|_| follow_faces) {
             Some(finder) => match finder.detect(&prepared, face_clock.next()) {
                 Ok(found) => Some(found),
                 Err(e) => {
-                    log::warn!("Looking for faces failed; trying the next frame: {}: {}", e.kind, e.message);
-                    continue;
+                    // The pose model looks in its place, at its own pace, until the face finder works again
+                    log::warn!("Looking for faces failed; the pose model looks instead: {}: {}", e.kind, e.message);
+                    heads.restart();
+                    sv.posing.store(true, Ordering::SeqCst);
+                    None
                 }
             },
             None => None,
         };
+        let faced = found.is_some();
         let seen = match found {
             Some(found) => {
-                inner.effort.note_heads();
                 let aspect = prepared.w as f64 / prepared.h.max(1) as f64;
                 let gap = cadence(inner.effort.level()).people.moving;
-                heads.people(&found, aspect, monotonic(), gap, &mut || model.detect(&prepared, clock.next()))
+                let seen = heads.people(&found, aspect, Vision { inner: inner.clone() }.now(), gap, &mut || model.detect(&prepared, clock.next()));
+                sv.posing.store(heads.alone(), Ordering::SeqCst);
+                seen
             }
             None => model.detect(&prepared, clock.next()).map(Some),
         };
@@ -1544,6 +1559,13 @@ fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<
                 continue;
             }
         };
+        if faced && heads.by_faces() {
+            // Faces are only what is reported while it is still allowed: a switch to whole bodies during the run doesn't get one more head-only report
+            if !inner.following_heads() {
+                continue;
+            }
+            inner.effort.note_heads();
+        }
         Vision { inner: inner.clone() }.note("people", t0);
         let _held = inner.callback_lock.lock().unwrap();
         if !inner.closed.load(Ordering::SeqCst) {

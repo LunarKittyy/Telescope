@@ -1028,3 +1028,30 @@ fn the_card_says_ready_with_an_older_pack_this_version_still_runs() {
     h.load();
     wait(|| h.state() == READY);
 }
+
+#[cfg(unix)]
+#[test]
+fn a_newer_pack_with_a_file_locked_for_a_moment_leaves_the_older_one_to_load() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, old, _) = installed_pack("vision-older-locked");
+    let newer = PackInfo::from_json(&serde_json::json!({"linux": {"id": "f".repeat(64), "size": 1, "older": [old.id.clone().unwrap()]}}), Some("linux"));
+    let folder = newer.folder(&dir);
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join(pack::DONE), newer.pack_id().unwrap()).unwrap();
+    let locked = folder.join("lib.so");
+    std::fs::write(&locked, b"scanning").unwrap();
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    if std::fs::read(&locked).is_ok() {
+        return; // running as a user that ignores permissions
+    }
+    let loaded = std::sync::Mutex::new(None);
+    let load = |folder: &Path| -> Result<Arc<dyn Backend>, LoadError> {
+        *loaded.lock().unwrap() = Some(folder.to_path_buf());
+        Ok(Fake::new() as Arc<dyn Backend>)
+    };
+    assert!(find_pack(&dir, &newer, &load).is_ok());
+    assert_eq!(loaded.lock().unwrap().as_deref(), Some(old.folder(&dir).as_path()));
+    // With nothing older to fall back on it still isn't loaded
+    let alone = PackInfo { older: Vec::new(), ..newer };
+    assert!(matches!(find_pack(&dir, &alone, &load), Err(LoadError::Failed(_))));
+}

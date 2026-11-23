@@ -1746,3 +1746,16 @@ fn people_from_faces_frame_a_talking_head_like_people_from_the_pose_model() {
         assert!((a.zoom / b.zoom).ln().abs() < 0.35, "framing {framing}: {a:?} {b:?}");
     }
 }
+
+#[test]
+fn whole_bodies_are_asked_for_while_a_person_is_being_picked_so_the_click_lands_on_a_body() {
+    let mut r = Rig::new();
+    r.switch(true);
+    assert_eq!(r.heads(), Some(true));
+    r.ui("pick-clicked", Value::Null);
+    r.event(Event::PreviewPickChanged { owner: NAME.into() });
+    assert_eq!(r.heads(), Some(false), "the click is made on bodies, not on faces with guessed shoulders");
+    // Esc: nobody picks, faces are enough again
+    r.event(Event::PreviewPickChanged { owner: String::new() });
+    assert_eq!(r.heads(), Some(true));
+}

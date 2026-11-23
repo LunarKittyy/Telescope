@@ -749,9 +749,9 @@ impl FramingPlugin {
         self.refresh_status(host, self.switch, String::new());
     }
 
-    /// Faces with shoulders are enough at Head and Chest without Show hands or one person picked (no hips or hands in a face, and bodies tell people apart better).
+    /// Faces with shoulders are enough at Head and Chest without Show hands or one person picked, and not while one is being picked (no hips or hands in a face, and bodies tell people apart better, so the click lands on a body).
     fn heads_enough(&self) -> bool {
-        self.steering && self.framing <= FRAMING_STEPS && !self.hand && self.followed.is_none()
+        self.steering && self.framing <= FRAMING_STEPS && !self.hand && self.followed.is_none() && !self.picking
     }
 
     /// Tells the vision service when heads_enough changed.

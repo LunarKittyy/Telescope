@@ -181,16 +181,19 @@ fn damaged(folder: &Path, what: &str) -> LoadError {
 }
 
 /// The backend from `load` for this version's pack or an older one it still runs, hashed again first: the marker only says the files matched once, and the library is native code that runs as the user.
+/// A pack that can't be used (damaged, or a file locked for a moment) leaves the next older one to be tried.
 fn find_pack(dir: &Path, info: &PackInfo, load: &dyn Fn(&Path) -> Result<Arc<dyn Backend>, LoadError>) -> Result<Arc<dyn Backend>, LoadError> {
-    let Some(info) = info.usable(dir) else {
-        return Err(LoadError::Missing(format!("no vision pack in {}", info.folder(dir).display())));
-    };
-    let folder = info.folder(dir);
-    match whole(&folder, &info) {
-        Some(true) => load(&folder),
-        Some(false) => Err(damaged(&folder, "vision pack")),
-        None => Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack couldn't be checked, so it wasn't loaded"))),
+    let mut first = None;
+    for pack in info.installed_packs(dir) {
+        let folder = pack.folder(dir);
+        let refused = match whole(&folder, &pack) {
+            Some(true) => return load(&folder),
+            Some(false) => damaged(&folder, "vision pack"),
+            None => LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack couldn't be checked, so it wasn't loaded")),
+        };
+        first.get_or_insert(refused);
     }
+    Err(first.unwrap_or_else(|| LoadError::Missing(format!("no vision pack in {}", info.folder(dir).display()))))
 }
 
 /// The matting download's backend, after its files are hashed again: the marker only says they matched once, and the library is native code that runs as the user.

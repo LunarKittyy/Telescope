@@ -27,6 +27,8 @@ pub(crate) struct Fake {
     pub detect: Mutex<Detect>,
     /// What the face finder finds; None: a pack without one.
     pub faces: Mutex<Option<FaceDetect>>,
+    /// Set: the face finder fails on every frame with this.
+    pub face_error: Arc<Mutex<Option<VisionError>>>,
 }
 
 impl Fake {
@@ -37,6 +39,7 @@ impl Fake {
             broken_segmenter: Mutex::new(None),
             detect: Mutex::new(Arc::new(|| vec![Person::new([("nose", 0.5, 0.25, 0.9), ("left_wrist", 0.1, 0.5, 0.2)])])),
             faces: Mutex::new(None),
+            face_error: Default::default(),
         })
     }
 
@@ -92,11 +95,15 @@ impl Drop for FakePose {
 struct FakeFaces {
     log: Arc<Mutex<Log>>,
     detect: FaceDetect,
+    error: Arc<Mutex<Option<VisionError>>>,
 }
 
 impl FaceModel for FakeFaces {
     fn detect(&mut self, frame: &Rgb, _ts: i64) -> Result<Vec<Face>, VisionError> {
         self.log.lock().unwrap().faced.push((frame.w, frame.h));
+        if let Some(e) = self.error.lock().unwrap().clone() {
+            return Err(e);
+        }
         Ok((self.detect)())
     }
 }
@@ -127,7 +134,7 @@ impl Backend for Fake {
     fn faces(&self) -> Result<Box<dyn FaceModel>, VisionError> {
         self.log.lock().unwrap().made.push("faces");
         let detect = self.faces.lock().unwrap().clone().ok_or_else(|| VisionError::new("FileNotFoundError", "no face model in the pack"))?;
-        Ok(Box::new(FakeFaces { log: self.log.clone(), detect }))
+        Ok(Box::new(FakeFaces { log: self.log.clone(), detect, error: self.face_error.clone() }))
     }
 }
 
@@ -1884,4 +1891,91 @@ fn faces_are_looked_for_at_their_own_pace() {
     assert!(faces.moving + TICK < cadence(1).people.moving);
     let sent = sent_each(&r, &[(&moving[0], faces.moving), (&moving[1], 0.0), (&moving[2], 0.0)]);
     assert_eq!(sent, [true, true, false]);
+}
+
+fn follow_faces(r: &Ready) {
+    r.v.set_power_saving(true);
+    r.v.want_people("Auto framing", true);
+    r.v.want_heads("Auto framing", true);
+}
+
+#[test]
+fn a_face_finder_that_keeps_failing_leaves_the_pose_model_to_look_in_its_place() {
+    let r = faces_ready();
+    follow_faces(&r);
+    *r.backend.face_error.lock().unwrap() = Some(VisionError::new("RuntimeError", "broken"));
+    feed_answered(&r, 3);
+    assert_eq!(r.backend.log.lock().unwrap().posed.len(), 3, "a report for every frame, not a skipped one");
+    assert!(r.people.lock().unwrap().iter().all(|(_, p)| p[0].point("left_wrist", 0.1).is_some()), "whole bodies");
+    assert!(!r.v.inner.effort.heads(), "faces aren't what is being followed");
+    assert!(sv(&r.v, "a").posing.load(Ordering::SeqCst), "frames come at the pose model's pace");
+}
+
+#[test]
+fn a_face_report_that_is_late_for_a_switch_to_whole_bodies_is_dropped() {
+    let r = faces_ready();
+    follow_faces(&r);
+    // Show hands is turned on while the face finder runs
+    let v = r.v.clone();
+    *r.backend.faces.lock().unwrap() = Some(Arc::new(move || {
+        v.want_heads("Auto framing", false);
+        vec![a_face()]
+    }));
+    let frame = Rgb::filled(1280, 720, 0);
+    feed(&r.v, "a", &frame);
+    wait(|| !r.backend.log.lock().unwrap().posed.is_empty());
+    {
+        let s = sv(&r.v, "a");
+        let mut p = s.people.lock().unwrap();
+        (p.at, p.probed) = (0.0, 0.0);
+    }
+    feed(&r.v, "a", &frame);
+    wait(|| !r.people.lock().unwrap().is_empty());
+    let people = r.people.lock().unwrap();
+    assert_eq!(people.len(), 1, "the face report that was late is dropped");
+    assert!(people[0].1[0].point("left_wrist", 0.1).is_some(), "the one report is of the whole body");
+    drop(people);
+    assert!(!r.v.inner.effort.heads());
+}
+
+#[test]
+fn faces_are_not_reported_as_followed_while_the_pose_model_does_the_work() {
+    let r = faces_ready();
+    follow_faces(&r);
+    *r.backend.faces.lock().unwrap() = Some(Arc::new(Vec::new));
+    r.v.fake_clock();
+    let frame = Rgb::filled(1280, 720, 0);
+    for i in 0..3 {
+        r.v.advance_fake_clock(1.0);
+        feed(&r.v, "a", &frame);
+        wait(|| r.people.lock().unwrap().len() > i);
+    }
+    assert!(!r.v.inner.effort.heads(), "nobody's face is being followed");
+    assert!(sv(&r.v, "a").posing.load(Ordering::SeqCst));
+}
+
+#[test]
+fn someone_still_and_turned_away_costs_a_pose_run_a_second_at_the_lightest_level_not_one_per_face_look() {
+    let r = ready();
+    *r.backend.faces.lock().unwrap() = Some(Arc::new(Vec::new));
+    r.v.inner.effort.set_floor(MOST);
+    r.v.want_people("Auto framing", true);
+    r.v.want_heads("Auto framing", true);
+    r.v.fake_clock();
+    let still = Rgb::filled(1280, 720, 80);
+    let (mut sent, mut posed_at) = (0, Vec::new());
+    for _ in 0..300 {
+        r.v.advance_fake_clock(0.07);
+        let before = r.v.stream("a").people.lock().unwrap().at;
+        feed(&r.v, "a", &still);
+        if r.v.stream("a").people.lock().unwrap().at != before {
+            sent += 1;
+            wait(|| r.v.inner.ms.lock().unwrap().get("people").is_some_and(|m| m.len() >= sent.min(59)));
+            posed_at.push(r.backend.log.lock().unwrap().posed.len());
+        }
+    }
+    let posed = r.backend.log.lock().unwrap().posed.len();
+    // 21 seconds: about one run a second, and the face finder looks no more often than that
+    assert!((18..=22).contains(&posed), "{posed} pose runs in 21 s");
+    assert!((18..=22).contains(&r.backend.log.lock().unwrap().faced.len()), "faces looked for as often");
 }

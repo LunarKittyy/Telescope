@@ -418,3 +418,28 @@ fn this_versions_pack_comes_before_an_older_one() {
     assert_eq!(ahead.usable(&f.folder).and_then(|p| p.id), Some(f.tree.clone()));
     assert!(PackInfo { older: Vec::new(), ..ahead }.usable(&f.folder).is_none());
 }
+
+#[test]
+fn a_pack_zip_of_an_older_pack_this_version_still_runs_is_installed() {
+    let f = Fixture::new();
+    let newer = PackInfo { id: Some("e".repeat(64)), older: vec![f.tree.clone()], ..f.info.clone() };
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
+    let last = install_zip(&newer, &f.folder, &zip).unwrap();
+    assert_eq!(last, f.folder.join(&f.tree[..16]));
+    assert_eq!(newer.usable(&f.folder).and_then(|p| p.id), Some(f.tree.clone()));
+    assert!(!newer.installed(&f.folder), "this version's own pack is still missing");
+}
+
+#[test]
+fn installing_an_older_pack_zip_keeps_this_versions_pack() {
+    let f = Fixture::new();
+    let newer = PackInfo { id: Some("e".repeat(64)), older: vec![f.tree.clone()], ..f.info.clone() };
+    let own = f.folder.join(newer.pack_id().unwrap());
+    std::fs::create_dir_all(&own).unwrap();
+    std::fs::write(own.join(DONE), newer.pack_id().unwrap()).unwrap();
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
+    install_zip(&newer, &f.folder, &zip).unwrap();
+    assert!(newer.installed(&f.folder), "{:?}", names(&f.folder));
+}
