@@ -684,6 +684,22 @@ fn a_browser_stopped_here_leaves_room_for_another() {
 }
 
 #[test]
+fn a_browser_that_came_and_went_before_the_plugin_looked_holds_no_place() {
+    let mut r = Rig::new();
+    r.select(SOURCE_ID);
+    let feed = r.plugin.hub.join("flash-aaaaaaaa").unwrap();
+    let gen = feed.connect();
+    feed.disconnect(gen);
+    r.plugin.on_server_changed(&mut r.host);
+    assert!(r.plugin.hub.feeds().is_empty());
+    for bid in ["browser-aaaaaaaa", "browser-bbbbbbbb", "browser-cccccccc", "browser-dddddddd"] {
+        r.arrive(bid, "");
+    }
+    r.changed();
+    assert!(r.plugin.hub.join("flash-aaaaaaaa").is_none(), "every camera is taken, so the page is told so");
+}
+
+#[test]
 fn browsers_let_in_during_a_start_dont_outnumber_the_cameras() {
     let mut r = Rig::new();
     r.host.streams = vec!["phone-a".into(), "phone-b".into()];
