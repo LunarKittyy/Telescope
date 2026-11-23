@@ -1,12 +1,13 @@
 //! How hard the heavy effects (the person models behind Background and Auto framing) work right now. One owner for the whole app: the stream's steps
 //! report how long each frame took, and when frames keep coming late the effects step down a level, which makes them analyse less often. They step
 //! back up slowly once there has been room for a while, and more slowly each time stepping back up didn't last. Power-saving effects is a floor
-//! under it, and people can switch the automatic part off or keep full quality for one run of the app.
+//! under it, and people can switch the automatic part off or keep full quality for one run of the app. Above full quality Auto framing may follow
+//! faces instead of whole bodies (allow_heads), and the vision service says when it does (note_heads) so the Adjusting list can show it.
 
 use crate::time::monotonic_ns;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 
 const MS: u64 = 1_000_000;
@@ -38,6 +39,8 @@ const CLEAR_FOR_MOST: u64 = 120 * SECOND;
 const STAYED: u64 = 45 * SECOND;
 /// How many moves are remembered.
 const KEPT_MOVES: usize = 8;
+/// Faces count as followed this long after the last frame they were followed in.
+const HEADS_SHOWN: u64 = 2 * SECOND;
 
 /// Why the effects' level changed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,6 +84,9 @@ pub struct EffortSnapshot {
     pub late_share: f32,
     /// The latest changes of `level`, oldest first.
     pub moves: Vec<EffortMove>,
+    /// Auto framing follows faces instead of whole bodies right now.
+    #[serde(default)]
+    pub heads: bool,
 }
 
 /// What one window of frames showed.
@@ -232,6 +238,9 @@ pub struct Effort {
     interval_ns: AtomicU64,
     /// When this window is over.
     next_window: AtomicU64,
+    /// Whether people may be followed by their faces while the effects are lighter, and when they last were (0: never).
+    heads_ok: AtomicBool,
+    heads_at: AtomicU64,
 }
 
 static SHARED: LazyLock<Arc<Effort>> = LazyLock::new(|| Arc::new(Effort::free()));
@@ -258,6 +267,8 @@ impl Effort {
             step_ns: AtomicU64::new(0),
             interval_ns: AtomicU64::new(0),
             next_window: AtomicU64::new(0),
+            heads_ok: AtomicBool::new(true),
+            heads_at: AtomicU64::new(0),
         }
     }
 
@@ -322,6 +333,28 @@ impl Effort {
         self.settled(&mut st, monotonic_ns(), None);
     }
 
+    /// Whether the vision service may follow faces instead of whole bodies while the effects are lighter (a saved switch, or kept off for one run).
+    pub fn allow_heads(&self, on: bool) {
+        if self.heads_ok.swap(on, Ordering::Relaxed) != on {
+            log::info!("Following faces to save effort {}", if on { "allowed" } else { "not allowed" });
+        }
+    }
+
+    pub fn heads_allowed(&self) -> bool {
+        self.heads_ok.load(Ordering::Relaxed)
+    }
+
+    /// The vision service followed a frame's people by their faces.
+    pub fn note_heads(&self) {
+        self.heads_at.store(monotonic_ns().max(1), Ordering::Relaxed);
+    }
+
+    /// Faces were followed within the last HEADS_SHOWN.
+    pub fn heads(&self) -> bool {
+        let at = self.heads_at.load(Ordering::Relaxed);
+        at != 0 && monotonic_ns().saturating_sub(at) < HEADS_SHOWN
+    }
+
     /// What power-saving effects asks for (not the computer's own power saving).
     pub fn floor(&self) -> u8 {
         self.state.lock().unwrap_or_else(|p| p.into_inner()).user_floor
@@ -350,6 +383,7 @@ impl Effort {
             held: st.held,
             late_share: st.watch.late_share,
             moves: st.moves.iter().copied().collect(),
+            heads: self.heads(),
         }
     }
 
@@ -661,5 +695,24 @@ mod tests {
         e.note_shed(3);
         assert_eq!((e.ran.load(Ordering::Relaxed), e.late.load(Ordering::Relaxed), e.shed.load(Ordering::Relaxed)), (2, 1, 3));
         assert_eq!(e.level(), FULL);
+    }
+
+    #[test]
+    fn following_faces_is_allowed_until_told_otherwise_and_shows_for_a_moment_after() {
+        let e = Effort::free();
+        assert!(e.heads_allowed() && !e.heads() && !e.snapshot().heads);
+        e.allow_heads(false);
+        assert!(!e.heads_allowed());
+        e.note_heads();
+        assert!(e.heads() && e.snapshot().heads);
+        // Long after the last frame it isn't in effect any more
+        e.heads_at.store(monotonic_ns().saturating_sub(HEADS_SHOWN + SECOND).max(1), Ordering::Relaxed);
+        assert!(!e.heads());
+    }
+
+    #[test]
+    fn an_older_snapshot_without_heads_still_reads() {
+        let old: EffortSnapshot = serde_json::from_str(r#"{"level":1,"auto_level":0,"floor":1,"auto":true,"held":false,"late_share":0.0,"moves":[]}"#).unwrap();
+        assert!(!old.heads);
     }
 }

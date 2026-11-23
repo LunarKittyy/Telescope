@@ -417,6 +417,9 @@ msgstr ""
 msgid "Auto framing"
 msgstr "자동 프레이밍"
 
+msgid "Auto framing follows your body until you close Telescope, even while effects are lighter."
+msgstr ""
+
 msgid "Auto framing speed"
 msgstr "자동 프레이밍 속도"
 
@@ -1869,6 +1872,9 @@ msgstr "찾기"
 msgid "Finding the current adb…"
 msgstr "현재 adb 찾는 중…"
 
+msgid "Finding your face costs a fraction of finding your body. Auto framing uses your body again when it finds no face or sees several people."
+msgstr ""
+
 msgid "Fine tune"
 msgstr "미세 조정"
 
@@ -1947,6 +1953,9 @@ msgstr "얼굴 추적"
 msgid "Follow one person"
 msgstr ""
 
+msgid "Follow your body"
+msgstr ""
+
 msgid "Forget this device."
 msgstr "이 기기를 목록에서 지워요."
 
@@ -2001,6 +2010,9 @@ msgstr ""
 
 msgid "Framing"
 msgstr "프레이밍"
+
+msgid "Framing by face"
+msgstr ""
 
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
@@ -5571,6 +5583,9 @@ msgstr ""
 msgid "Stops"
 msgstr "스톱"
 
+msgid "Stops Auto framing following your face to save effort, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
 msgstr ""
 
@@ -7654,6 +7669,9 @@ msgstr "띠가 지나가는 방향이에요."
 msgid "While Telescope is in the background"
 msgstr "Telescope가 백그라운드에 있을 때"
 
+msgid "While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off."
+msgstr ""
+
 msgid "White"
 msgstr "흰색"
 
@@ -7986,6 +8004,10 @@ msgstr "{n} 요청됨"
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr "오디오 사운드 음성 입력 볼륨 audio sound voice input volume"
+
+msgctxt "search"
+msgid "auto framing face head body tracking power saving lighter effects processor battery"
+msgstr ""
 
 msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"

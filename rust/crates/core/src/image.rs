@@ -1001,7 +1001,8 @@ pub fn resize_area(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usi
 
 /// The two taps of OpenCV's INTER_LINEAR along an axis for 8-bit pictures: (first source, second source, their weights out of 2048).
 /// Across, a tap past either edge takes the edge pixel whole; down, the weights stay and only the rows are clamped, as OpenCV does.
-fn linear_taps(n: usize, m: usize, vertical: bool) -> Vec<Tap> {
+/// Public so the graphics card can blend with the same taps (resize_linear_into's sums, done there).
+pub fn linear_taps(n: usize, m: usize, vertical: bool) -> Vec<Tap> {
     let scale = n as f64 / m as f64;
     let last = n as i64 - 1;
     (0..m).map(|d| {
@@ -1030,6 +1031,14 @@ pub fn resize_linear_fixed(src: &[u8], w: usize, h: usize, ch: usize, w2: usize,
     let mut out = spare_bytes(w2 * h2 * ch);
     resize_linear_into(src, w, h, ch, &mut out, w2 * ch, (0, 0, w2, h2));
     out
+}
+
+/// Where a w x h picture goes in a width x height one when it's scaled to fit with its shape kept: the (x, y, w, h) box of its
+/// luma, centred, the rest left for bars. The virtual camera fits frames this way, on the CPU or on the graphics card.
+pub fn fit_box(w: u32, h: u32, width: u32, height: u32) -> (u32, u32, u32, u32) {
+    let scale = (width as f64 / w as f64).min(height as f64 / h as f64);
+    let (nw, nh) = ((w as f64 * scale) as u32, (h as f64 * scale) as u32);
+    ((width - nw.min(width)) / 2, (height - nh.min(height)) / 2, nw, nh)
 }
 
 /// resize_linear_fixed into the (x, y, w, h) box of dst, whose rows are `stride` bytes long; what falls outside dst is left off.

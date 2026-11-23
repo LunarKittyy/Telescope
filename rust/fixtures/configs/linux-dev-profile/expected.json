@@ -193,6 +193,7 @@
         "balance": true,
         "dynamic": true,
         "effects": true,
+        "heads": true,
         "power": true
       },
       "browser_camera": {

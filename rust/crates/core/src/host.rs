@@ -672,6 +672,8 @@ pub trait HostVision {
     /// "off", "loading", "ready", "missing" or "failed".
     fn vision_state(&self) -> String;
     fn want_people(&mut self, owner: &str, on: bool);
+    /// Whether the owner's people are enough as faces with shoulders (Auto framing at Head or Chest), so lighter effects can follow faces while every owner says so.
+    fn want_heads(&mut self, _owner: &str, _on: bool) {}
     /// (Track records, how many people) on source_id's stream, as the last people_tracked said.
     fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32);
     /// Power-saving effects (Settings > Video): the models run less often. A host without vision ignores it.
@@ -841,6 +843,8 @@ pub trait Host:
     fn set_effects_follow_power(&mut self, _on: bool) {}
     /// Keeps the effects at full quality for this run of the app, whatever stepping down says. Not saved.
     fn hold_effects_full(&mut self, _on: bool) {}
+    /// Whether people may be followed by their faces while the effects are lighter (a saved switch, or kept off for one run). Not saved here.
+    fn allow_heads(&mut self, _on: bool) {}
     /// Keeps frame steps that can run either way on the graphics card instead of letting them move to the processor while it is busy. Not saved here: the asking plugin saves it.
     fn keep_steps_on_card(&mut self, _on: bool) {}
 
