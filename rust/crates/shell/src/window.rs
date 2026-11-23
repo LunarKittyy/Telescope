@@ -2182,10 +2182,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
             crate::parent::selector().backend_name("winit".into()).renderer_name("software".into()).select().map_err(|e| format!("The window can't be drawn without a graphics card: {e}"))?;
             log::info!("The window is drawn by the processor, every graphics card was skipped");
         }
-        #[cfg(not(windows))]
-        let _ = software;
-        // Without the graphics card's backend the default one is chosen here, so Windows can make a side window owned by the main one
-        #[cfg(windows)]
+        // Without the graphics card's backend the default one is chosen here: Windows can then make a side window owned by the main one, and
+        // the app id below can be set (it needs a backend, and without one the window on Wayland gets a generic icon)
         if gpu_painter.is_none() && !software {
             if let Err(e) = crate::parent::selector().select() {
                 log::warn!("The window backend couldn't be chosen: {e}");
