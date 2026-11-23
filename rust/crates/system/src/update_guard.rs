@@ -52,10 +52,12 @@ pub fn write_journal(directory: &Path, data: &Value) -> io::Result<()> {
 pub fn write_journal_with(directory: &Path, data: &Value, mv: Mover) -> io::Result<()> {
     use std::io::Write;
     let tmp = directory.join(format!("{JOURNAL}.tmp"));
-    let mut f = std::fs::File::create(&tmp)?;
-    f.write_all(data.to_string().as_bytes())?;
-    f.sync_all()?;
-    mv(&tmp, &directory.join(JOURNAL))
+    let written = std::fs::File::create(&tmp).and_then(|mut f| f.write_all(data.to_string().as_bytes()).and_then(|_| f.sync_all()));
+    let result = written.and_then(|_| mv(&tmp, &directory.join(JOURNAL)));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
 }
 
 pub fn clear_journal(directory: &Path) -> io::Result<()> {
@@ -113,6 +115,24 @@ fn is_real_dir(p: &Path) -> bool {
 
 // ── Swapping the new version in (safe to run again after being cut short) ─────
 
+/// How often a move of a freshly unpacked file is tried and how long to wait between tries: security software can hold one for a second or two.
+const MOVE_TRIES: u32 = 6;
+const MOVE_PAUSE: Duration = if cfg!(test) { Duration::ZERO } else { Duration::from_millis(500) };
+
+/// mv, tried again a few times while the source is still there, so a scanner holding a new file for a moment doesn't fail the update or leave a file at its old version.
+fn move_patiently(mv: Mover, src: &Path, dst: &Path) -> io::Result<()> {
+    let mut tries = 1;
+    loop {
+        match mv(src, dst) {
+            Err(_) if tries < MOVE_TRIES && src.exists() => {
+                tries += 1;
+                std::thread::sleep(MOVE_PAUSE);
+            }
+            other => return other,
+        }
+    }
+}
+
 /// Moves what's left in the staging folder into place. True if the exe was swapped by this call (Windows: the running
 /// copy is then the old one under another name). Files in use that keep their old version go in skipped.
 pub fn finish_swap(directory: &Path, journal: &Value, skipped: &mut Vec<String>, mv: Mover) -> io::Result<bool> {
@@ -146,7 +166,7 @@ fn finish_windows(directory: &Path, staging: &Path, skipped: &mut Vec<String>, m
     for lib in sorted_entries(staging)? {
         let name = lib.file_name().unwrap_or_default().to_string_lossy().to_string();
         if lib.is_dir() && name.starts_with(LIB_PREFIX) && !directory.join(&name).exists() {
-            mv(&lib, &directory.join(&name))?;
+            move_patiently(mv, &lib, &directory.join(&name))?;
         }
     }
     let mut swapped = false;
@@ -156,7 +176,7 @@ fn finish_windows(directory: &Path, staging: &Path, skipped: &mut Vec<String>, m
             remove(&old)?;
             mv(&current, &old)?; // allowed while it runs; overwriting isn't
         }
-        mv(&new_exe, &current)?;
+        move_patiently(mv, &new_exe, &current)?;
         swapped = true;
     }
     let previous = directory.join(PREVIOUS_DIR);
@@ -185,7 +205,7 @@ fn replace_keeping_old(src: &Path, dst: &Path, prev: &Path, mv: Mover) -> bool {
     if moved && (prev.parent().is_some_and(|p| std::fs::create_dir_all(p).is_err()) || mv(dst, prev).is_err()) {
         return false;
     }
-    if mv(src, dst).is_ok() {
+    if move_patiently(mv, src, dst).is_ok() {
         return true;
     }
     if moved {
@@ -1080,6 +1100,28 @@ mod tests {
         std::fs::remove_dir_all(&base).unwrap();
     }
 
+    #[test]
+    fn a_file_a_scanner_holds_for_a_moment_is_still_replaced() {
+        let base = root("scanned");
+        let app = windows_app(&base);
+        write(&app.join("ui-kit/extra.slint"), "extra 130");
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131"), ("ui-kit/extra.slint", b"extra 131")]);
+        let (mut exe_busy, mut kit_busy) = (2, 2);
+        let mut scanned = |s: &Path, d: &Path| {
+            let busy = if s.ends_with(EXE_NAME) { &mut exe_busy } else if s.ends_with("extra.slint") { &mut kit_busy } else { return rename(s, d) };
+            if s.starts_with(app.join(STAGING_DIR)) && *busy > 0 {
+                *busy -= 1;
+                return Err(io::Error::from_raw_os_error(32));
+            }
+            rename(s, d)
+        };
+        let result = install_windows(&archive, &app, 131, &mut scanned).unwrap();
+        assert!(result.skipped.is_empty(), "{:?}", result.skipped);
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        assert_eq!(read(&app.join("ui-kit/extra.slint")), "extra 131");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
     #[cfg(unix)]
     #[test]
     fn a_held_file_leaves_a_python_lib_folder_the_next_start_still_recognises() {
@@ -1194,6 +1236,74 @@ mod tests {
     fn old_tree() -> BTreeMap<String, String> {
         tree_of(&[("main.py", "main 130"), ("update_guard.py", "guard 130"), ("start.sh", "start 130"), ("telescope/app.py", "app 130"),
                   ("telescope/gone.py", "only in 130"), ("notes.txt", "the user's")])
+    }
+
+    /// Moves work until the k-th, which fails; with `broken` every one after it fails too (a disk that went read-only or a folder a scanner holds).
+    fn failing_from(k: usize, broken: bool) -> impl FnMut(&Path, &Path) -> io::Result<()> {
+        let mut seen = 0;
+        move |s, d| {
+            seen += 1;
+            if seen == k || (broken && seen > k) {
+                return Err(io::Error::from_raw_os_error(5));
+            }
+            rename(s, d)
+        }
+    }
+
+    #[test]
+    fn a_linux_install_that_fails_anywhere_leaves_the_old_or_the_new_version_whole() {
+        let base = root("lin-fail");
+        let total = count_moves(|mv| {
+            let dir = base.join("count");
+            std::fs::create_dir_all(&dir).unwrap();
+            install_linux(&linux_tarball(&dir.join("u.tar.gz")), &linux_app(&dir), 131, mv).unwrap();
+        });
+        for broken in [false, true] {
+            for k in 1..=total {
+                let dir = base.join(format!("k{k}-{broken}"));
+                std::fs::create_dir_all(&dir).unwrap();
+                let app = linux_app(&dir);
+                let result = install_linux(&linux_tarball(&dir.join("u.tar.gz")), &app, 131, &mut failing_from(k, broken));
+                // A start after it, with everything working again, finishes whatever was left
+                assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None, "k={k} broken={broken}");
+                let after = tree(&app);
+                assert!(after == old_tree() || after == new_tree(), "k={k} broken={broken} result_ok={}: {after:?}", result.is_ok());
+                if !broken && result.is_err() {
+                    assert_eq!(after, old_tree(), "a failure the roll-back could undo leaves the old version: k={k}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_windows_install_that_fails_anywhere_leaves_the_old_or_the_new_version_whole() {
+        let base = root("win-fail");
+        let total = count_moves(|mv| {
+            let dir = base.join("count");
+            std::fs::create_dir_all(&dir).unwrap();
+            install_windows(&windows_zip(&dir), &windows_app(&dir), 131, mv).unwrap();
+        });
+        for broken in [false, true] {
+            for k in 1..=total {
+                let dir = base.join(format!("k{k}-{broken}"));
+                std::fs::create_dir_all(&dir).unwrap();
+                let app = windows_app(&dir);
+                let result = install_windows(&windows_zip(&dir), &app, 131, &mut failing_from(k, broken));
+                let relaunch = recover(&app, Duration::ZERO, &nobody, Duration::ZERO);
+                let (exe, new_exe) = (read(&app.join(EXE_NAME)), "exe 131");
+                let why = format!("k={k} broken={broken} install_ok={} relaunch={relaunch:?}", result.is_ok());
+                assert!(exe == "exe 130" || exe == new_exe, "{why}: {exe}");
+                // Whichever exe is in place finds its own libraries and files
+                let version = if exe == new_exe { "131" } else { "130" };
+                assert_eq!(read(&app.join(format!("lib-{version}/python311.dll"))), format!("py {version}"), "{why}");
+                // A file that stayed at its old version because it was held is the one thing allowed to differ
+                let held = result.as_ref().is_ok_and(|r| r.skipped.iter().any(|f| f == "Telescope.apk"));
+                assert!(held || read(&app.join("Telescope.apk")) == format!("apk {version}"), "{why}");
+                if !broken && result.is_err() {
+                    assert_eq!(exe, "exe 130", "{why}");
+                }
+            }
+        }
     }
 
     #[test]
