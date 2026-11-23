@@ -2561,6 +2561,25 @@ mod tests {
     }
 
     #[test]
+    fn a_reset_connection_section_does_not_cost_the_phones_their_settings_at_the_next_start() {
+        let mut s = state();
+        s.register(stub("connection", json!({"phones": []}), false).0).unwrap();
+        s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
+        let zoom = |n: u32| json!({"plugin_configs": {"transforms": {"zoom": n}}});
+        s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"name": "damaged"}]}},
+                                "devices": {"a": zoom(2), "b": zoom(3)}, "output_slots": {"a": 1, "b": 2}}));
+        s.apply_saved_config();
+        // Connection drops the entry it can't read, so what it saves is an empty list
+        s.with_plugin(0, |p| p.set_config(&json!({"phones": []})).unwrap());
+        assert!(s.save_now());
+        assert_eq!(s.file.load()["plugin_configs"]["connection"]["phones"], json!([]));
+        s.apply_saved_config();
+        let saved = s.file.load();
+        assert_eq!(saved["devices"], json!({"a": zoom(2), "b": zoom(3)}));
+        assert_eq!(saved["output_slots"], json!({"a": 1, "b": 2}));
+    }
+
+    #[test]
     fn starting_drops_the_settings_of_a_phone_that_is_not_paired_and_keeps_browsers_and_webcams() {
         let mut s = state();
         s.register(stub("connection", json!({"phones": []}), false).0).unwrap();
