@@ -288,6 +288,21 @@ fn a_connection_stays_for_the_next_request_unless_asked_to_close() {
 }
 
 #[test]
+fn an_old_client_that_asks_to_keep_the_connection_is_told_it_is_kept() {
+    let run = start(0);
+    let mut old = Client::connect(&run);
+    old.send("GET /hello HTTP/1.0\r\nConnection: keep-alive\r\n\r\n");
+    assert_eq!(old.read(false).unwrap().header("Connection"), Some("keep-alive"));
+    old.send("GET /hello HTTP/1.0\r\nConnection: keep-alive\r\n\r\n");
+    assert_eq!(old.read(false).unwrap().status, 200);
+    let mut closing = Client::connect(&run);
+    closing.send("GET /hello HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
+    assert_eq!(closing.read(false).unwrap().header("Connection"), Some("close"));
+    let mut plain = Client::connect(&run);
+    assert_eq!(plain.get("/hello").header("Connection"), None);
+}
+
+#[test]
 fn only_get_and_head_are_answered() {
     let run = start(0);
     let mut client = Client::connect(&run);
