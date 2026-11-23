@@ -632,28 +632,39 @@ pub fn wants_frames(popout_seen: bool, card: bool, window_seen: bool) -> bool {
     popout_seen || (card && window_seen)
 }
 
-/// Which of a stream's new frames the window's card paints: every second one, counted in frames so the gaps stay even at any
+/// Which of a stream's new frames the window's card paints: one in `every`, counted in frames so the gaps stay even at any
 /// rate, or all of them.
-#[derive(Default)]
 pub struct Cadence {
     seen: u64,
-    skip_next: bool,
+    /// New frames since the last one painted.
+    since: u32,
+}
+
+impl Default for Cadence {
+    fn default() -> Cadence {
+        // The first frame is due
+        Cadence { seen: 0, since: u32::MAX / 2 }
+    }
 }
 
 impl Cadence {
-    /// Whether to paint the newest frame. `always` is for a frame that has to be shown whatever the count, or all of them.
-    pub fn due(&mut self, number: u64, every_frame: bool, always: bool) -> bool {
-        if every_frame || always {
+    /// Whether to paint the newest frame: one in `every` new frames (1 is all of them). `always` is for a frame that has to be shown whatever the count.
+    pub fn due(&mut self, number: u64, every: u32, always: bool) -> bool {
+        if every <= 1 || always {
             self.seen = number;
-            self.skip_next = true;
+            self.since = 0;
             return true;
         }
         if number == self.seen {
             return false;
         }
         self.seen = number;
-        self.skip_next = !self.skip_next;
-        self.skip_next
+        self.since += 1;
+        if self.since >= every {
+            self.since = 0;
+            return true;
+        }
+        false
     }
 }
 
@@ -663,13 +674,13 @@ mod tests {
 
     // Frames as a timer that looks several times sees them: each new one a few times
     fn painted(cadence: &mut Cadence, frames: std::ops::Range<u64>, every_frame: bool) -> Vec<u64> {
-        frames.filter(|&n| (0..3).map(|_| cadence.due(n, every_frame, false)).filter(|d| *d).count() > 0).collect()
+        frames.filter(|&n| (0..3).map(|_| cadence.due(n, if every_frame { 1 } else { 2 }, false)).filter(|d| *d).count() > 0).collect()
     }
 
     #[test]
     fn the_card_paints_every_second_frame_however_often_it_looks() {
         let mut c = Cadence::default();
-        assert!(c.due(1, false, true), "a new stream's first frame shows at once");
+        assert!(c.due(1, 2, true), "a new stream's first frame shows at once");
         assert_eq!(painted(&mut c, 2..10, false), [3, 5, 7, 9]);
     }
 
@@ -677,7 +688,7 @@ mod tests {
     fn numbers_needn_t_be_neighbours() {
         // Frame numbers are shared by all the streams
         let mut c = Cadence::default();
-        let got: Vec<u64> = [10, 13, 14, 20, 21, 30].into_iter().filter(|&n| c.due(n, false, false)).collect();
+        let got: Vec<u64> = [10, 13, 14, 20, 21, 30].into_iter().filter(|&n| c.due(n, 2, false)).collect();
         assert_eq!(got.len(), 3, "{got:?}");
     }
 
@@ -692,7 +703,7 @@ mod tests {
     fn a_frame_that_has_to_show_doesn_t_upset_the_count() {
         let mut c = Cadence::default();
         assert_eq!(painted(&mut c, 1..4, false), [1, 3]);
-        assert!(c.due(4, false, true));
+        assert!(c.due(4, 2, true));
         assert_eq!(painted(&mut c, 5..8, false), [6]);
     }
 

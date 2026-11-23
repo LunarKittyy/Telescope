@@ -382,7 +382,78 @@ pub(crate) fn with_window(f: impl FnOnce(&Rc<Window>)) {
 }
 
 fn window_seen(window: &slint::Window) -> bool {
-    crate::preview::window_seen(window.is_visible(), window.is_minimized())
+    crate::preview::window_seen(window.is_visible(), window.is_minimized()) && !(probe::covered_on() && covered(window))
+}
+
+/// Another program's window fills the screen this window is on (a game, a video): nobody sees it, though it isn't minimised.
+#[cfg(windows)]
+fn covered(window: &slint::Window) -> bool {
+    use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use slint::winit_030::WinitWindowAccessor;
+    let Some(Some(hwnd)) = window.with_winit_window(|w| match w.window_handle().ok()?.as_raw() {
+        RawWindowHandle::Win32(h) => Some(h.hwnd.get()),
+        _ => None,
+    }) else {
+        return false;
+    };
+    let covered = telescope_core::perf::covered_by_fullscreen(hwnd);
+    thread_local! {
+        static WAS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+    if WAS.with(|w| w.replace(covered)) != covered {
+        log::info!("UI probe: the window is {}", if covered { "covered by another program's full screen window" } else { "no longer covered" });
+    }
+    covered
+}
+
+#[cfg(not(windows))]
+fn covered(_window: &slint::Window) -> bool {
+    false
+}
+
+/// Temporary measuring aid (TELESCOPE_UIPROBE): counts what the preview paints and why, logged every 5 s.
+pub(crate) mod probe {
+    use std::cell::Cell;
+    thread_local! {
+        static COUNTS: [Cell<u32>; 8] = Default::default();
+        static SINCE: Cell<Option<std::time::Instant>> = const { Cell::new(None) };
+    }
+    pub const WAKE: usize = 0;
+    pub const HOUSE: usize = 1;
+    pub const SET: usize = 2;
+    pub const FORCED: usize = 3;
+    pub const STAGE: usize = 4;
+    pub const AGAIN: usize = 5;
+    pub const OVERLAY: usize = 7;
+    fn on() -> bool {
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ON.get_or_init(|| std::env::var_os("TELESCOPE_UIPROBE").is_some())
+    }
+    pub fn covered_on() -> bool {
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ON.get_or_init(|| std::env::var_os("TELESCOPE_EXP_COVERED").is_some())
+    }
+    /// Frames painted while no Telescope window is in front: one in this many (0 or 1: as when in front).
+    pub fn unfocused_every() -> u32 {
+        static N: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+        *N.get_or_init(|| std::env::var("TELESCOPE_EXP_UNFOCUSED_EVERY").ok().and_then(|v| v.parse().ok()).unwrap_or(0))
+    }
+    pub fn count(what: usize) {
+        if !on() {
+            return;
+        }
+        COUNTS.with(|c| c[what].set(c[what].get() + 1));
+        let now = std::time::Instant::now();
+        let since = SINCE.with(|s| *s.get().get_or_insert(now));
+        SINCE.with(|s| s.set(Some(since)));
+        if now.duration_since(since).as_secs_f32() >= 5.0 {
+            let n: Vec<u32> = COUNTS.with(|c| c.iter().map(|x| x.replace(0)).collect());
+            SINCE.with(|s| s.set(Some(now)));
+            let per = |i: usize| n[i] as f32 / now.duration_since(since).as_secs_f32();
+            log::info!("UI probe per s: wake {:.1} housekeeping {:.1} frame set {:.1} forced {:.1} stage changed {:.1} again {:.1} overlay {:.1}",
+                per(WAKE), per(HOUSE), per(SET), per(FORCED), per(STAGE), per(AGAIN), per(OVERLAY));
+        }
+    }
 }
 
 /// A picture as a Slint image, for the formats that are plain pixels.
@@ -1066,6 +1137,7 @@ impl Window {
 
     /// A stream's slot got a frame (WakingSlot): paints the newest one now, and any that came after the wake was asked for with it.
     pub fn frame_ready(self: &Rc<Self>) {
+        probe::count(probe::WAKE);
         self.streams.frame_wake.store(false, std::sync::atomic::Ordering::SeqCst);
         self.paint_preview();
         self.paint_pick();
@@ -1135,6 +1207,7 @@ impl Window {
     }
 
     pub(crate) fn housekeeping(self: &Rc<Self>) {
+        probe::count(probe::HOUSE);
         self.sync_preview_visibility();
         self.watch_focus();
         self.paint_preview();
@@ -1268,7 +1341,19 @@ impl Window {
             return;
         }
         // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here, and a resized stage paints at once
-        let due = again || self.cadence.borrow_mut().due(number, popout_seen || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage);
+        let forced = self.painted.get() == 0 || self.painted_stage.get() != stage;
+        if forced {
+            probe::count(probe::FORCED);
+        }
+        if self.painted_stage.get() != stage {
+            probe::count(probe::STAGE);
+        }
+        if again {
+            probe::count(probe::AGAIN);
+        }
+        let unfocused = probe::unfocused_every();
+        let every = if popout_seen || on("smooth-on") { 1 } else if unfocused > 1 && !self.state.borrow().window_active { unfocused } else { 2 };
+        let due = again || self.cadence.borrow_mut().due(number, every, forced);
         // A picture that finished off the window's thread goes up on its own, but the next one is only asked for when the cadence says
         let take_only = match crate::preview::step(due, ready, tints) {
             crate::preview::Step::Skip => return,
@@ -1354,12 +1439,14 @@ impl Window {
             None => (&self.ui, r.id.as_str()),
         };
         let name = |n: &str| if id.is_empty() { n.to_string() } else { format!("{id}-{n}") };
+        probe::count(probe::SET);
         let _ = target.set_property(&name("frame"), SValue::Image(image));
         let _ = target.set_property(&name("has-frame"), SValue::Bool(true));
         // What passes draw over the frame, as one picture the size it's shown at
         let mut work = self.passes.borrow_mut();
         let shown = crate::preview::shown_size((frame.width, frame.height), stage);
         if work.overlay_due(dirty, shown) {
+            probe::count(probe::OVERLAY);
             self.overlay_pending.drawn();
             let overlay = work.overlay(&passes, shown.0, shown.1, self.ui.window().scale_factor());
             let _ = target.set_property(&name("has-overlay"), SValue::Bool(overlay.is_some()));

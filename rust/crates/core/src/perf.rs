@@ -217,6 +217,67 @@ fn foreground_on_windows() -> Foreground {
     }
 }
 
+/// Whether another program's window without a title bar fills the screen that `window` (a Win32 window handle) is on, so nobody sees it.
+#[cfg(windows)]
+pub fn covered_by_fullscreen(window: isize) -> bool {
+    use std::ffi::c_void;
+    #[repr(C)]
+    #[derive(Default)]
+    struct Rect {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+    #[repr(C)]
+    #[derive(Default)]
+    struct MonitorInfo {
+        size: u32,
+        monitor: Rect,
+        work: Rect,
+        flags: u32,
+    }
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn GetForegroundWindow() -> *mut c_void;
+        fn GetWindowRect(window: *mut c_void, rect: *mut Rect) -> i32;
+        fn GetWindowLongW(window: *mut c_void, index: i32) -> i32;
+        fn GetWindowThreadProcessId(window: *mut c_void, process: *mut u32) -> u32;
+        fn MonitorFromWindow(window: *mut c_void, flags: u32) -> *mut c_void;
+        fn GetMonitorInfoW(monitor: *mut c_void, info: *mut MonitorInfo) -> i32;
+    }
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GetCurrentProcessId() -> u32;
+    }
+    const GWL_STYLE: i32 = -16;
+    const WS_CAPTION: i32 = 0x00C0_0000;
+    const MONITOR_DEFAULTTONEAREST: u32 = 2;
+    // SAFETY: every pointer goes to a local of the type the call documents, and a window that closes meanwhile just makes a call fail
+    unsafe {
+        let front = GetForegroundWindow();
+        if front.is_null() {
+            return false;
+        }
+        let mut process = 0u32;
+        GetWindowThreadProcessId(front, &mut process);
+        if process == GetCurrentProcessId() {
+            return false;
+        }
+        let screen = MonitorFromWindow(front, MONITOR_DEFAULTTONEAREST);
+        if screen != MonitorFromWindow(window as *mut c_void, MONITOR_DEFAULTTONEAREST) {
+            return false;
+        }
+        let (mut rect, mut info) = (Rect::default(), MonitorInfo { size: std::mem::size_of::<MonitorInfo>() as u32, ..Default::default() });
+        if GetWindowRect(front, &mut rect) == 0 || GetMonitorInfoW(screen, &mut info) == 0 {
+            return false;
+        }
+        let m = &info.monitor;
+        let covers = rect.left <= m.left && rect.top <= m.top && rect.right >= m.right && rect.bottom >= m.bottom;
+        covers && GetWindowLongW(front, GWL_STYLE) & WS_CAPTION != WS_CAPTION
+    }
+}
+
 /// Which decoder was at work.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DecoderKind {
