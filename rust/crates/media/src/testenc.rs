@@ -197,6 +197,22 @@ pub fn h264_noisy(values: &[u8], w: u32, h: u32, gop: u32) -> Option<Vec<Vec<u8>
     Some(packets.into_iter().map(|p| [p, AUD.to_vec()].concat()).collect())
 }
 
+/// H.264 saying it is BT.709 in the limited range, as an HD phone stream does, of noisy colours that change every frame, framed as h264() is.
+pub fn h264_hd(count: usize, w: u32, h: u32) -> Option<Vec<Vec<u8>>> {
+    let plane = |i: usize, plane: usize, pw: usize, ph: usize| -> Vec<u8> {
+        let i = i as u32;
+        let base = [40 + i * 7 % 150, 80 + i * 5 % 90, 170 - i * 3 % 90][plane];
+        let mut seed = i * 3 + plane as u32 + 1;
+        (0..pw * ph).map(|_| {
+            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+            (base + (seed >> 24) % 48) as u8
+        }).collect()
+    };
+    let packets = encode_with("libx264", count, w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P,
+                              &[("tune", "zerolatency"), ("bf", "0"), ("preset", "ultrafast"), ("colorspace", "bt709"), ("color_range", "tv")], &plane)?;
+    Some(packets.into_iter().map(|p| [p, AUD.to_vec()].concat()).collect())
+}
+
 /// H.264 packets (no delimiters) of a grey square moving right over a picture that changes completely every 6 frames, the
 /// way test_h264_mosh.py makes its streams: no B-frames, no scene cuts, a keyframe every `gop` frames. profile: "high" or "baseline".
 pub fn h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -> Option<Vec<Vec<u8>>> {

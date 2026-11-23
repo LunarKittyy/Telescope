@@ -575,7 +575,13 @@ impl Gpu {
     }
 
     fn convert_pass_encoded(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), block_chroma: bool, colour: u32) {
-        let settings: [u32; 4] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 } | colour, taps.max(1), src_size.0, src_size.1];
+        let mut settings: [u32; 12] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 } | colour, taps.max(1), src_size.0, src_size.1, 0, 0, 0, 0, 0, 0, 0, 0];
+        #[cfg(all(any(target_os = "linux", windows), ffmpeg))]
+        if colour & FROM_NV12 != 0 {
+            // The decoder's own encoding (16 BT.709, 32 full range), which the shader turns into BT.601 limited as the CPU would
+            let enc = crate::yuv::Encoding { matrix: if colour & 16 != 0 { 1 } else { 5 }, full_range: colour & 32 != 0 };
+            settings[4..].copy_from_slice(&crate::yuv::card_terms(enc).map(|t| t as u32));
+        }
         let buf = self.uniform(bytemuck_u32(&settings));
         let view = target.create_view(&Default::default());
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -610,6 +616,25 @@ impl Gpu {
     /// Whether the device was lost or wgpu panicked on it: nothing more goes to it.
     pub fn is_lost(&self) -> bool {
         self.lost.load(Ordering::SeqCst)
+    }
+
+    /// Whether this card is the processor drawing in software (WARP, llvmpipe), where work on the card only costs CPU.
+    pub(crate) fn is_software(&self) -> bool {
+        self.wait_limit == SOFTWARE_READBACK_WAIT
+    }
+
+    /// Whether the frame is a decoder's picture this card can take in where it is, with no copy through memory.
+    pub(crate) fn importable(frame: &Frame) -> bool {
+        let Some(_source) = frame.surface() else { return false };
+        #[cfg(all(target_os = "linux", ffmpeg))]
+        if _source.as_any().is::<crate::vaapi_import::Surface>() {
+            return true;
+        }
+        #[cfg(all(windows, ffmpeg))]
+        if _source.as_any().is::<crate::d3d11_import::Surface>() {
+            return true;
+        }
+        false
     }
 
     /// Whether this card can still be used.
