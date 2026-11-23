@@ -82,6 +82,7 @@ def desktop_units(lang: str, everything: bool) -> list:
     po = i18n.LOCALE_DIR / f"{lang}.po"
     have = {e.key: e for e in i18n.read_po(po)[0]} if po.exists() else {}
     units = []
+    places = {e.key: e.locations for e in i18n.find_all([])[0]}  # the files don't say where a text is
     for e in i18n.read_po(i18n.LOCALE_DIR / "telescope.pot")[0]:
         old = have.get(e.key)
         done = old is not None and all(old.msgstr) and not old.fuzzy
@@ -94,7 +95,7 @@ def desktop_units(lang: str, everything: bool) -> list:
             u["ctx"] = e.ctx
         if e.comments:
             u["note"] = " ".join(e.comments)
-        where = e.locations[0] if e.locations else ""
+        where = places.get(e.key, [""])[0]
         u["where"] = where
         if len(e.msgid.split()) <= 4 and e.ctx != "search":
             u["code"] = source_line(where)

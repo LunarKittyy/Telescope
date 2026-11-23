@@ -80,6 +80,24 @@ pub fn pairing_addresses() -> Vec<PairingAddress> {
     addresses_from(|| Ok(if_addrs::get_if_addrs()?.into_iter().map(|i| (i.name.clone(), i.ip())).collect()))
 }
 
+/// Whether this computer is on a network at all: a real adapter with an address a phone could be reached from, which includes a
+/// VPN's, an Ethernet cable's and a USB tether's, and an IPv6-only network's. Unknown (the list can't be read) counts as on.
+pub fn network_present() -> bool {
+    network_from(|| Ok(if_addrs::get_if_addrs()?.into_iter().map(|i| (i.name.clone(), i.ip())).collect()))
+}
+
+fn network_from(list: impl FnOnce() -> std::io::Result<Vec<(String, IpAddr)>>) -> bool {
+    let Ok(adapters) = list() else { return true };
+    adapters.iter().any(|(name, ip)| {
+        !is_virtual_interface(name)
+            && match ip {
+                IpAddr::V4(v4) => classify(*v4).is_some(),
+                // fe80::/10 is on every adapter that is up, with or without a network behind it
+                IpAddr::V6(v6) => !(v6.is_loopback() || v6.is_unspecified() || v6.is_multicast() || (v6.segments()[0] & 0xffc0) == 0xfe80),
+            }
+    })
+}
+
 /// The candidates among what list finds, none when it can't look.
 fn addresses_from(list: impl FnOnce() -> std::io::Result<Vec<(String, IpAddr)>>) -> Vec<PairingAddress> {
     list().map_or_else(|_| Vec::new(), |adapters| pick_addresses(&adapters))
@@ -134,6 +152,28 @@ mod tests {
     fn adapters(list: &[(&str, &str)]) -> Vec<PairingAddress> {
         let raw: Vec<(String, IpAddr)> = list.iter().map(|(n, ip)| (n.to_string(), ip.parse().unwrap())).collect();
         pick_addresses(&raw)
+    }
+
+    fn present(list: &[(&str, &str)]) -> bool {
+        network_from(|| Ok(list.iter().map(|(n, ip)| (n.to_string(), ip.parse().unwrap())).collect()))
+    }
+
+    #[test]
+    fn a_computer_counts_as_on_a_network_through_any_real_adapter() {
+        assert!(!present(&[]) && !present(&[("lo", "127.0.0.1")]), "nothing but loopback");
+        assert!(!present(&[("eth0", "169.254.8.8"), ("wlan0", "fe80::1")]), "link-local only: nothing is connected");
+        assert!(!present(&[("docker0", "172.17.0.1"), ("br-1a2b", "172.18.0.1"), ("virbr0", "192.168.122.1")]), "containers and VMs aren't a network");
+        assert!(present(&[("wlan0", "192.168.1.20")]), "Wi-Fi");
+        assert!(present(&[("enp3s0", "10.0.0.4"), ("docker0", "172.17.0.1")]), "Ethernet with Docker beside it");
+        assert!(present(&[("tun0", "10.8.0.2")]) && present(&[("tailscale0", "100.100.1.1")]), "a VPN on its own");
+        assert!(present(&[("usb0", "192.168.42.129")]) && present(&[("Remote NDIS based Internet Sharing Device", "192.168.42.129")]), "a USB tether");
+        assert!(present(&[("eth0", "2001:db8::5"), ("eth0", "fe80::1")]), "an IPv6-only network");
+        assert!(present(&[("vEthernet (Default Switch)", "172.20.0.1")]), "Hyper-V's bridge is a real adapter");
+    }
+
+    #[test]
+    fn a_computer_whose_adapters_cant_be_read_isnt_called_offline() {
+        assert!(network_from(|| Err(std::io::Error::other("no"))));
     }
 
     #[test]

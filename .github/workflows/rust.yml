@@ -58,10 +58,11 @@ jobs:
     # Runs unless changes said there's nothing to check, so a changes job that failed doesn't pass this silently
     if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
     runs-on: ubuntu-latest
-    # A new push to a pull request cancels the check still running for the old one.
+    # A new push to a ready pull request cancels the check still running for the old one. Every push to a draft
+    # runs on its own (its group has the commit in it), so each one finishes and reports.
     concurrency:
-      group: rust-linux-${{ github.event.pull_request.number || github.run_id }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+      group: rust-linux-${{ github.event.pull_request.number || github.run_id }}${{ github.event.pull_request.draft && format('-{0}', github.sha) || '' }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft }}
     defaults:
       run:
         working-directory: rust
@@ -104,8 +105,8 @@ jobs:
     if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
     runs-on: windows-latest
     concurrency:
-      group: rust-windows-${{ github.event.pull_request.number || github.run_id }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+      group: rust-windows-${{ github.event.pull_request.number || github.run_id }}${{ github.event.pull_request.draft && format('-{0}', github.sha) || '' }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft }}
     defaults:
       run:
         working-directory: rust

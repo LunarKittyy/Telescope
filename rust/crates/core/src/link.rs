@@ -124,6 +124,8 @@ pub trait Link: Send + Sync {
     fn configure_presence(&self, _computer_id: &str, _version: &str, _phones: &[PairedPhone]) {}
     /// Coalesces an interaction hint for the background worker.
     fn presence_hint(&self) {}
+    /// Whether this computer has a network address a phone could be reached from (none: Wi-Fi is off or unplugged).
+    fn network_up(&self) -> bool { true }
     /// Called from the presence worker when it has something for presence_updates(), so nothing has to poll for it. None unsets it.
     fn presence_wake(&self, _wake: Option<std::sync::Arc<dyn Fn() + Send + Sync>>) {}
     /// Drains bounded hints without doing network I/O.
@@ -346,12 +348,15 @@ pub struct Resolution {
     /// UNREACHABLE although a Telescope app answered that isn't the one this computer paired with (reinstalled, or another build such as Telescope (dev)).
     #[serde(default)]
     pub other_telescope: bool,
+    /// UNREACHABLE and this computer has no network address at all, so the phone isn't necessarily the problem.
+    #[serde(default)]
+    pub no_network: bool,
 }
 
 impl Resolution {
     pub fn new(status: PhoneStatus) -> Resolution {
         Resolution { status, route: None, usb_note: None, streaming: false, busy: false, streaming_for: String::new(),
-                     phone_version: String::new(), udp_dynamic: false, presence: false, before_tls: false, other_app: false, other_telescope: false }
+                     phone_version: String::new(), udp_dynamic: false, presence: false, before_tls: false, other_app: false, other_telescope: false, no_network: false }
     }
 }
 

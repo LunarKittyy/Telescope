@@ -569,36 +569,28 @@ impl Codec {
         }
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
         let fmt = (*src).format;
-        let mut i420 = Vec::with_capacity(w * h + 2 * cw * ch);
-        let copy_plane = |out: &mut Vec<u8>, data: *const u8, stride: i32, pw: usize, ph: usize| {
-            for row in 0..ph {
-                out.extend_from_slice(std::slice::from_raw_parts(data.offset(row as isize * stride as isize), pw));
-            }
-        };
         // A JPEG is always BT.601 over the whole 0..255; a stream says so in the headers on the decoder's own frame, read as plain integers
         let int_of = |field: *const i32| field.read();
         let matrix = if self.jpeg { 5 } else { int_of(ptr::addr_of!((*self.frame).colorspace).cast()) };
         let mut full_range = self.jpeg || fmt == ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P as i32
             || int_of(ptr::addr_of!((*self.frame).color_range).cast()) == ff::AVColorRange::AVCOL_RANGE_JPEG as i32;
-        let yuv420 = [ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P as i32];
-        if yuv420.contains(&fmt) {
-            copy_plane(&mut i420, (*src).data[0], (*src).linesize[0], w, h);
-            copy_plane(&mut i420, (*src).data[1], (*src).linesize[1], cw, ch);
-            copy_plane(&mut i420, (*src).data[2], (*src).linesize[2], cw, ch);
-        } else if fmt == ff::AVPixelFormat::AV_PIX_FMT_NV12 as i32 {
-            copy_plane(&mut i420, (*src).data[0], (*src).linesize[0], w, h);
-            let (uv, stride) = ((*src).data[1], (*src).linesize[1] as isize);
-            // The two planes are filled in place, a row of interleaved pairs at a time
-            let chroma_at = i420.len();
-            i420.resize(chroma_at + 2 * cw * ch, 0);
-            let (u, v) = i420[chroma_at..].split_at_mut(cw * ch);
-            for (row, (u, v)) in u.chunks_exact_mut(cw).zip(v.chunks_exact_mut(cw)).enumerate() {
-                let line = std::slice::from_raw_parts(uv.offset(row as isize * stride), cw * 2);
-                for ((pair, u), v) in line.as_chunks::<2>().0.iter().zip(u).zip(v) {
-                    *u = pair[0];
-                    *v = pair[1];
-                }
+        let i420 = if let Some(planes) = planes_of(src, w, h) {
+            let enc = yuv::Encoding { matrix, full_range };
+            // Converted where the decoder left it, with no copy first
+            if let Some(out) = self.converter.direct(&planes, w, h, enc) {
+                // The decoded picture is held as it is for the BGR, which few streams ask for (copied if it can't be held)
+                let bgr = match Kept::of(src) {
+                    Some(kept) => yuv::lazy_bgr(move || kept.packed(), w, h, enc),
+                    None => {
+                        let i420 = yuv::packed(&planes, w, h);
+                        yuv::lazy_bgr(move || i420, w, h, enc)
+                    }
+                };
+                ff::av_frame_unref(self.frame);
+                self.pictures = self.pictures.saturating_add(1);
+                return Ok((Frame::new(w as u32, h as u32, PixelFormat::I420, out).with_lazy_bgr(bgr), pts));
             }
+            yuv::packed(&planes, w, h)
         } else {
             // Anything else (a 4:2:2 or 4:4:4 JPEG) goes through swscale
             self.sws = ff::sws_getCachedContext(self.sws, w as i32, h as i32, std::mem::transmute::<i32, ff::AVPixelFormat>(fmt), w as i32, h as i32,
@@ -613,6 +605,7 @@ impl Codec {
             let dst = [base, base.add(ys * h), base.add(ys * h + cs * ch), ptr::null_mut()];
             let dst_stride = [ys as i32, cs as i32, cs as i32, 0];
             ff::sws_scale(self.sws, (*src).data.as_ptr() as *const *const u8, (*src).linesize.as_ptr(), 0, h as i32, dst.as_ptr(), dst_stride.as_ptr());
+            let mut i420 = Vec::with_capacity(w * h + 2 * cw * ch);
             for (from, pw, ph, stride) in [(0, w, h, ys), (ys * h, cw, ch, cs), (ys * h + cs * ch, cw, ch, cs)] {
                 for row in 0..ph {
                     i420.extend_from_slice(self.sws_out.bytes(from + row * stride, pw));
@@ -621,7 +614,8 @@ impl Codec {
             // swscale takes the J formats' full range as it goes; any other format is left as it was
             use ff::AVPixelFormat::*;
             full_range &= ![AV_PIX_FMT_YUVJ422P, AV_PIX_FMT_YUVJ444P, AV_PIX_FMT_YUVJ440P].iter().any(|&j| j as i32 == fmt);
-        }
+            i420
+        };
         let (i420, bgr) = self.converter.standard(i420, w, h, yuv::Encoding { matrix, full_range });
         ff::av_frame_unref(self.frame);
         self.pictures = self.pictures.saturating_add(1);
@@ -665,6 +659,54 @@ unsafe fn raise_gpu_priority(buffer: *mut ff::AVBufferRef) {
     match unknown.cast::<IDXGIDevice>().and_then(|dxgi| dxgi.SetGPUThreadPriority(7)) {
         Ok(()) => say("The decoder's graphics device runs at a raised GPU priority".into()),
         Err(e) => say(format!("Couldn't raise the decoder's GPU priority: {e}")),
+    }
+}
+
+/// A decoded 4:2:0 picture's planes where they lie (I420 or NV12, rows going down); None for any other layout.
+unsafe fn planes_of<'a>(f: *const ff::AVFrame, w: usize, h: usize) -> Option<yuv::Planes<'a>> {
+    use ff::AVPixelFormat::*;
+    let fmt = (*f).format;
+    let nv12 = fmt == AV_PIX_FMT_NV12 as i32;
+    if !nv12 && fmt != AV_PIX_FMT_YUV420P as i32 && fmt != AV_PIX_FMT_YUVJ420P as i32 {
+        return None;
+    }
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    // Each plane runs to the end of its last row's pixels, which the decoder's buffer holds
+    let plane = |i: usize, row: usize, rows: usize| -> Option<yuv::Plane<'a>> {
+        let (data, stride) = ((*f).data[i], usize::try_from((*f).linesize[i]).ok()?);
+        (!data.is_null() && stride >= row).then(|| yuv::Plane { bytes: std::slice::from_raw_parts(data, stride * (rows - 1) + row), stride })
+    };
+    let luma = plane(0, w, h)?;
+    let chroma = if nv12 { yuv::Chroma::Paired(plane(1, cw * 2, ch)?) } else { yuv::Chroma::Split(plane(1, cw, ch)?, plane(2, cw, ch)?) };
+    Some(yuv::Planes { luma, chroma })
+}
+
+/// A decoded picture held for as long as a frame made from it may still want its BGR (a reference: the pixels aren't copied).
+struct Kept(*mut ff::AVFrame);
+
+// SAFETY: the picture is only read, and its buffers are reference counted by FFmpeg, whatever thread lets go of them
+unsafe impl Send for Kept {}
+
+impl Kept {
+    unsafe fn of(f: *const ff::AVFrame) -> Option<Kept> {
+        let kept = Kept(ff::av_frame_alloc());
+        (!kept.0.is_null() && ff::av_frame_ref(kept.0, f) >= 0).then_some(kept)
+    }
+
+    /// The picture as packed I420.
+    fn packed(&self) -> Vec<u8> {
+        // SAFETY: the frame holds its buffers until Drop
+        unsafe {
+            let (w, h) = ((*self.0).width as usize, (*self.0).height as usize);
+            planes_of(self.0, w, h).map(|p| yuv::packed(&p, w, h)).unwrap_or_default()
+        }
+    }
+}
+
+impl Drop for Kept {
+    fn drop(&mut self) {
+        // SAFETY: allocated in of(), freed once (av_frame_free takes null)
+        unsafe { ff::av_frame_free(&mut self.0) }
     }
 }
 
@@ -1418,32 +1460,38 @@ mod extract_tests {
         out
     }
 
-    const CASES: [(ff::AVPixelFormat, i32, bool, &str); 6] = [
+    const CASES: [(ff::AVPixelFormat, i32, bool, &str); 7] = [
         (ff::AVPixelFormat::AV_PIX_FMT_YUV420P, 5, false, "I420 limited"),
         (ff::AVPixelFormat::AV_PIX_FMT_YUV420P, 5, true, "I420 full"),
         (ff::AVPixelFormat::AV_PIX_FMT_NV12, 5, false, "NV12 limited"),
         (ff::AVPixelFormat::AV_PIX_FMT_NV12, 5, true, "NV12 full"),
         (ff::AVPixelFormat::AV_PIX_FMT_YUV420P, 1, false, "I420 BT.709"),
         (ff::AVPixelFormat::AV_PIX_FMT_NV12, 1, true, "NV12 BT.709 full"),
+        (ff::AVPixelFormat::AV_PIX_FMT_NV12, 1, false, "NV12 BT.709"),
     ];
 
-    /// What the old take_frame gave: the planes, then the range squeeze or the BGR round trip.
-    fn reference(planes: Vec<u8>, w: usize, h: usize, matrix: i32, full: bool) -> Vec<u8> {
-        yuv::Converter::default().standard(planes, w, h, yuv::Encoding { matrix, full_range: full }).0
+    /// What the old take_frame gave: the planes, then the range squeeze or the BGR round trip, and the BGR the effects read.
+    fn reference(planes: Vec<u8>, w: usize, h: usize, matrix: i32, full: bool) -> (Vec<u8>, Option<Vec<u8>>) {
+        let (out, bgr) = yuv::Converter::default().standard(planes, w, h, yuv::Encoding { matrix, full_range: full });
+        (out, bgr.map(|b| (0..h).flat_map(|y| b.get().row(y, w).to_vec()).collect()))
     }
 
     #[test]
     fn every_source_gives_the_same_bytes_as_its_definition() {
         let mut codec = Codec::h264(None).unwrap();
         // Odd sizes, and widths with padding on the end of each row
-        for (w, h) in [(64, 48), (37, 21), (2, 2), (1, 1), (130, 7)] {
+        for (w, h) in [(64, 48), (37, 21), (37, 22), (2, 2), (1, 1), (130, 7), (130, 8)] {
             for (n, (fmt, matrix, full, name)) in CASES.into_iter().enumerate() {
                 unsafe {
                     load(&mut codec, fmt, w, h, matrix, full, n as u32 + 1);
-                    let want = reference(expected(&codec, w, h), w, h, matrix, full);
+                    let (want, want_bgr) = reference(expected(&codec, w, h), w, h, matrix, full);
                     let got = codec.take_frame().unwrap().0;
                     assert_eq!((got.width as usize, got.height as usize), (w, h), "{name} {w}x{h}");
                     assert!(*got.data == want, "{name} {w}x{h} differs from its definition");
+                    // The decoded picture the BGR is made from outlives the decoder's next one
+                    load(&mut codec, fmt, w, h, matrix, full, n as u32 + 99);
+                    let bgr = got.bgr().map(|b| (0..h).flat_map(|y| b.row(y, w).to_vec()).collect::<Vec<_>>());
+                    assert!(bgr == want_bgr, "{name} {w}x{h}: its BGR differs");
                 }
             }
         }

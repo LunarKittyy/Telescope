@@ -29,7 +29,7 @@ object HttpWire {
 
     // Reads and parses request line/headers, bounded by MAX_HEADER_BYTES; returns null on error. The buffered read can overshoot into the body, so leftoverBody carries those bytes forward for readBody() to prepend.
     fun readRequest(socket: Socket, deadlineMs: Int = REQUEST_DEADLINE_MS): Request? {
-        val deadlineAtMs = System.currentTimeMillis() + deadlineMs
+        val deadlineAtMs = IntervalClock.nowMs() + deadlineMs
         // The read timeout restarts with every byte of a TLS handshake or record, so the deadline also closes the socket.
         val guard = deadlines.schedule({ try { socket.close() } catch (_: Exception) {} }, deadlineMs.toLong(), TimeUnit.MILLISECONDS)
         try {
@@ -88,7 +88,7 @@ object HttpWire {
 
     // Sets the socket timeout to what's left before the deadline; false once it has passed.
     private fun armTimeout(socket: Socket, deadlineAtMs: Long): Boolean {
-        val remaining = deadlineAtMs - System.currentTimeMillis()
+        val remaining = deadlineAtMs - IntervalClock.nowMs()
         if (remaining <= 0) return false
         socket.soTimeout = minOf(remaining, Int.MAX_VALUE.toLong()).toInt()
         return true

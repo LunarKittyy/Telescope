@@ -18,7 +18,8 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
-use telescope_core::media::{Decoder, FeedEnd, FeedStopper, FrameReader, Packet, ReadFrame, VideoFeed};
+use telescope_core::frame::Frame;
+use telescope_core::media::{Arrived, Decoder, FeedEnd, FeedStopper, FrameReader, Packet, ReadFrame, VideoFeed};
 use telescope_core::stats::DropReason;
 
 /// Data with no finished frame after this much isn't a stream the phone sent; stop instead of buffering on.
@@ -248,15 +249,17 @@ impl Drop for Reader {
     }
 }
 
-impl FrameReader for Reader {
-    fn read(&mut self) -> Result<ReadFrame, FeedEnd> {
+impl Reader {
+    /// Reads and decodes until a packet makes a picture. unseen: nobody looks at the stream, so the decoder hands no picture out and
+    /// none is waited for; the picture made is still counted and still tells the feed one was decoded.
+    fn read_with(&mut self, unseen: bool) -> Result<(Option<Frame>, u64, u32), FeedEnd> {
         loop {
             let Queued { packet, show_at_ns, .. } = self.next()?;
             self.pending_bytes += packet.data.len() as u64;
             if self.pending_bytes > self.max_bytes {
                 return Err(FeedEnd::Error("data that never makes a frame".into()));
             }
-            let decoded = self.decoder.decode(&packet);
+            let decoded = if unseen { self.decoder.decode_unseen(&packet) } else { self.decoder.decode(&packet) };
             self.pending_frames += decoded.count;
             let finished = decoded.count.max(decoded.newest.is_some() as u32);
             telescope_core::stats::note_decoded(finished as u64);
@@ -269,7 +272,7 @@ impl FrameReader for Reader {
                 self.pending_frames += skipped;
                 telescope_core::stats::note_drop(DropReason::WaitingForKeyframe, skipped as u64);
             }
-            if let Some(frame) = decoded.newest {
+            if decoded.newest.is_some() || (unseen && finished > 0) {
                 if !self.shown {
                     self.shown = true;
                     self.shared.lock().shown = true;
@@ -281,16 +284,30 @@ impl FrameReader for Reader {
                     }
                 }
                 // Decoded already, so the wait for the time the feed wants it shown (a browser's bursts evened out) hides behind the decoding
-                if let Some(at) = show_at_ns {
+                if let (Some(at), false) = (show_at_ns, unseen) {
                     let left = at.saturating_sub(telescope_core::time::monotonic_ns());
                     std::thread::sleep(Duration::from_nanos(left).min(MAX_HOLD));
                 }
                 let bytes = std::mem::take(&mut self.pending_bytes);
                 // Frames that arrived for it, the ones skipped to keep up included
                 let count = std::mem::take(&mut self.pending_frames);
+                return Ok((decoded.newest, bytes, count));
+            }
+        }
+    }
+}
+
+impl FrameReader for Reader {
+    fn read(&mut self) -> Result<ReadFrame, FeedEnd> {
+        loop {
+            if let (Some(frame), bytes, count) = self.read_with(false)? {
                 return Ok(ReadFrame { frame, bytes, count });
             }
         }
+    }
+
+    fn read_unseen(&mut self) -> Result<Arrived, FeedEnd> {
+        self.read_with(true).map(|(_, bytes, count)| Arrived { bytes, count })
     }
 
     fn stopper(&self) -> Box<dyn FeedStopper> {
@@ -361,6 +378,21 @@ mod tests {
             }
         }
         assert!(frames > 0 && bytes > 0 && bytes as usize <= total);
+    }
+
+    #[test]
+    fn frames_read_unseen_are_counted_and_the_next_one_shows_its_own_picture() {
+        let Some(packets) = testenc::h264(&[30, 90, 150, 210], 64, 48, 100) else { return };
+        let mut r = Reader::new(Box::new(Chunks(packets)), Box::new(H264::new(false, None).unwrap()));
+        assert_eq!(r.read().unwrap().count, 1);
+        for _ in 0..2 {
+            let arrived = r.read_unseen().unwrap();
+            assert!(arrived.count == 1 && arrived.bytes > 0, "{arrived:?}");
+        }
+        let f = r.read().unwrap();
+        let y = &f.frame.data[..64 * 48];
+        let mean = y.iter().map(|&v| v as f64).sum::<f64>() / y.len() as f64;
+        assert!((mean - (16.0 + 210.0 * 219.0 / 255.0)).abs() <= 8.0, "{mean}");
     }
 
     #[test]

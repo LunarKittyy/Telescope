@@ -89,6 +89,14 @@ class UpdateLogicTest {
     }
 
     @Test
+    fun `a clock set back since the last check doesn't hold the next one off`() {
+        val last = 10 * UpdateLogic.DAY_MS
+        assertTrue(UpdateLogic.checkDue(last, last - 1))
+        assertTrue(UpdateLogic.checkDue(last, last - 5 * UpdateLogic.DAY_MS))
+        assertFalse(UpdateLogic.checkDue(last, last))
+    }
+
+    @Test
     fun `an install with no word from the installer is given up on after a minute`() {
         assertFalse(UpdateLogic.installStuck(1000, 1000 + UpdateLogic.INSTALL_STUCK_MS - 1))
         assertTrue(UpdateLogic.installStuck(1000, 1000 + UpdateLogic.INSTALL_STUCK_MS))

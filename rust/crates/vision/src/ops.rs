@@ -10,6 +10,8 @@ pub const MODEL_SIZE: (usize, usize) = (256, 144);
 /// Moving: more than this share of a tiny grey copy changed by more than this many levels since the frame last used.
 pub const MOVED_SHARE: f64 = 0.005;
 pub const MOVED_LEVELS: u8 = 12;
+/// A share of the tiny grey copy this changed since the mask was made is a big move (standing up, a wave across the picture).
+pub const BIG_MOVE_SHARE: f64 = 0.1;
 pub const THUMB: (usize, usize) = (64, 36);
 /// The cells of a chroma plane a frame's look has beside its grey one, for a change of colour that keeps the luma.
 pub const CHROMA_GRID: (usize, usize) = (32, 18);
@@ -94,6 +96,8 @@ pub fn thumb(frame: &Rgb) -> Vec<u8> {
 pub struct Motion {
     used: Option<Vec<u8>>,
     now: Option<Vec<u8>>,
+    /// Whether the frame moved() last looked at changed by BIG_MOVE_SHARE or more.
+    big: bool,
 }
 
 impl Motion {
@@ -103,6 +107,7 @@ impl Motion {
 
     /// moved() for a thumb already made as grey (small_grey of THUMB size): what the people thread's frames are compared by, so a frame that goes no further is never made into a colour picture.
     pub fn moved_grey(&mut self, now: Vec<u8>) -> bool {
+        self.big = true;
         let moved = match &self.used {
             None => true,
             Some(used) if used.len() != now.len() => true,
@@ -111,12 +116,19 @@ impl Motion {
                 let grey = (THUMB.0 * THUMB.1).min(now.len());
                 let (now_grey, now_chroma) = now.split_at(grey);
                 let (used_grey, used_chroma) = used.split_at(grey);
-                let over = |a: &[u8], b: &[u8]| a.iter().zip(b).filter(|(a, b)| a.abs_diff(**b) > MOVED_LEVELS).count() as f64 > MOVED_SHARE * a.len() as f64;
-                over(now_grey, used_grey) || over(now_chroma, used_chroma)
+                let share = |a: &[u8], b: &[u8]| a.iter().zip(b).filter(|(a, b)| a.abs_diff(**b) > MOVED_LEVELS).count() as f64 / a.len().max(1) as f64;
+                let (grey, chroma) = (share(now_grey, used_grey), share(now_chroma, used_chroma));
+                self.big = grey >= BIG_MOVE_SHARE;
+                grey > MOVED_SHARE || chroma > MOVED_SHARE
             }
         };
         self.now = Some(now);
         moved
+    }
+
+    /// Whether the frame moved() last looked at changed a lot since the one used.
+    pub fn big(&self) -> bool {
+        self.big
     }
 
     /// The frame moved() last looked at is the one used: later frames are compared with it.

@@ -23,6 +23,19 @@ const BURST_KEPT: usize = 3;
 pub const RECONNECT_DELAY: Duration = Duration::from_secs(3);
 /// Between tries after a stream drops mid-way, since a phone back on Wi-Fi answers within seconds.
 pub const DROP_RETRY_DELAY: Duration = Duration::from_secs(1);
+/// Tries a stream that dropped makes at DROP_RETRY_DELAY (about half a minute) before it calms down, and how many more at the next pace.
+const QUICK_TRIES: u32 = 30;
+const SLOW_TRIES: u32 = 90;
+
+/// How long a stream that dropped waits after its `failures`th failed try: a phone back on Wi-Fi answers within seconds, but one
+/// that stays gone is not worth dialling every second for hours.
+pub fn drop_retry_delay(failures: u32) -> Duration {
+    match failures {
+        f if f < QUICK_TRIES => DROP_RETRY_DELAY,
+        f if f < QUICK_TRIES + SLOW_TRIES => Duration::from_secs(3),
+        _ => Duration::from_secs(5),
+    }
+}
 /// hand_over(): the new route has to keep frames coming this long, with no gap past HANDOVER_GAP, before the stream moves
 pub const HANDOVER_HEALTHY: Duration = Duration::from_secs(2);
 pub const HANDOVER_GAP: Duration = Duration::from_millis(500);
@@ -415,6 +428,10 @@ struct Shared {
     stop: AtomicBool,
     restart_vcam: Flag,
     retry_now: AtomicBool,
+    /// Wakes the wait between tries of a dropped stream: a stop, a new route, a route ready to take over.
+    nudge: Flag,
+    /// How long a dropped stream waits after its nth failed try (drop_retry_delay, except in tests).
+    retry_pace: Mutex<fn(u32) -> Duration>,
     failed_tries: AtomicU32,
     parked: AtomicBool,
     vcam_free: Flag,
@@ -599,7 +616,7 @@ impl StreamWorker {
             slot_number: setup.slot, source_id: setup.source_id, vision: setup.vision, hardware: setup.hardware_decode, hardware_default: setup.hardware_default,
             plugin_source: setup.plugin_source, size: Mutex::new((setup.width, setup.height)),
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
-            restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
+            restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), nudge: Flag::default(), retry_pace: Mutex::new(drop_retry_delay), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), surface_wish, publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
@@ -719,6 +736,7 @@ impl StreamWorker {
         let s = &self.shared;
         s.stop.store(true, Ordering::SeqCst);
         s.restart_vcam.set();
+        s.nudge.set();
         if let Some(stopper) = s.stopper.lock().unwrap().as_ref() {
             stopper.stop();
         }
@@ -762,6 +780,7 @@ impl StreamWorker {
         *self.shared.url.lock().unwrap() = url.into();
         self.shared.stats.set_link(url, self.shared.plugin_source);
         self.shared.retry_now.store(true, Ordering::SeqCst);
+        self.shared.nudge.set();
     }
 
     /// Whether hand_over() would try now: a phone's stream that isn't stopping or trying another route already.
@@ -1200,7 +1219,8 @@ impl Shared {
 
     /// Whether the camera has its first frame and is paused, noting it in the log the first time.
     fn demand_paused(&self) -> bool {
-        if self.slot.latest_picture().is_some() && self.paused() {
+        // The slot's lock only once the gate says paused: the reader asks before every picture
+        if self.paused() && self.slot.latest_picture().is_some() {
             if !self.was_paused.swap(true, Ordering::SeqCst) {
                 log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
                 (crate::window::app_hooks().release_memory_soon)();
@@ -1386,13 +1406,19 @@ impl Shared {
             if let Some(moved) = self.take_handover() {
                 break Ended::Moved(moved);
             }
-            match reader.read() {
-                Ok(f) => {
+            // While the steps are paused the pictures would only be dropped, so they're decoded (the next one then needs no keyframe) but never handed over
+            let read = if self.demand_paused() {
+                reader.read_unseen().map(|a| self.count_arrived(a.count, a.bytes))
+            } else {
+                reader.read().map(|f| {
                     self.count_arrived(f.count, f.bytes);
                     if newest.put((self.next_seq(), f.frame)) {
                         self.shed(1);
                     }
-                }
+                })
+            };
+            match read {
+                Ok(()) => {}
                 Err(FeedEnd::Stopped) if self.stopped() => break Ended::Stopped,
                 Err(e) => {
                     log::info!("The stream ended: {e:?}");
@@ -1464,21 +1490,30 @@ impl Shared {
         } else {
             self.status("reconnecting", &tr("Stream dropped - reconnecting"));
         }
+        let mut failures = 0u32;
         while !self.stopped() {
             // A photo that lost the camera never brings the video back: this has to be reported as a drop after all
             if quiet && !on_hold() {
                 quiet = false;
                 self.status("reconnecting", &tr("Stream dropped - reconnecting"));
             }
-            let until = Instant::now() + DROP_RETRY_DELAY;
+            let delay = (*self.retry_pace.lock().unwrap())(failures);
+            let (until, slept_at) = (Instant::now() + delay, std::time::SystemTime::now());
             while Instant::now() < until {
                 if self.stopped() {
                     return None;
                 }
-                if self.retry_now.load(Ordering::SeqCst) {
+                if self.retry_now.load(Ordering::SeqCst) || self.handover_ready.lock().unwrap().is_some() {
                     break;
                 }
-                std::thread::sleep(Duration::from_millis(100));
+                // The computer slept (its clock moved on, the one for waits didn't): the network may be back, so try straight away
+                if slept_at.elapsed().is_ok_and(|gone| gone > delay + Duration::from_secs(5)) {
+                    failures = 0;
+                    break;
+                }
+                // Woken by a stop, a new route or a hand-over; the rest of the time a slice, to notice a superseded worker
+                self.nudge.wait(until.saturating_duration_since(Instant::now()).min(Duration::from_millis(500)));
+                self.nudge.clear();
             }
             self.retry_now.store(false, Ordering::SeqCst);
             if let Some(moved) = self.take_handover() {
@@ -1497,6 +1532,7 @@ impl Shared {
             if url == *self.url.lock().unwrap() {
                 self.failed_tries.fetch_add(1, Ordering::SeqCst); // a retarget() meanwhile makes it a try on the old url
             }
+            failures = failures.saturating_add(1);
         }
         None
     }
@@ -1513,6 +1549,7 @@ impl Shared {
             Ok((mut cap, clock)) => {
                 if self.healthy(&mut cap) {
                     *self.handover_ready.lock().unwrap() = Some((cap, url.clone(), taken.clone(), clock));
+                    self.nudge.set();
                     let give_up = Instant::now() + HANDOVER_TAKE;
                     while !taken.wait(Duration::from_millis(100)) {
                         if self.stopped() || Instant::now() >= give_up {
@@ -1611,8 +1648,9 @@ impl Shared {
         let mut hidings = self.hidings.load(Ordering::SeqCst);
         let mut urgent = false;
         let mut shown: Option<Frame> = None;
-        // How many frames had been published when the last one was sent, to count the ones skipped since
-        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or_else(|| *self.published.lock().unwrap());
+        // How many frames had been published when the last one was sent, to count the ones skipped since: none yet for a first camera, whose first frame
+        // passes over the ones that came in while it opened
+        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or(0);
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -2877,6 +2915,74 @@ mod tests {
         w.request_stop();
         assert!(w.shared.stopped() && w.shared.restart_vcam.is_set());
         wait_for(|| opens.gone() == 1); // the read it was blocked in stops too
+        w.stop();
+    }
+
+    #[test]
+    fn a_stream_that_stays_gone_is_dialled_less_and_less_often() {
+        assert_eq!(drop_retry_delay(0), Duration::from_secs(1));
+        assert_eq!(drop_retry_delay(QUICK_TRIES - 1), Duration::from_secs(1), "the first half minute is every second");
+        assert_eq!(drop_retry_delay(QUICK_TRIES), Duration::from_secs(3));
+        assert_eq!(drop_retry_delay(QUICK_TRIES + SLOW_TRIES - 1), Duration::from_secs(3));
+        assert_eq!(drop_retry_delay(QUICK_TRIES + SLOW_TRIES), Duration::from_secs(5));
+        assert_eq!(drop_retry_delay(u32::MAX), Duration::from_secs(5));
+    }
+
+    /// A worker whose reconnect() runs on a thread against a route that never opens, with the pace of `pace`; the times of its tries.
+    fn dialling(pace: fn(u32) -> Duration) -> (StreamWorker, Arc<Mutex<Vec<Instant>>>, std::thread::JoinHandle<bool>) {
+        let (first, _) = scripted(vec![Some(vec![])]);
+        let times: Arc<Mutex<Vec<Instant>>> = Arc::default();
+        let seen = times.clone();
+        let opener: Opener = Arc::new(move |a| {
+            seen.lock().unwrap().push(Instant::now());
+            first(a)
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(setup(opener), &cams, &log);
+        wait_for(|| times.lock().unwrap().len() == 1);
+        *w.shared.retry_pace.lock().unwrap() = pace;
+        let shared = w.shared.clone();
+        let thread = std::thread::spawn(move || shared.reconnect().is_none());
+        (w, times, thread)
+    }
+
+    #[test]
+    fn a_dropped_stream_dials_at_the_pace_it_has_settled_into() {
+        let (w, times, thread) = dialling(|failures| Duration::from_millis(if failures < 3 { 20 } else { 400 }));
+        wait_for(|| times.lock().unwrap().len() >= 7);
+        w.request_stop();
+        assert!(thread.join().unwrap());
+        let times = times.lock().unwrap();
+        let gaps: Vec<Duration> = times.windows(2).map(|t| t[1] - t[0]).collect();
+        // gaps[0] is the first read to the first retry; the retries after three failures are the slow ones
+        assert!(gaps[1..3].iter().all(|g| *g < Duration::from_millis(300)), "{gaps:?}");
+        assert!(gaps[4..].iter().all(|g| *g >= Duration::from_millis(350)), "{gaps:?}");
+        drop(times);
+        w.stop();
+    }
+
+    #[test]
+    fn a_stop_ends_a_slow_wait_between_tries_at_once() {
+        let (w, times, thread) = dialling(|_| Duration::from_secs(60));
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(times.lock().unwrap().len(), 1, "it is waiting out the pace");
+        let started = Instant::now();
+        w.request_stop();
+        assert!(thread.join().unwrap());
+        assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
+        w.stop();
+    }
+
+    #[test]
+    fn a_new_url_ends_a_slow_wait_between_tries_at_once() {
+        let (w, times, thread) = dialling(|_| Duration::from_secs(60));
+        std::thread::sleep(Duration::from_millis(200));
+        let (new, new_opens) = scripted(vec![Some(vec![Step::Frame(5)])]);
+        let started = Instant::now();
+        w.retarget("http://10.0.0.5:8080/v1/video", new);
+        assert!(!thread.join().unwrap(), "the retry opened the new url");
+        assert!(started.elapsed() < Duration::from_secs(2), "{:?}", started.elapsed());
+        assert_eq!((times.lock().unwrap().len(), new_opens.calls()), (1, 1));
         w.stop();
     }
 
@@ -4359,7 +4465,8 @@ mod tests {
         let started = Instant::now();
         w.shared.join_handover();
         assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
-        assert_eq!(new_opens.gone(), 1);
+        // The reader's own thread lets go of the feed on its next read, a moment after the hand-over has
+        wait_for(|| new_opens.gone() == 1);
         assert!(!log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Moved(_) | WorkerEvent::MoveFailed(_))));
         w.stop();
     }
@@ -4597,6 +4704,76 @@ mod tests {
         gate.watched(true);
         wait_for(|| made(&seen) > held);
         assert_eq!(seen.forgotten.load(Ordering::SeqCst), 1, "what the steps kept from before the pause is dropped, once");
+        w.stop();
+    }
+
+    /// Watching's media with an endless H.264 reader that counts the reads made while nobody looks at the pictures.
+    struct WatchingH264(Watching, Arc<AtomicU32>);
+
+    impl Media for WatchingH264 {
+        fn decoder(&self, codec: Codec, options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            self.0.decoder(codec, options)
+        }
+        fn decoder_with_tap(&self, codec: Codec, options: &DecodeOptions, tap: Arc<dyn PacketTap>) -> Result<Box<dyn Decoder>, String> {
+            self.0.decoder_with_tap(codec, options, tap)
+        }
+        fn frame_reader(&self, _feed: Box<dyn VideoFeed>, _decoder: Box<dyn Decoder>) -> Result<Box<dyn FrameReader>, String> {
+            Ok(Box::new(CountsUnseen(Reader(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }), self.1.clone())))
+        }
+        fn packet_tap(&self) -> Option<Arc<dyn PacketTap>> {
+            self.0.packet_tap()
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            self.0.scaler()
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            self.0.pipeline()
+        }
+    }
+
+    struct CountsUnseen(Reader, Arc<AtomicU32>);
+
+    impl FrameReader for CountsUnseen {
+        fn read(&mut self) -> Result<telescope_core::media::ReadFrame, FeedEnd> {
+            self.0.read()
+        }
+        fn read_unseen(&mut self) -> Result<telescope_core::media::Arrived, FeedEnd> {
+            self.1.fetch_add(1, Ordering::SeqCst);
+            self.0.0.read().map(|_| telescope_core::media::Arrived { bytes: 1, count: 1 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            self.0.stopper()
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn paused_h264_is_decoded_but_hands_no_picture_over_and_carries_on_when_someone_reads() {
+        let (seen, gate, unseen) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(0)), Arc::new(AtomicU32::new(0)));
+        gate.reliable(true);
+        let opener: Opener = Arc::new(|_| {
+            Ok((Codec::H264, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
+        });
+        let setup = WorkerSetup { label: String::new(), url: "https://phone/v1/video.h264".into(), opener, width: None, height: None, fps: 60, canvas: (None, None), slot: 0,
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false,
+                                  vision: None, steps: Vec::new(), gate: None, idle: Some(gate.clone()) };
+        let w = StreamWorker::start(setup, Arc::new(WatchingH264(Watching(seen.clone()), unseen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
+                                    telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap();
+        wait_for(|| made(&seen) >= 3);
+        assert_eq!(unseen.load(Ordering::SeqCst), 0, "pictures someone looks at are handed over");
+        gate.watched(false);
+        // The stream is still read, so the picture after the pause needs no keyframe, but nothing is handed over to be dropped
+        wait_for(|| unseen.load(Ordering::SeqCst) >= 5);
+        let held = made(&seen);
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(made(&seen), held, "paused: the steps ran on nothing");
+        gate.watched(true);
+        wait_for(|| made(&seen) > held);
+        let after = unseen.load(Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(unseen.load(Ordering::SeqCst) <= after + 1, "reading as unseen stops once someone reads the camera");
         w.stop();
     }
 
@@ -4893,7 +5070,7 @@ mod tests {
         use telescope_core::host::View;
         use telescope_core::view::PhoneZoom;
         let gate = Arc::new(crate::handover::ViewGate::default());
-        gate.follow(Some("phone-1"), true);
+        gate.follow(Some("phone-1"));
         let (old, new) = (PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 }, PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.6, y: 0.5 });
         gate.begin(old, new, (View { zoom: 2.0, ..View::default() }, View { zoom: 3.0, ..View::default() }), &View::default(), crate::shell::now_s());
         let seen = with_gate(Vec::new(), None, 1, Some(gate));
@@ -5154,9 +5331,15 @@ mod tests {
 
     /// Runs frames arriving after each of the gaps (ms) through a 30 fps camera and returns (arrived, delivered, paced drops).
     fn run_with_gaps(id: &str, gaps: &[u64]) -> (u64, u64, u64) {
+        run_with_gaps_and_open(id, gaps, 0)
+    }
+
+    /// run_with_gaps, with the virtual camera taking open_ms to open: the stream's first frames come in before it is there.
+    fn run_with_gaps_and_open(id: &str, gaps: &[u64], open_ms: u64) -> (u64, u64, u64) {
         let steps: Vec<Step> = gaps.iter().enumerate().flat_map(|(i, g)| [Step::Frame(10 + (i % 200) as u8), Step::Pause(Duration::from_millis(*g))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
         let (opener, _opens) = scripted(vec![Some(steps)]);
         let cams = Arc::new(Cams::default());
+        cams.open_delay_ms.store(open_ms, Ordering::SeqCst);
         let events: Events = Arc::new(|_| {});
         let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: id.into(), url: "https://127.0.0.1:40003/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         let n = gaps.len() as u64;
@@ -5231,6 +5414,15 @@ mod tests {
         assert_eq!(received, 12);
         assert_eq!(delivered + paced, 12, "every frame went out or was counted as skipped");
         assert!(paced >= 1 && delivered >= 3, "delivered {delivered}, skipped {paced}");
+    }
+
+    #[test]
+    fn frames_that_came_in_before_the_camera_opened_are_counted_as_skipped() {
+        // Twelve frames 1 ms apart come in while the camera takes 150 ms to open: the camera starts on the newest, and the ones before it were never sent
+        let gaps: Vec<u64> = (0..12).map(|i| if i == 11 { 600 } else { 1 }).collect();
+        let (received, delivered, paced) = run_with_gaps_and_open("early-frames-test", &gaps, 150);
+        assert_eq!(received, 12);
+        assert_eq!(delivered + paced, 12, "every frame went out or was counted as skipped: delivered {delivered}, skipped {paced}");
     }
 
     #[test]

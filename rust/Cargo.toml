@@ -165,3 +165,8 @@ opt-level = 2
 # The bubbles' pictures and the framing maths run on the UI thread in a dev build, and unoptimised they are tens of milliseconds
 [profile.dev.package.telescope-effects]
 opt-level = 2
+
+# The BT.709 conversion runs on every frame of an HD stream, and unoptimised (with overflow checks) it takes tens of milliseconds
+[profile.dev.package.telescope-media]
+opt-level = 2
+overflow-checks = false

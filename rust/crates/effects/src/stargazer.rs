@@ -1803,6 +1803,7 @@ impl Plugin for StargazerPlugin {
             optional: true,
             lab: true,
             in_presets: true,
+            device_local: true,
             ..Default::default()
         }
     }

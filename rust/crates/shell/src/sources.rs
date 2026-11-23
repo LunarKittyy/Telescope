@@ -19,6 +19,16 @@ use telescope_core::ui::{IssueAction, IssueDoes};
 
 /// A dropped stream: how often to look for a route back to the phone.
 pub const RECOVER_RETRY: Duration = Duration::from_secs(3);
+/// Looks at that pace before the phone counts as gone for a while (about a minute), and then at the next pace.
+const QUICK_LOOKS: u32 = 20;
+/// The pace for a phone gone for a while: one look is a connection attempt per address it might be on, so this is kept
+/// well under what a returning phone should wait to be noticed.
+const GONE_RETRY: Duration = Duration::from_secs(5);
+
+/// How long to wait before look number `round` (from 0) for a phone that dropped.
+pub fn recovery_wait(round: u32) -> Duration {
+    if round < QUICK_LOOKS { RECOVER_RETRY } else { GONE_RETRY }
+}
 /// A stream gone this long: its virtual camera shows the wait screen, not a frozen frame.
 pub const PARK_AFTER: Duration = Duration::from_secs(10);
 /// Gone this long: a banner says so.
@@ -386,6 +396,8 @@ struct PhoneInner {
     route: Option<RouteSpec>,
     url: String,
     recovery_gen: u64,
+    /// Looks for the phone since the stream dropped.
+    recovery_rounds: u32,
     recovery_route: Option<RouteSpec>,
     route_tries: u32,
     /// Recovery is opening the stream on a route: the next look waits for how that went.
@@ -775,7 +787,12 @@ impl PhoneKind {
 
     pub fn retry_recovery(&self) {
         let (cb, sid) = (self.on_timer.clone(), self.sid());
-        self.recovery_timer.start(slint::TimerMode::SingleShot, RECOVER_RETRY, move || cb("probe", &sid));
+        let round = {
+            let mut inner = self.inner.borrow_mut();
+            inner.recovery_rounds = inner.recovery_rounds.saturating_add(1);
+            inner.recovery_rounds - 1
+        };
+        self.recovery_timer.start(slint::TimerMode::SingleShot, recovery_wait(round), move || cb("probe", &sid));
     }
 
     /// Opens the stream on route next to the dropped one, on a thread; Moved comes back.
@@ -912,6 +929,10 @@ impl SourceKind for PhoneKind {
         std::mem::replace(&mut self.inner.borrow_mut().unreachable_shown, shown)
     }
     fn lost_hint(&self) -> String {
+        // Only a stream that came over the network is lost with it; one on a cable has nothing to do with the computer's network
+        if matches!(self.inner.borrow().route, Some(RouteSpec::Network { .. })) && !self.link.network_up() {
+            return tr("This computer isn't connected to a network. Reconnect it, or plug the phone in with a USB cable.");
+        }
         tr("Open Telescope on it.")
     }
     fn name(&self) -> String {
@@ -1046,7 +1067,11 @@ impl SourceKind for PhoneKind {
     }
 
     fn lost(&self, source: &Source) {
-        self.inner.borrow_mut().recovery_route = None;
+        {
+            let mut inner = self.inner.borrow_mut();
+            inner.recovery_route = None;
+            inner.recovery_rounds = 0;
+        }
         if let Some(session) = source.session() {
             self.probe(session.id);
         }
@@ -1064,7 +1089,11 @@ impl SourceKind for PhoneKind {
         self.park_timer.stop();
         self.gone_timer.stop();
         self.recovery_timer.stop();
-        self.inner.borrow_mut().recovery_gen += 1;
+        {
+            let mut inner = self.inner.borrow_mut();
+            inner.recovery_gen += 1;
+            inner.recovery_rounds = 0;
+        }
         if self.note_unreachable(false) {
             (self.on_timer)("clear_unreachable", &self.sid());
         }
@@ -1409,6 +1438,8 @@ mod tests {
         committed: Mutex<Vec<String>>,
         dropped: Mutex<Vec<(String, bool)>>,
         controls: Arc<FakeControl>,
+        /// This computer has no network.
+        offline: AtomicBool,
         released: Mutex<Vec<String>>,
         problems: Mutex<Vec<PhoneStatus>>,
         /// Stops and wakes as they reach the phone, in order.
@@ -1468,6 +1499,9 @@ mod tests {
     }
 
     impl Link for FakeLink {
+        fn network_up(&self) -> bool {
+            !self.offline.load(Ordering::SeqCst)
+        }
         fn check(&self, phone: &PairedPhone, preference: RoutePreference) -> Resolution {
             self.version_checks.lock().unwrap().push((phone.id.clone(), preference));
             Resolution { phone_version: "5.1.4".into(), ..ready(wifi()) }
@@ -2107,6 +2141,14 @@ mod tests {
         assert_eq!(Plain.lost_hint(), "Check that the device is still on.");
         let (source, ..) = streaming();
         assert_eq!(source.kind.lost_hint(), "Open Telescope on it.");
+        let (offline, link, ..) = streaming();
+        link.offline.store(true, Ordering::SeqCst);
+        offline.kind.as_phone().unwrap().inner.borrow_mut().route = None;
+        assert_eq!(offline.kind.lost_hint(), "Open Telescope on it.", "a stream whose route isn't known doesn't blame the network");
+        offline.kind.as_phone().unwrap().inner.borrow_mut().route = Some(wifi());
+        assert_eq!(offline.kind.lost_hint(), "This computer isn't connected to a network. Reconnect it, or plug the phone in with a USB cable.");
+        offline.kind.as_phone().unwrap().inner.borrow_mut().route = Some(usb());
+        assert_eq!(offline.kind.lost_hint(), "Open Telescope on it.", "a cable that came out is the phone's side, whatever the network does");
         let browser = PluginKind::new(Arc::new(Mutex::new(Arc::new(Offered("x")))), None);
         assert_eq!(browser.lost_hint(), "Open the Telescope page in the browser again.");
     }
