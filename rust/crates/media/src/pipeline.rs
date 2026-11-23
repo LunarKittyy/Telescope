@@ -1818,6 +1818,129 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_card_picture_fitted_to_the_camera_on_the_card_is_its_whole_landing_fitted_and_only_that_comes_down() {
+        use crate::transfers::measurement::measure;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let mut pipeline = card_pipeline(Arc::new(gpu));
+        pipeline.set_steps(vec![shader(INVERT)]);
+        let mut source = grey(64, 36, 100);
+        Arc::make_mut(&mut source.data).iter_mut().enumerate().for_each(|(i, v)| *v = (i * 7 % 200 + 20) as u8);
+        source.number = 9;
+        let picture = pipeline.process_picture(source.clone(), &NoContext);
+        let (fitted, costs) = measure(|| picture.land_fitted_until(40, 40, &|| false).unwrap());
+        assert_eq!(costs.down, 1);
+        assert!(picture.landed().is_none(), "the whole picture stayed on the card");
+        assert_eq!((fitted.width, fitted.height, fitted.number), (40, 40, 9));
+        assert_eq!(fitted.data.as_slice(), gpu::cpu_fit(&picture.land(), 40, 40).as_slice());
+        // At the camera's own size there's nothing to fit, and a cut-out goes over the camera's background first, which the card doesn't do
+        assert!(picture.land_fitted_until(64, 36, &|| false).is_none());
+        let mut keep = shader(INVERT);
+        if let FrameStep::Shader(ref mut shader) = keep.step {
+            shader.keeps_geometry = true;
+        }
+        pipeline.set_steps(vec![keep]);
+        source.set_alpha(Arc::new(Alpha::new(64, 36, vec![128; 64 * 36], false)));
+        let cut_out = pipeline.process_picture(source, &NoContext);
+        assert!(cut_out.picture().is_some());
+        assert!(cut_out.land_fitted_until(40, 40, &|| false).is_none());
+    }
+
+    #[test]
+    fn a_hiding_picture_the_card_cant_fit_is_left_to_land_whole_and_comes_out_dark() {
+        use telescope_core::media::StandIn;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let mut pipeline = card_pipeline(gpu.clone());
+        let mut hiding = shader(INVERT);
+        hiding.stage = FrameStage::Privacy;
+        pipeline.set_steps(vec![hiding]);
+        let picture = pipeline.process_picture(grey(32, 18, 200), &NoContext);
+        assert!(picture.fits_on_card(16, 16) && picture.stood_in().is_none());
+        gpu.inject(gpu::Fault::Lost);
+        assert!(picture.land_fitted_until(16, 16, &|| false).is_none());
+        // Showing the room would be worse than a dark frame, so that is what a picture that hides things stands in with
+        assert!(picture.land().data[..32 * 18].iter().all(|&p| p == 16));
+        assert_eq!(picture.stood_in(), Some(StandIn::Dark));
+        assert!(!picture.fits_on_card(16, 16));
+    }
+
+    #[test]
+    fn a_picture_the_card_fails_to_land_says_it_stands_in_for_one_and_the_camera_is_told_not_to_send_it() {
+        use telescope_core::media::StandIn;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let mut pipeline = card_pipeline(gpu.clone());
+        let source = grey(32, 18, 200);
+        // Landing fails after the fit did (a device lost between the two), and the other way round
+        let picture = pipeline.process_picture(source.clone(), &NoContext);
+        assert!(picture.stood_in().is_none());
+        gpu.inject(gpu::Fault::Lost);
+        let landed = picture.land();
+        assert_eq!(picture.stood_in(), Some(StandIn::Unprocessed));
+        assert_eq!(landed.data.as_slice(), source.data.as_slice(), "what the steps began from, uncropped and unshaded");
+        // The same again: every landing of it is the one stand-in, and it is no more a picture to fit on the card
+        assert_eq!(picture.land().data.as_slice(), landed.data.as_slice());
+        assert!(picture.land_fitted_until(16, 16, &|| false).is_none());
+        // A picture that landed fine says nothing of the kind
+        let mut again = card_pipeline(Arc::new(Gpu::open().unwrap()));
+        let fine = again.process_picture(source, &NoContext);
+        fine.land();
+        assert!(fine.stood_in().is_none());
+    }
+
+    #[test]
+    fn a_crop_the_card_fails_to_land_leaves_the_uncropped_picture_marked_as_a_stand_in() {
+        use telescope_core::host::View;
+        use telescope_core::media::StandIn;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        pipeline.gpu = Some(Some(gpu.clone()));
+        pipeline.set_steps(view_staged(&View { zoom: 2.0, pan_x: 0.3, ..View::default() }));
+        let picture = pipeline.process_picture(pattern(64, 36, PixelFormat::I420), &NoContext);
+        assert!(picture.picture().is_some(), "the crop ran on the card");
+        gpu.inject(gpu::Fault::Lost);
+        picture.land();
+        assert_eq!(picture.stood_in(), Some(StandIn::Unprocessed), "the camera is told this isn't the cropped picture");
+    }
+
+    #[test]
+    fn a_picture_the_preview_is_landing_is_never_fitted_on_the_card_as_a_cut_out_would_be_without_its_alpha() {
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let mut pipeline = card_pipeline(Arc::new(gpu));
+        let mut keep = shader(INVERT);
+        if let FrameStep::Shader(ref mut shader) = keep.step {
+            shader.keeps_geometry = true;
+        }
+        pipeline.set_steps(vec![keep]);
+        let mut source = grey(64, 36, 100);
+        source.set_alpha(Arc::new(Alpha::new(64, 36, vec![128; 64 * 36], false)));
+        let cut_out = pipeline.process_picture(source, &NoContext);
+        assert!(!cut_out.fits_on_card(40, 40));
+        // Another thread's landing has begun: what it began from is its own now, and the picture hasn't landed yet
+        let card = cut_out.picture().unwrap().as_any().downcast_ref::<gpu::CardFrame>().unwrap();
+        card.begin_landing_for_test();
+        assert!(cut_out.landed().is_none());
+        assert!(!cut_out.fits_on_card(40, 40), "the camera could fit it without its alpha in that gap");
+        assert!(cut_out.land_fitted_until(40, 40, &|| false).is_none());
+    }
+
+    #[test]
+    fn a_picture_already_in_memory_is_not_read_back_again_to_be_fitted() {
+        use crate::transfers::measurement::measure;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let mut pipeline = card_pipeline(Arc::new(gpu));
+        let picture = pipeline.process_picture(grey(64, 36, 100), &NoContext);
+        let (fitted, costs) = measure(|| {
+            picture.land();
+            picture.land_fitted_until(40, 40, &|| false)
+        });
+        assert!(fitted.is_none(), "the camera fits it from memory");
+        assert_eq!(costs.down, 1, "a second readback was made for the fit");
+        assert!(picture.fits_on_card(40, 40), "it is still one the card could fit");
+    }
+
+    #[test]
     fn the_preview_draws_a_card_picture_repeatedly_without_landing() {
         use crate::transfers::measurement::measure;
         let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
