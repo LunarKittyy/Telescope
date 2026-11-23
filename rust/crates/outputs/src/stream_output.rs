@@ -1136,8 +1136,13 @@ impl StreamOutputPlugin {
                     self.fixed_bitrate = *on;
                     let body = json!({"action": "bitrate", "value": self.bitrate_bps()});
                     self.send(host, &body);
+                    // Only phones set to Dynamic follow; one on its own bitrate keeps it
+                    let body = json!({"action": "bitrate", "value": if *on { 0 } else { DYNAMIC }});
                     for s in host.background_streams() {
-                        host.phone_control(Some(&s.source_id), &body); // every phone adapts the same way, not only the shown one
+                        let saved = host.device_config(Some(&s.source_id), NAME);
+                        if saved.get("bitrate_mbps").and_then(Value::as_f64) == Some(DYNAMIC as f64) {
+                            host.phone_control(Some(&s.source_id), &body);
+                        }
                     }
                 }
             }

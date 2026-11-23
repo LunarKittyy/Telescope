@@ -555,7 +555,7 @@ fn small_yuv_rgb(y: &[u8], u: &[u8], v: &[u8], (w, h): (usize, usize), (cw, ch):
     out
 }
 
-/// The frame as R, G, B shrunk by area to w x h, with luma under black counting as black when `floored` (frame_rgb's way; Rgb::from_frame's isn't). The shrinking is done on the planes (or the RGBA) before the colours are worked out, so a big frame costs a read of its pixels and a small conversion, not a full-size picture; the colours can differ from converting first by a level or so. A frame that has its decoder's BGR is shrunk from that.
+/// The frame as R, G, B shrunk by area to w x h, with luma under black counting as black when `floored` (frame_rgb's way; Rgb::from_frame's isn't). The shrinking is done on the planes (or the RGBA) before the colours are worked out, so a big frame costs a read of its pixels and a small conversion, not a full-size picture; the colours can differ from converting first by a level or so. That goes for a frame with its decoder's BGR too: making that BGR at full size and shrinking its three channels costs several times what the planes do, so it's only used when there are no planes to shrink.
 pub fn small_rgb(frame: &Frame, w: usize, h: usize, floored: bool) -> Option<Vec<u8>> {
     let (fw, fh) = (frame.width as usize, frame.height as usize);
     if (w, h) == (fw, fh) {
@@ -563,22 +563,7 @@ pub fn small_rgb(frame: &Frame, w: usize, h: usize, floored: bool) -> Option<Vec
     }
     let (cw, ch) = (fw.div_ceil(2), fh.div_ceil(2));
     let d = &frame.data;
-    if let Some(bgr) = frame.bgr().filter(|_| w > 0 && h > 0 && w <= fw && h <= fh) {
-        // shrunk from the BGR as it is, by the same area average as before (a whole picture's copy only when its rows have padding), then red and blue swapped on the small one
-        let rows;
-        let whole = if bgr.stride == fw * 3 {
-            bgr.data.get(bgr.start..bgr.start + fw * fh * 3)
-        } else {
-            rows = (0..fh).filter_map(|y| bgr.data.get(bgr.start + y * bgr.stride..)?.get(..fw * 3)).flatten().copied().collect::<Vec<u8>>();
-            Some(&rows[..]).filter(|r| r.len() == fw * fh * 3)
-        };
-        if let Some(whole) = whole {
-            let mut out = resize_area(whole, fw, fh, 3, w, h);
-            out.as_chunks_mut::<3>().0.iter_mut().for_each(|p| p.swap(0, 2));
-            return Some(out);
-        }
-    }
-    if w > 0 && h > 0 && frame.bgr().is_none() {
+    if w > 0 && h > 0 {
         match frame.format {
             PixelFormat::I420 | PixelFormat::Nv12 if d.len() >= fw * fh + 2 * cw * ch => {
                 let (luma, rest) = d.split_at(fw * fh);
@@ -608,6 +593,21 @@ pub fn small_rgb(frame: &Frame, w: usize, h: usize, floored: bool) -> Option<Vec
                 return Some(out);
             }
             _ => {}
+        }
+    }
+    if let Some(bgr) = frame.bgr().filter(|_| w > 0 && h > 0 && w <= fw && h <= fh) {
+        // shrunk from the BGR as it is, by the same area average as before (a whole picture's copy only when its rows have padding), then red and blue swapped on the small one
+        let rows;
+        let whole = if bgr.stride == fw * 3 {
+            bgr.data.get(bgr.start..bgr.start + fw * fh * 3)
+        } else {
+            rows = (0..fh).filter_map(|y| bgr.data.get(bgr.start + y * bgr.stride..)?.get(..fw * 3)).flatten().copied().collect::<Vec<u8>>();
+            Some(&rows[..]).filter(|r| r.len() == fw * fh * 3)
+        };
+        if let Some(whole) = whole {
+            let mut out = resize_area(whole, fw, fh, 3, w, h);
+            out.as_chunks_mut::<3>().0.iter_mut().for_each(|p| p.swap(0, 2));
+            return Some(out);
         }
     }
     let full = frame_rgb(frame)?;
@@ -642,7 +642,7 @@ pub fn planes_up_to_420(planes: &[Vec<u8>; 3], (sw, sh): (usize, usize), out: &m
 /// The frame as grey (what grey_of makes of its R, G, B) shrunk by area to w x h, from the luma plane alone when the frame is YUV.
 pub fn small_grey(frame: &Frame, w: usize, h: usize) -> Option<Vec<u8>> {
     let (fw, fh) = (frame.width as usize, frame.height as usize);
-    if matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12) && frame.bgr().is_none() && frame.data.len() >= fw * fh && w > 0 && h > 0 {
+    if matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12) && frame.data.len() >= fw * fh && w > 0 && h > 0 {
         let y = shrunk(&frame.data[..fw * fh], fw, fh, 1, w, h);
         // video range luma to the full range grey_of gives a neutral colour
         return Some(y.iter().map(|&v| byte((v as f32 - 16.0) * (255.0 / 219.0))).collect());
@@ -1616,28 +1616,28 @@ mod tests {
     }
 
     #[test]
-    fn a_small_picture_from_rgba_and_the_decoders_bgr_is_the_shrunk_full_one() {
+    fn a_small_picture_from_rgba_is_the_shrunk_full_one() {
         let rgba = picture(64, 48, PixelFormat::Rgba);
         let want = resize_area(&frame_rgb(&rgba).unwrap(), 64, 48, 3, 16, 12);
         assert_eq!(small_rgb(&rgba, 16, 12, true).unwrap().len(), want.len());
         // area averages commute with dropping the alpha, so the bytes are the same
         assert_eq!(small_rgb(&rgba, 16, 12, true).unwrap(), want);
-        let bgr = crate::frame::Bgr { data: (0..48 * 64 * 3).map(|i| (i % 200) as u8).collect(), start: 0, stride: 64 * 3 };
-        let frame = smooth(64, 48, PixelFormat::I420).with_bgr(std::sync::Arc::new(bgr));
-        let want = resize_area(&frame_rgb(&frame).unwrap(), 64, 48, 3, 16, 12);
-        assert_eq!(small_rgb(&frame, 16, 12, true).unwrap(), want);
     }
 
     #[test]
-    fn a_small_picture_from_bgr_with_padded_rows_is_the_shrunk_full_one() {
-        for (w, h, tw, th, pad) in [(640usize, 360usize, 256usize, 144usize, 0usize), (641, 361, 100, 60, 7), (1920, 1080, 240, 135, 64), (1920, 1080, 256, 144, 0)] {
-            let stride = w * 3 + pad;
-            let data = (0..stride * h).map(|i| (((i % stride) / 3 * 255 / w + (i / stride) * 40 / h) % 251) as u8).collect();
-            let frame = smooth(w, h, PixelFormat::I420).with_bgr(std::sync::Arc::new(crate::frame::Bgr { data, start: 0, stride }));
-            let want = resize_area(&frame_rgb(&frame).unwrap(), w, h, 3, tw, th);
-            let got = small_rgb(&frame, tw, th, true).unwrap();
-            assert_eq!(got, want, "{w}x{h} to {tw}x{th} stride {stride}");
-        }
+    fn a_small_picture_of_yuv_comes_from_its_planes_and_leaves_the_decoders_bgr_unmade() {
+        let plain = smooth(64, 48, PixelFormat::I420);
+        let made = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = made.clone();
+        let lazy = crate::frame::LazyBgr::new(move || {
+            flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            crate::frame::Bgr { data: vec![7; 64 * 48 * 3], start: 0, stride: 64 * 3 }
+        });
+        let frame = plain.clone().with_lazy_bgr(std::sync::Arc::new(lazy));
+        assert_eq!(small_rgb(&frame, 16, 12, true), small_rgb(&plain, 16, 12, true));
+        assert_eq!(small_rgb(&frame, 16, 12, false), small_rgb(&plain, 16, 12, false));
+        assert_eq!(small_grey(&frame, 16, 12), small_grey(&plain, 16, 12));
+        assert!(!made.load(std::sync::atomic::Ordering::SeqCst), "a small picture made the full-size BGR");
     }
 
     #[test]

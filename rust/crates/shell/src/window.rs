@@ -382,7 +382,38 @@ pub(crate) fn with_window(f: impl FnOnce(&Rc<Window>)) {
 }
 
 fn window_seen(window: &slint::Window) -> bool {
-    crate::preview::window_seen(window.is_visible(), window.is_minimized())
+    crate::preview::window_seen(window.is_visible(), window.is_minimized()) && !covered(window)
+}
+
+/// Another program's window hides all of this one (a game or a film full screen, a maximised browser), so nobody sees it though it
+/// isn't minimised. Looked at no more than ten times a second, since every frame asks.
+#[cfg(windows)]
+fn covered(window: &slint::Window) -> bool {
+    use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use slint::winit_030::WinitWindowAccessor;
+    let Some(Some(hwnd)) = window.with_winit_window(|w| match w.window_handle().ok()?.as_raw() {
+        RawWindowHandle::Win32(h) => Some(h.hwnd.get()),
+        _ => None,
+    }) else {
+        return false;
+    };
+    thread_local! {
+        static LOOKED: RefCell<std::collections::HashMap<isize, (std::time::Instant, bool)>> = Default::default();
+    }
+    let now = std::time::Instant::now();
+    let fresh = |(at, covered): &(std::time::Instant, bool)| (now.duration_since(*at) < Duration::from_millis(100)).then_some(*covered);
+    if let Some(covered) = LOOKED.with(|l| l.borrow().get(&hwnd).and_then(fresh)) {
+        return covered;
+    }
+    let covered = telescope_core::perf::hidden_behind_another_window(hwnd);
+    LOOKED.with(|l| l.borrow_mut().insert(hwnd, (now, covered)));
+    covered
+}
+
+/// Other systems don't say, or say it through minimising.
+#[cfg(not(windows))]
+fn covered(_window: &slint::Window) -> bool {
+    false
 }
 
 /// A picture as a Slint image, for the formats that are plain pixels.
@@ -1105,7 +1136,9 @@ impl Window {
     pub(crate) fn retune_housekeeping(&self) {
         let popout_visible = self.popout.borrow().as_ref().is_some_and(|p| p.window().is_visible());
         let plugin_visible = self.plugin_windows.borrow().iter().any(|(_, _, ui)| ui.window().is_visible());
-        let interval = crate::preview::housekeeping_interval(window_seen(self.ui.window()), popout_visible, plugin_visible, self.quiet());
+        // A window hidden behind another is still looked after at the quick pace, so its picture is back as soon as it shows again
+        let open = crate::preview::window_seen(self.ui.window().is_visible(), self.ui.window().is_minimized());
+        let interval = crate::preview::housekeeping_interval(open, popout_visible, plugin_visible, self.quiet());
         if self.preview_timer.interval() != interval {
             self.preview_timer.set_interval(interval);
         }
