@@ -8,6 +8,8 @@ export struct BannerData {
     title: string,
     text: string,
     details: string,
+    // The plugin an added plugin's banner comes from ("From the plugin ..."), already in the person's language; empty for the app's own
+    from: string,
     // "err", "warn" or "info"
     kind: string,
     actions: [string],
@@ -296,6 +298,7 @@ component BannerBody inherits HorizontalLayout {
         horizontal-stretch: 1;
         spacing: Theme.u(1.5);
         alignment: start;
+        if data.from != "": Text { text: data.from; accessible-label: root.live ? self.text : ""; font-family: Theme.font; font-size: Theme.small; font-weight: 600; color: Theme.ink2; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
         Text { text: data.title; accessible-label: root.live ? self.text : ""; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.ink; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
         if data.text != "": Text { text: data.text; accessible-label: root.live ? self.text : ""; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
         if data.details != "": Well {

@@ -329,13 +329,23 @@ impl HostSources for Ctx<'_> {
 
 impl HostShell for Ctx<'_> {
     fn show_issue(&mut self, key: &str, issue: Issue) {
-        self.state.banners.show(key, issue);
+        // An added plugin's banner always carries its name in the key, whatever key it asked for, so the window can say who it is from
+        let key = match self.state.index(&self.me).filter(|&i| self.state.slots[i].info.added) {
+            Some(_) if telescope_core::ui::issue_owner(key).is_none_or(|(owner, _)| owner != self.me) => telescope_core::ui::added_issue_key(&self.me, key),
+            _ => key.to_string(),
+        };
+        self.state.banners.show(&key, issue);
     }
     fn clear_issue(&mut self, key: Option<&str>, issue: Option<&Issue>) {
         self.state.banners.clear(key, issue);
     }
     fn send_notification(&mut self, title: &str, body: &str, urgent: bool) {
-        self.state.effects.push(Effect::Notify { title: title.into(), body: body.into(), urgent });
+        // An added plugin's notice leads with the plugin's name, which it can't leave out, so it can't pass as one of Telescope's
+        let title = match self.state.index(&self.me).map(|i| &self.state.slots[i].info).filter(|info| info.added) {
+            Some(info) => telescope_core::ui::plugin_notice_title(&telescope_core::ui::plugin_label(&info.title, &info.name), title),
+            None => title.to_string(),
+        };
+        self.state.effects.push(Effect::Notify { title, body: body.into(), urgent });
     }
     fn set_keep_in_tray(&mut self, keep: bool) {
         self.state.keep_in_tray = keep;

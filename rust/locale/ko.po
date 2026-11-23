@@ -2012,6 +2012,10 @@ msgstr "카메라 처리"
 msgid "From the phone"
 msgstr "휴대폰에서 수신"
 
+#, python-brace-format
+msgid "From the plugin “{name}”"
+msgstr ""
+
 #. part of a lens name: the front (selfie) camera
 msgctxt "lens"
 msgid "Front"
@@ -3972,6 +3976,10 @@ msgid "Plug it in, or pick another camera."
 msgstr "케이블을 연결하거나 다른 카메라를 선택하세요."
 
 msgid "Plugging it in will help."
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin “{name}”: {title}"
 msgstr ""
 
 msgid "Plugins"

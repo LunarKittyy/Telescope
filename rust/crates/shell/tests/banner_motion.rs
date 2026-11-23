@@ -40,6 +40,7 @@ fn row(key: &str, title: &str, text: &str, open: bool, rev: i32) -> Value {
         ("title".to_string(), Value::String(title.into())),
         ("text".to_string(), Value::String(text.into())),
         ("details".to_string(), Value::String("".into())),
+        ("from".to_string(), Value::String("".into())),
         ("kind".to_string(), Value::String("err".into())),
         ("actions".to_string(), Value::Model(ModelRc::new(VecModel::from(actions)))),
         ("open".to_string(), Value::Bool(open)),
@@ -246,4 +247,42 @@ fn film_strips() {
         }
     });
     draw("two-one-leaves", pics);
+}
+
+/// A banner of an added plugin says who it is from over its title (a banner of the app's own doesn't), and that line costs it height.
+#[test]
+fn a_plugin_banner_says_which_plugin_it_is_from() {
+    let _still = offscreen::freeze_clock();
+    let from = |text: &str| match row("a", "Update available", SHORT, true, 0) {
+        Value::Struct(s) => {
+            let mut s = s;
+            s.set_field("from".into(), Value::String(text.into()));
+            Value::Struct(s)
+        }
+        _ => unreachable!(),
+    };
+    let height = |value: Value| {
+        let (ui, model) = up();
+        model.push(value);
+        let t = frames(&ui, 60);
+        (*t.last().unwrap(), ui)
+    };
+    let (own, _) = height(row("a", "Update available", SHORT, true, 0));
+    let (plugin, ui) = height(from("From the plugin \u{201c}Telescope\u{201d}"));
+    assert!(plugin > own, "the line adds height: {own} to {plugin}");
+    use i_slint_backend_testing::ElementHandle;
+    assert!(ElementHandle::find_by_accessible_label(&ui, "From the plugin \u{201c}Telescope\u{201d}").next().is_some(), "the line is read out");
+    if let Some(dir) = std::env::var_os("BANNER_SHOTS").map(std::path::PathBuf::from) {
+        std::fs::create_dir_all(&dir).unwrap();
+        for (look, name) in [(3, "light"), (0, "dark")] {
+            for (w, h) in [(900.0, 300.0), (320.0, 300.0)] {
+                let (ui, model) = up();
+                ui.set_global_property("Theme", "look", Value::Number(look as f64)).ok();
+                model.push(from("From the plugin \u{201c}Telescope\u{201d}"));
+                frames(&ui, 60);
+                ui.window().set_size(slint::LogicalSize::new(w, h));
+                offscreen::draw(ui.window(), w, h, 1.0).unwrap().save_png(&dir.join(format!("plugin-banner-{name}-{w}.png"))).unwrap();
+            }
+        }
+    }
 }

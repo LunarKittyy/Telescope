@@ -2016,10 +2016,19 @@ impl Window {
         let view = self.banner_view.borrow();
         for edit in edits {
             match edit {
-                crate::banners::Edit::Insert(i) => self.banner_rows.insert(i, banner_row(&view.rows()[i])),
-                crate::banners::Edit::Set(i) => self.banner_rows.set_row_data(i, banner_row(&view.rows()[i])),
+                crate::banners::Edit::Insert(i) => self.banner_rows.insert(i, banner_row(&view.rows()[i], self.banner_from(&view.rows()[i].key))),
+                crate::banners::Edit::Set(i) => self.banner_rows.set_row_data(i, banner_row(&view.rows()[i], self.banner_from(&view.rows()[i].key))),
             }
         }
+    }
+
+    /// Who a banner of an added plugin says it is from (its key carries the plugin's name); empty for the app's own banners.
+    fn banner_from(&self, key: &str) -> String {
+        use telescope_core::ui::{issue_owner, plugin_banner_from, plugin_label};
+        let Some((owner, _)) = issue_owner(key) else { return String::new() };
+        let state = self.state.borrow();
+        let title = state.index(owner).map_or("", |i| state.slots[i].info.title.as_str());
+        plugin_banner_from(&plugin_label(title, owner))
     }
 
     /// A banner's strip has shut: its row goes now, unless the banner has come back since.
@@ -2175,7 +2184,7 @@ pub(crate) fn windowing() -> &'static str {
 
 /// The window with every built-in plugin, on file.
 /// A banner's row for the window.
-fn banner_row(row: &crate::banners::Row) -> SValue {
+fn banner_row(row: &crate::banners::Row, from: String) -> SValue {
     let issue = &row.issue;
     let actions: Vec<SValue> = issue.actions.iter().map(|a| SValue::String(a.label.as_str().into())).collect();
     SValue::Struct(Struct::from_iter([
@@ -2184,6 +2193,7 @@ fn banner_row(row: &crate::banners::Row) -> SValue {
         ("text".to_string(), SValue::String(issue.text.as_str().into())),
         ("details".to_string(), SValue::String(issue.details.as_str().into())),
         ("kind".to_string(), SValue::String(issue.kind.as_str().into())),
+        ("from".to_string(), SValue::String(from.into())),
         ("actions".to_string(), SValue::Model(ModelRc::new(VecModel::from(actions)))),
         ("open".to_string(), SValue::Bool(row.open)),
         ("rev".to_string(), SValue::Number(f64::from(row.rev))),
