@@ -162,28 +162,47 @@ fn chroma_grid(plane: &[u8], w: usize, h: usize, step: usize, offset: usize) -> 
     out
 }
 
+/// Whether a folder with its marker still holds the pack: None when a file can't be read right now (security software scanning it), which proves nothing.
+fn whole(folder: &Path, info: &PackInfo) -> Option<bool> {
+    match pack::tree_hash(folder) {
+        Ok(hash) => Some(Some(&hash) == info.id.as_ref()),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Some(false),
+        Err(_) => None,
+    }
+}
+
+/// A pack whose files no longer match was damaged after it was checked (security software took a library, say). Its marker goes, so it counts as
+/// not installed and its card offers the download again; left as it was, it would say "installed" and fail to load until the folder was removed by hand.
+fn damaged(folder: &Path, what: &str) -> LoadError {
+    log::warn!("The {what} in {} no longer matches what was checked; it needs to be downloaded again", folder.display());
+    let _ = std::fs::remove_file(folder.join(pack::DONE));
+    LoadError::Missing(format!("the {what} in {} was damaged", folder.display()))
+}
+
 /// The pack's backend from `load`: the marker only says the files matched once, and the library is native code that runs as the user.
 fn find_pack(dir: &Path, info: &PackInfo, load: &dyn Fn(&Path) -> Result<Arc<dyn Backend>, LoadError>) -> Result<Arc<dyn Backend>, LoadError> {
     let folder = info.folder(dir);
     if !info.installed(dir) {
         return Err(LoadError::Missing(format!("no vision pack in {}", folder.display())));
     }
-    if pack::tree_hash(&folder).ok() != info.id {
-        return Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack has changed since it was checked, so it wasn't loaded")));
+    match whole(&folder, info) {
+        Some(true) => load(&folder),
+        Some(false) => Err(damaged(&folder, "vision pack")),
+        None => Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack couldn't be checked, so it wasn't loaded"))),
     }
-    load(&folder)
 }
 
 /// The matting download's backend, after its files are hashed again: the marker only says they matched once, and the library is native code that runs as the user.
 fn find_matting(dir: &Path, info: &PackInfo) -> Result<Arc<dyn Backend>, LoadError> {
-    if !info.installed(dir) {
-        return Err(LoadError::Missing(format!("no matting download in {}", info.folder(dir).display())));
-    }
     let folder = info.folder(dir);
-    if pack::tree_hash(&folder).ok() != info.id {
-        return Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the matting download has changed since it was checked, so it wasn't loaded")));
+    if !info.installed(dir) {
+        return Err(LoadError::Missing(format!("no matting download in {}", folder.display())));
     }
-    matting::load(&folder)
+    match whole(&folder, info) {
+        Some(true) => matting::load(&folder),
+        Some(false) => Err(damaged(&folder, "matting download")),
+        None => Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the matting download couldn't be checked, so it wasn't loaded"))),
+    }
 }
 
 impl VisionHost {
