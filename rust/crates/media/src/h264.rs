@@ -397,14 +397,16 @@ impl H264 {
     fn judge_trial(&mut self) {
         let Some(trial) = &self.trial else { return };
         let now = slow::now();
-        let software_ms = {
+        let (software_ms, took) = {
             let timed = self.timings.lock().unwrap();
-            match timed.times.per_picture(now) {
-                Some(_) if timed.times.stalled().is_some() => f64::INFINITY,
-                Some(ms) => ms,
+            match (timed.times.per_picture(now), timed.times.stalled()) {
+                (Some(_), Some(worst)) => (f64::INFINITY, format!("stalled with pictures up to {worst:.0} ms")),
+                (Some(ms), None) => (ms, format!("{ms:.1} ms a picture")),
                 // Software has had long enough to show anything
-                None if now.saturating_duration_since(trial.began) >= slow::TRIAL_LIMIT => f64::INFINITY,
-                None => return,
+                (None, _) if now.saturating_duration_since(trial.began) >= slow::TRIAL_LIMIT => {
+                    (f64::INFINITY, format!("no steady picture within {} s", slow::TRIAL_LIMIT.as_secs()))
+                }
+                (None, _) => return,
             }
         };
         let (hw, card_ms) = (trial.hw, trial.card_ms);
@@ -413,12 +415,12 @@ impl H264 {
         self.retry_hw = Some(hw);
         if slow::software_quicker(card_ms, software_ms) {
             let wait = COOLDOWN.lock().unwrap().fell(now);
-            log::warn!("Software decoding is quicker ({software_ms:.1} ms a picture against {card_ms:.1} ms on {}); decoding in software for {} minutes, then trying the card again",
+            log::warn!("Software decoding is quicker ({took} against {card_ms:.1} ms a picture on {}); decoding in software for {} minutes, then trying the card again",
                        hw.name(), wait.as_secs() / 60);
             return;
         }
         let wait = SOFTWARE_LOST.lock().unwrap().fell(now);
-        log::warn!("Software decoding was no quicker ({software_ms:.1} ms a picture against {card_ms:.1} ms on {}); back to the card at the next keyframe, \
+        log::warn!("Software decoding was no quicker ({took} against {card_ms:.1} ms a picture on {}); back to the card at the next keyframe, \
                     and its speed isn't judged again for {} minutes", hw.name(), wait.as_secs() / 60);
         if let Some(ask) = &self.ask_keyframe {
             ask();
