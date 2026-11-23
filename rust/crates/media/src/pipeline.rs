@@ -65,6 +65,27 @@ impl Kind {
             Kind::Cpu(_) => unreachable!("a CPU step has no shader"),
         }
     }
+
+    fn slot_mut(&mut self) -> Option<&mut gpu::ShaderSlot> {
+        match self {
+            Kind::Shader(slot) | Kind::Either(slot, _) => Some(slot),
+            Kind::Cpu(_) => None,
+        }
+    }
+}
+
+/// New steps take over the shaders the steps they replace (the same owner and stage) built, so one made again every frame builds its shader once.
+fn adopt_shaders(fresh: &mut [Entry], old: &mut [Entry]) {
+    for entry in fresh {
+        let Some(slot) = entry.kind.slot_mut() else { continue };
+        for before in old.iter_mut().filter(|o| o.owner == entry.owner && o.stage == entry.stage) {
+            let no_shader = before.no_shader;
+            if before.kind.slot_mut().is_some_and(|o| slot.adopt(o)) {
+                entry.no_shader = no_shader;
+                break;
+            }
+        }
+    }
 }
 
 struct Entry {
@@ -764,6 +785,10 @@ impl Pipeline {
         // A frame that went dark has nothing of the room in it, and the step's last frame has: it starts again from this one
         let shaded = gpu.shade_with(chain.held.as_mut().unwrap(), entry.kind.slot(), time, self.mask.as_ref().filter(|_| masked), !chain.withheld);
         chain.ahead.push(i);
+        // What the CPU way would have changed besides the pixels (the view's geometry) goes onto the frame in hand, which lands with the card's picture
+        if let Kind::Either(_, cpu) = &mut self.steps[i].kind {
+            let _ = catch_unwind(AssertUnwindSafe(|| cpu.card_frame(frame)));
+        }
         if self.steps[i].drops_alpha() {
             // The frame in hand is behind the card, and the cut-out it carries is the one that lands with the picture
             frame.clear_alpha();
@@ -979,15 +1004,18 @@ impl FramePipeline for Pipeline {
         }
         // Stable: as registered within a stage
         entries.sort_by_key(|e| e.stage);
+        adopt_shaders(&mut entries, &mut self.steps);
         self.steps = entries;
         self.steps_changed();
         self.note_geometry();
     }
 
     fn replace_steps(&mut self, owner: &str, stage: FrameStage, steps: Vec<FrameStep>) {
-        self.steps.retain(|e| e.owner != owner);
+        let (mut old, kept): (Vec<Entry>, Vec<Entry>) = std::mem::take(&mut self.steps).into_iter().partition(|e| e.owner == owner);
+        self.steps = kept;
         let timer = self.timer_of(owner);
-        let fresh: Vec<Entry> = steps.into_iter().map(|step| Entry::new(owner.to_string(), stage, step, timer.clone())).collect();
+        let mut fresh: Vec<Entry> = steps.into_iter().map(|step| Entry::new(owner.to_string(), stage, step, timer.clone())).collect();
+        adopt_shaders(&mut fresh, &mut old);
         // First within the stage, where the window's own steps go
         let at = self.steps.iter().position(|e| e.stage >= stage).unwrap_or(self.steps.len());
         self.steps.splice(at..at, fresh);
@@ -1921,16 +1949,115 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_zoomed_or_stretched_view_never_visits_the_card() {
+    fn a_stretched_view_never_visits_the_card_and_a_zoom_only_while_the_card_has_room() {
         use telescope_core::host::View;
-        for view in [View { zoom: 2.0, ..View::default() }, View { stretch_x: 0.5, ..View::default() }, View { rotation: Some(90), zoom: 1.5, stretch_y: 1.2, ..View::default() }] {
-            let mut p = Pipeline::new();
-            let steps = telescope_core::view_step::steps(&view);
-            p.set_steps(steps.into_iter().map(|step| StagedStep { owner: "view".into(), stage: FrameStage::View, step }).collect());
+        for view in [View { stretch_x: 0.5, ..View::default() }, View { rotation: Some(90), zoom: 1.5, stretch_y: 1.2, ..View::default() }, View { zoom: 2.0, ..View::default() }] {
+            let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Cpu)));
+            p.set_steps(view_staged(&view));
             let out = p.process(grey(8, 8, 10), &NoContext);
             assert_eq!(p.last_transfers, (0, 0), "{view:?}: a busy card can't hold the frame up");
             assert_eq!(out.data.len(), out.format.size(out.width, out.height), "{view:?}: a whole picture comes out");
+            if view.zoom > 1.0 {
+                continue;
+            }
+            let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+            p.set_steps(view_staged(&view));
+            p.process(grey(8, 8, 10), &NoContext);
+            assert_eq!(p.last_transfers, (0, 0), "{view:?}: a stretch stays on the CPU");
         }
+    }
+
+    fn view_staged(view: &telescope_core::host::View) -> Vec<StagedStep> {
+        telescope_core::view_step::steps(view).into_iter().map(|step| StagedStep { owner: "view".into(), stage: FrameStage::View, step }).collect()
+    }
+
+    /// Every byte different from its neighbours, in a smooth pattern a crop can be compared on.
+    fn pattern(w: u32, h: u32, format: PixelFormat) -> Frame {
+        let data = (0..format.size(w, h)).map(|i| {
+            let (x, y) = ((i % w as usize) as f64, (i / w as usize) as f64);
+            (128.0 + 60.0 * (x * 0.21).sin() + 50.0 * (y * 0.13 + x * 0.05).cos()) as u8
+        }).collect();
+        Frame::new(w, h, format, data)
+    }
+
+    /// The biggest and the mean difference over every byte.
+    fn gap(a: &Frame, b: &Frame) -> (u8, f64) {
+        assert_eq!((a.width, a.height, a.format, a.data.len()), (b.width, b.height, b.format, b.data.len()));
+        let worst = a.data.iter().zip(b.data.iter()).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let sum: u64 = a.data.iter().zip(b.data.iter()).map(|(x, y)| x.abs_diff(*y) as u64).sum();
+        (worst, sum as f64 / a.data.len() as f64)
+    }
+
+    #[test]
+    fn the_crop_on_the_card_gives_the_cpus_picture_and_geometry() {
+        use telescope_core::host::View;
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let views = [View { zoom: 2.0, pan_x: 0.3, pan_y: -0.6, ..View::default() }, View { zoom: 1.37, flip_h: true, ..View::default() },
+                     View { zoom: 3.1, pan_x: 1.0, pan_y: 1.0, rotation: Some(180), ..View::default() }, View { zoom: 1.8, rotation: Some(90), flip_v: true, ..View::default() }];
+        for format in [PixelFormat::I420, PixelFormat::Rgba] {
+            for (w, h) in [(320, 180), (318, 178)] {
+                for view in &views {
+                    let frame = pattern(w, h, format);
+                    let mut card = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+                    card.set_steps(view_staged(view));
+                    let on_card = card.process(frame.clone(), &NoContext);
+                    assert!(card.last_transfers.0 == 1, "{view:?}: the crop ran on the card");
+                    let mut cpu = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Cpu)));
+                    cpu.set_steps(view_staged(view));
+                    let on_cpu = cpu.process(frame.clone(), &NoContext);
+                    let (worst, mean) = gap(&on_card, &on_cpu);
+                    eprintln!("{format:?} {w}x{h} {view:?}: max {worst} mean {mean:.3}");
+                    assert!(worst <= 4 && mean <= 1.0, "{format:?} {w}x{h} {view:?}: max {worst} mean {mean:.3}");
+                    assert_eq!(on_card.geometry, on_cpu.geometry, "the card records where the picture came from as the CPU does");
+                    assert!(on_card.geometry.is_some());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_crop_that_moves_a_little_every_frame_moves_as_smoothly_and_never_flashes_whichever_way_it_runs() {
+        use telescope_core::host::View;
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        // A ramp across: where the picture's left edge comes from shows in the first column's value
+        let (w, h) = (256u32, 64u32);
+        let mut frame = Frame::new(w, h, PixelFormat::I420, vec![128; PixelFormat::I420.size(w, h)]);
+        for (i, v) in frame.data_mut()[..(w * h) as usize].iter_mut().enumerate() {
+            *v = (16 + (i % w as usize) * 220 / w as usize) as u8;
+        }
+        let balance = Arc::new(Balance::free());
+        let mut p = Pipeline::with_balance(balance.clone());
+        // The same frames on the CPU alone, as the stream gave them before
+        let mut cpu = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Cpu)));
+        let (mut lefts, mut means, mut places, mut gaps) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        for n in 0..120 {
+            // The card gets busy for a while in the middle and the steps move to the CPU, as a game starting would do
+            if n == 40 {
+                (0..8).for_each(|_| balance.note_wait(50_000_000));
+            }
+            // Framing on at the start, a slow pan as Auto framing makes, a zoom change, and off again at the end
+            let view = if !(5..115).contains(&n) { View::default() } else { View { zoom: if n < 80 { 2.0 } else { 2.0 + (n - 80) as f32 * 0.01 }, pan_x: -0.8 + n as f32 * 0.012, ..View::default() } };
+            p.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
+            cpu.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
+            let out = p.process(frame.clone(), &NoContext);
+            gaps.push(gap(&out, &cpu.process(frame.clone(), &NoContext)));
+            places.push(balance.place());
+            let row = (h / 2 * w) as usize;
+            lefts.push(out.data[row] as i32);
+            means.push(out.data[..(w * h) as usize].iter().map(|&v| v as f64).sum::<f64>() / (w * h) as f64);
+        }
+        assert!(places[..40].iter().all(|&p| p == Place::Card) && places[40..].iter().all(|&p| p == Place::Cpu), "it moved once: {places:?}");
+        // The left edge only ever moves right while the pan does, by about the same each frame
+        let moving = &lefts[5..80];
+        assert!(moving.windows(2).all(|p| (-1..=3).contains(&(p[1] - p[0]))), "the pan jumped: {moving:?}");
+        assert!(moving[moving.len() - 1] - moving[0] > 30, "the pan moved the picture: {moving:?}");
+        assert!(means.iter().all(|&m| m > 40.0), "a frame went dark: {means:?}");
+        // Every frame is the CPU's picture to a level, before, during and after the move, so neither switch shows
+        assert!(gaps.iter().all(|&(worst, mean)| worst <= 2 && mean <= 0.5), "a frame strayed from the CPU's: {gaps:?}");
     }
 
     #[test]

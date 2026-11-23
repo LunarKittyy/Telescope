@@ -12,6 +12,7 @@ Optional. It finds you in the picture and moves zoom and pan to follow you. Swit
 - **Room to move** is how far you can shift before the framing follows (**Fidget** to **Roam**, while **Off** follows every move)
 - **Pick someone** lets you click one person on the preview and Auto framing follows only them. **Pick someone else** changes the choice and **Follow everyone** returns to the full group. When that person leaves the picture it zooms out after the usual moment and doesn't switch to another person. After 30 seconds without seeing them it releases them and frames all people again. The choice isn't saved and resets when Auto framing is switched off or the stream changes. People who walk past each other are told apart by the way each was heading. It drops the choice rather than guessing when it still can't tell who is who. With two phones paired for 3D a click on the combined picture can steer the wrong camera
 - **Show hands** (off by default) widens the view so your hands are in it too, for when you hold something out to the side
+- The crop runs on the graphics card when there is one (at 4K that's about 40% of a core less for the processor). While the card is busy with something else the processor does it and the picture looks the same
 - Zoom and Pan on the Transforms card are greyed out while it's on. Flip and rotation still work and your own zoom and pan return when you switch it off
 - The skeleton button under the preview shows what the framing is reacting to. It does not appear in the camera output
 

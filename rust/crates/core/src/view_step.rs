@@ -1,12 +1,12 @@
 //! The pixel work of the window's view (view.apply_zoom, transform_frame and apply_stretch), as frame steps for the View stage.
 //!
-//! Python crops, flips, turns and then stretches the picture. All of it runs on the CPU, so a card that OBS is encoding on can't hold
-//! up a frame for a zoom: a quarter turn is an exact copy of the planes, a flip is the planes copied in another order, and a zoom
-//! or a stretch is one bilinear resampling of the picture as RGB. The zoom is a fractional crop that repeats the edge, the stretch
-//! leaves black where the picture doesn't reach, both like cv2.warpAffine's linear interpolation does. Lens correction comes first, on the
-//! picture as the lens made it, and is one table-driven bilinear read, also on the CPU.
+//! Python crops, flips, turns and then stretches the picture. A quarter turn is an exact copy of the planes, a flip is the planes copied
+//! in another order, and a zoom or a stretch is one bilinear resampling of the picture as RGB. The zoom is a fractional crop that repeats
+//! the edge, the stretch leaves black where the picture doesn't reach, both like cv2.warpAffine's linear interpolation does. Lens
+//! correction comes first, on the picture as the lens made it, and is one table-driven bilinear read. All of it runs on the CPU but a crop
+//! with no stretch (a zoom, Auto framing), which runs on the graphics card while core::balance says it has room, with the same taps.
 
-use crate::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat};
+use crate::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat, ShaderStep};
 use crate::host::View;
 use crate::image::{frame_rgb, keep_bytes, over_rows, resample_linear, rgb_to_420, rint, spare_bytes, with_spares, Tap};
 use crate::view::{pan_for, window, Geometry, Lens};
@@ -469,6 +469,53 @@ impl CpuStep for Resample {
     fn geometry_key(&self) -> u64 {
         key(&("resample", &self.passes))
     }
+
+    fn card_uniforms(&mut self, width: u32, height: u32) -> Option<serde_json::Value> {
+        let [pass] = self.passes[..] else { return None };
+        Some(card_taps(&pass, width as usize, height as usize))
+    }
+
+    fn card_textures_offered(&self) -> Option<bool> {
+        Some(false)
+    }
+
+    fn card_block_chroma(&self) -> bool {
+        // frame_rgb takes each chroma sample for its 2 x 2 block
+        true
+    }
+}
+
+/// The crop on the graphics card: each pixel's source point worked out as Plan works it out (start + step * pixel, in pixels, the first
+/// pixel's centre at 0), blended from its four neighbours with the same weights in 2048ths and the edge repeated, so the card's picture is
+/// the CPU's to a level and a crop that moves a little each frame moves the same on either.
+const CARD_CROP: &str = "\
+struct Params {
+    start: vec2<f32>,
+    step: vec2<f32>,
+}
+
+fn effect(uv: vec2<f32>) -> vec4<f32> {
+    let size = vec2<i32>(frame.size);
+    let at = params.start + params.step * floor(uv * frame.size);
+    let s = floor(at);
+    let q = round((at - s) * 2048.0) / 2048.0;
+    let a = clamp(vec2<i32>(s), vec2<i32>(0), size - 1);
+    let b = clamp(vec2<i32>(s) + 1, vec2<i32>(0), size - 1);
+    let top = mix(textureLoad(telescope_input, a, 0), textureLoad(telescope_input, vec2<i32>(b.x, a.y), 0), q.x);
+    let bottom = mix(textureLoad(telescope_input, vec2<i32>(a.x, b.y), 0), textureLoad(telescope_input, b, 0), q.x);
+    return vec4<f32>(mix(top, bottom, q.y).rgb, 1.0);
+}
+";
+
+/// CARD_CROP's uniforms for one pass at w x h: where Plan's taps start and how far apart they are, along each axis.
+fn card_taps(pass: &Pass, w: usize, h: usize) -> serde_json::Value {
+    let at_x = |x: f64| pass.source((x + 0.5) / w as f64, 0.5).0 * w as f64 - 0.5;
+    let at_y = |y: f64| pass.source(0.5, (y + 0.5) / h as f64).1 * h as f64 - 0.5;
+    serde_json::json!({"start": [at_x(0.0), at_y(0.0)], "step": [at_x(1.0) - at_x(0.0), at_y(1.0) - at_y(0.0)]})
+}
+
+fn card_crop() -> ShaderStep {
+    ShaderStep { keeps_geometry: false, wgsl: CARD_CROP.into(), uniforms: serde_json::json!({"start": [0.0, 0.0], "step": [1.0, 1.0]}), textures: Vec::new() }
 }
 
 /// Whether the crop, flips or a half turn of the view change the picture.
@@ -515,17 +562,29 @@ impl CpuStep for WithGeometry {
         let inner = self.step.as_ref().map_or(0, |s| s.geometry_key());
         if self.source_crop == (1.0, 0.0, 0.0) { inner } else { key(&("source crop", self.source_crop, inner)) }
     }
+
+    fn card_uniforms(&mut self, width: u32, height: u32) -> Option<serde_json::Value> {
+        self.step.as_mut()?.card_uniforms(width, height)
+    }
+
+    fn card_textures_offered(&self) -> Option<bool> {
+        Some(false)
+    }
+
+    fn card_block_chroma(&self) -> bool {
+        self.step.as_ref().is_some_and(|s| s.card_block_chroma())
+    }
+
+    fn card_frame(&mut self, frame: &mut Frame) {
+        frame.geometry = Some(Box::new(self.geometry));
+    }
 }
 
 fn with_geometry(mut steps: Vec<FrameStep>, view: &View, source_crop: (f64, f64, f64)) -> Vec<FrameStep> {
-    let step = if let Some(last) = steps.pop() {
-        let FrameStep::Cpu(step) = last else { unreachable!("view steps run on the CPU") };
-        Some(step)
-    } else if source_crop != (1.0, 0.0, 0.0) {
-        None
-    } else {
+    let last = steps.pop();
+    if last.is_none() && source_crop == (1.0, 0.0, 0.0) {
         return steps;
-    };
+    }
     let mut geometry = Geometry::from(view);
     if source_crop != (1.0, 0.0, 0.0) {
         let (zoom, pan_x, pan_y) = source_crop;
@@ -535,13 +594,20 @@ fn with_geometry(mut steps: Vec<FrameStep>, view: &View, source_crop: (f64, f64,
         geometry.pan_x = pan_for(sx + sw * (dx + dw / 2.0), geometry.zoom);
         geometry.pan_y = pan_for(sy + sh * (dy + dh / 2.0), geometry.zoom);
     }
-    steps.push(FrameStep::Cpu(Box::new(WithGeometry { step, geometry, source_crop })));
+    let with = |step| Box::new(WithGeometry { step, geometry, source_crop });
+    steps.push(match last {
+        Some(FrameStep::Either(shader, step)) => FrameStep::Either(shader, with(Some(step))),
+        Some(FrameStep::Cpu(step)) => FrameStep::Cpu(with(Some(step))),
+        None => FrameStep::Cpu(with(None)),
+        Some(FrameStep::Shader(_)) => unreachable!("every view step has a CPU way"),
+    });
     steps
 }
 
-/// The frame steps of a view, in order, all on the CPU (a busy card, OBS encoding on it, would hold up every frame for a shader, and
-/// a shader step can't move to the CPU): a quarter turn when the picture changes shape, then either a plain copy for a view that only
+/// The frame steps of a view, in order: a quarter turn when the picture changes shape, then either a plain copy for a view that only
 /// mirrors, flips or half turns, or one resampling for the crop and another for the stretch. No steps for a view that changes nothing.
+/// A crop alone can also run on the card (an Either, which core::balance moves back to the CPU while a game or OBS keeps the card busy);
+/// the rest stays on the CPU.
 pub fn steps(view: &View) -> Vec<FrameStep> {
     steps_in(view, (1.0, 0.0, 0.0))
 }
@@ -569,6 +635,12 @@ pub fn steps_in(view: &View, source_crop: (f64, f64, f64)) -> Vec<FrameStep> {
         return with_geometry(out, view, source_crop);
     }
     let passes = passes(view, done);
+    if let [pass] = passes[..] {
+        if !pass.is_stretch() {
+            out.push(FrameStep::Either(card_crop(), Box::new(Resample::new(passes))));
+            return with_geometry(out, view, source_crop);
+        }
+    }
     if !passes.is_empty() {
         out.push(FrameStep::Cpu(Box::new(Resample::new(passes))));
     }
@@ -591,14 +663,50 @@ mod tests {
         assert!(steps(&View { zoom: 1.0, pan_x: 0.7, ..View::default() }).is_empty(), "pan counts only once zoomed in");
     }
 
+    /// The CPU way of a view step, whether or not it can also run on the card.
+    fn cpu_way(step: FrameStep) -> Box<dyn CpuStep> {
+        match step {
+            FrameStep::Cpu(cpu) | FrameStep::Either(_, cpu) => cpu,
+            FrameStep::Shader(_) => panic!("a view step with no CPU way"),
+        }
+    }
+
     #[test]
-    fn a_zoom_or_a_stretch_never_needs_the_graphics_card_either() {
-        for view in [View { zoom: 2.0, ..View::default() }, View { stretch_x: 0.8, ..View::default() }, View { flip_h: true, zoom: 2.0, ..View::default() },
-                     View { zoom: 1.5, stretch_y: 1.2, ..View::default() }, View { rotation: Some(90), zoom: 2.0, ..View::default() }] {
+    fn a_crop_alone_can_run_on_the_graphics_card_and_a_stretch_never_needs_it() {
+        for view in [View { zoom: 2.0, ..View::default() }, View { flip_h: true, zoom: 2.0, ..View::default() }, View { zoom: 1.5, pan_x: -0.3, ..View::default() }] {
+            let s = steps(&view);
+            assert!(s.len() == 1 && matches!(s[0], FrameStep::Either(..)), "{view:?}");
+        }
+        let s = steps(&View { rotation: Some(90), zoom: 2.0, ..View::default() });
+        assert!(s.len() == 2 && matches!(s[0], FrameStep::Cpu(_)) && matches!(s[1], FrameStep::Either(..)), "the turn on the CPU, then the crop either way");
+        for view in [View { stretch_x: 0.8, ..View::default() }, View { zoom: 1.5, stretch_y: 1.2, ..View::default() }] {
             let s = steps(&view);
             assert!(!s.is_empty() && s.iter().all(|step| matches!(step, FrameStep::Cpu(_))), "{view:?}");
         }
         assert_eq!(steps(&View { zoom: 1.5, stretch_y: 1.2, ..View::default() }).len(), 1, "a crop and a stretch share one trip through RGB");
+    }
+
+    #[test]
+    fn the_cards_taps_are_the_cpus() {
+        for view in [View { zoom: 2.0, pan_x: 0.4, pan_y: -0.7, ..View::default() }, View { zoom: 1.37, flip_h: true, rotation: Some(180), ..View::default() },
+                     View { zoom: 3.0, pan_x: 1.0, flip_v: true, rotation: Some(90), ..View::default() }] {
+            let done = if quarters(view.rotation) % 2 == 1 { quarters(view.rotation) } else { 0 };
+            let pass = Pass::new(&view, done, true, false);
+            for (w, h) in [(64, 36), (1920, 1080), (3840, 2160)] {
+                let plan = Plan::new(w, h, &pass);
+                let taps = card_taps(&pass, w, h);
+                let f = |k: &str, i: usize| taps[k][i].as_f64().unwrap() as f32;
+                // The card works each tap out in 32-bit floats from the first, the CPU from each pixel's own place: a 2048th apart at most
+                for (axis, taps, n) in [(0, &plan.xs, w), (1, &plan.ys, h)] {
+                    for (i, want) in taps.iter().enumerate() {
+                        let got = tap(f("start", axis) + f("step", axis) * i as f32, n);
+                        // Where the blend lands, in 2048ths of a pixel
+                        let place = |t: Tap| t.0 as i64 * t.2 as i64 + t.1 as i64 * t.3 as i64;
+                        assert!((place(got) - place(*want)).abs() <= 1, "{view:?} {w}x{h} axis {axis} at {i}: {got:?} {want:?}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -630,8 +738,7 @@ mod tests {
 
     fn through_in(view: &View, source_crop: (f64, f64, f64), mut frame: Frame) -> Frame {
         for step in steps_in(view, source_crop) {
-            let FrameStep::Cpu(mut cpu) = step else { panic!("a CPU step") };
-            cpu.process(&mut frame, &NoCtx);
+            cpu_way(step).process(&mut frame, &NoCtx);
         }
         frame
     }
@@ -660,8 +767,7 @@ mod tests {
         let key = |source_crop| {
             let mut steps = steps_in(&view, source_crop);
             assert_eq!(steps.len(), 1);
-            let FrameStep::Cpu(step) = steps.pop().unwrap() else { panic!("a CPU step") };
-            step.geometry_key()
+            cpu_way(steps.pop().unwrap()).geometry_key()
         };
         assert_ne!(key((2.0, 0.5, -0.25)), key((2.0, 0.6, -0.25)));
     }
@@ -673,8 +779,7 @@ mod tests {
         let all = steps(&view);
         let last = all.len() - 1;
         for (i, step) in all.into_iter().enumerate() {
-            let FrameStep::Cpu(mut step) = step else { panic!("a CPU step") };
-            step.process(&mut picture, &NoCtx);
+            cpu_way(step).process(&mut picture, &NoCtx);
             assert_eq!(picture.geometry, (i == last).then(|| Box::new(Geometry::from(&view))));
         }
         assert_eq!((picture.width, picture.height), (6, 8));
@@ -728,7 +833,7 @@ mod tests {
         let s = steps(&View { rotation: Some(90), ..View::default() });
         assert!(s.len() == 1 && matches!(s[0], FrameStep::Cpu(_)));
         let s = steps(&View { rotation: Some(270), flip_h: true, ..View::default() });
-        assert!(s.len() == 2 && s.iter().all(|step| matches!(step, FrameStep::Cpu(_))));
+        assert!(s.len() == 2 && matches!(s[0], FrameStep::Cpu(_)) && matches!(s[1], FrameStep::Either(..)), "the turn, then the flip as a crop that moves nothing");
     }
 
     /// `w` x `h` where the red is `40 * x` and the green `40 * y`.
@@ -989,7 +1094,7 @@ mod tests {
     fn lens_correction_is_a_cpu_step_that_runs_before_the_flip_and_the_zoom() {
         for view in [View { distortion: 0.5, ..View::default() }, View { distortion: -0.5, flip_h: true, ..View::default() }, View { distortion: 0.3, zoom: 2.0, ..View::default() }] {
             let s = steps(&view);
-            assert!(s.iter().all(|step| matches!(step, FrameStep::Cpu(_))), "{view:?}");
+            assert!(matches!(s[0], FrameStep::Cpu(_)), "{view:?}");
         }
         assert_eq!(steps(&View { distortion: 0.5, ..View::default() }).len(), 1);
         assert_eq!(steps(&View { distortion: 0.5, flip_h: true, ..View::default() }).len(), 2, "the correction, then the plain flip");
@@ -1004,7 +1109,7 @@ mod tests {
     #[test]
     fn the_geometry_keys_say_when_the_pictures_pixels_moved() {
         let keys = |view: &View| -> Vec<u64> {
-            steps(view).into_iter().map(|s| match s { FrameStep::Cpu(c) => c.geometry_key(), _ => panic!("a CPU step") }).collect()
+            steps(view).into_iter().map(|s| cpu_way(s).geometry_key()).collect()
         };
         let still = View { flip_h: true, zoom: 1.5, distortion: 0.3, ..View::default() };
         assert_eq!(keys(&still), keys(&still.clone()), "made again, the same");
@@ -1223,7 +1328,7 @@ mod tests {
         view.rotation = Some(90);
         view.zoom = 1.0;
         assert!(!view.flip_h && view.rotation.is_some() && view.zoom == 1.0);
-        let FrameStep::Cpu(mut cpu) = step.into_iter().next().unwrap() else { panic!() };
+        let mut cpu = cpu_way(step.into_iter().next().unwrap());
         let mut f = ramp(4, 4);
         cpu.process(&mut f, &NoCtx);
         near(&channel(&f, 0)[..4], &[90, 70, 50, 30]);

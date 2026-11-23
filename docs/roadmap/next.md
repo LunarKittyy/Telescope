@@ -78,7 +78,7 @@ Background blur now runs on the graphics card (4K with everything on went from 5
 
 The card isn't always the faster place though. 5.0.2 and 5.0.3 moved mirroring, flipping, zoom and stretch back to the CPU, since they're cheap there and a card busy with a game or OBS held up every frame. A step is only worth moving to the card when it's heavy enough to make up for that.
 
-A view between two plugin shaders costs a copy down and back up. Making the view a step that can run either way would only help with one more rule. Such a step would go to the card only when the frame is already up there. Right now the balancer picks the card or the CPU for every such step in a frame at once (colour grading is the other one). With the card picked, a lone view or grade sends the frame up only for itself.
+The view's crop (a zoom or Auto framing) now runs either way, since at 4K it cost the CPU about 40% of a core. Flips, turns, the stretch and Lens correction stay on the CPU. Right now the balancer picks the card or the CPU for every such step in a frame at once (colour grading is the other one). With the card picked, a lone crop or grade sends the frame up only for itself, which was still cheaper than the CPU for the crop at 1080p and 4K.
 
 Measure first with the transfer counter (`crates/media/src/transfers.rs`). Run a heavy stack on a weak laptop and see where the time goes before moving anything. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first. Medium. Sharing one working frame and doing effects on the YUV planes were measured and dropped, see [dropped.md](dropped.md).
 
