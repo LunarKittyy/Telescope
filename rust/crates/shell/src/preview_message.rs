@@ -58,6 +58,11 @@ impl Messages {
         }
     }
 
+    /// Whether a message is up on some stream's picture.
+    pub fn active(&self) -> bool {
+        !self.entries.is_empty()
+    }
+
     fn drop_where(&mut self, mut drop: impl FnMut(&Entry) -> bool) -> Vec<(String, String)> {
         let mut ended = Vec::new();
         self.entries.retain(|e| {
