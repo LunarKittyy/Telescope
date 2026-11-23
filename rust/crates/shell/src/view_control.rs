@@ -313,13 +313,12 @@ impl ViewController {
         } else if self.gate.underway() {
             match self.gate.still_for(self.sent, now) {
                 Some(old) => self.gate.retarget((with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), view),
-                None => {
-                    self.gate.end();
-                    self.gate.retarget_following(with_crop(view, desktop), view);
-                }
+                None => self.gate.end(),
             }
             out.push(Said::Restep);
         }
+        // A phone that tags its frames has each one cropped by its tag, against the view as it is now
+        self.gate.aim(self.sent.filter(|_| self.crop_tags), with_crop(view, desktop), view);
         let streaming = self.source.is_some();
         let status = ViewStatus { streaming, caps: self.caps.clone().filter(|_| streaming), sent: self.sent, sent_ratio_at: self.sent_ratio_at, desktop_zoom: desktop.0 };
         out.push(Said::Emit(Event::ViewStatus { status: serde_json::to_value(status).unwrap_or(Value::Null) }));
@@ -817,5 +816,55 @@ mod tests {
         assert!(gate.waiting());
         gate.for_frame_snapshot("p1", &from_phone(&new), 5.05, false);
         assert!(!gate.waiting());
+    }
+
+    fn tagged(share: &PhoneZoom) -> telescope_core::frame::Frame {
+        let mut frame = from_phone(share);
+        frame.phone_share = Some(*share);
+        frame
+    }
+
+    /// The zoom a frame cropped by the phone to `crop` and here by `view` ends up at.
+    fn total((view, crop): (View, (f64, f64, f64))) -> f64 {
+        view.zoom.max(1.0) as f64 * crop.0
+    }
+
+    #[test]
+    fn a_flip_reaches_frames_tagged_with_a_crop_other_than_the_one_sent() {
+        let (mut vc, mut view) = engaged();
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.phone_state(&view, &tagged_lens(), 0.0);
+        vc.set_view(&mut view, &change(Some(3.0), None, None), 0.1);
+        let sent = vc.sent.unwrap();
+        let got = PhoneZoom { crop: sent.crop * 0.9, ..sent };
+        let gate = vc.gate();
+        let shown = gate.for_frame_snapshot("p1", &tagged(&got), 0.2, false).unwrap();
+        assert!((total(shown) - 3.0).abs() < 1e-3);
+        // Long after, the picture flipped without a new zoom: the camera's crop still holds and so does the flip
+        vc.set_view(&mut view, &change(None, None, Some(true)), 5.0);
+        let (flipped, crop) = gate.for_frame_snapshot("p1", &tagged(&got), 5.1, true).unwrap();
+        assert!(flipped.flip_h, "the flip isn't undone");
+        assert!((total((flipped, crop)) - 3.0).abs() < 1e-3);
+        assert_eq!(gate.waiting_snapshot().map(|s| s.0.flip_h), Some(true));
+    }
+
+    #[test]
+    fn a_tag_that_comes_late_still_says_how_the_frame_is_cropped() {
+        let (mut vc, mut view) = engaged();
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.phone_state(&view, &tagged_lens(), 0.0);
+        vc.set_view(&mut view, &change(Some(3.0), None, None), 0.1);
+        let sent = vc.sent.unwrap();
+        let gate = vc.gate();
+        // Untagged frames for over two seconds, then a flip ends the wait
+        for k in 0..30 {
+            gate.for_frame_snapshot("p1", &from_phone(&sent), 0.2 + k as f64 * 0.1, false);
+        }
+        vc.set_view(&mut view, &change(None, None, Some(true)), 3.5);
+        assert!(!gate.waiting());
+        let got = PhoneZoom { crop: sent.crop * 0.9, ..sent };
+        let shown = gate.for_frame_snapshot("p1", &tagged(&got), 3.6, false).unwrap();
+        assert!((total(shown.clone()) - 3.0).abs() < 1e-3, "{shown:?}");
+        assert_eq!(shown.1, telescope_core::view::phone_window(Some(&got)));
     }
 }

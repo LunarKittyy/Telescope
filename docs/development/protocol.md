@@ -232,7 +232,7 @@ A newer phone adds a second message to the same SEI, before its trailing bits: t
 ff x 16       ratio, crop, x, y as 4 byte big-endian floats
 ```
 
-The desktop crops each frame against it. That way a new crop sent while zooming or framing is taken over on exactly the frame that first shows it, and a crop the camera changed or ignored is still known. The phone sends it only together with a capture time, since that's what the desktop finds the frame by after decoding. Without it (an older phone), the desktop finds the frame by comparing pictures, as before. An older desktop skips the message.
+The desktop crops each frame against it. That way a new crop sent while zooming or framing is taken over on exactly the frame that first shows it, and a crop the camera changed or ignored is still known. The phone sends it only together with a capture time, since that's what the desktop finds the frame by after decoding. The phone tags a frame when the camera's report for it has already come in or arrives within 8 ms, so now and then a frame goes out untagged. Once a stream's frames have had tags, an untagged frame is skipped while a new crop is on its way (up to three in a row), since it could be either crop. At other times it gets the crop of the frame before it. From a phone whose frames carry none (an older phone), the desktop finds the frame by comparing pictures, as before. An older desktop skips the message.
 
 ## `GET /v1/video.udp` (experimental)
 

@@ -979,7 +979,7 @@ impl Shared {
         }
         let pipeline = publish.0.as_mut();
         let arrived = frame.time_ns;
-        let Ok((out, entered)) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let Ok(prepared) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             // what the steps that keep pictures of their own hold is from before the gap
             if resumed {
                 pipeline.forget_history();
@@ -988,6 +988,11 @@ impl Shared {
         })) else {
             log::error!("Frame processing failed; dropping this frame");
             self.stats.dropped(DropReason::StepFailed, 1);
+            return false;
+        };
+        // A frame whose crop isn't known while the phone's is changing: the picture before it stays up a moment longer
+        let Some((out, entered)) = prepared else {
+            self.stats.dropped(DropReason::Paced, 1);
             return false;
         };
         self.newest_arrival.store(arrived, Ordering::Relaxed);
@@ -1163,8 +1168,8 @@ impl Shared {
     }
 
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
-    /// Hands back the epoch the pipeline was in when the steps began on the frame too.
-    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> (telescope_core::media::PipelineFrame, u64) {
+    /// Hands back the epoch the pipeline was in when the steps began on the frame too; None for a frame to hold back (ViewGate::for_frame_checked).
+    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> Option<(telescope_core::media::PipelineFrame, u64)> {
         let next_steps = self.next_steps.lock().unwrap().take();
         let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some((steps, epoch)) = next_steps {
@@ -1195,7 +1200,7 @@ impl Shared {
         // Its number before the steps see it: what a person mask is worked out once by (slot.publish numbers what goes out)
         frame.number = seq;
         if let Some(gate) = &self.gate {
-            let (snapshot, unsure) = gate.for_frame_labelled(&self.source_id, &frame, crate::shell::now_s(), replaced);
+            let (snapshot, unsure) = gate.for_frame_checked(&self.source_id, &frame, crate::shell::now_s(), replaced)?;
             if let Some((view, source_crop)) = snapshot {
                 pipeline.replace_steps("view", telescope_core::frame::FrameStage::View, telescope_core::view_step::steps_in(&view, source_crop));
             }
@@ -1235,7 +1240,7 @@ impl Shared {
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
         let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered, hurried: false, superseded: None };
-        (pipeline.process_picture(frame, &ctx), entered)
+        Some((pipeline.process_picture(frame, &ctx), entered))
     }
 
     /// Whether the frame steps and vision are paused: only the main camera's stream, once an app has not read the camera and nothing has

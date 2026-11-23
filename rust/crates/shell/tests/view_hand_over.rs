@@ -9,6 +9,8 @@ const FPS: f64 = 30.0;
 
 thread_local! {
     static NOISE: std::cell::Cell<f64> = const { std::cell::Cell::new(0.0) };
+    /// A tagging phone loses the tag of every this many frames (0: none).
+    static MISSING: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 fn caps(lens: Option<f64>, crop_max: f64, tags: bool) -> Value {
@@ -50,7 +52,9 @@ fn from_phone(share: &PhoneZoom, amp: f64, k: usize, tags: bool) -> Frame {
         [g, g, g, 255]
     }).collect();
     let mut frame = Frame::new(fw, fh, PixelFormat::Rgba, data);
-    frame.phone_share = tags.then_some(*share);
+    let every = MISSING.with(|m| m.get());
+    let lost = every > 0 && k.is_multiple_of(every);
+    frame.phone_share = (tags && !lost).then_some(*share);
     frame
 }
 
@@ -135,7 +139,8 @@ fn run(r: &Run, seconds: f64, framing: &impl Fn(f64) -> (f32, f32, f32)) -> Vec<
             in_place = vc.frame_view(&view);
             label = vc.frame_window();
         }
-        let (changed, unsure) = gate.for_frame_labelled("p1", &frame, now, restep);
+        // A frame held back isn't shown: the one before it stays up
+        let Some((changed, unsure)) = gate.for_frame_checked("p1", &frame, now, restep) else { continue };
         if let Some((v, crop)) = changed {
             (in_place, label) = (v, crop);
         }
@@ -266,6 +271,22 @@ fn a_phone_that_tags_its_frames_keeps_the_picture_still_through_every_hand_over(
         let (sudden, _) = steps_in(name, framing, seconds, true);
         assert!(sudden.iter().all(|s| *s < 1.02), "{name}: {sudden:?}");
     }
+}
+
+/// A tagging phone that loses a tag now and then still never makes the picture jump: a frame without one is held back while
+/// a zoom is on its way, as it may be the first of the new crop.
+#[test]
+fn a_phone_that_loses_some_tags_still_keeps_the_picture_still() {
+    let framings: [(&str, Box<dyn Fn(f64) -> (f32, f32, f32)>, f64); 2] = [("person leans away", Box::new(closer(3.5, 10.0, 4.0)), 20.0),
+        ("person steps aside", Box::new(aside(10.0, 0.2, 5.0, 1.0, 5.0)), 14.0)];
+    for every in [2, 5] {
+        MISSING.with(|m| m.set(every));
+        for (name, framing, seconds) in &framings {
+            let (sudden, _) = steps_in(name, framing, *seconds, true);
+            assert!(sudden.iter().all(|s| *s < 1.02), "{name}, every {every}th tag lost: {sudden:?}");
+        }
+    }
+    MISSING.with(|m| m.set(0));
 }
 
 /// What the crop labels of a run's frames say about the phone's real crop: the worst error among the frames that don't call their label a guess (the zoom they
