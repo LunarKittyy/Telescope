@@ -367,6 +367,8 @@ pub fn send_webhook_within(request: &WebhookRequest, timeout: Duration) -> Strin
         .user_agent(request.user_agent.clone())
         .http_status_as_error(false)
         .max_redirects(0)
+        // Webhooks are rare, and a hub that closes without saying so would leave a dead connection for the redirect to reuse
+        .max_idle_connections(0)
         .timeout_resolve(Some(timeout))
         .timeout_connect(Some(timeout))
         .timeout_send_request(Some(timeout))

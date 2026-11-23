@@ -382,12 +382,12 @@ impl Connection {
                 if phone.active_ip.as_deref() != Some(address) {
                     // Remember the address that answered (after DHCP moved it, say)
                     phone.active_ip = Some(address.clone());
-                    if !phone.ips.contains(address) {
-                        // Every check probes each one, so addresses from networks long gone drop off the front
-                        phone.ips.push(address.clone());
-                        let excess = phone.ips.len().saturating_sub(MAX_REMEMBERED_IPS);
-                        phone.ips.drain(..excess);
-                    }
+                    // Newest last: an address that answers again moves to the back, so a network the phone returns to isn't dropped first
+                    phone.ips.retain(|ip| ip != address);
+                    phone.ips.push(address.clone());
+                    // Every check probes each one, so addresses from networks long gone drop off the front
+                    let excess = phone.ips.len().saturating_sub(MAX_REMEMBERED_IPS);
+                    phone.ips.drain(..excess);
                     save = true;
                 }
             }
@@ -1306,6 +1306,24 @@ mod tests {
         let ips = &c.phones[0].ips;
         assert_eq!(ips.len(), 8);
         assert!(ips.last().unwrap() == "10.0.1.12" && !ips.contains(&"10.0.0.5".to_string()));
+    }
+
+    #[test]
+    fn a_network_the_phone_returns_to_is_not_dropped_first() {
+        let (mut c, _) = model();
+        add(&mut c, "id-a");
+        c.apply_resolution(ready(RouteSpec::Network { address: "192.168.1.5".into() }));
+        for n in 1..8 {
+            c.apply_resolution(ready(RouteSpec::Network { address: format!("10.0.1.{n}") }));
+        }
+        // Back home: the oldest entry answers again, then more networks fill the list
+        c.apply_resolution(ready(RouteSpec::Network { address: "192.168.1.5".into() }));
+        for n in 8..12 {
+            c.apply_resolution(ready(RouteSpec::Network { address: format!("10.0.1.{n}") }));
+        }
+        let ips = &c.phones[0].ips;
+        assert_eq!(ips.len(), 8);
+        assert!(ips.contains(&"192.168.1.5".to_string()));
     }
 
     #[test]
