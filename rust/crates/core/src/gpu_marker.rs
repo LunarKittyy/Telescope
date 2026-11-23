@@ -148,12 +148,14 @@ struct State {
     entries: Vec<Skipped>,
     /// The cards given another try this start: one that draws the window comes off the list (`confirmed`).
     on_trial: Vec<Card>,
+    /// The card the last start closed on, until the window says so (`take_crash_notice`).
+    crashed: Option<Card>,
     /// Goes up with every `clear`, so work that marked something meanwhile can tell it was cleared underneath.
     generation: u64,
 }
 
 fn state() -> MutexGuard<'static, State> {
-    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new(), entries: Vec::new(), on_trial: Vec::new(), generation: 0 });
+    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new(), entries: Vec::new(), on_trial: Vec::new(), crashed: None, generation: 0 });
     STATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -206,6 +208,7 @@ fn begin_start_at(folder: &Path, now: u64) -> Option<Card> {
     state.skipped = left_out(&entries, now);
     state.entries = entries;
     state.on_trial = on_trial;
+    state.crashed = crashed.clone();
     crashed
 }
 
@@ -230,6 +233,11 @@ pub fn confirmed() {
     if let Err(e) = save_entries(&home, &state.entries) {
         log::warn!("Couldn't save the skipped graphics cards: {e}");
     }
+}
+
+/// The card the last start closed on, once, for a window that says so itself (Linux has no message box for it).
+pub fn take_crash_notice() -> Option<Card> {
+    state().crashed.take()
 }
 
 /// Whether the card is on the skip list (always false before `begin_start`).
@@ -596,6 +604,9 @@ mod tests {
         begin_start(&folder);
         mark(&probe_card());
         assert_eq!(begin_start(&folder), Some(probe_card()));
+        // The window can say so itself, once
+        assert_eq!(take_crash_notice(), Some(probe_card()));
+        assert_eq!(take_crash_notice(), None);
         assert!(probe_failed());
         std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[long_skipped(card("A", "1"))]).unwrap()).unwrap();
         begin_start(&folder);

@@ -278,6 +278,22 @@
             "size": "medium",
             "style": "bar"
           },
+          "photos": {
+            "best": true,
+            "bracket_gap": 3,
+            "bracket_photos": 3,
+            "burst": 5,
+            "distortion": "camera",
+            "exposure_s": 0,
+            "focus_steps": 5,
+            "folder": "/home/sam/Pictures/Telescope",
+            "format": "jpeg",
+            "mode": "normal",
+            "quality": 95,
+            "shots": "single",
+            "timer": 0,
+            "use_zoom": false
+          },
           "presets": {
             "presets": []
           },
@@ -539,6 +555,20 @@
             "size": "medium",
             "style": "bar"
           },
+          "photos": {
+            "best": true,
+            "bracket": "3x1",
+            "burst": 5,
+            "distortion": "camera",
+            "exposure_s": 0,
+            "focus_steps": 5,
+            "folder": "/home/sam/Pictures/Telescope",
+            "format": "jpeg",
+            "mode": "normal",
+            "quality": 95,
+            "shots": "single",
+            "timer": 0
+          },
           "presets": {
             "presets": []
           },
@@ -690,22 +720,6 @@
       },
       "onboarding": {
         "streamed": true
-      },
-      "photos": {
-        "best": true,
-        "bracket_photos": 3,
-        "bracket_gap": 3,
-        "burst": 5,
-        "distortion": "camera",
-        "exposure_s": 0,
-        "focus_steps": 5,
-        "folder": "/home/sam/Pictures/Telescope",
-        "format": "jpeg",
-        "mode": "normal",
-        "quality": 95,
-        "shots": "single",
-        "timer": 0,
-        "use_zoom": false
       },
       "preview": {
         "lens_boxes": false,

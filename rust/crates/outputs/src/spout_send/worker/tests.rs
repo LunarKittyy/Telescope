@@ -122,7 +122,7 @@ fn pictures_that_stop_take_the_sender_down_and_end_the_thread() {
     let log = Arc::new(Log::default());
     let (worker, told) = spawn(&log, Duration::from_millis(50));
     worker.put(picture(2, 2, 1));
-    wait_for("the sender to go", || log.closed.load(Ordering::SeqCst) == 1 && !worker.alive());
+    wait_for("the sender to go", || log.closed.load(Ordering::SeqCst) == 1 && !worker.alive() && told.lock().unwrap().last() == Some(&State::Idle));
     assert_eq!(told.lock().unwrap().last(), Some(&State::Idle));
     assert!(!worker.put(picture(2, 2, 1)), "a thread that ended takes nothing");
 }
@@ -270,6 +270,21 @@ fn a_picture_that_waits_for_a_busy_reader_past_the_idle_time_is_dropped_and_the_
     wait_for("the sender to close", || log.closed.load(Ordering::SeqCst) == 1);
 }
 
+#[test]
+fn a_picture_that_waited_for_a_slow_thread_is_still_sent() {
+    let log = Arc::new(Log::default());
+    log.hold_open.store(true, Ordering::SeqCst);
+    let (worker, _) = spawn(&log, Duration::from_millis(50));
+    worker.put(picture(2, 2, 1));
+    wait_for("the sender to be asked for", || log.open_asked.load(Ordering::SeqCst) == 1);
+    // The thread is busy for longer than the idle time, and this picture waits that long untouched
+    assert!(worker.put(picture(2, 2, 2)));
+    std::thread::sleep(Duration::from_millis(150));
+    log.hold_open.store(false, Ordering::SeqCst);
+    wait_for("both pictures", || log.sent.lock().unwrap().len() == 2);
+    assert_eq!(log.sent.lock().unwrap()[1][0], 2);
+}
+
 fn slot() -> Slot {
     Slot { latest: Mutex::new(None), ready: Condvar::new(), stop: AtomicBool::new(false), alive: AtomicBool::new(true) }
 }
@@ -277,7 +292,7 @@ fn slot() -> Slot {
 #[test]
 fn a_picture_that_lands_as_the_thread_ends_keeps_it_going() {
     let slot = slot();
-    *slot.latest.lock().unwrap() = Some((picture(2, 2, 1), Instant::now()));
+    *slot.latest.lock().unwrap() = Some((picture(2, 2, 1), None));
     assert!(!retire(&slot), "a fresh picture is waiting");
     assert!(slot.alive.load(Ordering::SeqCst));
     slot.latest.lock().unwrap().take();

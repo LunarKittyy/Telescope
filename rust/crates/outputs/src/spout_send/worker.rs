@@ -38,8 +38,8 @@ pub enum State {
 }
 
 struct Slot {
-    /// The picture and when it was handed over (a retry keeps the time it first came).
-    latest: Mutex<Option<(Frame, Instant)>>,
+    /// The picture, and once it is being retried, when it was first tried (a fresh one has no time, however long the thread took to get to it).
+    latest: Mutex<Option<(Frame, Option<Instant>)>>,
     ready: Condvar,
     stop: AtomicBool,
     alive: AtomicBool,
@@ -84,7 +84,7 @@ impl Worker {
         if !self.alive() {
             return false;
         }
-        *latest = Some((frame, Instant::now()));
+        *latest = Some((frame, None));
         self.slot.ready.notify_all();
         true
     }
@@ -108,7 +108,7 @@ impl Drop for Worker {
 }
 
 enum Next {
-    Picture(Frame, Instant),
+    Picture(Frame, Option<Instant>),
     /// No picture for the idle time.
     Quiet,
     Stopped,
@@ -121,14 +121,14 @@ fn next(slot: &Slot, idle: Duration) -> Next {
     if slot.stop.load(Ordering::SeqCst) {
         return Next::Stopped;
     }
-    latest.take().map_or(Next::Quiet, |(frame, offered)| Next::Picture(frame, offered))
+    latest.take().map_or(Next::Quiet, |(frame, retried)| Next::Picture(frame, retried))
 }
 
 /// Puts a picture back to be taken again, unless a newer one has come meanwhile (which is then the one that goes out).
-fn requeue(slot: &Slot, frame: Frame, offered: Instant) {
+fn requeue(slot: &Slot, frame: Frame, first_try: Instant) {
     let mut latest = slot.latest.lock().unwrap_or_else(|e| e.into_inner());
     if latest.is_none() {
-        *latest = Some((frame, offered));
+        *latest = Some((frame, Some(first_try)));
     }
 }
 
@@ -157,9 +157,9 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
     let mut open: Option<(u32, u32, Box<dyn Sender>)> = None;
     let mut bytes = Vec::new();
     loop {
-        let (frame, offered) = match next(slot, idle) {
+        let (frame, retried) = match next(slot, idle) {
             // A picture retried past the idle time counts as no picture, so a stream that stopped doesn't send its last one late
-            Next::Picture(_, offered) if offered.elapsed() >= idle => {
+            Next::Picture(_, Some(first_try)) if first_try.elapsed() >= idle => {
                 if keep || !retire(slot) {
                     if keep {
                         tell(State::Idle);
@@ -168,7 +168,7 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
                 }
                 break;
             }
-            Next::Picture(frame, offered) => (frame, offered),
+            Next::Picture(frame, retried) => (frame, retried),
             Next::Quiet if keep => {
                 tell(State::Idle);
                 continue;
@@ -187,7 +187,7 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
                 Ok(Resized::Remake) => open = None,
                 // A reader holds the picture just now: the sender stays where it is (a reader that is busy is not a sender that is gone) and this picture is tried again
                 Ok(Resized::Busy) => {
-                    requeue(slot, frame, offered);
+                    requeue(slot, frame, retried.unwrap_or_else(Instant::now));
                     pause(slot, RESIZE_RETRY);
                     continue;
                 }
