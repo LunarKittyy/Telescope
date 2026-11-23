@@ -119,6 +119,8 @@ fn cell(def: &ComponentDefinition, look: usize, kind: &Kind, state: &str) -> Res
         }
         _ => {}
     }
+    // Past the hover and press animations (up to 220 ms), short of the 350 ms a double click waits for
+    offscreen::skip(std::time::Duration::from_millis(250));
     let picture = offscreen::draw(window, CELL_WIDTH, kind.height, 1.0).ok_or("nothing drawn")?;
     let _ = ui.hide();
     Ok(picture)

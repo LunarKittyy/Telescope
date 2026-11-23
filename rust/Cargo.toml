@@ -146,6 +146,10 @@ opt-level = "s"
 [profile.release.package.smithay-client-toolkit]
 opt-level = "s"
 
+# Window tests spend about half their time drawing and laying out in Slint, font and image crates, which run much faster a little optimised
+[profile.dev.package."*"]
+opt-level = 1
+
 # Every test window goes through Slint's compiler, and unoptimised it spends over a second on each one
 [profile.dev.package.i-slint-compiler]
 opt-level = 2
