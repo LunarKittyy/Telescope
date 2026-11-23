@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+pub(crate) mod drm;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
@@ -49,9 +50,9 @@ pub struct SystemReading {
     /// The user's other programs using the most processor, biggest first.
     pub busiest: Vec<ProcessUse>,
     pub gpu_percent: Option<f32>,
-    /// This process's part of the graphics card (Windows only).
+    /// This process's part of the graphics card, where the system gives per-program numbers (Windows, and Linux drivers with DRM fdinfo).
     pub own_gpu_percent: Option<f32>,
-    /// The user's other programs using the most graphics card, biggest first (Windows only).
+    /// The user's other programs using the most graphics card, biggest first, where the system says.
     pub gpu_busiest: Vec<ProcessUse>,
     pub memory_total_mb: u64,
     pub memory_available_mb: Option<u64>,

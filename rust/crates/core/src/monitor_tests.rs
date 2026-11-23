@@ -1,3 +1,4 @@
+use super::drm::*;
 use super::*;
 
 const PROC_STAT: &str = "cpu  4705 150 1120 16250856 1710 0 84 0 0 0\ncpu0 1393 63 261 8118529 903 0 37 0 0 0\ncpu1 3312 87 859 8132327 807 0 47 0 0 0\nintr 1462898 0 10 0 0 0\nctxt 3256345\nbtime 1700000000\n";
@@ -105,6 +106,116 @@ fn the_busiest_on_the_card_are_only_programs_we_can_name() {
     let procs = [raw(10, "game", 0), raw(11, "game", 0), raw(30, "browser", 0)];
     let top = gpu_busiest(&[(10, 30.0), (11, 20.0), (30, 40.0), (99, 90.0), (31, 0.0)], &procs, 3);
     assert_eq!(top, vec![use_of("game", 50.0), use_of("browser", 40.0)]);
+}
+
+const I915_FDINFO: &str = "pos:\t0\nflags:\t02100002\nmnt_id:\t26\nino:\t361\ndrm-driver:\ti915\ndrm-pdev:\t0000:00:02.0\ndrm-client-id:\t42\ndrm-total-system0:\t8192 KiB\ndrm-engine-render:\t9000000000 ns\ndrm-engine-capacity-render:\t1\ndrm-engine-copy:\t100 ns\ndrm-engine-capacity-copy:\t1\ndrm-engine-video:\t4000000000 ns\ndrm-engine-capacity-video:\t2\ndrm-engine-video-enhance:\t0 ns\ndrm-engine-capacity-video-enhance:\t1\n";
+
+const XE_FDINFO: &str = "pos:\t0\nflags:\t02100002\nmnt_id:\t26\nino:\t362\ndrm-driver:\txe\ndrm-client-id:\t7\ndrm-pdev:\t0000:00:02.0\ndrm-total-gtt:\t51200 KiB\ndrm-cycles-rcs:\t5000\ndrm-total-cycles-rcs:\t20000\ndrm-maxfreq-rcs:\t1300 MHz\ndrm-cycles-bcs:\t0\ndrm-total-cycles-bcs:\t20000\ndrm-cycles-vcs:\t10\n";
+
+const AMDGPU_FDINFO: &str = "pos:\t0\nflags:\t02100002\nmnt_id:\t27\nino:\t450\ndrm-driver:\tamdgpu\ndrm-client-id:\t12\ndrm-pdev:\t0000:03:00.0\ndrm-memory-vram:\t1048576 KiB\ndrm-engine-gfx:\t5000000000 ns\ndrm-engine-compute:\t0 ns\ndrm-engine-dec:\t2000000000 ns\ndrm-engine-enc_1:\t0 ns\n";
+
+fn engines(text: &str, edit: impl Fn(&str) -> String) -> DrmClient {
+    parse_drm_fdinfo(&edit(text)).unwrap()
+}
+
+#[test]
+fn fdinfo_of_each_driver_is_read() {
+    let i915 = parse_drm_fdinfo(I915_FDINFO).unwrap();
+    assert_eq!((i915.driver.as_str(), i915.pdev.as_deref(), i915.id), ("i915", Some("0000:00:02.0"), Some(42)));
+    assert_eq!(i915.engines.len(), 4, "capacity lines are not engines");
+    assert!(i915.engines.contains(&("video".into(), Busy::Ns { ns: 4_000_000_000, capacity: 2 })));
+    assert!(i915.engines.contains(&("render".into(), Busy::Ns { ns: 9_000_000_000, capacity: 1 })));
+    let xe = parse_drm_fdinfo(XE_FDINFO).unwrap();
+    assert_eq!((xe.driver.as_str(), xe.id), ("xe", Some(7)));
+    assert_eq!(xe.engines, vec![("rcs".into(), Busy::Cycles { busy: 5000, total: 20000 }), ("bcs".into(), Busy::Cycles { busy: 0, total: 20000 })], "vcs has no total, so no reading");
+    let amd = parse_drm_fdinfo(AMDGPU_FDINFO).unwrap();
+    assert_eq!((amd.driver.as_str(), amd.id, amd.engines.len()), ("amdgpu", Some(12), 4));
+    // Not a graphics fd, or a unit we don't know
+    assert!(parse_drm_fdinfo("pos:\t0\nflags:\t02\nmnt_id:\t9\n").is_none());
+    assert!(parse_drm_fdinfo("").is_none());
+    let odd = parse_drm_fdinfo("drm-driver: x\ndrm-engine-gfx: 5 ms\ndrm-engine-dec: oops ns\ndrm-client-id: nope\n").unwrap();
+    assert!(odd.engines.is_empty() && odd.id.is_none() && odd.key().is_none());
+}
+
+#[test]
+fn a_clients_share_is_its_busiest_engine_over_the_time_between_looks() {
+    let second = 1_000_000_000;
+    let before = parse_drm_fdinfo(I915_FDINFO).unwrap();
+    // render busy 0.5 s of 1 s; video busy 1 s, but spread over two engines, so only half
+    let after = engines(I915_FDINFO, |t| t.replace("9000000000", "9500000000").replace("4000000000", "5000000000"));
+    assert_eq!(client_share(&before, &after, second), Some(50.0));
+    let video = engines(I915_FDINFO, |t| t.replace("4000000000", "5200000000"));
+    assert_eq!(client_share(&before, &video, second), Some(60.0), "the pair's 1.2 s is 60 percent, more than idle render");
+    let busy = engines(I915_FDINFO, |t| t.replace("9000000000", "99000000000"));
+    assert_eq!(client_share(&before, &busy, second), Some(100.0), "capped");
+    assert_eq!(client_share(&before, &before, second), Some(0.0));
+    assert_eq!(client_share(&before, &after, 0), None, "no time passed, nothing to compare");
+}
+
+#[test]
+fn xe_clients_use_the_cycles_ratio_and_amdgpu_nanoseconds() {
+    let before = parse_drm_fdinfo(XE_FDINFO).unwrap();
+    let after = engines(XE_FDINFO, |t| t.replace("drm-cycles-rcs:\t5000", "drm-cycles-rcs:\t7000").replace("drm-total-cycles-rcs:\t20000", "drm-total-cycles-rcs:\t30000").replace("drm-cycles-bcs:\t0", "drm-cycles-bcs:\t1000"));
+    // rcs: 2000 of 10000 cycles; bcs: its busy moved but its total didn't, so it has no rate
+    let share = client_share(&before, &after, 5).unwrap();
+    assert!((share - 20.0).abs() < 0.01, "{share}");
+    let amd = parse_drm_fdinfo(AMDGPU_FDINFO).unwrap();
+    let later = engines(AMDGPU_FDINFO, |t| t.replace("5000000000", "5600000000").replace("2000000000", "2900000000"));
+    let share = client_share(&amd, &later, 1_000_000_000).unwrap();
+    assert!((share - 90.0).abs() < 0.01, "decode at 90 percent beats graphics at 60: {share}");
+}
+
+#[test]
+fn a_counter_that_went_backwards_is_no_reading() {
+    let before = parse_drm_fdinfo(I915_FDINFO).unwrap();
+    let reopened = engines(I915_FDINFO, |t| t.replace("9000000000", "10"));
+    assert_eq!(client_share(&before, &reopened, 1_000_000_000), None);
+    let xe = parse_drm_fdinfo(XE_FDINFO).unwrap();
+    let back = engines(XE_FDINFO, |t| t.replace("drm-cycles-rcs:\t5000", "drm-cycles-rcs:\t1"));
+    assert_eq!(client_share(&xe, &back, 1), None);
+    // Nothing in common to compare is none too
+    assert_eq!(client_share(&before, &xe, 1), None);
+}
+
+#[test]
+fn a_shared_client_counts_once_under_the_first_process_and_clients_add_up_per_process() {
+    let key = |c: &DrmClient| c.key().unwrap();
+    let one = parse_drm_fdinfo(I915_FDINFO).unwrap();
+    let two = engines(I915_FDINFO, |t| t.replace("client-id:\t42", "client-id:\t43"));
+    let other_card = engines(I915_FDINFO, |t| t.replace("0000:00:02.0", "0000:03:00.0"));
+    assert_ne!(key(&one), key(&two));
+    assert_ne!(key(&one), key(&other_card), "the same id on another device is another client");
+    let after = engines(I915_FDINFO, |t| t.replace("9000000000", "9300000000"));
+    let after_two = engines(&I915_FDINFO.replace("client-id:\t42", "client-id:\t43"), |t| t.replace("9000000000", "9200000000"));
+    let before: HashMap<ClientKey, DrmClient> = [(key(&one), one.clone()), (key(&two), two.clone())].into();
+    // Two processes opened client 42 (a game and its helper); the first seen has it, so it is listed once
+    let now: HashMap<ClientKey, (u32, DrmClient)> = [(key(&one), (100, after)), (key(&two), (100, after_two)), (key(&other_card), (200, other_card.clone()))].into();
+    let shares = client_shares(&before, &now, 1_000_000_000);
+    assert_eq!(shares.len(), 2, "the new client has no rate yet");
+    assert!(shares.iter().all(|(pid, _)| *pid == 100));
+    let load = gpu_load_from_clients(&shares, None).unwrap();
+    assert_eq!(load.per_pid.len(), 1);
+    assert!((load.per_pid[0].1 - 50.0).abs() < 0.01, "30 plus 20");
+    assert!((load.total - 50.0).abs() < 0.01);
+    // The driver's own total wins when it has one; a sum is capped
+    assert_eq!(gpu_load_from_clients(&shares, Some(12.0)).unwrap().total, 12.0);
+    assert_eq!(gpu_load_from_clients(&[(1, 80.0), (2, 70.0)], None).unwrap().total, 100.0);
+    // Nothing to attribute: only the driver's total, or nothing
+    assert_eq!(gpu_load_from_clients(&[], Some(33.0)), Some(GpuLoad { total: 33.0, per_pid: Vec::new() }));
+    assert_eq!(gpu_load_from_clients(&[], None), None);
+}
+
+#[test]
+fn a_game_on_the_shared_graphics_chip_is_named() {
+    // Only integrated graphics: no total from the driver, so it is the sum of the clients
+    let load = gpu_load_from_clients(&[(10, 90.0), (20, 4.0)], None).unwrap();
+    let procs = [raw(10, "game", 0), raw(20, "telescope", 0)];
+    let mut r = reading();
+    r.gpu_percent = Some(load.total);
+    r.own_gpu_percent = Some(3.0);
+    r.gpu_busiest = gpu_busiest(&load.per_pid, &procs, 3);
+    assert_eq!(r.gpu_busiest, vec![use_of("game", 90.0), use_of("telescope", 4.0)]);
+    assert_eq!(likely_cause(&r), Some(Cause::GpuBusy { name: Some("game".into()) }));
 }
 
 fn reading() -> SystemReading {
@@ -218,4 +329,30 @@ fn print_a_reading() {
     let reading = monitor.read();
     println!("{reading:#?}");
     println!("{:?}", likely_cause(&reading));
+}
+
+/// Prints the graphics part of one reading and how long its scan takes, with no program names (run with --ignored --nocapture).
+#[test]
+#[ignore]
+#[cfg(target_os = "linux")]
+fn print_the_graphics_part_and_scan_time() {
+    let mut reader = os::Reader::new();
+    let procs = reader.processes();
+    reader.gpu(None);
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+    let load = reader.gpu(None);
+    let names: HashMap<u32, usize> = procs.iter().enumerate().map(|(i, p)| (p.pid, i)).collect();
+    let shares: Vec<String> = load.iter().flat_map(|l| &l.per_pid).map(|(pid, v)| format!("process {} at {v:.1}%", names.get(pid).map_or("(this one)".to_string(), |i| i.to_string()))).collect();
+    println!("user processes: {}, total: {:?}, per process: {shares:?}", procs.len(), load.as_ref().map(|l| l.total));
+    let runs = 50;
+    let (mut listing, mut scan) = (std::time::Duration::ZERO, std::time::Duration::ZERO);
+    for _ in 0..runs {
+        let t = std::time::Instant::now();
+        reader.processes();
+        listing += t.elapsed();
+        let t = std::time::Instant::now();
+        reader.gpu(None);
+        scan += t.elapsed();
+    }
+    println!("process listing {:?} per look, graphics scan {:?} per look", listing / runs, scan / runs);
 }
