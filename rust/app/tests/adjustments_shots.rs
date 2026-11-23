@@ -135,6 +135,8 @@ fn the_chip_at_every_width_and_text_size_never_pushes_start_out_or_widens_the_wi
             feed(&r, snapshot(0, 0, 0));
             settle(&r, 1380.0);
             let bare_narrowest = narrowest(&r);
+            shot(&r, &dir, &format!("chip-0-wide-{look_name}{size}"), 1380.0, 40.0);
+            shot(&r, &dir, &format!("chip-0-narrowest-{look_name}{size}"), bare_narrowest, 40.0);
             feed(&r, snapshot(1, 0, 2));
             shot(&r, &dir, &format!("chip-1-wide-{look_name}{size}"), 1380.0, 40.0);
             feed(&r, snapshot(2, 0, 2));
