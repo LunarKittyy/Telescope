@@ -299,7 +299,7 @@ impl Pipeline {
     }
 
     /// Runs on this card instead of the app's, for tests that lose it.
-    #[cfg(test)]
+    #[cfg(all(test, target_os = "linux", ffmpeg))]
     pub(crate) fn use_card(&mut self, gpu: Arc<Gpu>) {
         self.gpu = Some(Some(gpu));
     }
