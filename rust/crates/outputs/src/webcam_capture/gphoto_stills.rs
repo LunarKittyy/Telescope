@@ -774,6 +774,18 @@ fn progress(state: &str, countdown_ms: u128, paused: bool) -> Value {
     json!({"state": state, "shots": 1, "taken": 0, "countdown_ms": countdown_ms as u64, "paused": paused, "saved": 0})
 }
 
+/// The extension a shot is saved under: the camera's own kind in lower case, else jpg.
+fn ext_of(name: &str) -> String {
+    Path::new(name).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase)
+        .filter(|e| !e.is_empty() && e.len() <= 5 && e.chars().all(|c| c.is_ascii_alphanumeric())).unwrap_or_else(|| "jpg".into())
+}
+
+/// `stem.ext` in folder, taken by making it empty, if nothing has it.
+fn reserve_exact(folder: &Path, stem: &str, ext: &str) -> std::io::Result<PathBuf> {
+    let path = folder.join(format!("{stem}.{ext}"));
+    std::fs::OpenOptions::new().write(true).create_new(true).open(&path).map(|_| path)
+}
+
 /// A free name in folder, taken by making it empty so nothing else saving at the same time can have it.
 fn reserve(folder: &Path, stem: &str, ext: &str) -> std::io::Result<PathBuf> {
     for n in 1..1000 {
@@ -796,17 +808,22 @@ fn save(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool) -> Result<Vec
 }
 
 fn save_transformed(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool, transform: Option<&telescope_core::photo::PhotoTransform>) -> Result<Vec<PathBuf>, (Failure, Vec<PathBuf>)> {
-    let stem = format!("Telescope_{}", telescope_core::time::local_stamp());
+    save_as(folder, &format!("Telescope_{}", telescope_core::time::local_stamp()), shots, covered, transform)
+}
+
+/// `save_transformed` under a name that is given.
+fn save_as(folder: &Path, stem: &str, shots: &[Shot], covered: &dyn Fn() -> bool, transform: Option<&telescope_core::photo::PhotoTransform>) -> Result<Vec<PathBuf>, (Failure, Vec<PathBuf>)> {
     let mut files: Vec<PathBuf> = Vec::new();
     let discard = |files: &[PathBuf]| files.iter().for_each(|f| { let _ = std::fs::remove_file(f); });
-    for shot in shots {
+    let exts: Vec<String> = shots.iter().map(|shot| ext_of(&shot.name)).collect();
+    // One name for all the files of the photo, so a RAW and its JPEG never end up with a number on only one of them
+    let using = telescope_core::names::free_stem(folder, stem, &exts.iter().map(String::as_str).collect::<Vec<_>>());
+    for (shot, ext) in shots.iter().zip(&exts) {
         if covered() {
             discard(&files);
             return Err((Failure::Hidden, Vec::new()));
         }
-        let ext = Path::new(&shot.name).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase)
-            .filter(|e| !e.is_empty() && e.len() <= 5 && e.chars().all(|c| c.is_ascii_alphanumeric())).unwrap_or_else(|| "jpg".into());
-        let path = match reserve(folder, &stem, &ext) {
+        let path = match reserve_exact(folder, &using, ext).or_else(|_| reserve(folder, stem, ext)) {
             Ok(p) => p,
             Err(e) => {
                 log::warn!("can't save the photo in {}: {e}", folder.display());

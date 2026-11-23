@@ -6386,9 +6386,6 @@ msgstr ""
 msgid "The photo was interrupted because the camera stopped."
 msgstr "카메라가 중지되어 사진 촬영이 중단되었어요."
 
-msgid "The photo was interrupted by a change to the camera."
-msgstr "카메라 설정 변경으로 인해 사진 촬영이 중단되었어요."
-
 msgid "The photo was interrupted."
 msgstr ""
 
@@ -10506,6 +10503,9 @@ msgstr ""
 
 #~ msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 #~ msgstr "Windows에서 휴대폰 마이크를 사용하려면 VB-Audio Virtual Cable이 필요해요."
+
+#~ msgid "The photo was interrupted by a change to the camera."
+#~ msgstr "카메라 설정 변경으로 인해 사진 촬영이 중단되었어요."
 
 #~ msgid "The picture apps see on the virtual camera while nothing is streaming."
 #~ msgstr "스트리밍하지 않는 동안 앱이 가상 카메라에서 보게 되는 화면이에요."

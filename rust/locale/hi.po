@@ -6403,9 +6403,6 @@ msgstr ""
 msgid "The photo was interrupted because the camera stopped."
 msgstr "फ़ोटो लेने में रुकावट आई क्योंकि कैमरा बंद हो गया."
 
-msgid "The photo was interrupted by a change to the camera."
-msgstr "कैमरे में बदलाव के कारण फ़ोटो लेने में रुकावट आई."
-
 msgid "The photo was interrupted."
 msgstr ""
 
@@ -10532,6 +10529,9 @@ msgstr ""
 
 #~ msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 #~ msgstr "Windows पर फ़ोन के माइक के लिए VB-Audio Virtual Cable की ज़रूरत होती है."
+
+#~ msgid "The photo was interrupted by a change to the camera."
+#~ msgstr "कैमरे में बदलाव के कारण फ़ोटो लेने में रुकावट आई."
 
 #~ msgid "The picture apps see on the virtual camera while nothing is streaming."
 #~ msgstr "जब कुछ भी स्ट्रीम नहीं हो रहा हो, तब ऐप्स को वर्चुअल कैमरे पर दिखने वाली तस्वीर."

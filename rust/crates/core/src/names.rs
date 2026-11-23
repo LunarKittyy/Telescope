@@ -70,8 +70,59 @@ pub fn whole_number(text: &str) -> Option<i64> {
     Some(text.trim_start_matches('+').parse::<i64>().unwrap_or(if negative { i64::MIN } else { i64::MAX }))
 }
 
+/// Makes an empty file in `folder` under the first of `name(1)`, `name(2)` and so on that is free, so nothing saving at the same time can take it too.
+pub fn reserve_file(folder: &std::path::Path, name: impl Fn(u32) -> String) -> std::io::Result<std::path::PathBuf> {
+    for n in 1..1000 {
+        let path = folder.join(name(n));
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(_) => return Ok(path),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
+    }
+    Err(std::io::Error::other("no free name"))
+}
+
+/// `stem.ext`, or `stem` alone for an empty extension.
+pub fn with_ext(stem: &str, ext: &str) -> String {
+    if ext.is_empty() { stem.to_string() } else { format!("{stem}.{ext}") }
+}
+
+/// The first of `stem`, `stem (2)`, `stem (3)` and so on that none of the files `stem.ext` (or their `.part`) is there under yet, so the
+/// files of one photo (a RAW and its JPEG) can all take the same one.
+pub fn free_stem(folder: &std::path::Path, stem: &str, exts: &[&str]) -> String {
+    let taken = |s: &str| exts.iter().any(|ext| {
+        let name = with_ext(s, ext);
+        folder.join(&name).exists() || folder.join(format!("{name}.part")).exists()
+    });
+    let mut using = stem.to_string();
+    let mut n = 2;
+    while taken(&using) && n < 1000 {
+        using = format!("{stem} ({n})");
+        n += 1;
+    }
+    using
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_files_of_one_photo_get_a_stem_none_of_them_has_taken() {
+        use super::{free_stem, reserve_file};
+        let dir = crate::testing::scratch_dir("names-stem");
+        assert_eq!(free_stem(&dir, "IMG_1", &["jpg", "dng"]), "IMG_1");
+        std::fs::write(dir.join("IMG_1.jpg"), b"x").unwrap();
+        assert_eq!(free_stem(&dir, "IMG_1", &["jpg", "dng"]), "IMG_1 (2)");
+        assert_eq!(free_stem(&dir, "IMG_1", &["dng"]), "IMG_1", "a file of another kind doesn't count");
+        std::fs::write(dir.join("IMG_1 (2).dng.part"), b"x").unwrap();
+        assert_eq!(free_stem(&dir, "IMG_1", &["jpg", "dng"]), "IMG_1 (3)");
+        assert_eq!(free_stem(&dir, "notes", &[""]), "notes");
+        std::fs::write(dir.join("notes"), b"x").unwrap();
+        assert_eq!(free_stem(&dir, "notes", &[""]), "notes (2)");
+        let (a, b) = (reserve_file(&dir, |n| format!("a_{n}.png")).unwrap(), reserve_file(&dir, |n| format!("a_{n}.png")).unwrap());
+        assert_eq!((a.file_name().unwrap(), b.file_name().unwrap()), ("a_1.png".as_ref(), "a_2.png".as_ref()));
+    }
+
     #[test]
     fn a_typed_whole_number() {
         use super::whole_number;

@@ -6402,9 +6402,6 @@ msgstr ""
 msgid "The photo was interrupted because the camera stopped."
 msgstr "Fotot avbröts eftersom kameran stoppades."
 
-msgid "The photo was interrupted by a change to the camera."
-msgstr "Fotot avbröts av en ändring i kameran."
-
 msgid "The photo was interrupted."
 msgstr ""
 
@@ -10531,6 +10528,9 @@ msgstr ""
 
 #~ msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 #~ msgstr "Telefonens mikrofon behöver VB-Audio Virtual Cable på Windows."
+
+#~ msgid "The photo was interrupted by a change to the camera."
+#~ msgstr "Fotot avbröts av en ändring i kameran."
 
 #~ msgid "The picture apps see on the virtual camera while nothing is streaming."
 #~ msgstr "Bilden som appar ser på den virtuella kameran när inget strömmar."
