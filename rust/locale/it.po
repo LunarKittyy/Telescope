@@ -2690,7 +2690,7 @@ msgstr "Cambio obiettivo"
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Un intervallo minore offre regolazioni più fini. Un intervallo maggiore aiuta con un telefono dal volume basso."
 
-msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. It only does anything while Bitrate is set to Dynamic."
+msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
 msgstr ""
 
 msgid "Let an AI app read and change Telescope's settings."

@@ -2690,7 +2690,7 @@ msgstr "Lens geçişi"
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Daha az aralık daha hassas adımlar sağlar. Daha fazla aralık sessiz bir telefona yardımcı olur."
 
-msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. It only does anything while Bitrate is set to Dynamic."
+msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
 msgstr ""
 
 msgid "Let an AI app read and change Telescope's settings."

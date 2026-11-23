@@ -2690,7 +2690,7 @@ msgstr "लेंस बदलें"
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "कम रेंज बारीक़ स्टेप्स देती है. ज़्यादा रेंज धीमे फ़ोन में मदद करती है."
 
-msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. It only does anything while Bitrate is set to Dynamic."
+msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
 msgstr ""
 
 msgid "Let an AI app read and change Telescope's settings."
