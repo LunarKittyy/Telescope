@@ -51,7 +51,7 @@ pub struct ViewController {
     /// A phone share whose arriving frames the worker tracks through a zoom change.
     gate: Arc<ViewGate>,
     /// The phone side of each stream the panels moved away from (StreamsBehind).
-    behind: HashMap<String, (u64, Option<PhoneZoomCaps>, Option<PhoneZoom>, f64, View)>,
+    behind: HashMap<String, (u64, Option<PhoneZoomCaps>, bool, Option<PhoneZoom>, f64, View)>,
 }
 
 fn with_crop(view: &View, (zoom, pan_x, pan_y): (f64, f64, f64)) -> View {
@@ -96,7 +96,7 @@ impl ViewController {
     pub fn photo_transform(&self, source: &str, use_zoom: bool) -> telescope_core::photo::PhotoTransform {
         let manual = if self.source.as_deref() == Some(source) {
             &self.manual
-        } else if let Some((_, _, _, _, manual)) = self.behind.get(source) {
+        } else if let Some((_, _, _, _, _, manual)) = self.behind.get(source) {
             manual
         } else {
             return Default::default();
@@ -113,7 +113,7 @@ impl ViewController {
         if self.source.as_deref() == Some(source) {
             self.sent
         } else {
-            self.behind.get(source).and_then(|(_, _, sent, _, _)| *sent)
+            self.behind.get(source).and_then(|(_, _, _, sent, _, _)| *sent)
         }.map_or(1.0, |p| p.ratio)
     }
 
@@ -211,6 +211,7 @@ impl ViewController {
         self.source = Some(source_id.into());
         self.session = session;
         self.sent = None; // a new connection (or a reconnect): tell the phone again
+        self.gate.follow(None); // and what the last connection's frames said about its crop says nothing of this one's
         let mut out = Vec::new();
         self.sync(view, now, &mut out);
         out
@@ -219,11 +220,11 @@ impl ViewController {
     pub fn focus_gained(&mut self, view: &View, source_id: &str, session: u64, now: f64) -> Vec<Said> {
         // A stream that started again since has told the phone nothing yet
         let kept = self.behind.remove(source_id).filter(|k| k.0 == session);
-        let Some((_, caps, sent, at, _)) = kept else { return self.stream_start(view, source_id, session, now) };
+        let Some((_, caps, tags, sent, at, _)) = kept else { return self.stream_start(view, source_id, session, now) };
         // Back on a stream: the phone already crops what it was sent, so the desktop only does the rest
         self.source = Some(source_id.into());
         self.session = session;
-        (self.caps, self.sent, self.sent_ratio_at) = (caps, sent, at);
+        (self.caps, self.crop_tags, self.sent, self.sent_ratio_at) = (caps, tags, sent, at);
         let mut out = Vec::new();
         self.sync(view, now, &mut out);
         out
@@ -238,7 +239,7 @@ impl ViewController {
 
     pub fn focus_lost(&mut self, view: &View, now: f64) -> Vec<Said> {
         if let Some(id) = self.source.clone() {
-            self.behind.insert(id, (self.session, self.caps.clone(), self.sent, self.sent_ratio_at, self.manual.clone()));
+            self.behind.insert(id, (self.session, self.caps.clone(), self.crop_tags, self.sent, self.sent_ratio_at, self.manual.clone()));
         }
         self.leave(view, now)
     }
@@ -246,6 +247,7 @@ impl ViewController {
     fn leave(&mut self, view: &View, now: f64) -> Vec<Said> {
         self.source = None;
         self.caps = None;
+        self.crop_tags = false;
         let mut out = Vec::new();
         self.sync(view, now, &mut out);
         out.push(self.lens_boxes(view, false));
@@ -298,6 +300,11 @@ impl ViewController {
             // A lens that switches takes a while on the phone, so its frames are looked for as a crop's are
             match self.sent {
                 Some(old) => self.gate.begin(old, p, (with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), view, now),
+                // A phone that tags its frames says where its picture is, from the first one: before its zoom has been applied that is whatever it had
+                None if self.crop_tags => {
+                    let neutral = PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 };
+                    self.gate.begin(neutral, p, (with_crop(view, rest(view, &neutral, desktop)), with_crop(view, desktop)), view, now)
+                }
                 None => self.gate.end(),
             }
             out.push(Said::Restep);
@@ -306,7 +313,10 @@ impl ViewController {
         } else if self.gate.underway() {
             match self.gate.still_for(self.sent, now) {
                 Some(old) => self.gate.retarget((with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), view),
-                None => self.gate.end(),
+                None => {
+                    self.gate.end();
+                    self.gate.retarget_following(with_crop(view, desktop), view);
+                }
             }
             out.push(Said::Restep);
         }
@@ -765,5 +775,47 @@ mod tests {
         assert_eq!((boxes_of(&said).unwrap().1, pannable(&said)), (true, Some(true)));
         let said = vc.stream_stop(&view, 0.0);
         assert_eq!(boxes_of(&said), Some((Vec::new(), false)));
+    }
+
+    fn tagged_lens() -> Value {
+        json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true, "lensZooms": [3.7], "cropTags": true}]})
+    }
+
+    #[test]
+    fn the_crop_tags_flag_follows_the_phone_in_focus() {
+        let (mut vc, mut view) = (ViewController::new(), View::default());
+        vc.set_view(&mut view, &change(Some(2.0), None, None), 0.0);
+        vc.stream_start(&view, "new", 1, 0.0);
+        vc.phone_state(&view, &tagged_lens(), 0.0);
+        assert!(vc.crop_tags);
+        vc.focus_lost(&view, 1.0);
+        assert!(!vc.crop_tags, "nothing is focused");
+        vc.stream_start(&view, "old", 1, 1.0);
+        vc.phone_state(&view, &lens(), 1.0);
+        assert!(!vc.crop_tags);
+        vc.focus_lost(&view, 2.0);
+        vc.focus_gained(&view, "new", 1, 2.0);
+        assert!(vc.crop_tags, "back on the tagging phone");
+        vc.focus_lost(&view, 3.0);
+        vc.focus_gained(&view, "old", 1, 3.0);
+        assert!(!vc.crop_tags, "the older phone sends no tags");
+    }
+
+    #[test]
+    fn a_reconnected_tagging_phone_is_followed_by_its_tags_from_the_first_frame() {
+        let (mut vc, mut view) = engaged();
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.phone_state(&view, &tagged_lens(), 0.0);
+        vc.set_view(&mut view, &change(Some(3.0), None, None), 0.1);
+        let new = vc.sent.unwrap();
+        let gate = vc.gate();
+        vc.stream_start(&view, "p1", 2, 5.0);
+        assert_eq!(vc.sent, Some(new), "told again");
+        assert!(gate.waiting(), "frames before the phone applies it are not cropped for it");
+        let neutral = PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 };
+        gate.for_frame_snapshot("p1", &from_phone(&neutral), 5.01, false);
+        assert!(gate.waiting());
+        gate.for_frame_snapshot("p1", &from_phone(&new), 5.05, false);
+        assert!(!gate.waiting());
     }
 }

@@ -217,10 +217,21 @@ impl Handover {
 
     /// The view for frames that are `progress` of the way to the new share (or show the crop they are tagged with), and the phone's window they show.
     fn shown(&self) -> (View, (f64, f64, f64)) {
-        if self.arrived || self.progress >= 1.0 {
+        self.shown_for(true)
+    }
+
+    /// Whether the tags have put the picture on a crop other than the share asked for, which is where it stays.
+    fn following(&self) -> bool {
+        self.actual.is_some_and(|t| !shows(&t, &self.new))
+    }
+
+    /// shown, for a frame that came with its tag (`tagged`) or without: where the last tagged frame was says nothing of a frame whose tag is missing, until the handover is over.
+    fn shown_for(&self, tagged: bool) -> (View, (f64, f64, f64)) {
+        let actual = self.actual.filter(|_| tagged || self.arrived);
+        if actual.is_some_and(|t| shows(&t, &self.new)) || (actual.is_none() && (self.arrived || self.progress >= 1.0)) {
             return (self.views.1.clone(), phone_window(Some(&self.new)));
         }
-        let share = match self.actual {
+        let share = match actual {
             Some(tag) if shows(&tag, &self.old) => self.old,
             Some(tag) => tag,
             None => self.share(self.progress),
@@ -305,8 +316,6 @@ struct Inner {
     guess: Option<Guess>,
     /// That stream's last frame, small, while a new share is on its way or its crop is a guess, and always for a frame in memory.
     last: Option<Thumb>,
-    /// The crop that stream's last tagged frame had: a stream that tags its frames is never compared, and a frame that came without one shows the same.
-    tag: Option<PhoneZoom>,
     shown: Option<(View, (f64, f64, f64))>,
     cameras: HashMap<String, (Value, u64)>,
 }
@@ -335,7 +344,6 @@ impl ViewGate {
         if inner.source.as_deref() != source {
             inner.source = source.map(str::to_string);
             inner.last = None;
-            inner.tag = None;
             inner.handover = None;
             inner.guess = None;
             inner.shown = None;
@@ -344,7 +352,8 @@ impl ViewGate {
 
     pub fn begin(&self, old: PhoneZoom, new: PhoneZoom, mut views: (View, View), framing: &View, now: f64) {
         let mut inner = self.0.lock().unwrap();
-        let old = inner.handover.as_ref().filter(|h| !h.arrived).map_or(old, |h| h.actual.unwrap_or_else(|| h.share(h.progress)));
+        // A share still on its way is left from where its frames are; so is one the phone settled short of, as its tags say
+        let old = inner.handover.as_ref().and_then(|h| if !h.arrived { Some(h.actual.unwrap_or_else(|| h.share(h.progress))) } else if h.following() { h.actual } else { None }).unwrap_or(old);
         let guess = Guess::new(now, inner.handover.as_ref().map(|h| &h.guess).or(inner.guess.as_ref()));
         inner.guess = None;
         if let Some((zoom, pan_x, pan_y)) = rest_within(framing.zoom as f64, framing.pan_x as f64, framing.pan_y as f64, &old, true) {
@@ -359,10 +368,27 @@ impl ViewGate {
     pub fn end(&self) {
         let mut inner = self.0.lock().unwrap();
         // The share is taken to have arrived, but until a frame has shown it the crop named for frames is still a guess
-        if let Some(h) = inner.handover.take() {
-            inner.guess = Some(h.guess).filter(|g| !g.confirmed);
+        if let Some(mut h) = inner.handover.take() {
+            if h.following() {
+                // Frames are tagged with a crop other than the one asked for (the camera gave 1.8x for 2x): the tags stay what says where the picture is
+                h.arrived = true;
+                inner.handover = Some(h);
+            } else {
+                inner.guess = Some(h.guess).filter(|g| !g.confirmed);
+            }
         }
         inner.shown = None;
+    }
+
+    /// A handover that has ended but still follows the tags: the view for frames at the share asked for and the framing the crops are for, kept current.
+    pub fn retarget_following(&self, new: View, framing: &View) {
+        if let Some(h) = self.0.lock().unwrap().handover.as_mut().filter(|h| h.arrived) {
+            if let Some((zoom, pan_x, pan_y)) = rest_within(framing.zoom as f64, framing.pan_x as f64, framing.pan_y as f64, &h.old, true) {
+                h.views.0 = View { zoom: zoom as f32, pan_x: pan_x as f32, pan_y: pan_y as f32, ..h.views.0.clone() };
+            }
+            h.views.1 = new;
+            h.framing = framing.clone();
+        }
     }
 
     /// Waiting for frames of the share sent last.
@@ -411,8 +437,8 @@ impl ViewGate {
             return (None, false);
         }
         // A guess past the time the phone is given says nothing any more, and a tagged frame's crop is no guess
-        let tag = frame.phone_share.or(inner.tag);
-        inner.tag = tag;
+        // A frame without its tag has an unknown crop, never the last frame's
+        let tag = frame.phone_share;
         if tag.is_some() || inner.guess.as_ref().is_some_and(|g| now > g.until) {
             inner.guess = None;
         }
@@ -439,7 +465,7 @@ impl ViewGate {
             });
             return (None, unsure);
         };
-        if let (Some(tag), false) = (tag, h.arrived) {
+        if let Some(tag) = tag {
             h.tagged(tag);
         }
         if !h.arrived {
@@ -455,7 +481,7 @@ impl ViewGate {
         } else if let Some(t) = &thumb {
             h.guess.watch(t, now);
         }
-        let shown = h.shown();
+        let shown = h.shown_for(tag.is_some());
         let unsure = tag.is_none() && h.guess.unsure(now);
         let changed = (replaced || inner.shown.as_ref() != Some(&shown)).then(|| {
             inner.shown = Some(shown.clone());
@@ -515,11 +541,11 @@ mod tests {
             frame
         };
         gate.begin(old, new, views.clone(), &framing, 0.0);
-        // Old frames keep the old crop (the view begin settled on for it), untagged ones in between too, however long the phone takes
+        // Old frames keep the old crop (the view begin settled on for it), however long the phone takes
         let start = gate.waiting_snapshot().unwrap().0;
         assert_eq!(gate.for_frame_labelled("a", &on_card(Some(old)), 0.1, false), (Some((start, phone_window(Some(&old)))), false));
         for k in 0..20 {
-            assert_eq!(gate.for_frame_labelled("a", &on_card(if k % 3 == 0 { None } else { Some(old) }), 0.2 + k as f64 * 0.03, false), (None, false));
+            assert_eq!(gate.for_frame_labelled("a", &on_card(Some(old)), 0.2 + k as f64 * 0.03, false), (None, false));
             assert!(gate.waiting());
         }
         // A step on the way is cropped for what it shows
@@ -532,6 +558,63 @@ mod tests {
         assert_eq!(gate.for_frame_labelled("a", &on_card(Some(rounded)), 1.0, false), (Some((views.1.clone(), phone_window(Some(&new)))), false));
         assert!(!gate.waiting());
         assert_eq!(surface.1.load(std::sync::atomic::Ordering::Relaxed), 0, "nothing was copied off the card");
+    }
+
+    fn plain(tag: Option<PhoneZoom>) -> Frame {
+        let mut frame = Frame::new(8, 8, PixelFormat::I420, vec![120; 96]);
+        frame.phone_share = tag;
+        frame
+    }
+
+    #[test]
+    fn a_frame_whose_tag_is_missing_is_unknown_and_not_the_last_tag() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"));
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 3.0, ..old };
+        let views = (View { zoom: 3.0, ..View::default() }, View { zoom: 2.0, ..View::default() });
+        gate.begin(old, new, views.clone(), &View { zoom: 6.0, ..View::default() }, 0.0);
+        let midway = PhoneZoom { crop: 2.5, ..old };
+        let (tagged, _) = gate.for_frame_snapshot("a", &plain(Some(midway)), 0.1, false).unwrap();
+        assert!(tagged != views.0);
+        // The old crop's tag is not carried to the next frame, which may be the swap frame
+        let (untagged, _) = gate.for_frame_snapshot("a", &plain(None), 0.12, false).unwrap();
+        assert_eq!(untagged, views.0);
+        // A lens change or a reconnect leaves nothing behind for the next frame
+        gate.for_frame_snapshot("a", &plain(Some(midway)), 0.2, false);
+        gate.follow(None);
+        gate.follow(Some("a"));
+        assert!(!gate.underway());
+        assert_eq!(gate.for_frame_snapshot("a", &plain(None), 0.3, false), None);
+    }
+
+    #[test]
+    fn tags_stay_what_says_where_the_picture_is_after_the_time_is_up() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"));
+        let old = PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 2.0, ..old };
+        let got = PhoneZoom { crop: 1.8, ..old };
+        let framing = View { zoom: 4.0, ..View::default() };
+        let views = (View { zoom: 4.0, ..View::default() }, View { zoom: 2.0, ..View::default() });
+        gate.begin(old, new, views.clone(), &framing, 0.0);
+        let (view, crop) = gate.for_frame_snapshot("a", &plain(Some(got)), 0.5, false).unwrap();
+        assert!((view.zoom as f64 * crop.0 - 4.0).abs() < 1e-4);
+        // Past HANDOVER_S the share is taken to have arrived, but a frame tagged 1.8x is still cropped as 1.8x
+        assert_eq!(gate.for_frame_snapshot("a", &plain(Some(got)), 3.0, false), None);
+        assert!(!gate.waiting(), "the next share may be sent");
+        gate.end();
+        assert!(gate.underway(), "the tags go on saying where the picture is");
+        assert_eq!(gate.for_frame_snapshot("a", &plain(Some(got)), 4.0, true).map(|s| s.1), Some(phone_window(Some(&got))));
+        // The new share is left from where the tags put the picture
+        gate.begin(new, old, views.clone(), &framing, 5.0);
+        assert_eq!(gate.waiting_snapshot().map(|s| s.1), Some(phone_window(Some(&got))));
+        gate.begin(old, new, views.clone(), &framing, 6.0);
+        // Once a frame shows the share asked for, they are done
+        let (view, crop) = gate.for_frame_snapshot("a", &plain(Some(new)), 6.1, false).unwrap();
+        assert_eq!((view, crop), (views.1.clone(), phone_window(Some(&new))));
+        gate.end();
+        assert!(!gate.underway());
     }
 
     #[test]
