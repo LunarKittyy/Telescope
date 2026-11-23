@@ -651,6 +651,30 @@ struct GphotoState {
     found: Vec<Detected>,
     running: bool,
     missing: bool,
+    /// The USB devices (and when) the last good look saw: with the same ones plugged in there is nothing new to find.
+    looked: Option<(String, std::time::Instant)>,
+}
+
+/// A look at the USB bus costs a few files; asking libgphoto2 loads every camera driver and builds a list of over a thousand models.
+/// So it only asks again when this changes, or after `RELOOK` as a safety net.
+const RELOOK: std::time::Duration = std::time::Duration::from_secs(600);
+
+/// The USB devices that are plugged in (bus, address, vendor and product ids), or None where the system doesn't say.
+fn usb_devices(root: &std::path::Path) -> Option<String> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(root).ok()?.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        // Interfaces are "1-2:1.0"; the devices are what a camera's plug shows
+        if name.contains(':') {
+            continue;
+        }
+        let read = |file: &str| std::fs::read_to_string(entry.path().join(file)).map(|t| t.trim().to_string());
+        if let (Ok(bus), Ok(dev), Ok(vendor), Ok(product)) = (read("busnum"), read("devnum"), read("idVendor"), read("idProduct")) {
+            found.push(format!("{bus}:{dev}:{vendor}:{product}"));
+        }
+    }
+    found.sort();
+    Some(found.join(" "))
 }
 
 /// Looks for DSLRs now and then on a thread of its own, so a slow gphoto2 never holds up the webcam rescan: scan() gives
@@ -666,16 +690,19 @@ pub struct GphotoScanner {
     last: Option<std::time::Instant>,
     /// Called from the look's thread when it finds a different set of cameras than before.
     on_change: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
+    /// Where the system lists USB devices; a look only happens when they change. None looks every time.
+    usb_root: Option<std::path::PathBuf>,
 }
 
 #[cfg(any(target_os = "linux", windows))]
 impl GphotoScanner {
     pub fn new(program: &str, every: std::time::Duration, limit: std::time::Duration) -> GphotoScanner {
-        GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None, on_change: None }
+        GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None, on_change: None, usb_root: None }
     }
 
     pub fn system() -> GphotoScanner {
-        GphotoScanner { library: true, ..GphotoScanner::new("gphoto2", std::time::Duration::from_secs(4), GPHOTO_DETECT_TIMEOUT) }
+        let usb_root = cfg!(target_os = "linux").then(|| std::path::PathBuf::from("/sys/bus/usb/devices"));
+        GphotoScanner { library: true, usb_root, ..GphotoScanner::new("gphoto2", std::time::Duration::from_secs(4), GPHOTO_DETECT_TIMEOUT) }
     }
 
     /// Has `f` called whenever a look finds a different set of cameras, so a late result isn't left until the next scan.
@@ -692,6 +719,12 @@ impl GphotoScanner {
         let wait = if missing { std::time::Duration::from_secs(60) } else { self.every };
         if !running && self.last.is_none_or(|t| t.elapsed() >= wait) {
             self.last = Some(std::time::Instant::now());
+            // Same devices as the last good look: nothing to find, and no thread, library load or command to pay for
+            let devices = self.usb_root.as_deref().and_then(usb_devices);
+            let unchanged = devices.as_ref().is_some_and(|d| self.state.lock().unwrap().looked.as_ref().is_some_and(|(seen, at)| seen == d && at.elapsed() < RELOOK));
+            if unchanged {
+                return gphoto_devices(&self.state.lock().unwrap().found);
+            }
             self.state.lock().unwrap().running = true;
             let (state, program, limit, library, on_change) = (self.state.clone(), self.program.clone(), self.limit, self.library, self.on_change.clone());
             std::thread::spawn(move || {
@@ -719,6 +752,7 @@ impl GphotoScanner {
                     match out {
                         Ok(text) => {
                             st.missing = false;
+                            st.looked = devices.map(|d| (d, std::time::Instant::now()));
                             st.found = text.into_iter().map(|(model, port)| {
                                 let identity = identity_of(&port);
                                 Detected { model, port, identity }
@@ -726,6 +760,7 @@ impl GphotoScanner {
                         }
                         Err(true) => {
                             st.missing = true;
+                            st.looked = None;
                             st.found.clear();
                         }
                         // Stuck or failed once: keep what was found
