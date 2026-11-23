@@ -412,6 +412,8 @@ pub(crate) struct Inner {
     pub(crate) hold_people: AtomicBool,
     /// Tests with a real model: a frame step waits for its own mask.
     masks_wait: AtomicBool,
+    /// Tests: the clock's bits while it is faked (see Vision::fake_clock), 0 for the real one.
+    fake_now: AtomicU64,
     /// How many times the view has turned (drop_masks), so a mask made for a picture from before one isn't taken for the new picture's.
     turns: AtomicU64,
 }
@@ -460,6 +462,7 @@ impl Vision {
             give_back: Mutex::new(Box::new(give_back_memory)),
             hold_people: AtomicBool::new(false),
             masks_wait: AtomicBool::new(false),
+            fake_now: AtomicU64::new(0),
             turns: AtomicU64::new(0),
         }) }
     }
@@ -515,6 +518,26 @@ impl Vision {
 
     pub fn set_power_saving(&self, on: bool) {
         self.inner.saving.store(on, Ordering::SeqCst);
+    }
+
+    /// Seconds on the clock the service goes by: the monotonic one, or the faked one tests move by hand.
+    fn now(&self) -> f64 {
+        match self.inner.fake_now.load(Ordering::SeqCst) {
+            0 => monotonic(),
+            bits => f64::from_bits(bits),
+        }
+    }
+
+    /// Tests: from now on time only moves when `advance_fake_clock` says so.
+    #[cfg(test)]
+    pub(crate) fn fake_clock(&self) {
+        self.inner.fake_now.store(monotonic().to_bits(), Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn advance_fake_clock(&self, secs: f64) {
+        let now = f64::from_bits(self.inner.fake_now.load(Ordering::SeqCst));
+        self.inner.fake_now.store((now + secs).to_bits(), Ordering::SeqCst);
     }
 
     pub fn power_saving(&self) -> bool {
@@ -653,11 +676,11 @@ impl Vision {
             let sv = self.stream(key);
             let mut m = sv.mask.lock().unwrap();
             m.geometry(view.geometry, view.space, view.unsure);
-            m.asked = monotonic();
+            m.asked = self.now();
             let has_look = look.is_some();
             let mut look_fn = || look.take().and_then(|f| f());
             let look_arg = has_look.then_some(&mut look_fn as &mut dyn FnMut() -> Option<Vec<u8>>);
-            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch, monotonic()).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), frame_at: m.frame_at.max(m.seen_frame), seq: m.ran.unwrap_or(seq) });
+            return self.mask(&mut m, &*backend, Which::Normal, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch, self.now()).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), frame_at: m.frame_at.max(m.seen_frame), seq: m.ran.unwrap_or(seq) });
         }
         let Some(backend) = self.ready() else {
             self.load();
@@ -698,12 +721,12 @@ impl Vision {
             let (mut look, mut picture) = (look, Some(picture));
             let sv = self.stream(&key);
             let mut m = sv.mask.lock().unwrap();
-            m.asked = monotonic();
+            m.asked = self.now();
             m.geometry(view.geometry, view.space, view.unsure);
             let has_look = look.is_some();
             let mut look_fn = || look.take().and_then(|f| f());
             let look_arg = has_look.then_some(&mut look_fn as &mut dyn FnMut() -> Option<Vec<u8>>);
-            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch, monotonic()).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), frame_at: m.frame_at.max(m.seen_frame), seq: m.ran.unwrap_or(seq) });
+            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, look_arg, &mut || picture.take().and_then(|p| p()), epoch, self.now()).map(|mask| MaskSnapshot { mask, at: m.at.max(m.seen), frame_at: m.frame_at.max(m.seen_frame), seq: m.ran.unwrap_or(seq) });
         }
         self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, look, picture, epoch, view)
     }
@@ -719,7 +742,7 @@ impl Vision {
         }
         if n.asked != Some(seq) {
             n.asked = Some(seq);
-            n.job = Some(MaskJob { taken: monotonic(), seq, size: (w, h), look, picture, epoch, geometry: view.geometry, space: view.space, unsure: view.unsure });
+            n.job = Some(MaskJob { taken: self.now(), seq, size: (w, h), look, picture, epoch, geometry: view.geometry, space: view.space, unsure: view.unsure });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2, which)).is_ok();
@@ -786,8 +809,8 @@ impl Vision {
         };
         let sv = self.stream(key);
         let mut m = sv.mask.lock().unwrap();
-        m.asked = monotonic();
-        self.mask(&mut m, &*backend, Which::Normal, seq, w, h, None, picture, epoch, monotonic())
+        m.asked = self.now();
+        self.mask(&mut m, &*backend, Which::Normal, seq, w, h, None, picture, epoch, self.now())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -820,7 +843,7 @@ impl Vision {
                 }
             }
         }
-        let now = monotonic();
+        let now = self.now();
         let saving = self.power_saving();
         let still_every = match which {
             Which::Cutout => CUTOUT_STILL_EVERY_S,
@@ -938,7 +961,7 @@ impl Vision {
         let sv = self.stream(key);
         let p = sv.people.lock().unwrap();
         let every = if self.power_saving() { SAVING_PEOPLE_EVERY_S } else { PEOPLE_EVERY_S };
-        let now = monotonic();
+        let now = self.now();
         now - p.at >= every && now - p.probed >= every
     }
 
@@ -955,7 +978,7 @@ impl Vision {
             return;
         }
         let sv = self.stream(key);
-        let now = monotonic();
+        let now = self.now();
         let mut p = sv.people.lock().unwrap();
         p.fed = now;
         let (every, still_every) = if self.power_saving() { (SAVING_PEOPLE_EVERY_S, SAVING_PEOPLE_STILL_EVERY_S) } else { (PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S) };
@@ -1006,7 +1029,7 @@ impl Vision {
 
     /// Close the models no plugin has asked for in IDLE_CLOSE_S, and give their memory back. The next ask makes them again.
     pub fn tidy(&self, now: Option<f64>) {
-        let now = now.unwrap_or_else(monotonic);
+        let now = now.unwrap_or_else(|| self.now());
         let mut freed = false;
         let streams: Vec<Arc<StreamVision>> = self.inner.streams.lock().unwrap().values().cloned().collect();
         for sv in streams {

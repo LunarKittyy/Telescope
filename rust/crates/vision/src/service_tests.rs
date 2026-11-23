@@ -580,9 +580,9 @@ fn test_people_are_looked_for_less_often_while_nothing_moves() {
     assert_eq!(sent, [true, false, true, true]);
 }
 
-// The mask's last run was this long ago (the clock is held still otherwise, see HELD)
+// The mask's last run was this long ago on the service's clock (tests using it fake the clock, so real time between calls doesn't count)
 fn mask_ran_ago(v: &Vision, secs: f64) {
-    sv(v, "a").mask.lock().unwrap().at = monotonic() - secs;
+    sv(v, "a").mask.lock().unwrap().at = v.now() - secs;
 }
 
 fn segmented(r: &Ready) -> usize {
@@ -593,6 +593,7 @@ fn segmented(r: &Ready) -> usize {
 fn test_power_saving_runs_the_mask_soon_on_a_big_move() {
     let r = ready();
     r.v.set_power_saving(true);
+    r.v.fake_clock();
     let still = Rgb::filled(1280, 720, 80);
     mask(&r.v, "a", 0, &still);
     hold_mask_clock(&r.v);
@@ -614,6 +615,7 @@ fn test_a_big_move_brings_the_mask_sooner_only_with_power_saving() {
     for saving in [false, true] {
         let r = ready();
         r.v.set_power_saving(saving);
+        r.v.fake_clock();
         let still = Rgb::filled(160, 90, 80);
         mask(&r.v, "a", 0, &still);
         // A small move 0.04 s after the last run: only without Power-saving
@@ -635,12 +637,13 @@ fn test_power_saving_masks_come_ten_a_second_at_any_frame_rate_whatever_the_jitt
     for (fps, per_second) in [(15.0, 7.5), (24.0, 8.0), (30.0, 10.0), (60.0, 10.0)] {
         let r = ready();
         r.v.set_power_saving(true);
+        r.v.fake_clock();
         let frames = (fps * 6.0) as usize;
         for seq in 0..frames {
             // The frame arrives a few ms off its beat, one early and one late
             let jitter = if seq % 2 == 0 { -0.003 } else { 0.003 };
             if seq > 0 {
-                sv(&r.v, "a").mask.lock().unwrap().at -= 1.0 / fps + jitter;
+                r.v.advance_fake_clock(1.0 / fps + jitter);
             }
             mask(&r.v, "a", seq as u64, &arms[seq % 3]);
         }
@@ -657,9 +660,10 @@ fn test_power_saving_masks_on_a_run_of_big_moves_stay_at_or_under_thirty_a_secon
     for (fps, saving, expected) in [(30.0, true, 60), (60.0, true, 60), (60.0, false, 120)] {
         let r = ready();
         r.v.set_power_saving(saving);
+        r.v.fake_clock();
         for seq in 0..(fps * 2.0) as usize {
             if seq > 0 {
-                sv(&r.v, "a").mask.lock().unwrap().at -= 1.0 / fps;
+                r.v.advance_fake_clock(1.0 / fps);
             }
             mask(&r.v, "a", seq as u64, &busy[seq % 3]);
         }
