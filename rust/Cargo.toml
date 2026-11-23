@@ -106,6 +106,12 @@ codegen-units = 1
 strip = true
 # No panic = "abort": the host catches a panicking plugin and carries on, as the Python app catches its exceptions
 
+# Nightlies and test packages: the release build without its slowest steps, a few minutes quicker on CI. Stable releases use release
+[profile.nightly]
+inherits = "release"
+lto = "thin"
+codegen-units = 16
+
 # Crates that run once at a start or a click, never per frame: smaller code instead of faster
 [profile.release.package.naga]
 opt-level = "s"
