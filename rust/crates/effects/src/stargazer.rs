@@ -412,13 +412,13 @@ fn save_png(frame: &Frame, folder: &Path) -> Result<PathBuf, String> {
     let bytes = pixmap.encode_png().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
     let stamp = local_stamp();
-    let mut path = folder.join(format!("stargazer_{stamp}.png"));
-    let mut n = 2;
-    while path.exists() {
-        path = folder.join(format!("stargazer_{stamp}_{n}.png"));
-        n += 1;
+    // The name is taken by making the file, so another save at the same moment can't pick it too and replace the stack
+    let path = telescope_core::names::reserve_file(folder, |n| if n == 1 { format!("stargazer_{stamp}.png") } else { format!("stargazer_{stamp}_{n}.png") })
+        .map_err(|e| e.to_string())?;
+    if let Err(e) = write_atomic(&path, &bytes) {
+        let _ = std::fs::remove_file(&path);
+        return Err(e);
     }
-    write_atomic(&path, &bytes)?;
     Ok(path)
 }
 
