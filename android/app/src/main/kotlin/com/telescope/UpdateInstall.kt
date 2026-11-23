@@ -1,5 +1,6 @@
 package com.telescope
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -20,6 +21,17 @@ fun streamBusy(state: StreamState, startWindowOpen: Boolean): Boolean =
 
 fun AppCompatActivity.canInstallUpdates(): Boolean = packageManager.canRequestPackageInstalls()
 
+// Some phones leave a settings screen out: the app's own settings page then, rather than a crash
+fun AppCompatActivity.openSettings(intent: Intent) {
+    try {
+        startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        try {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        } catch (_: ActivityNotFoundException) {}
+    }
+}
+
 // Installs the update, or first asks for "Allow from this source", which Android asks once per app. `waitForAllow` holds the update until the screen is back from that setting.
 fun AppCompatActivity.installUpdate(manifest: UpdateManifest, waitForAllow: (UpdateManifest?) -> Unit) {
     if (canInstallUpdates()) {
@@ -32,7 +44,7 @@ fun AppCompatActivity.installUpdate(manifest: UpdateManifest, waitForAllow: (Upd
         .setMessage(R.string.allow_installs_message)
         .setNegativeButton(R.string.cancel) { _, _ -> waitForAllow(null) }
         .setPositiveButton(R.string.open_settings) { _, _ ->
-            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+            openSettings(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
         }
         .showLook()
 }

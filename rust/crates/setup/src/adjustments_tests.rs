@@ -133,7 +133,7 @@ fn a_trimmed_stream_size_offers_the_pick_back_or_switching_it_off() {
 #[test]
 fn every_item_has_a_name_a_reason_and_a_tooltip_for_each_button() {
     let seen = Seen {
-        effort: lighter(),
+        effort: EffortSnapshot { heads: true, ..lighter() },
         balance: BalanceSnapshot { on_card: false, ..Default::default() },
         dynamic_in_use: true,
         phone: Phone { bitrate_bps: Some(2e6), peak_bps: 8e6, dynamic_fps: Some(20), heat_fps: None },
@@ -267,14 +267,15 @@ fn keeping_the_picked_size_asks_stream_output_and_turn_off_is_the_saved_switch()
 #[test]
 fn the_switches_are_applied_at_the_start_and_reset_puts_them_back_on() {
     let (mut p, mut host) = plugin();
-    p.set_config(&json!({"effects": false, "balance": false, "dynamic": false, "stream_size": false})).unwrap();
+    p.set_config(&json!({"effects": false, "heads": false, "balance": false, "dynamic": false, "stream_size": false})).unwrap();
     p.on_plugins_ready(&mut host);
-    for call in ["set_effects_step_down false", "hold_effects_full false", "keep_steps_on_card true"] {
+    for call in ["set_effects_step_down false", "hold_effects_full false", "allow_heads false", "keep_steps_on_card true"] {
         assert!(host.calls.contains(&call.to_string()), "{call}: {:?}", host.calls);
     }
     assert_eq!(host.events, [Event::FixedBitrateRequested { on: true }, Event::StreamSizeHeld { on: true }]);
     p.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "reset-clicked".into(), args: vec![] });
-    assert_eq!(p.get_config(), json!({"effects": true, "balance": true, "dynamic": true, "stream_size": true}));
+    assert_eq!(p.get_config(), json!({"effects": true, "heads": true, "balance": true, "dynamic": true, "stream_size": true}));
+    assert_eq!(host.calls.iter().rev().find(|c| c.starts_with("allow_heads")).map(String::as_str), Some("allow_heads true"));
     assert_eq!(host.events[2..], [Event::FixedBitrateRequested { on: false }, Event::StreamSizeHeld { on: false }]);
     assert!(host.calls.contains(&"keep_steps_on_card false".to_string()));
 }
@@ -399,6 +400,49 @@ fn the_banner_asks_to_hear_about_its_dismissal() {
 #[test]
 fn every_switch_in_settings_is_one_the_plugin_has() {
     let ui = include_str!("../ui/adjustments.slint");
-    assert_eq!(ui.matches("SwitchRow {").count(), 3);
+    assert_eq!(ui.matches("SwitchRow {").count(), 4);
+    for switch in ["effects", "heads", "balance", "dynamic"] {
+        assert!(ui.contains(&format!("root.{switch}-toggled(on)")), "{switch}");
+    }
     assert!(!ui.contains("enabled: false"));
+}
+
+#[test]
+fn following_faces_is_its_own_item_for_the_same_reason_as_the_lighter_effects() {
+    let saving = Seen { effort: EffortSnapshot { level: 1, floor: 1, auto: true, heads: true, ..Default::default() }, ..quiet() };
+    let list = items(&saving);
+    assert_eq!(kinds(&saving), [Kind::Effects, Kind::Heads]);
+    assert_eq!(list[1].reason, Reason::PowerSaving);
+    assert_eq!(list[1].overrides, [Override::KeepBodies, Override::TurnOff]);
+    let late = Seen { effort: EffortSnapshot { heads: true, ..lighter() }, ..quiet() };
+    assert_eq!(items(&late)[1].reason, Reason::FramesLate);
+    // Lighter effects with whole bodies followed (Waist, another owner, no face finder) isn't listed
+    assert_eq!(kinds(&Seen { effort: lighter(), ..quiet() }), [Kind::Effects]);
+}
+
+#[test]
+fn following_faces_can_be_kept_off_for_this_run_or_switched_off() {
+    let (mut p, mut host) = plugin();
+    p.on_plugins_ready(&mut host);
+    assert!(host.calls.contains(&"allow_heads true".to_string()));
+    p.rows = items(&Seen { effort: EffortSnapshot { level: 1, floor: 1, auto: true, heads: true, ..Default::default() }, ..quiet() });
+    let click = |p: &mut AdjustmentsPlugin, host: &mut FakeHost, which: u64| {
+        p.on_ui(host, &UiEvent { ui: "header".into(), callback: "override-clicked".into(), args: vec![json!(1), json!(which)] });
+    };
+    host.calls.clear();
+    click(&mut p, &mut host, 0);
+    assert_eq!(host.calls, ["allow_heads false"]);
+    assert_eq!(p.get_config()["heads"], true, "only for this run");
+    click(&mut p, &mut host, 1);
+    assert_eq!(p.get_config()["heads"], false);
+    assert!(host.calls.contains(&"schedule_save".to_string()));
+    // Without the plugin nothing keeps it off
+    host.calls.clear();
+    p.shutdown(&mut host);
+    assert!(host.calls.contains(&"allow_heads true".to_string()));
+    // The switch in Settings
+    let (mut p, mut host) = plugin();
+    p.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "heads-toggled".into(), args: vec![json!(false)] });
+    assert_eq!(p.get_config()["heads"], false);
+    assert_eq!(host.calls.iter().rev().find(|c| c.starts_with("allow_heads")).map(String::as_str), Some("allow_heads false"));
 }

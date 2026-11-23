@@ -192,9 +192,12 @@ class SettingsActivity : LookActivity() {
 
     private fun copyDiagnostics() {
         val live = CameraStreamService.instance?.buildDiagnosticsReport()
-            ?: (CameraStreamService.reportHeader() + "Not streaming\n" + CameraStreamService.cameraReport(
-                runCatching { CameraStreamService.enumerateCameras(getSystemService(CAMERA_SERVICE) as CameraManager) }
-                    .getOrDefault(emptyList())))
+            ?: run {
+                val manager = getSystemService(CAMERA_SERVICE) as CameraManager
+                val cameras = runCatching { CameraStreamService.enumerateCameras(manager) }.getOrDefault(emptyList())
+                CameraStreamService.reportHeader() + "Not streaming\n" + CameraStreamService.cameraReport(
+                    cameras, DiagnosticsExtras.readRaw(manager, cameras.map { it.id }), DiagnosticsExtras.readEncoders())
+            }
         val report = RecentRuns.report(live, RecentRuns.load(this))
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Telescope diagnostics", report))

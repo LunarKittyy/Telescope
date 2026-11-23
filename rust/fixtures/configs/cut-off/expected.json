@@ -26,6 +26,7 @@
         "balance": true,
         "dynamic": true,
         "effects": true,
+        "heads": true,
         "stream_size": true
       },
       "browser_camera": {

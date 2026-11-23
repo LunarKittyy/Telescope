@@ -418,6 +418,9 @@ msgstr ""
 msgid "Auto framing"
 msgstr "Automatischer Bildausschnitt"
 
+msgid "Auto framing follows your body until you close Telescope, even while effects are lighter."
+msgstr ""
+
 msgid "Auto framing speed"
 msgstr "Geschwindigkeit des automatischen Bildausschnitts"
 
@@ -1872,6 +1875,9 @@ msgstr "Suchen"
 msgid "Finding the current adb…"
 msgstr "Aktuelle adb-Version wird gesucht…"
 
+msgid "Finding your face costs a fraction of finding your body. Auto framing uses your body again when it finds no face or sees several people."
+msgstr ""
+
 msgid "Fine tune"
 msgstr "Feinabstimmung"
 
@@ -1950,6 +1956,9 @@ msgstr "Meinem Gesicht folgen"
 msgid "Follow one person"
 msgstr ""
 
+msgid "Follow your body"
+msgstr ""
+
 msgid "Forget this device."
 msgstr "Dieses Gerät entfernen."
 
@@ -2008,6 +2017,9 @@ msgstr ""
 
 msgid "Framing"
 msgstr "Bildausschnitt"
+
+msgid "Framing by face"
+msgstr ""
 
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
@@ -5593,6 +5605,9 @@ msgstr ""
 msgid "Stops"
 msgstr "Blendenstufen"
 
+msgid "Stops Auto framing following your face to save effort, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
 msgstr ""
 
@@ -7681,6 +7696,9 @@ msgstr "In welche Richtung die Streifen verlaufen."
 msgid "While Telescope is in the background"
 msgstr "Während Telescope im Hintergrund läuft"
 
+msgid "While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off."
+msgstr ""
+
 msgid "White"
 msgstr "Weiß"
 
@@ -8014,6 +8032,10 @@ msgstr "{n} angefordert"
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr "audio ton stimme eingang lautstaerke mikrofon audio sound voice input volume"
+
+msgctxt "search"
+msgid "auto framing face head body tracking power saving lighter effects processor battery"
+msgstr ""
 
 msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
