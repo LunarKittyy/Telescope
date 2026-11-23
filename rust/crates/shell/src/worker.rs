@@ -4359,7 +4359,8 @@ mod tests {
         let started = Instant::now();
         w.shared.join_handover();
         assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
-        assert_eq!(new_opens.gone(), 1);
+        // The reader's own thread lets go of the feed on its next read, a moment after the hand-over has
+        wait_for(|| new_opens.gone() == 1);
         assert!(!log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Moved(_) | WorkerEvent::MoveFailed(_))));
         w.stop();
     }

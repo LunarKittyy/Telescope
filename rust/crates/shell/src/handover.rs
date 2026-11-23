@@ -276,7 +276,7 @@ struct Inner {
     handover: Option<Handover>,
     /// The guess about the crop of a handover that has ended, for as long as it lasts.
     guess: Option<Guess>,
-    /// That stream's last frame, small, while a new share is on its way or its crop is a guess.
+    /// That stream's last frame, small, while a new share is on its way or its crop is a guess, and always for a frame in memory.
     last: Option<Thumb>,
     shown: Option<(View, (f64, f64, f64))>,
     cameras: HashMap<String, (Value, u64)>,
@@ -384,9 +384,9 @@ impl ViewGate {
         if inner.guess.as_ref().is_some_and(|g| now > g.until) {
             inner.guess = None;
         }
-        // Frames are only looked at while a share is on its way or its crop is a guess: a picture still on the card is copied off it to be looked at,
-        // which is done outside the lock the window takes too
-        let thumb = if inner.handover.is_some() || inner.guess.is_some() {
+        // A picture still on the card is copied off it to be looked at, so it is only looked at while a share is on its way or its crop is a guess (and
+        // outside the lock the window takes). One already in memory costs next to nothing, and the last of those is the one to compare a new share with
+        let thumb = if inner.handover.is_some() || inner.guess.is_some() || frame.surface().is_none() {
             drop(inner);
             let thumb = thumb(frame);
             inner = self.0.lock().unwrap();
@@ -629,19 +629,34 @@ mod tests {
         Frame::new(w, h, PixelFormat::I420, data)
     }
 
+    /// The scene's picture as a decoder's, still on the card.
+    fn on_the_card(frame: Frame) -> Frame {
+        Frame::from_surface(frame.width, frame.height, frame.format, Arc::new(OnTheCard(frame)))
+    }
+
     #[test]
-    fn a_share_sent_while_nothing_was_on_its_way_is_found_in_the_frames() {
+    fn a_share_sent_while_nothing_was_on_its_way_is_found_in_the_frames_on_the_card() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"));
+        let old = PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 };
+        gate.for_frame_labelled("a", &on_the_card(through(1.0)), 0.0, false);
+        gate.begin(old, PhoneZoom { crop: 2.0, ..old }, (View::default(), View::default()), &View::default(), 0.1);
+        // Frames still come in the old share for a while (the phone hasn't had the new one yet), then in the new one
+        gate.for_frame_labelled("a", &on_the_card(through(1.0)), 0.13, false);
+        gate.for_frame_labelled("a", &on_the_card(through(2.0)), 0.16, false);
+        let inner = gate.0.lock().unwrap();
+        let h = inner.handover.as_ref().unwrap();
+        assert!(h.arrived && h.progress >= 1.0, "progress {}", h.progress);
+    }
+
+    #[test]
+    fn the_last_frame_in_memory_is_the_one_a_share_sent_after_it_is_compared_with() {
         let gate = ViewGate::default();
         gate.follow(Some("a"));
         let old = PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 };
         gate.for_frame_labelled("a", &through(1.0), 0.0, false);
         gate.begin(old, PhoneZoom { crop: 2.0, ..old }, (View::default(), View::default()), &View::default(), 0.1);
-        // Frames still come in the old share for a while (the phone hasn't had the new one yet), then in the new one
-        gate.for_frame_labelled("a", &through(1.0), 0.13, false);
-        gate.for_frame_labelled("a", &through(2.0), 0.16, false);
-        let inner = gate.0.lock().unwrap();
-        let h = inner.handover.as_ref().unwrap();
-        assert!(h.arrived && h.progress >= 1.0, "progress {}", h.progress);
+        assert!(gate.0.lock().unwrap().handover.as_ref().unwrap().base.is_some());
     }
 
     #[test]
