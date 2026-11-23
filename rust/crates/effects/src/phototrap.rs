@@ -98,8 +98,23 @@ fn gigabytes(bytes: u64) -> String {
     if (gb - gb.round()).abs() < 0.05 { format!("{}", gb.round()) } else { format!("{gb:.1}") }
 }
 
+/// What an armed trap runs on: the settings of the phone it watches.
+#[derive(Clone)]
+struct Settings {
+    zones: Vec<[f32; 4]>,
+    sensitivity: u32,
+    count: u32,
+    pause_s: u32,
+    night: bool,
+    use_zoom: bool,
+    shot: ShotChoice,
+    orientation: Turn,
+}
+
 pub struct PhototrapPlugin {
     armed: bool,
+    /// The settings the armed trap runs on, kept while the card shows another phone, whose own settings are loaded then.
+    kept: Option<Settings>,
     /// In the picture as the detector sees it: 0..1 of the whole picture at zoom 1, turned as the view is.
     zones: Vec<[f32; 4]>,
     sensitivity: u32,
@@ -156,6 +171,7 @@ impl PhototrapPlugin {
     pub fn new() -> PhototrapPlugin {
         PhototrapPlugin {
             armed: false,
+            kept: None,
             zones: Vec::new(),
             sensitivity: DEFAULT_SENSITIVITY,
             count: DEFAULT_COUNT,
@@ -202,6 +218,39 @@ impl PhototrapPlugin {
 
     fn now(&self) -> f64 {
         (self.clock)()
+    }
+
+    fn settings(&self) -> Settings {
+        Settings { zones: self.zones.clone(), sensitivity: self.sensitivity, count: self.count, pause_s: self.pause_s, night: self.night,
+                   use_zoom: self.use_zoom, shot: self.shot.clone(), orientation: self.orientation }
+    }
+
+    /// Puts these settings in and gives back the ones that were there.
+    fn swap(&mut self, with: Settings) -> Settings {
+        let before = self.settings();
+        let Settings { zones, sensitivity, count, pause_s, night, use_zoom, shot, orientation } = with;
+        (self.zones, self.sensitivity, self.count, self.pause_s, self.night, self.use_zoom, self.shot, self.orientation) =
+            (zones, sensitivity, count, pause_s, night, use_zoom, shot, orientation);
+        before
+    }
+
+    /// Notes what the armed trap runs on while the card shows the phone it watches, and drops it once it's off.
+    fn keep(&mut self, host: &dyn Host) {
+        if !self.armed {
+            self.kept = None;
+        } else if self.on_armed_source(host) {
+            self.kept = Some(self.settings());
+        }
+    }
+
+    /// Runs `f` on what the armed trap runs on: the card's settings, or the ones kept for it while the card shows another phone's.
+    fn running<R>(&mut self, host: &dyn Host, f: impl FnOnce(&mut Self) -> R) -> R {
+        let elsewhere = self.armed && !self.on_armed_source(host);
+        let Some(kept) = self.kept.clone().filter(|_| elsewhere) else { return f(self) };
+        let card = self.swap(kept);
+        let out = f(self);
+        self.swap(card);
+        out
     }
 
     fn burst_max(&self) -> i64 {
@@ -395,7 +444,8 @@ impl PhototrapPlugin {
             self.source = host.focused_source_id();
         }
         self.caps = self.read_caps(host);
-        let want = (self.armed && self.can_snap(host)).then(|| (self.zones_to_watch(), self.sensitivity));
+        let want = self.running(&*host, |p| (p.armed && p.can_snap(host)).then(|| (p.zones_to_watch(), p.sensitivity)));
+        self.keep(&*host);
         if want != self.watch {
             match &want {
                 Some((zones, sensitivity)) => host.watch_motion(NAME, zones, *sensitivity),
@@ -466,14 +516,14 @@ impl PhototrapPlugin {
         }
         let Some(raw) = host.still_caps(Some(&source)) else { return };
         let caps: StillCaps = serde_json::from_value(raw).unwrap_or_default();
-        let mut options = self.options(&caps, host);
+        let mut options = self.running(&*host, |p| p.options(&caps, host));
         // The host looks again when the request is about to go to the phone
         options["skip_if_hidden"] = json!(true);
         let Some(id) = host.take_still(&options, &self.folder, Some(&source)) else { return };
         self.taking.push((id, None));
         self.triggers += 1;
         self.last = local_clock();
-        self.ready_at = now + f64::from(self.pause_s);
+        self.ready_at = now + f64::from(self.running(&*host, |p| p.pause_s));
         self.show(host);
     }
 
@@ -498,7 +548,7 @@ impl PhototrapPlugin {
             self.problem = Some(error.map_or_else(|| tr("The phone couldn't take the photos"), String::from));
         }
         // The pause counts from when the burst ended
-        self.ready_at = self.now() + f64::from(self.pause_s);
+        self.ready_at = self.now() + f64::from(self.running(&*host, |p| p.pause_s));
         match self.over_limits().filter(|_| self.armed) {
             Some(why) => self.disarm(host, why),
             None => self.show(host),
@@ -758,6 +808,7 @@ impl Plugin for PhototrapPlugin {
             }
             _ => {}
         }
+        self.keep(&*host);
     }
 
     /// Armed isn't saved, so a restart never starts taking photos.
