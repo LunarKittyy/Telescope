@@ -69,7 +69,7 @@ impl Shared {
     }
 
     /// One browser's connection, on its own thread, until it ends or a newer one takes over.
-    fn serve_browser(self: &Arc<Self>, sock: Box<dyn Socket>, bid: &str) {
+    fn serve_browser(self: &Arc<Self>, sock: Box<dyn Socket>, bid: &str, token: &str) {
         let Some(feed) = self.hub.join(bid) else {
             let mut ws = WsConnection::new(sock, |_| Ok(()));
             ws.send_quietly(&ws::close_frame(CLOSE_FULL, "Every camera is in use"));
@@ -77,7 +77,14 @@ impl Shared {
         };
         let gen = feed.connect();
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        self.open.lock().unwrap_or_else(|e| e.into_inner()).insert(id, None);
+        {
+            let mut open = self.open.lock().unwrap_or_else(|e| e.into_inner());
+            open.insert(id, None);
+            // The link may have been renewed after the token was checked and before this connection counted: close_all missed it
+            if !self.token_ok(token) {
+                open.insert(id, Some(CLOSE_NEW_LINK));
+            }
+        }
         let rtc: RefCell<Option<Box<dyn RtcSession>>> = RefCell::new(None);
         let (mut sent_seq, mut pinged) = (None, Instant::now());
         let (ping_every, idle) = *self.timings.lock().unwrap_or_else(|e| e.into_inner());
@@ -240,11 +247,11 @@ impl PageHandler for Handler {
         }
         let key = request.header("Sec-WebSocket-Key")?;
         stats.note(Step::Browsers);
-        let (shared, bid) = (self.0.clone(), browser_id(request.param("id").unwrap_or("")));
+        let (shared, bid, token) = (self.0.clone(), browser_id(request.param("id").unwrap_or("")), request.param("token").unwrap_or("").to_string());
         Some(Upgrade {
             headers: vec![("Upgrade".into(), "websocket".into()), ("Connection".into(), "Upgrade".into()),
                           ("Sec-WebSocket-Accept".into(), ws::accept_key(key))],
-            run: Box::new(move |sock| shared.serve_browser(sock, &bid)),
+            run: Box::new(move |sock| shared.serve_browser(sock, &bid, &token)),
         })
     }
 }
