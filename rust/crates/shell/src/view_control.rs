@@ -287,7 +287,7 @@ impl ViewController {
             self.desktop = desktop;
             out.push(Said::Restep);
         }
-        self.gate.follow(self.source.as_deref(), self.engaged);
+        self.gate.follow(self.source.as_deref());
         if let Some(p) = phone.filter(|p| Some(*p) != self.sent) {
             if self.sent.is_none_or(|s| s.ratio != p.ratio) {
                 self.sent_ratio_at = now;
