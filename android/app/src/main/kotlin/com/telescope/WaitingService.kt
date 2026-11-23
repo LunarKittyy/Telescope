@@ -1,5 +1,6 @@
 package com.telescope
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -131,8 +133,10 @@ class WaitingService : Service() {
                 .notify(NOTIF_ID, buildNotification(context, streaming, cameraOff, micOn))
         }
 
-        // Only from a visible activity: starting a foreground service from the background is refused.
+        // Only from a visible activity: starting a foreground service from the background is refused. Not without the
+        // camera: Android 14+ refuses the camera type then, and a foreground service that never promotes ends the app.
         fun start(context: Context) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
             try {
                 ContextCompat.startForegroundService(context, Intent(context, WaitingService::class.java))
             } catch (e: Exception) {
