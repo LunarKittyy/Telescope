@@ -896,6 +896,9 @@ impl Host for FakeHost {
     fn set_effects_step_down(&mut self, on: bool) {
         self.note(format!("set_effects_step_down {on}"));
     }
+    fn set_effects_follow_power(&mut self, on: bool) {
+        self.note(format!("set_effects_follow_power {on}"));
+    }
     fn hold_effects_full(&mut self, on: bool) {
         self.note(format!("hold_effects_full {on}"));
     }

@@ -25,7 +25,8 @@
       "adjustments": {
         "balance": true,
         "dynamic": true,
-        "effects": true
+        "effects": true,
+        "power": true
       },
       "browser_camera": {
         "address": "",
