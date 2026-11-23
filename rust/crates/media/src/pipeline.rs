@@ -579,15 +579,7 @@ impl Pipeline {
                     }
                     chain.plain = false;
                 }
-                Err(_) if ctx.stopped() => {
-                    // Stop is waiting on this frame: it isn't worth the CPU's work, the card isn't to blame, and what it was missing mustn't go out as it is
-                    chain.ahead.clear();
-                    chain.plain = false;
-                    gpu.put_down(chain.held.take().unwrap());
-                    *frame = neutral((frame.width, frame.height), frame.format, frame);
-                    chain.withheld = true;
-                }
-                Err(why) => self.card_failed(&why, chain, frame, ctx, &gpu),
+                Err(why) => self.read_failed(&why, chain, frame, ctx, &gpu),
             }
         }
         if !keep {
@@ -597,6 +589,22 @@ impl Pipeline {
         }
         if frame.surface().is_some() {
             *frame = frame.materialise();
+        }
+    }
+
+    /// A readback of the card's picture failed: the stop that was waiting on it is let through dark, anything else is the card failing this frame.
+    fn read_failed(&mut self, why: &str, chain: &mut Chain, frame: &mut Frame, ctx: &dyn FrameContext, gpu: &Gpu) {
+        if ctx.stopped() {
+            // Stop is waiting on this frame: it isn't worth the CPU's work, the card isn't to blame, and what it was missing mustn't go out as it is
+            chain.ahead.clear();
+            chain.plain = false;
+            if let Some(held) = chain.held.take() {
+                gpu.put_down(held);
+            }
+            *frame = neutral((frame.width, frame.height), frame.format, frame);
+            chain.withheld = true;
+        } else {
+            self.card_failed(why, chain, frame, ctx, gpu);
         }
     }
 
@@ -947,7 +955,7 @@ impl Pipeline {
         if !matches!(self.steps[i].kind, Kind::Either(..)) || self.steps[i].no_textures {
             return None;
         }
-        let ask = |entry: &mut Entry, frame: &Frame| -> Result<Option<Vec<(String, Frame)>>, ()> {
+        let ask = |entry: &mut Entry, frame: &Frame, ctx: &dyn FrameContext| -> Result<Option<Vec<(String, Frame)>>, ()> {
             let Kind::Either(_, cpu) = &mut entry.kind else { return Ok(None) };
             catch_unwind(AssertUnwindSafe(|| cpu.card_textures(frame, ctx))).map_err(|_| ())
         };
@@ -961,13 +969,29 @@ impl Pipeline {
             return None;
         }
         if offered.is_none() && !self.steps[i].has_textures && !chain.ahead.is_empty() {
-            if let Ok(None) = ask(&mut self.steps[i], frame) {
+            if let Ok(None) = ask(&mut self.steps[i], frame, ctx) {
                 self.steps[i].no_textures = true;
                 return None;
             }
         }
-        self.bring_down(chain, frame, ctx, true);
-        let asked = ask(&mut self.steps[i], frame);
+        // A step that only needs the person mask gets it from a small copy the card makes, and the picture stays up there
+        let mask_only = matches!(&self.steps[i].kind, Kind::Either(_, cpu) if catch_unwind(AssertUnwindSafe(|| cpu.card_textures_from_mask())).unwrap_or(false));
+        let small = if mask_only { self.small_for_vision(frame, chain, ctx) } else { Small::Whole };
+        // The card failed the small picture: this frame goes on the CPU from here, as for a failed readback, with no second wait on the card
+        let small = match small {
+            Small::Failed => return None,
+            Small::Made(small) => Some(small),
+            Small::Whole => None,
+        };
+        let vision = small.as_ref().map(|small| SmallVision { inner: ctx, small });
+        let ctx: &dyn FrameContext = match &vision {
+            Some(vision) => vision,
+            None => {
+                self.bring_down(chain, frame, ctx, true);
+                ctx
+            }
+        };
+        let asked = ask(&mut self.steps[i], frame, ctx);
         // The shader makes no cut-out, so the CPU half gives it now and it comes back with the picture
         if asked.is_ok() {
             if let Kind::Either(_, cpu) = &mut self.steps[i].kind {
@@ -986,6 +1010,47 @@ impl Pipeline {
                 some
             }
             Err(()) => Some(Vec::new()),
+        }
+    }
+
+    /// The picture as it is now, shrunk on the card to the size the vision models take and read back, so the whole one needn't come down. Whole (the caller brings it down as before) when the card doesn't hold it and can't take it in where it is. When the card fails the readback, what it held for this frame is gone with it (the recorded steps went with the refused or stalled submission), so the frame goes on the CPU as for any failed readback.
+    fn small_for_vision(&mut self, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) -> Small {
+        if !vision_on_card() || self.card_lost {
+            return Small::Whole;
+        }
+        let Some(gpu) = self.gpu().filter(|gpu| !gpu.is_lost() && (!gpu.is_software() || small_on_software())) else { return Small::Whole };
+        let Some(size) = vision_size(frame.width, frame.height) else { return Small::Whole };
+        if chain.held.is_none() {
+            // Only a decoder's picture the card takes in where it is: one in memory has its pixels at hand already
+            if !Gpu::importable(frame) {
+                return Small::Whole;
+            }
+            let block_chroma = self.steps.iter().any(|e| matches!(&e.kind, Kind::Either(_, cpu) if cpu.card_block_chroma()));
+            match gpu.lift_with(frame, block_chroma) {
+                Ok(held) if held.was_imported() => chain.held = Some(held),
+                Ok(held) => {
+                    gpu.put_down(held);
+                    return Small::Whole;
+                }
+                Err(_) => return Small::Whole,
+            }
+        }
+        let Some(held) = chain.held.as_mut() else { return Small::Whole };
+        let began = monotonic_ns();
+        let small = gpu.land_small(held, size, &|| ctx.stopped());
+        span("vision_small", began);
+        match small {
+            Ok(None) => Small::Whole,
+            Ok(Some(mut small)) => {
+                small.geometry = frame.geometry.clone();
+                small.mask_space = frame.mask_space;
+                small.number = frame.number;
+                Small::Made(small)
+            }
+            Err(why) => {
+                self.read_failed(&why, chain, frame, ctx, &gpu);
+                Small::Failed
+            }
         }
     }
 
@@ -1088,6 +1153,83 @@ impl Drop for Trial {
 
 /// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
 /// The width a person mask goes up to the card at.
+/// Whether a step that only needs the person mask has the card make the small picture the models take (TELESCOPE_VISION_ON_CARD=0 turns it off).
+fn vision_on_card() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("TELESCOPE_VISION_ON_CARD").is_none_or(|v| v != "0"))
+}
+
+/// Whether the small picture is made on a card that is the processor drawing in software, which only tests have a reason for.
+fn small_on_software() -> bool {
+    #[cfg(test)]
+    return tests::SMALL_ON_SOFTWARE.with(std::cell::Cell::get);
+    #[cfg(not(test))]
+    false
+}
+
+/// The pixels the biggest vision model takes (the high quality cutout's 640 x 360).
+const VISION_PIXELS: u64 = 640 * 360;
+
+/// The size of the small picture: exactly what the high quality cutout gets of the whole frame, so a stream that moves between the card and the processor doesn't change the model's input size (which starts its memory over). None for a frame no bigger than twice the model's pixels, which comes down whole as before.
+fn vision_size(w: u32, h: u32) -> Option<(u32, u32)> {
+    if (w as u64) * (h as u64) <= 2 * VISION_PIXELS {
+        return None;
+    }
+    telescope_core::vision::cutout_input_size(w, h)
+}
+
+/// What the card gave for a step that only needs the person mask.
+enum Small {
+    /// The small picture.
+    Made(Frame),
+    /// None was made and nothing was lost: the picture comes down whole.
+    Whole,
+    /// The card failed and the frame has been dealt with as for a failed readback.
+    Failed,
+}
+
+/// The frame step's context with the person mask asked for on the small picture the card made, which has the frame's number, crop and view.
+struct SmallVision<'a> {
+    inner: &'a dyn FrameContext,
+    small: &'a Frame,
+}
+
+impl FrameContext for SmallVision<'_> {
+    fn source_id(&self) -> &str {
+        self.inner.source_id()
+    }
+    fn entry_epoch(&self) -> Option<u64> {
+        self.inner.entry_epoch()
+    }
+    fn stopped(&self) -> bool {
+        self.inner.stopped()
+    }
+    fn hurried(&self) -> bool {
+        self.inner.hurried()
+    }
+    fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_at(self.small, frame.width as usize, frame.height as usize)
+    }
+    fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_at(self.small, w, h)
+    }
+    fn person_mask_hq(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_hq_at(self.small, frame.width as usize, frame.height as usize)
+    }
+    fn person_mask_hq_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_hq_at(self.small, w, h)
+    }
+    fn background_mask_at(&self, _frame: &Frame, w: usize, h: usize, high_quality: bool) -> Option<Arc<Vec<u8>>> {
+        self.inner.background_mask_at(self.small, w, h, high_quality)
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        self.inner.colour_preview(frame)
+    }
+    fn effort(&self) -> u8 {
+        self.inner.effort()
+    }
+}
+
 const MASK_UP_WIDTH: u32 = 640;
 
 /// The size a shader's person mask is asked at for a frame of w x h: the frame's own when it is no wider than MASK_UP_WIDTH, else that wide in the frame's shape.
@@ -2951,6 +3093,126 @@ pub(crate) mod tests {
         let seen = seen.lock().unwrap();
         assert_eq!(seen.len(), 1);
         assert!((seen[0] as i32 - 151).abs() <= 2, "the mask was asked for on the picture from before the card's work ({})", seen[0]);
+    }
+
+    /// Says it needs nothing of the frame but its person mask, which it asks for at a quarter of the frame's size.
+    struct MaskOnly;
+
+    impl CpuStep for MaskOnly {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn card_textures_offered(&self) -> Option<bool> {
+            Some(true)
+        }
+        fn card_textures_from_mask(&self) -> bool {
+            true
+        }
+        fn card_textures(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
+            let _ = ctx.background_mask_at(frame, frame.width as usize / 4, frame.height as usize / 4, false);
+            Some(Vec::new())
+        }
+    }
+
+    /// Notes the size, number and luma of each picture a mask is asked for on, and the size it is asked at.
+    struct SeesPicture(std::sync::Mutex<Vec<((u32, u32), u64, u8, (usize, usize))>>);
+
+    impl FrameContext for SeesPicture {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            self.person_mask_at(frame, frame.width as usize, frame.height as usize)
+        }
+        fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push(((frame.width, frame.height), frame.number, frame.data[frame.data.len() / 3], (w, h)));
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    fn a_step_that_only_needs_the_mask_gets_a_small_picture_of_the_cards_work_and_the_picture_comes_down_once() {
+        assert_eq!([vision_size(3840, 2160), vision_size(1920, 1080), vision_size(1080, 1920), vision_size(1280, 720), vision_size(640, 360)], [Some((640, 360)), Some((640, 360)), Some((360, 640)), Some((640, 360)), None]);
+        // A card the processor draws in software gains nothing from it, so there the picture comes down as before
+        if Gpu::shared().is_none_or(|gpu| gpu.is_software()) {
+            return eprintln!("no graphics card in hardware; skipped");
+        }
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let step = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(MaskOnly)) }]);
+        let ctx = SeesPicture(Default::default());
+        let mut frame = grey(1920, 1080, 100);
+        frame.number = 7;
+        p.process(frame, &ctx);
+        let seen = ctx.0.lock().unwrap().clone();
+        assert_eq!(seen.len(), 1);
+        let (size, number, luma, asked) = seen[0];
+        assert_eq!((size, number, asked), ((640, 360), 7, (480, 270)), "the small picture, numbered as the frame, and the mask at the size the step asked");
+        assert!((luma as i32 - 151).abs() <= 2, "the picture after the card's work ({luma})");
+        assert_eq!(p.last_transfers, (1, 1), "up once, and down only at the end");
+    }
+
+    #[test]
+    fn the_small_picture_has_the_size_the_cutout_model_takes_of_the_whole_frame() {
+        // Another size (554 x 416 for the 555 x 416 the whole frame gets) would start the model's memory over each time a stream moved between the card and the processor
+        assert_eq!([vision_size(1440, 1080), vision_size(1920, 1200), vision_size(2560, 1080), vision_size(1440, 1081)], [Some((555, 416)), Some((607, 379)), Some((740, 312)), Some((554, 416))]);
+    }
+
+    thread_local! {
+        /// Lets the small picture be made on a software card for this test's thread, so the card's failures can be tried where there is no real one.
+        pub(super) static SMALL_ON_SOFTWARE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
+    /// A step before Background that works on the card and, like the crop, has the same on the CPU, then one that only needs the person mask.
+    fn crop_then_mask_only(gpu: Arc<Gpu>) -> Pipeline {
+        struct Invert;
+        impl CpuStep for Invert {
+            fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+                frame.data_mut().iter_mut().for_each(|v| *v = 251 - *v + 16);
+            }
+        }
+        SMALL_ON_SOFTWARE.with(|on| on.set(true));
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.gpu = Some(Some(gpu));
+        let invert = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let dim = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![
+            StagedStep { owner: "crop".into(), stage: FrameStage::Effects, step: FrameStep::Either(invert, Box::new(Invert)) },
+            StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(dim, Box::new(MaskOnly)) },
+        ]);
+        p
+    }
+
+    /// The pictures a mask was asked on after the crop worked, and the frame that went out, when the card fails the small readback this way.
+    fn a_small_readback_that_fails(fault: crate::gpu::Fault) -> (Vec<u8>, Frame, u32, bool) {
+        let gpu = Arc::new(Gpu::open().unwrap());
+        let mut p = crop_then_mask_only(gpu.clone());
+        gpu.inject(fault);
+        let ctx = SeesPicture(Default::default());
+        let out = p.process(grey(1920, 1080, 100), &ctx);
+        let seen = ctx.0.lock().unwrap().iter().map(|seen| seen.2).collect();
+        (seen, out, gpu.stalls(), p.card_lost)
+    }
+
+    #[test]
+    fn a_refused_small_picture_never_lets_the_mask_or_the_camera_see_what_the_crop_never_made() {
+        let Ok(_) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let (seen, out, _, lost) = a_small_readback_that_fails(crate::gpu::Fault::RefusedSubmit);
+        // The CPU's picture of this frame (the crop's own steps, done there)
+        assert_eq!(out.data[0], 167, "the camera got the CPU's cropped picture of this frame");
+        assert!(out.data.iter().step_by(4099).all(|&v| v == 167), "the whole picture is the CPU's");
+        assert!(seen.iter().all(|&luma| (luma as i32 - 167).abs() <= 2), "the mask was asked on a picture the crop didn't make: {seen:?}");
+        assert!(lost, "the stream goes on the CPU after the card failed");
+    }
+
+    #[test]
+    fn a_stalled_small_picture_costs_one_wait_on_the_card_and_the_frame_is_the_cpus() {
+        let Ok(_) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let (_, out, stalls, lost) = a_small_readback_that_fails(crate::gpu::Fault::Stalled);
+        assert_eq!(stalls, 1, "the whole picture was waited for on a card that had just not answered");
+        assert_eq!(out.data[0], 167);
+        assert!(lost);
     }
 
     /// The card goes wrong on a readback (see Fault): the frame the CPU makes goes out, never what was left in the kept buffer, and the stream stays on the CPU unless the card is fine.

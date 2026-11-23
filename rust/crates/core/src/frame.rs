@@ -611,6 +611,10 @@ pub trait CpuStep: Send {
     fn card_textures_offered(&self) -> Option<bool> {
         None
     }
+    /// For the CPU half of an Either: whether card_textures and card_cut_out read nothing of the frame but its size, format and person mask, so the card can keep the picture and hand the mask a small copy it makes (a frame still on the card has no pixels to read).
+    fn card_textures_from_mask(&self) -> bool {
+        false
+    }
     /// For the CPU half of an Either that makes a cut-out (Frame::alpha): the plane for a frame the card is about to work on, asked with the frame on the CPU. The card's shader never gives one, so a step whose CPU way does has to say so here.
     fn card_cut_out(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Arc<Alpha>> {
         None
