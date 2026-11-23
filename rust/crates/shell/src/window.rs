@@ -385,7 +385,8 @@ fn window_seen(window: &slint::Window) -> bool {
     crate::preview::window_seen(window.is_visible(), window.is_minimized()) && !(probe::covered_on() && covered(window))
 }
 
-/// Another program's window fills the screen this window is on (a game, a video): nobody sees it, though it isn't minimised.
+/// Another program's window hides all of this one (a game or a film full screen, a maximised browser): nobody sees it, though it
+/// isn't minimised. Looked at no more than ten times a second, since every frame asks.
 #[cfg(windows)]
 fn covered(window: &slint::Window) -> bool {
     use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -396,12 +397,17 @@ fn covered(window: &slint::Window) -> bool {
     }) else {
         return false;
     };
-    let covered = telescope_core::perf::covered_by_fullscreen(hwnd);
     thread_local! {
-        static WAS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        static LOOKED: std::cell::RefCell<std::collections::HashMap<isize, (std::time::Instant, bool)>> = Default::default();
     }
-    if WAS.with(|w| w.replace(covered)) != covered {
-        log::info!("UI probe: the window is {}", if covered { "covered by another program's full screen window" } else { "no longer covered" });
+    let now = std::time::Instant::now();
+    if let Some(covered) = LOOKED.with(|l| l.borrow().get(&hwnd).filter(|(at, _)| now.duration_since(*at) < std::time::Duration::from_millis(100)).map(|(_, c)| *c)) {
+        return covered;
+    }
+    let covered = telescope_core::perf::hidden_behind_another_window(hwnd);
+    let was = LOOKED.with(|l| l.borrow_mut().insert(hwnd, (now, covered))).map(|(_, c)| c);
+    if was != Some(covered) {
+        log::info!("UI probe: the window is {}", if covered { "hidden behind another program's window" } else { "not hidden" });
     }
     covered
 }
@@ -1177,7 +1183,9 @@ impl Window {
     pub(crate) fn retune_housekeeping(&self) {
         let popout_visible = self.popout.borrow().as_ref().is_some_and(|p| p.window().is_visible());
         let plugin_visible = self.plugin_windows.borrow().iter().any(|(_, _, ui)| ui.window().is_visible());
-        let interval = crate::preview::housekeeping_interval(window_seen(self.ui.window()), popout_visible, plugin_visible, self.quiet());
+        // A window hidden behind another is still looked after quickly, so its picture comes back as soon as it shows again
+        let open = crate::preview::window_seen(self.ui.window().is_visible(), self.ui.window().is_minimized());
+        let interval = crate::preview::housekeeping_interval(open, popout_visible, plugin_visible, self.quiet());
         if self.preview_timer.interval() != interval {
             self.preview_timer.set_interval(interval);
         }

@@ -217,9 +217,10 @@ fn foreground_on_windows() -> Foreground {
     }
 }
 
-/// Whether another program's window without a title bar fills the screen that `window` (a Win32 window handle) is on, so nobody sees it.
+/// Whether one window of another program above `window` (a Win32 window handle) in the stacking order hides all of it: shown, not
+/// minimised, not cloaked, not see-through, and covering its whole rectangle (a game or a film full screen, a maximised browser).
 #[cfg(windows)]
-pub fn covered_by_fullscreen(window: isize) -> bool {
+pub fn hidden_behind_another_window(window: isize) -> bool {
     use std::ffi::c_void;
     #[repr(C)]
     #[derive(Default)]
@@ -229,52 +230,55 @@ pub fn covered_by_fullscreen(window: isize) -> bool {
         right: i32,
         bottom: i32,
     }
-    #[repr(C)]
-    #[derive(Default)]
-    struct MonitorInfo {
-        size: u32,
-        monitor: Rect,
-        work: Rect,
-        flags: u32,
-    }
     #[link(name = "user32")]
     unsafe extern "system" {
-        fn GetForegroundWindow() -> *mut c_void;
+        fn GetWindow(window: *mut c_void, cmd: u32) -> *mut c_void;
+        fn IsWindowVisible(window: *mut c_void) -> i32;
+        fn IsIconic(window: *mut c_void) -> i32;
         fn GetWindowRect(window: *mut c_void, rect: *mut Rect) -> i32;
         fn GetWindowLongW(window: *mut c_void, index: i32) -> i32;
         fn GetWindowThreadProcessId(window: *mut c_void, process: *mut u32) -> u32;
-        fn MonitorFromWindow(window: *mut c_void, flags: u32) -> *mut c_void;
-        fn GetMonitorInfoW(monitor: *mut c_void, info: *mut MonitorInfo) -> i32;
+    }
+    #[link(name = "dwmapi")]
+    unsafe extern "system" {
+        fn DwmGetWindowAttribute(window: *mut c_void, attribute: u32, value: *mut c_void, size: u32) -> i32;
     }
     #[link(name = "kernel32")]
     unsafe extern "system" {
         fn GetCurrentProcessId() -> u32;
     }
-    const GWL_STYLE: i32 = -16;
-    const WS_CAPTION: i32 = 0x00C0_0000;
-    const MONITOR_DEFAULTTONEAREST: u32 = 2;
+    const GW_HWNDPREV: u32 = 3;
+    const GWL_EXSTYLE: i32 = -20;
+    const WS_EX_TRANSPARENT: i32 = 0x0000_0020;
+    const WS_EX_LAYERED: i32 = 0x0008_0000;
+    const DWMWA_CLOAKED: u32 = 14;
     // SAFETY: every pointer goes to a local of the type the call documents, and a window that closes meanwhile just makes a call fail
     unsafe {
-        let front = GetForegroundWindow();
-        if front.is_null() {
+        let own = window as *mut c_void;
+        let mut mine = Rect::default();
+        if GetWindowRect(own, &mut mine) == 0 {
             return false;
         }
-        let mut process = 0u32;
-        GetWindowThreadProcessId(front, &mut process);
-        if process == GetCurrentProcessId() {
-            return false;
+        let me = GetCurrentProcessId();
+        let mut above = GetWindow(own, GW_HWNDPREV);
+        // The windows above are few; the bound only guards against a list that changes under the walk
+        for _ in 0..512 {
+            if above.is_null() {
+                return false;
+            }
+            let mut process = 0u32;
+            GetWindowThreadProcessId(above, &mut process);
+            let mut cloaked = 0u32;
+            let shown = IsWindowVisible(above) != 0 && IsIconic(above) == 0 && process != me
+                && (DwmGetWindowAttribute(above, DWMWA_CLOAKED, (&mut cloaked as *mut u32).cast(), 4) != 0 || cloaked == 0);
+            let solid = GetWindowLongW(above, GWL_EXSTYLE) & (WS_EX_TRANSPARENT | WS_EX_LAYERED) == 0;
+            let mut r = Rect::default();
+            if shown && solid && GetWindowRect(above, &mut r) != 0 && r.left <= mine.left && r.top <= mine.top && r.right >= mine.right && r.bottom >= mine.bottom {
+                return true;
+            }
+            above = GetWindow(above, GW_HWNDPREV);
         }
-        let screen = MonitorFromWindow(front, MONITOR_DEFAULTTONEAREST);
-        if screen != MonitorFromWindow(window as *mut c_void, MONITOR_DEFAULTTONEAREST) {
-            return false;
-        }
-        let (mut rect, mut info) = (Rect::default(), MonitorInfo { size: std::mem::size_of::<MonitorInfo>() as u32, ..Default::default() });
-        if GetWindowRect(front, &mut rect) == 0 || GetMonitorInfoW(screen, &mut info) == 0 {
-            return false;
-        }
-        let m = &info.monitor;
-        let covers = rect.left <= m.left && rect.top <= m.top && rect.right >= m.right && rect.bottom >= m.bottom;
-        covers && GetWindowLongW(front, GWL_STYLE) & WS_CAPTION != WS_CAPTION
+        false
     }
 }
 
