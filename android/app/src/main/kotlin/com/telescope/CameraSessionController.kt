@@ -554,7 +554,7 @@ class CameraSessionController(
         val c = cameraDevice ?: return
         try {
             s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
-            val trigger = c.createCaptureRequest(requestTemplate()).apply {
+            val trigger = newRequest(c, requestTemplate()).apply {
                 addTarget(outputSurface()!!)
                 if (!previewRecovery.holding) previewSurface?.let { addTarget(it) }
                 currentCamera?.let { applyZoom(this, it) }  // this frame reaches the stream too
@@ -1217,9 +1217,16 @@ class CameraSessionController(
     private fun requestTemplate(): Int =
         if (codec == H264Stream.CODEC_H264) CameraDevice.TEMPLATE_RECORD else CameraDevice.TEMPLATE_PREVIEW
 
+    // A lens of a logical camera that can be cropped gets its own settings in the request, or applyZoom can't set the crop
+    private fun newRequest(device: CameraDevice, template: Int): CaptureRequest.Builder {
+        val lens = currentCamera?.let { CameraRequestSelection.physicalSettingsId(it) }
+        return if (lens != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) device.createCaptureRequest(template, setOf(lens))
+        else device.createCaptureRequest(template)
+    }
+
     // probe: only to ask the camera about a session, so sessionFps stays the running request's
     private fun buildRequest(camera: CameraDevice = cameraDevice!!, probe: Boolean = false): CaptureRequest {
-        return camera.createCaptureRequest(requestTemplate()).apply {
+        return newRequest(camera, requestTemplate()).apply {
             addTarget(outputSurface()!!)
             if (!previewRecovery.holding) previewSurface?.let { addTarget(it) }
             val fps = cameraFps()
@@ -1357,7 +1364,7 @@ class CameraSessionController(
 
     // Whole photos retain the optical lens ratio and leave digital cropping to the desktop.
     fun stillRequest(device: CameraDevice, template: Int, wholePhoto: Boolean = false): CaptureRequest.Builder =
-        device.createCaptureRequest(template).also { applyControls(it, cameraFps(), wholePhoto) }
+        newRequest(device, template).also { applyControls(it, cameraFps(), wholePhoto) }
 
     // Whether the session takes these outputs next to the stream's; null when the phone can't say, so it's worth trying
     fun stillsFit(outputs: List<StillOutput>): Boolean? {
