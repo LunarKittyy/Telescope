@@ -6689,6 +6689,19 @@ msgstr "Esta computadora"
 msgid "This computer couldn't set up the video connection."
 msgstr "Esta computadora no pudo configurar la conexión de video."
 
+msgid "This computer has no network"
+msgstr ""
+
+msgid "This computer isn't connected to a network."
+msgstr ""
+
+#, python-brace-format
+msgid "This computer isn't connected to a network. Connect it to the same network as {phone}, or plug the phone in with a USB cable."
+msgstr ""
+
+msgid "This computer isn't connected to a network. Reconnect it, or plug the phone in with a USB cable."
+msgstr ""
+
 msgid "This computer isn't on a network right now. Pair over USB."
 msgstr "Esta computadora no está conectada a una red en este momento. Vincula por USB."
 

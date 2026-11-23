@@ -929,6 +929,10 @@ impl SourceKind for PhoneKind {
         std::mem::replace(&mut self.inner.borrow_mut().unreachable_shown, shown)
     }
     fn lost_hint(&self) -> String {
+        // Only a stream that came over the network is lost with it; one on a cable has nothing to do with the computer's network
+        if matches!(self.inner.borrow().route, Some(RouteSpec::Network { .. })) && !self.link.network_up() {
+            return tr("This computer isn't connected to a network. Reconnect it, or plug the phone in with a USB cable.");
+        }
         tr("Open Telescope on it.")
     }
     fn name(&self) -> String {
@@ -1434,6 +1438,8 @@ mod tests {
         committed: Mutex<Vec<String>>,
         dropped: Mutex<Vec<(String, bool)>>,
         controls: Arc<FakeControl>,
+        /// This computer has no network.
+        offline: AtomicBool,
         released: Mutex<Vec<String>>,
         problems: Mutex<Vec<PhoneStatus>>,
         /// Stops and wakes as they reach the phone, in order.
@@ -1493,6 +1499,9 @@ mod tests {
     }
 
     impl Link for FakeLink {
+        fn network_up(&self) -> bool {
+            !self.offline.load(Ordering::SeqCst)
+        }
         fn check(&self, phone: &PairedPhone, preference: RoutePreference) -> Resolution {
             self.version_checks.lock().unwrap().push((phone.id.clone(), preference));
             Resolution { phone_version: "5.1.4".into(), ..ready(wifi()) }
@@ -2132,6 +2141,14 @@ mod tests {
         assert_eq!(Plain.lost_hint(), "Check that the device is still on.");
         let (source, ..) = streaming();
         assert_eq!(source.kind.lost_hint(), "Open Telescope on it.");
+        let (offline, link, ..) = streaming();
+        link.offline.store(true, Ordering::SeqCst);
+        offline.kind.as_phone().unwrap().inner.borrow_mut().route = None;
+        assert_eq!(offline.kind.lost_hint(), "Open Telescope on it.", "a stream whose route isn't known doesn't blame the network");
+        offline.kind.as_phone().unwrap().inner.borrow_mut().route = Some(wifi());
+        assert_eq!(offline.kind.lost_hint(), "This computer isn't connected to a network. Reconnect it, or plug the phone in with a USB cable.");
+        offline.kind.as_phone().unwrap().inner.borrow_mut().route = Some(usb());
+        assert_eq!(offline.kind.lost_hint(), "Open Telescope on it.", "a cable that came out is the phone's side, whatever the network does");
         let browser = PluginKind::new(Arc::new(Mutex::new(Arc::new(Offered("x")))), None);
         assert_eq!(browser.lost_hint(), "Open the Telescope page in the browser again.");
     }
