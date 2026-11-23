@@ -22,6 +22,8 @@ const CHUNK: usize = 1 << 20;
 /// The most one photo file may be, whatever the phone says it is.
 const MAX_FILE_BYTES: u64 = 1 << 30;
 const MAX_REPLY: usize = 1 << 20;
+/// The most pictures one request may be said to take: the card lists every count up to it, so a nonsense number from a phone can't be taken at its word.
+const MAX_BURST: i64 = 1000;
 /// How often a download's watcher looks at the clock, the stop flag and whether the stream is still the same.
 const WATCH_EVERY: Duration = Duration::from_millis(25);
 
@@ -168,7 +170,7 @@ impl StillCaps {
             max_res_raw: flag("maxResRaw"), extensions: words("extensions"), extension_sizes,
             exposure_max_ns: number("exposureMaxNs"), bracketing: flag("bracketing"), focus_bracketing: flag("focusBracketing"),
             noise_reduction_hq: flag("noiseReductionHq"), sharpening_hq: flag("sharpeningHq"), hot_pixel_hq: flag("hotPixelHq"),
-            distortion: flag("distortionCorrection"), burst_max: number("burstMax").max(1),
+            distortion: flag("distortionCorrection"), burst_max: number("burstMax").clamp(1, MAX_BURST),
         })
     }
 }
@@ -889,6 +891,12 @@ mod tests {
         let c = caps(json!({"formats": "raw", "width": "x", "burstMax": -3, "maxResRaw": "yes"})).unwrap();
         assert!(c.formats == ["jpeg"] && c.size.is_none() && c.burst_max == 1 && !c.max_res_raw);
         assert!(c.max_res.is_none() && c.extensions.is_empty() && c.exposure_max_ns == 0);
+    }
+
+    #[test]
+    fn a_burst_size_nobody_could_take_is_kept_to_a_list_the_card_can_show() {
+        let c = caps(json!({"burstMax": 4_000_000_000_000i64})).unwrap();
+        assert_eq!(c.burst_max, 1000);
     }
 
     #[test]
