@@ -382,14 +382,8 @@ fn the_computer_is_slow_when_a_tenth_of_the_frames_are_shed_for_a_few_seconds() 
 }
 
 #[test]
-fn a_stage_s_newest_time_is_there_once_and_the_rate_without_the_lock() {
+fn the_rate_is_there_without_the_lock() {
     let (_hub, stats, _) = running();
-    assert_eq!(stats.take_latest("take_frame"), None);
-    stats.stage(2, 4 * MS);
-    stats.stage(2, 11 * MS);
-    assert_eq!(stats.take_latest("take_frame"), Some(11 * MS), "the newest");
-    assert_eq!(stats.take_latest("take_frame"), None, "taken");
-    assert_eq!(stats.take_latest("no such stage"), None);
     assert_eq!(stats.target_fps(), 0);
     stats.set_target_fps(60);
     assert_eq!(stats.target_fps(), 60);
