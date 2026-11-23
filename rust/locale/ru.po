@@ -6565,7 +6565,7 @@ msgstr "Телефон отклонил запрос микрофона (HTTP {c
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "Телефон отклонил запрос на запуск трансляции ({error})."
 
-msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It goes back up when you zoom in, use Auto framing or take a photo."
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It moves up to the picked size when you zoom in or use Auto framing. A photo keeps the size it began at."
 msgstr ""
 
 msgid "The phone sent data this version can't read. Update both apps to the same version."

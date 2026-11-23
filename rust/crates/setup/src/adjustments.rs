@@ -313,7 +313,7 @@ fn row_tip_of(kind: Kind) -> String {
         Kind::FrameRate => tr("Dynamic lowers the frame rate when the connection is too slow for the one asked for."),
         Kind::Heat => tr("The phone lowers its frame rate when it gets hot to protect itself. There is no way to override that."),
         Kind::Decoding => tr("The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."),
-        Kind::StreamSize => tr("The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It goes back up when you zoom in, use Auto framing or take a photo."),
+        Kind::StreamSize => tr("The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It moves up to the picked size when you zoom in or use Auto framing. A photo keeps the size it began at."),
     }
 }
 

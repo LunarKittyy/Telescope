@@ -1063,3 +1063,103 @@ fn a_camera_that_grows_takes_a_bigger_size_back_without_the_whole_pick() {
     assert_eq!(resolutions(&host).last(), Some(&json!({"action": "resolution", "width": 1920, "height": 1080})));
     assert!(p.trim.is_some());
 }
+
+/// A 4K phone already trimmed to 1080p, the phone settled on it and the cooldown over.
+fn trimmed_and_settled() -> (StreamOutputPlugin, FakeHost) {
+    let (mut p, mut host) = at_4k(true, (1920, 1080));
+    p.on_phone_state(&mut host, &on_lens(&FOUR_SIZES, 1920, 1080));
+    p.trim_at = None;
+    (p, host)
+}
+
+fn four_k() -> Value {
+    json!({"action": "resolution", "width": 3840, "height": 2160})
+}
+
+#[test]
+fn a_photo_under_way_is_never_interrupted_by_a_size_change() {
+    let (mut p, mut host) = trimmed_and_settled();
+    p.on_event(&mut host, &Event::StillBusyChanged { source_id: "phone-a".into(), busy: true });
+    assert_eq!(resolutions(&host).len(), 1, "reopening the camera would end the photo");
+    p.on_event(&mut host, &Event::ViewStatus { status: json!({"desktop_zoom": 1.5}) });
+    assert_eq!(resolutions(&host).len(), 1, "a crop waits for the photo too");
+    p.on_event(&mut host, &Event::StillBusyChanged { source_id: "phone-a".into(), busy: false });
+    assert_eq!(resolutions(&host).last(), Some(&four_k()));
+}
+
+#[test]
+fn a_restore_that_never_arrived_is_not_forgotten_when_the_stream_comes_back() {
+    let (mut p, mut host) = trimmed_and_settled();
+    p.on_event(&mut host, &Event::StreamSizeHeld { on: true });
+    assert_eq!(resolutions(&host).last(), Some(&four_k()));
+    // The link was down, so the phone still reports 1080p
+    p.on_phone_state(&mut host, &on_lens(&FOUR_SIZES, 1920, 1080));
+    assert_eq!(p.get_config()["resolution"], "3840 x 2160", "that isn't a new pick");
+    start(&mut p, &mut host, "url");
+    host.calls.clear();
+    p.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_INITIAL.into() });
+    assert_eq!(resolutions(&host), [four_k()]);
+    // Once the phone shows the pick there is nothing to send again
+    p.on_phone_state(&mut host, &on_lens(&FOUR_SIZES, 3840, 2160));
+    host.calls.clear();
+    p.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_INITIAL.into() });
+    assert!(resolutions(&host).is_empty());
+}
+
+#[test]
+fn a_bigger_reader_or_the_switch_going_off_do_not_wait_for_the_cooldown() {
+    let (mut p, mut host) = at_4k(true, (1920, 1080));
+    p.on_event(&mut host, &Event::StreamSizeHeld { on: true });
+    assert_eq!(resolutions(&host).last(), Some(&four_k()), "the person's switch is at once");
+    let (mut p, mut host) = at_4k(true, (1920, 1080));
+    p.on_event(&mut host, &Event::CameraFit { source_id: "phone-a".into(), width: 3840, height: 2160 });
+    assert_eq!(resolutions(&host).last(), Some(&four_k()), "a reader that takes more gets it at once");
+}
+
+#[test]
+fn a_turned_picture_is_trimmed_by_the_sizes_the_camera_sees() {
+    let (mut p, mut host) = phone_a();
+    host.view.rotation = Some(90);
+    p.set_config(&json!({"resolution": "3840 x 2160"})).unwrap();
+    start(&mut p, &mut host, "url");
+    p.on_phone_state(&mut host, &on_lens(&FOUR_SIZES, 3840, 2160));
+    p.on_event(&mut host, &Event::CameraFit { source_id: "phone-a".into(), width: 1080, height: 1920 });
+    p.computer_slow = true;
+    p.reconsider_size(&mut host);
+    assert_eq!(resolutions(&host), [json!({"action": "resolution", "width": 1920, "height": 1080})], "1280 x 720 turned would be upscaled");
+}
+
+#[test]
+fn moving_to_another_phone_gives_the_trimmed_one_its_pick_back() {
+    let (mut p, mut host) = trimmed_and_settled();
+    p.on_focus_lost(&mut host);
+    assert_eq!(resolutions(&host).last(), Some(&four_k()));
+    assert_eq!(p.trim, None);
+    assert!(host.events.contains(&Event::StreamSizeTrimmed { trimmed: false, width: 3840, height: 2160, picked_width: 3840, picked_height: 2160 }));
+    assert_eq!(p.get_config()["resolution"], "3840 x 2160");
+}
+
+#[test]
+fn zooming_in_and_out_does_not_make_the_phone_go_down_and_up_again() {
+    let (mut p, mut host) = trimmed_and_settled();
+    let zoom = |z: f64| Event::ViewStatus { status: json!({"desktop_zoom": z}) };
+    p.on_event(&mut host, &zoom(1.5));
+    assert_eq!(resolutions(&host).len(), 2);
+    p.on_phone_state(&mut host, &on_lens(&FOUR_SIZES, 3840, 2160));
+    p.trim_at = None;
+    p.on_event(&mut host, &zoom(1.0));
+    assert_eq!(resolutions(&host).len(), 2, "the same pick and camera stay at the pick");
+    p.on_event(&mut host, &Event::CameraFit { source_id: "phone-a".into(), width: 1280, height: 720 });
+    assert_eq!(resolutions(&host).len(), 3, "another camera size is another question");
+}
+
+#[test]
+fn a_preset_with_the_size_that_is_being_sent_makes_it_the_pick() {
+    let (mut p, mut host) = trimmed_and_settled();
+    p.apply_preset(&mut host, &json!({"resolution": "1920 x 1080"})).unwrap();
+    assert_eq!(p.trim, None);
+    assert_eq!(p.get_config()["resolution"], "1920 x 1080");
+    assert!(host.events.iter().any(|e| matches!(e, Event::StreamSizeTrimmed { trimmed: false, .. })), "Adjustments stops listing it");
+    p.on_event(&mut host, &Event::StreamSizeHeld { on: true });
+    assert_eq!(resolutions(&host).len(), 1, "nothing goes back up to 4K");
+}

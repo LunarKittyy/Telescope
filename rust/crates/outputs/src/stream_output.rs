@@ -228,6 +228,11 @@ pub struct StreamOutputPlugin {
     still_busy: bool,
     /// When Telescope last changed the size itself (monotonic ns).
     trim_at: Option<u64>,
+    /// The pick was asked of the phone again after a trim and the phone hasn't shown it yet: the size and when it was sent. Until it does, a size the phone still
+    /// reports isn't taken for the pick, and a stream that comes back is asked again.
+    restoring: Option<((u32, u32), u64)>,
+    /// A trim was undone because the whole picture was wanted: no new one for this pick and camera size until something changes.
+    no_retrim: Option<((u32, u32), (u32, u32))>,
 }
 
 impl StreamOutputPlugin {
@@ -239,7 +244,7 @@ impl StreamOutputPlugin {
             phone_dynamic: None, h264_profile: None, intra_refresh: false, wifi: (None, None, None), over_usb: false,
             phone_picked: true, phones: 0, h264_sizes: None, good_size: None, wanted_fps: DEFAULT_FPS, camera_max_fps: 0,
             fps_current: 3, quality: DEFAULT_QUALITY, bitrate: 0, stop_for: None, fixed_bitrate: false, computer_slow: false, behind: None,
-            trim: None, trim_held: false, fit: None, zoomed: false, view_taken: false, still_busy: false, trim_at: None,
+            trim: None, trim_held: false, fit: None, zoomed: false, view_taken: false, still_busy: false, trim_at: None, restoring: None, no_retrim: None,
         };
         p.show_fps();
         p
@@ -435,14 +440,21 @@ impl StreamOutputPlugin {
             self.sizes.enabled = true;
             self.pending_resolution_text = None;
         } else if let (Some(w), Some(h)) = live {
-            if self.sizes.current_text() != size_label(w, h) {
-                self.sizes.select(Some((w, h)));
+            // The phone may still show the size from before a restore it hasn't taken yet: that isn't the pick
+            let pending = self.restoring.filter(|(_, at)| telescope_core::time::monotonic_ns().saturating_sub(*at) < trim::RESTORE_GRACE_NS);
+            match pending {
+                Some((size, _)) if size == (w, h) => self.restoring = None,
+                Some(_) => {}
+                None if self.sizes.current_text() != size_label(w, h) => self.sizes.select(Some((w, h))),
+                None => {}
             }
         }
     }
 
     fn on_resolution(&mut self, host: &mut dyn Host) {
         self.end_trim(host); // a size picked now is the new pick
+        self.restoring = None;
+        self.no_retrim = None;
         let Some((w, h)) = self.sizes.current() else { return };
         if self.stream.is_none() {
             // Picked while stopped: the next start opens at it
@@ -470,27 +482,33 @@ impl StreamOutputPlugin {
     }
 
     /// Frames run late and the camera can't use all of the picture: ask the phone for the smallest size that still fills it. Goes back up
-    /// when the camera, a crop or a photo wants the pick. Never goes down twice in a run, so it can't flap.
+    /// when the camera, a crop or the person wants the pick, at once. Going down waits for the phone to settle and never repeats for the
+    /// same pick and camera once it went back up for a crop, so it can't flap. A photo under way keeps the size it began at.
     fn reconsider_size(&mut self, host: &mut dyn Host) {
         let (Some(_), Some(live), Some(fit)) = (&self.stream, self.sizes.current(), self.fit) else { return };
-        let now = telescope_core::time::monotonic_ns();
-        if !self.phone_picked || self.trim_at.is_some_and(|at| now.saturating_sub(at) < trim::SETTLE_NS) {
+        if !self.phone_picked || self.still_busy {
             return;
         }
-        let whole = self.zoomed || self.view_taken || self.trim_held || self.still_busy;
+        let now = telescope_core::time::monotonic_ns();
+        let whole = self.zoomed || self.view_taken || self.trim_held;
+        let turned = matches!(host.view().rotation, Some(90 | 270));
         let area = |s: (u32, u32)| s.0 as u64 * s.1 as u64;
         match self.trim {
             None => {
-                if self.computer_slow && !whole {
-                    if let Some(to) = trim::smallest_enough(&self.sizes.res, live, fit) {
+                let settling = self.trim_at.is_some_and(|at| now.saturating_sub(at) < trim::SETTLE_NS);
+                if self.computer_slow && !whole && !settling && self.no_retrim != Some((live, fit)) {
+                    if let Some(to) = trim::smallest_enough(&self.sizes.res, live, fit, turned) {
                         self.trim = Some(trim::Trim { picked: live });
                         self.send_trimmed(host, to, live, now);
                     }
                 }
             }
             Some(t) => {
-                let want = if whole { t.picked } else { trim::smallest_enough(&self.sizes.res, t.picked, fit).unwrap_or(t.picked) };
+                let want = if whole { t.picked } else { trim::smallest_enough(&self.sizes.res, t.picked, fit, turned).unwrap_or(t.picked) };
                 if area(want) > area(live) {
+                    if whole && want == t.picked {
+                        self.no_retrim = Some((t.picked, fit));
+                    }
                     self.send_trimmed(host, want, t.picked, now);
                 }
             }
@@ -504,8 +522,19 @@ impl StreamOutputPlugin {
         self.trim_at = Some(now);
         if to == picked {
             self.trim = None;
+            self.restoring = Some((picked, now));
         }
         host.emit(Event::StreamSizeTrimmed { trimmed: to != picked, width: to.0, height: to.1, picked_width: picked.0, picked_height: picked.1 });
+    }
+
+    /// The phone still has to be at the pick after a restore that may not have arrived (the link was down): sends it again, once.
+    fn reassert_pick(&mut self, host: &mut dyn Host) {
+        let Some(((w, h), _)) = self.restoring.take() else { return };
+        if self.trim.is_none() && self.sizes.res.contains(&(w, h)) {
+            self.sizes.select(Some((w, h)));
+            self.send(host, &json!({"action": "resolution", "width": w, "height": h}));
+            host.emit(Event::ResolutionChangeRequested { width: w, height: h });
+        }
     }
 
     fn back_to_good_size(&mut self, host: &mut dyn Host, state: &Value) -> Option<String> {
@@ -868,7 +897,17 @@ impl Plugin for StreamOutputPlugin {
         self.stream = None;
         self.fit = None;
         self.trim_at = None;
+        self.restoring = None;
+        self.no_retrim = None;
         self.current_camera_id = None;
+    }
+
+    fn on_focus_lost(&mut self, host: &mut dyn Host) {
+        // The phone streams on behind the other tile and nothing here follows it any more: it goes back to the pick first
+        if let Some(t) = self.trim {
+            self.send_trimmed(host, t.picked, t.picked, telescope_core::time::monotonic_ns());
+        }
+        self.on_stream_stop(host);
     }
 
     fn on_phone_state(&mut self, host: &mut dyn Host, state: &Value) {
@@ -1179,6 +1218,10 @@ impl StreamOutputPlugin {
         if wh.is_some() && wh != self.sizes.current() {
             self.sizes.select(wh);
             self.on_resolution(host);
+        } else if wh.is_some() && self.trim.is_some() {
+            // The preset's size is the one being sent now: it becomes the pick, so nothing goes back up to the old one later
+            self.end_trim(host);
+            host.schedule_save();
         }
         if wh.is_some() {
             self.pending_resolution_text = None;
@@ -1218,6 +1261,9 @@ impl StreamOutputPlugin {
             }
             Event::StreamSizeHeld { on } => {
                 self.trim_held = *on;
+                if !*on {
+                    self.no_retrim = None; // asking for trimming again is asking for it now
+                }
                 self.reconsider_size(host);
             }
             Event::CameraFit { source_id, width, height } if self.stream.as_deref() == Some(source_id.as_str()) => {
@@ -1248,6 +1294,7 @@ impl StreamOutputPlugin {
             Event::TimerFired { owner, token } if owner == NAME => {
                 if token == T_INITIAL {
                     self.push_initial_settings(host);
+                    self.reassert_pick(host);
                 } else if token == T_STOP {
                     let sid = self.stop_for.take().flatten();
                     host.stop_stream(sid.as_deref());
