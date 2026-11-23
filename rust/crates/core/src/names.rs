@@ -11,11 +11,23 @@ fn is_space(c: char) -> bool {
     c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
 }
 
-/// Format and private-use characters, which Python's isprintable() leaves out (a right-to-left override, say).
-fn is_format_or_private(c: char) -> bool {
+/// Invisible format characters (a right-to-left override, a zero-width space) that can disguise the text around them.
+pub fn is_format_char(c: char) -> bool {
     matches!(c as u32, 0xAD | 0x600..=0x605 | 0x61C | 0x6DD | 0x70F | 0x8E2 | 0x180E | 0x200B..=0x200F | 0x202A..=0x202E
         | 0x2060..=0x2064 | 0x2066..=0x206F | 0xFEFF | 0xFFF9..=0xFFFB | 0x110BD | 0x110CD | 0x13430..=0x1343F
-        | 0x1BCA0..=0x1BCA3 | 0x1D173..=0x1D17A | 0xE0001 | 0xE0020..=0xE007F | 0xE000..=0xF8FF | 0xF0000..=0x10FFFF)
+        | 0x1BCA0..=0x1BCA3 | 0x1D173..=0x1D17A | 0xE0001 | 0xE0020..=0xE007F)
+}
+
+/// Format and private-use characters, which Python's isprintable() leaves out (a right-to-left override, say).
+fn is_format_or_private(c: char) -> bool {
+    is_format_char(c) || matches!(c as u32, 0xE000..=0xF8FF | 0xF0000..=0x10FFFF)
+}
+
+/// Whether a file stem is a name Windows won't make a file of (con, aux, nul, prn, com1-9, lpt1-9), in any case.
+pub fn is_device_name(stem: &str) -> bool {
+    let up = stem.to_ascii_uppercase();
+    matches!(up.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || ["COM", "LPT"].iter().any(|p| up.strip_prefix(p).is_some_and(|n| matches!(n.as_bytes(), [b'1'..=b'9'])))
 }
 
 /// A name as safe display text: no control characters, no < or > (a label would draw it as HTML), runs of white space

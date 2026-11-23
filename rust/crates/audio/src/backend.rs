@@ -62,7 +62,10 @@ fn ensure_source(modules: &Mutex<Vec<u32>>, run: &RunFn, fifo: &Option<std::path
         return String::new();
     }
     let (ids, err) = virtual_mic::linux_setup(&**run, fifo.clone());
-    *modules = ids;
+    // A failed setup (pactl list down) found nothing to unload: keep the ids we know so mic-off still unloads them
+    if err.is_empty() || !ids.is_empty() {
+        *modules = ids;
+    }
     err
 }
 
@@ -209,6 +212,8 @@ mod tests {
         loads: Mutex<u32>,
         fifo: std::path::PathBuf,
         reader: Mutex<Option<libc::c_int>>,
+        /// `pactl list` fails while set.
+        list_down: std::sync::atomic::AtomicBool,
     }
 
     impl Server {
@@ -216,11 +221,12 @@ mod tests {
             let dir = std::env::temp_dir().join(format!("telescope-backend-{name}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).unwrap();
-            Arc::new(Server { loaded: Mutex::default(), next: Mutex::new(40), loads: Mutex::default(), fifo: dir.join("mic.fifo"), reader: Mutex::default() })
+            Arc::new(Server { loaded: Mutex::default(), next: Mutex::new(40), loads: Mutex::default(), fifo: dir.join("mic.fifo"), reader: Mutex::default(), list_down: Default::default() })
         }
 
         fn run(&self, cmd: &[String]) -> (bool, String) {
             match cmd[1].as_str() {
+                "list" if self.list_down.load(std::sync::atomic::Ordering::SeqCst) => (false, String::new()),
                 "list" => (true, self.loaded.lock().unwrap().iter()
                     .map(|id| format!("{id}\tmodule-pipe-source\tsource_name=telescope_mic file=x")).collect::<Vec<_>>().join("\n")),
                 "load-module" => {
@@ -282,5 +288,15 @@ mod tests {
         server.restart();
         assert!(open().is_ok());
         assert_eq!(*server.loads.lock().unwrap(), 2);
+    }
+
+    #[test]
+    fn a_failed_listing_keeps_the_known_modules_so_mic_off_unloads_them() {
+        let server = Server::new("listdown");
+        let mic = server.mic();
+        assert_eq!(mic.prepare(), "");
+        server.list_down.store(true, std::sync::atomic::Ordering::SeqCst);
+        assert_ne!(mic.prepare(), "");
+        assert_eq!(*mic.modules.lock().unwrap(), vec![41]);
     }
 }

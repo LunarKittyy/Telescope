@@ -27,21 +27,22 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
     ("notifications", "Show desktop notifications"),
 ];
 
-/// Manifest text as one plain line: no control characters, capped (_text).
+/// Manifest text as one plain line: no control or invisible format characters, capped (_text).
 pub fn text(value: Option<&Value>) -> String {
     let raw = match value {
         Some(Value::String(s)) => s.clone(),
         Some(Value::Number(n)) => n.to_string(),
         _ => return String::new(),
     };
-    let clean: String = raw.chars().filter(|c| !c.is_control()).collect();
+    let clean: String = raw.chars().filter(|c| !c.is_control() && !telescope_core::names::is_format_char(*c)).collect();
     clean.trim().chars().take(TEXT_MAX).collect()
 }
 
-/// Whether name can be a plugin's name and folder: [a-z][a-z0-9_]{1,31}.
+/// Whether name can be a plugin's name and folder: [a-z][a-z0-9_]{1,31}, and not one Windows keeps for a device (con, nul, com1).
 pub fn valid_name(name: &str) -> bool {
     let b = name.as_bytes();
-    (2..=32).contains(&b.len()) && b[0].is_ascii_lowercase() && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
+    !telescope_core::names::is_device_name(name.split('.').next().unwrap_or(name))
+        && (2..=32).contains(&b.len()) && b[0].is_ascii_lowercase() && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
 }
 
 /// Why a manifest's "repo" can't be shown as a link ("" when it can, or when there's none). Only the test harness shows it, in English.
@@ -202,11 +203,21 @@ mod tests {
 
     #[test]
     fn names_and_main_scripts() {
+        for device in ["con", "aux", "nul", "prn", "com1", "com9", "lpt1", "lpt9"] {
+            assert!(!valid_name(device), "{device}");
+        }
+        assert!(valid_name("com10") && valid_name("console") && valid_name("com0"));
         assert!(valid_name("black_and_white") && !valid_name("Bad-Name") && !valid_name("a") && !valid_name("_x"));
         assert_eq!(Manifest::new(json!({})).main().as_deref(), Some("main.lua"));
         assert_eq!(Manifest::new(json!({"main": "src/plugin.lua"})).main().as_deref(), Some("src/plugin.lua"));
         assert_eq!(Manifest::new(json!({"main": "../x.lua"})).main(), None);
         assert_eq!(Manifest::new(json!({"main": "x.py"})).main(), None);
         assert_eq!(Manifest::new(json!({"permissions": ["phone", "root", "phone"]})).permissions(), ["phone"]);
+    }
+
+    #[test]
+    fn manifest_text_drops_bidi_and_other_invisible_characters() {
+        let shown = text(Some(&json!("Safe\u{202E}gpj.exe \u{2066}x\u{2069}\u{200B}\u{FEFF}y")));
+        assert_eq!(shown, "Safegpj.exe xy");
     }
 }
