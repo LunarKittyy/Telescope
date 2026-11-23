@@ -2211,6 +2211,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let timed = std::cell::Cell::new(false);
     // The start is only confirmed once pictures have gone out, and until then a failure still ends in the start-up message
     let start_confirmed = || {
+        telescope_core::gpu_marker::confirmed();
         telescope_core::gpu_marker::clear();
         telescope_core::diagnostics::set_starting(false);
         // Hands back what the first frame's shader, font and picture work left free
