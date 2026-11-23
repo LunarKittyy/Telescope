@@ -400,8 +400,8 @@ fn the_banner_asks_to_hear_about_its_dismissal() {
 #[test]
 fn every_switch_in_settings_is_one_the_plugin_has() {
     let ui = include_str!("../ui/adjustments.slint");
-    assert_eq!(ui.matches("SwitchRow {").count(), 4);
-    for switch in ["effects", "heads", "balance", "dynamic"] {
+    assert_eq!(ui.matches("SwitchRow {").count(), 5);
+    for switch in ["effects", "heads", "balance", "dynamic", "stream-size"] {
         assert!(ui.contains(&format!("root.{switch}-toggled(on)")), "{switch}");
     }
     assert!(!ui.contains("enabled: false"));
