@@ -683,6 +683,49 @@ fn a_new_link_that_lands_while_a_browser_is_still_joining_cuts_it_off_too() {
 }
 
 #[test]
+fn an_old_links_late_handshake_leaves_the_new_links_browser_alone() {
+    let web = Arc::new(FakeWeb::default());
+    let (maker, _) = fake_rtc(false);
+    let server = BrowserServer::new(Arc::new(BrowserHub::single(Arc::new(BrowserFeed::new()))), web.clone(), cert(), || {}, 0, "127.0.0.1", maker);
+    server.set_timings(Duration::from_millis(50), Duration::from_secs(5));
+    server.start().unwrap();
+    let (handler, stats) = {
+        let served = web.served.lock().unwrap();
+        (served[0].handler.clone(), served[0].stats.clone())
+    };
+    let request = |token: String| Request {
+        method: "GET".into(),
+        target: format!("/ws?token={token}"),
+        headers: vec![("Upgrade".into(), "websocket".into()), ("Sec-WebSocket-Key".into(), "dGhlIHNhbXBsZSBub25jZQ==".into()),
+                      ("Sec-WebSocket-Version".into(), "13".into())],
+    };
+    let start = |upgrade: telescope_core::web::Upgrade| {
+        let wrote: Arc<Mutex<Vec<u8>>> = Arc::default();
+        let sock = Mute { wrote: wrote.clone(), born: Instant::now(), wait: None };
+        let run = upgrade.run;
+        std::thread::spawn(move || run(Box::new(sock)));
+        wrote
+    };
+    let told = |wrote: &Arc<Mutex<Vec<u8>>>, code: u16| {
+        let said = ws::close_frame(code, "");
+        wait(|| wrote.lock().unwrap().windows(said.len()).any(|w| w == said.as_slice()), Duration::from_millis(400))
+    };
+    // A tab's handshake passed with the old link, then the link was renewed and a tab on the new one got in first
+    let old = handler.upgrade(&request(server.token()), &stats).expect("the old token was good");
+    server.new_token();
+    let new = handler.upgrade(&request(server.token()), &stats).expect("the new token is good");
+    let feed = server.feed().unwrap();
+    let valid = start(new);
+    assert!(wait(|| feed.connected(), FIVE));
+    let gen = feed.generation();
+    // the old handshake only resumes now
+    let late = start(old);
+    assert!(told(&late, CLOSE_NEW_LINK), "the old link's tab was told to stop");
+    assert!(feed.connected() && feed.current(gen), "the new link's tab still has the feed");
+    assert!(!told(&valid, CLOSE_REPLACED), "and wasn't told it was opened somewhere else");
+}
+
+#[test]
 fn a_browser_that_never_stops_ponging_is_still_cut_off_by_a_new_link() {
     let run = server();
     let feed = run.feed();

@@ -52,9 +52,7 @@ struct Shared {
 
 impl Shared {
     fn token_ok(&self, token: &str) -> bool {
-        let ours = self.token.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        // hmac.compare_digest: as long whatever the first difference
-        !token.is_empty() && token.len() == ours.len() && token.bytes().zip(ours.bytes()).fold(0u8, |d, (a, b)| d | (a ^ b)) == 0
+        token_matches(&self.token.lock().unwrap_or_else(|e| e.into_inner()), token)
     }
 
     fn close_all(&self, code: u16) {
@@ -70,21 +68,28 @@ impl Shared {
 
     /// One browser's connection, on its own thread, until it ends or a newer one takes over.
     fn serve_browser(self: &Arc<Self>, sock: Box<dyn Socket>, bid: &str, token: &str) {
-        let Some(feed) = self.hub.join(bid) else {
-            let mut ws = WsConnection::new(sock, |_| Ok(()));
-            ws.send_quietly(&ws::close_frame(CLOSE_FULL, "Every camera is in use"));
-            return;
-        };
-        let gen = feed.connect();
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        {
-            let mut open = self.open.lock().unwrap_or_else(|e| e.into_inner());
-            open.insert(id, None);
-            // The link may have been renewed after the token was checked and before this connection counted: close_all missed it
-            if !self.token_ok(token) {
-                open.insert(id, Some(CLOSE_NEW_LINK));
+        // The token is checked, the feed taken over and the connection counted under the token's lock: a renewal waits for
+        // it, so an old link's late handshake can't replace a feed that the new link's page has already taken over
+        let joined = {
+            let ours = self.token.lock().unwrap_or_else(|e| e.into_inner());
+            if !token_matches(&ours, token) {
+                Err(CLOSE_NEW_LINK)
+            } else if let Some((feed, gen)) = self.hub.join_connect(bid) {
+                self.open.lock().unwrap_or_else(|e| e.into_inner()).insert(id, None);
+                Ok((feed, gen))
+            } else {
+                Err(CLOSE_FULL)
             }
-        }
+        };
+        let (feed, gen) = match joined {
+            Ok(joined) => joined,
+            Err(code) => {
+                let mut ws = WsConnection::new(sock, |_| Ok(()));
+                ws.send_quietly(&ws::close_frame(code, if code == CLOSE_FULL { "Every camera is in use" } else { "" }));
+                return;
+            }
+        };
         let rtc: RefCell<Option<Box<dyn RtcSession>>> = RefCell::new(None);
         let (mut sent_seq, mut pinged) = (None, Instant::now());
         let (ping_every, idle) = *self.timings.lock().unwrap_or_else(|e| e.into_inner());
@@ -196,6 +201,11 @@ impl Shared {
             }
         }
     }
+}
+
+fn token_matches(ours: &str, token: &str) -> bool {
+    // hmac.compare_digest: as long whatever the first difference
+    !token.is_empty() && token.len() == ours.len() && token.bytes().zip(ours.bytes()).fold(0u8, |d, (a, b)| d | (a ^ b)) == 0
 }
 
 /// The page's stats, kept to numbers and a known limit.
