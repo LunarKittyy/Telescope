@@ -435,6 +435,11 @@ pub(crate) mod probe {
         static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         *ON.get_or_init(|| std::env::var_os("TELESCOPE_UIPROBE").is_some())
     }
+    /// Parts of the housekeeping tick left out (TELESCOPE_EXP_HK_SKIP=vis,focus,preview,msg,pick,thumbs or all).
+    pub fn hk_skip(part: &str) -> bool {
+        static SKIP: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+        SKIP.get_or_init(|| std::env::var("TELESCOPE_EXP_HK_SKIP").unwrap_or_default().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).iter().any(|s| s == part)
+    }
     pub fn covered_on() -> bool {
         static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         *ON.get_or_init(|| std::env::var_os("TELESCOPE_EXP_COVERED").is_some())
@@ -1216,24 +1221,36 @@ impl Window {
 
     pub(crate) fn housekeeping(self: &Rc<Self>) {
         probe::count(probe::HOUSE);
-        self.sync_preview_visibility();
-        self.watch_focus();
-        self.paint_preview();
+        let skip = probe::hk_skip;
+        if skip("all") {
+            return;
+        }
+        if !skip("vis") {
+            self.sync_preview_visibility();
+        }
+        if !skip("focus") {
+            self.watch_focus();
+        }
+        if !skip("preview") {
+            self.paint_preview();
+        }
         let now = std::time::Instant::now();
-        let expired = self.state.borrow_mut().expire_preview_messages(now);
-        if expired {
-            self.process();
-        } else {
-            let due = self.state.borrow_mut().preview_messages.due(now);
-            if due {
-                self.paint_message();
+        if !skip("msg") {
+            let expired = self.state.borrow_mut().expire_preview_messages(now);
+            if expired {
+                self.process();
+            } else {
+                let due = self.state.borrow_mut().preview_messages.due(now);
+                if due {
+                    self.paint_message();
+                }
             }
         }
-        if window_seen(self.ui.window()) || self.popout_seen() {
+        if (window_seen(self.ui.window()) || self.popout_seen()) && !skip("pick") {
             self.paint_pick();
             self.paint_layers();
         }
-        if window_seen(self.ui.window()) {
+        if window_seen(self.ui.window()) && !skip("thumbs") {
             self.update_thumbnails();
         }
     }
