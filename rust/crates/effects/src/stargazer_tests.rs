@@ -908,6 +908,26 @@ fn a_saved_night_preset_is_recalled_as_live_photos_and_never_changes_a_run() {
 }
 
 #[test]
+fn a_saved_default_shot_is_still_a_default_after_a_restart() {
+    let mut host = photo_host();
+    host.still_caps = None;
+    let mut plugin = photo_plugin(&mut host, json!({"mode": "live"}));
+    photo_ui(&mut plugin, &mut host, "input-picked", json!(1));
+    let saved = plugin.get_config();
+    // Restarted with a lens that can't set the shutter or the ISO
+    let mut lens = photo_host();
+    lens.still_caps = Some(json!({"burst_max": 1}));
+    let mut restored = photo_plugin(&mut lens, saved);
+    restored.catch_up(&mut lens);
+    assert_eq!((restored.shot.shutter_s, restored.shot.iso), (None, None));
+    // A shot picked by hand stays a choice
+    let mut hand = photo_plugin(&mut host, json!({"mode": "live", "input": "photos", "shot": {"shutter_s": 10.0, "iso": 800}}));
+    assert!(hand.get_config().get("shot_default").is_none());
+    hand.apply_preset(&mut host, &json!({"shot": {"shutter_s": 10.0, "iso": 800}})).unwrap();
+    assert!(hand.get_config().get("shot_default").is_none());
+}
+
+#[test]
 fn the_first_photos_pick_saves_defaults_and_never_replaces_saved_choices() {
     let mut host = photo_host();
     let mut plugin = photo_plugin(&mut host, json!({"mode": "live"}));

@@ -34,6 +34,7 @@ class StillJobs(
         val lensRatios = mutableMapOf<File, Float>()
         var endedAt = 0L
         var named = 0  // files handed out so far
+        val numbers = HashMap<Long, Pair<Int, MutableSet<String>>>()  // the number and extensions each shot's files have taken
         val fetched = HashSet<Int>()  // files a computer asked for
         fun allFetched() = files.indices.all { it in fetched }
     }
@@ -72,13 +73,19 @@ class StillJobs(
     @Synchronized
     fun shotTaken(id: String) { jobs[id]?.let { if (it.endedAt == 0L) it.taken++ } }
 
-    // Where the next file of this request goes: IMG_<when it started>_<n>.<ext>, n counting from 01
+    // Where the next file of this request goes: IMG_<when it started>_<n>.<ext>, n counting from 01. The files of one shot (its RAW and
+    // its JPEG) share n, so the desktop pairs them by name; a shot with two files of one kind gives the second the next n.
     @Synchronized
-    fun newFile(id: String, ext: String): File? {
+    fun newFile(id: String, ext: String, shot: Long? = null): File? {
         val job = jobs[id]?.takeIf { it.endedAt == 0L } ?: return null
         dir.mkdirs()
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(Date(job.startedAtWall))
-        return File(dir, "IMG_${stamp}_${"%02d".format(++job.named)}_$id.$ext.part")
+        val shared = shot?.let { job.numbers[it] }?.takeIf { ext !in it.second }
+        val n = shared?.first ?: ++job.named
+        if (shot != null) {
+            if (shared != null) shared.second += ext else job.numbers[shot] = n to mutableSetOf(ext)
+        }
+        return File(dir, "IMG_${stamp}_${"%02d".format(n)}_$id.$ext.part")
     }
 
     // A file newFile handed out is written: it can be fetched from now on
