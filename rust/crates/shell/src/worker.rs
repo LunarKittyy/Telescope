@@ -1648,8 +1648,9 @@ impl Shared {
         let mut hidings = self.hidings.load(Ordering::SeqCst);
         let mut urgent = false;
         let mut shown: Option<Frame> = None;
-        // How many frames had been published when the last one was sent, to count the ones skipped since
-        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or_else(|| *self.published.lock().unwrap());
+        // How many frames had been published when the last one was sent, to count the ones skipped since: none yet for a first camera, whose first frame
+        // passes over the ones that came in while it opened
+        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or(0);
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -5330,9 +5331,15 @@ mod tests {
 
     /// Runs frames arriving after each of the gaps (ms) through a 30 fps camera and returns (arrived, delivered, paced drops).
     fn run_with_gaps(id: &str, gaps: &[u64]) -> (u64, u64, u64) {
+        run_with_gaps_and_open(id, gaps, 0)
+    }
+
+    /// run_with_gaps, with the virtual camera taking open_ms to open: the stream's first frames come in before it is there.
+    fn run_with_gaps_and_open(id: &str, gaps: &[u64], open_ms: u64) -> (u64, u64, u64) {
         let steps: Vec<Step> = gaps.iter().enumerate().flat_map(|(i, g)| [Step::Frame(10 + (i % 200) as u8), Step::Pause(Duration::from_millis(*g))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
         let (opener, _opens) = scripted(vec![Some(steps)]);
         let cams = Arc::new(Cams::default());
+        cams.open_delay_ms.store(open_ms, Ordering::SeqCst);
         let events: Events = Arc::new(|_| {});
         let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: id.into(), url: "https://127.0.0.1:40003/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         let n = gaps.len() as u64;
@@ -5407,6 +5414,15 @@ mod tests {
         assert_eq!(received, 12);
         assert_eq!(delivered + paced, 12, "every frame went out or was counted as skipped");
         assert!(paced >= 1 && delivered >= 3, "delivered {delivered}, skipped {paced}");
+    }
+
+    #[test]
+    fn frames_that_came_in_before_the_camera_opened_are_counted_as_skipped() {
+        // Twelve frames 1 ms apart come in while the camera takes 150 ms to open: the camera starts on the newest, and the ones before it were never sent
+        let gaps: Vec<u64> = (0..12).map(|i| if i == 11 { 600 } else { 1 }).collect();
+        let (received, delivered, paced) = run_with_gaps_and_open("early-frames-test", &gaps, 150);
+        assert_eq!(received, 12);
+        assert_eq!(delivered + paced, 12, "every frame went out or was counted as skipped: delivered {delivered}, skipped {paced}");
     }
 
     #[test]
