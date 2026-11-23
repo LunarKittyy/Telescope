@@ -662,6 +662,7 @@ struct GphotoState {
 const RELOOK: std::time::Duration = std::time::Duration::from_secs(600);
 
 /// The USB devices that are plugged in (bus, address, vendor and product ids), or None where the system doesn't say.
+#[cfg(target_os = "linux")]
 fn usb_devices(root: &std::path::Path) -> Option<String> {
     let mut found = Vec::new();
     for entry in std::fs::read_dir(root).ok()?.flatten() {
@@ -679,6 +680,51 @@ fn usb_devices(root: &std::path::Path) -> Option<String> {
     Some(found.join(" "))
 }
 
+/// How a scanner asks which USB devices are plugged in: a list that is the same while they are.
+#[cfg(any(target_os = "linux", windows))]
+type UsbLook = Box<dyn Fn() -> Option<String> + Send>;
+
+/// The look at the USB devices a system lists in a folder (Linux's sysfs).
+#[cfg(target_os = "linux")]
+fn folder_look(root: std::path::PathBuf) -> UsbLook {
+    Box::new(move || usb_devices(&root))
+}
+
+/// The USB devices that are plugged in on Windows: the instance ids the device manager lists as present, or None when it won't say. One call
+/// that opens no device and needs no COM, so it is cheap enough to ask every few seconds.
+#[cfg(windows)]
+fn windows_usb_devices() -> Option<String> {
+    use windows::core::w;
+    use windows::Win32::Devices::DeviceAndDriverInstallation::{
+        CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_GETIDLIST_FILTER_ENUMERATOR, CM_GETIDLIST_FILTER_PRESENT, CR_SUCCESS,
+    };
+    let flags = CM_GETIDLIST_FILTER_ENUMERATOR | CM_GETIDLIST_FILTER_PRESENT;
+    // A device can arrive between asking for the size and for the list, which then doesn't fit: asking again gets the new size
+    for _ in 0..3 {
+        let mut len = 0u32;
+        // SAFETY: len is a live u32, and the filter is a NUL-terminated literal that outlives the call
+        if unsafe { CM_Get_Device_ID_List_SizeW(&mut len, w!("USB"), flags) } != CR_SUCCESS {
+            return None;
+        }
+        let mut buffer = vec![0u16; len as usize];
+        // SAFETY: the buffer is as long as the size the system just gave, which it is told through the slice
+        if unsafe { CM_Get_Device_ID_ListW(w!("USB"), &mut buffer, flags) } != CR_SUCCESS {
+            continue;
+        }
+        return Some(id_list_text(&buffer));
+    }
+    None
+}
+
+/// The ids the device manager gives come as strings one after another, each ended by a NUL and an empty one at the end: sorted, so the
+/// same devices read the same whatever order they are listed in.
+#[cfg(any(windows, test))]
+fn id_list_text(buffer: &[u16]) -> String {
+    let mut ids: Vec<String> = buffer.split(|c| *c == 0).filter(|id| !id.is_empty()).map(String::from_utf16_lossy).collect();
+    ids.sort();
+    ids.join(" ")
+}
+
 /// Looks for DSLRs now and then on a thread of its own, so a slow gphoto2 never holds up the webcam rescan: scan() gives
 /// what the last look found. Without gphoto2 installed it finds nothing and only checks again once a minute.
 #[cfg(any(target_os = "linux", windows))]
@@ -692,19 +738,22 @@ pub struct GphotoScanner {
     last: Option<std::time::Instant>,
     /// Called from the look's thread when it finds a different set of cameras than before.
     on_change: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
-    /// Where the system lists USB devices; a look only happens when they change. None looks every time.
-    usb_root: Option<std::path::PathBuf>,
+    /// How to tell which USB devices are plugged in; a look only happens when they change. None looks every time.
+    usb: Option<UsbLook>,
 }
 
 #[cfg(any(target_os = "linux", windows))]
 impl GphotoScanner {
     pub fn new(program: &str, every: std::time::Duration, limit: std::time::Duration) -> GphotoScanner {
-        GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None, on_change: None, usb_root: None }
+        GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None, on_change: None, usb: None }
     }
 
     pub fn system() -> GphotoScanner {
-        let usb_root = cfg!(target_os = "linux").then(|| std::path::PathBuf::from("/sys/bus/usb/devices"));
-        GphotoScanner { library: true, usb_root, ..GphotoScanner::new("gphoto2", std::time::Duration::from_secs(4), GPHOTO_DETECT_TIMEOUT) }
+        #[cfg(target_os = "linux")]
+        let usb = Some(folder_look("/sys/bus/usb/devices".into()));
+        #[cfg(windows)]
+        let usb: Option<UsbLook> = Some(Box::new(windows_usb_devices));
+        GphotoScanner { library: true, usb, ..GphotoScanner::new("gphoto2", std::time::Duration::from_secs(4), GPHOTO_DETECT_TIMEOUT) }
     }
 
     /// Has `f` called whenever a look finds a different set of cameras, so a late result isn't left until the next scan.
@@ -722,7 +771,7 @@ impl GphotoScanner {
         if !running && self.last.is_none_or(|t| t.elapsed() >= wait) {
             self.last = Some(std::time::Instant::now());
             // Same devices as the last good look: nothing to find, and no thread, library load or command to pay for
-            let devices = self.usb_root.as_deref().and_then(usb_devices);
+            let devices = self.usb.as_ref().and_then(|look| look());
             let unchanged = devices.as_ref().is_some_and(|d| self.state.lock().unwrap().looked.as_ref().is_some_and(|(seen, at)| seen == d && at.elapsed() < RELOOK));
             if unchanged {
                 return gphoto_devices(&self.state.lock().unwrap().found);
