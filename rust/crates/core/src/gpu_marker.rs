@@ -80,12 +80,14 @@ struct State {
     /// A start in the tray: no surface exists yet, so the marker was cleared and is armed again when the window first shows.
     deferred: bool,
     skipped: Vec<Card>,
+    /// The card the last start closed on, until the window says so (`take_crash_notice`).
+    crashed: Option<Card>,
     /// Goes up with every `clear`, so work that marked something meanwhile can tell it was cleared underneath.
     generation: u64,
 }
 
 fn state() -> MutexGuard<'static, State> {
-    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new(), generation: 0 });
+    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new(), crashed: None, generation: 0 });
     STATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -125,7 +127,13 @@ pub fn begin_start(folder: &Path) -> Option<Card> {
     state.home = Some(folder.to_path_buf());
     state.deferred = false;
     state.skipped = skipped;
+    state.crashed = crashed.clone();
     crashed
+}
+
+/// The card the last start closed on, once, for a window that says so itself (Linux has no message box for it).
+pub fn take_crash_notice() -> Option<Card> {
+    state().crashed.take()
 }
 
 /// Whether the card is on the skip list (always false before `begin_start`).
@@ -423,6 +431,9 @@ mod tests {
         begin_start(&folder);
         mark(&probe_card());
         assert_eq!(begin_start(&folder), Some(probe_card()));
+        // The window can say so itself, once
+        assert_eq!(take_crash_notice(), Some(probe_card()));
+        assert_eq!(take_crash_notice(), None);
         assert!(probe_failed());
         std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[card("A", "1")]).unwrap()).unwrap();
         begin_start(&folder);

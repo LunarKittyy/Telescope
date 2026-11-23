@@ -1177,6 +1177,11 @@ impl State {
                 actions: vec![], kind: "warn".into(), details: String::new(), tell_dismiss: false,
             });
         }
+        // Windows says it in a message box once the window has shown; elsewhere nothing else would
+        if let Some(card) = telescope_core::gpu_marker::take_crash_notice().filter(|_| !cfg!(windows)) {
+            let (title, text) = telescope_core::gpu_marker::crash_text(&card);
+            self.banners.show("graphics_card_skipped", Issue { title, text, actions: vec![], kind: "warn".into(), details: String::new(), tell_dismiss: false });
+        }
     }
 
     /// The side cards as they are on screen now, by plugin name.
@@ -2092,6 +2097,26 @@ mod tests {
         let mut s = State::new(ConfigFile::at(scratch_dir("shell").join("telescope_config.json")));
         s.colour = ColourPipeline::inline();
         s
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn a_graphics_card_the_last_start_closed_on_is_said_in_a_banner() {
+        use telescope_core::gpu_marker::{begin_start, mark, Card, MARKER_FILE};
+        let folder = scratch_dir("shell-gpu-notice");
+        begin_start(&folder);
+        mark(&Card::new("Some card", "Vulkan", "1.2"));
+        assert!(folder.join(MARKER_FILE).exists());
+        // The next start finds the marker
+        begin_start(&folder);
+        let mut s = state();
+        s.apply_saved_config();
+        let issue = s.banners.issue("graphics_card_skipped").expect("a banner");
+        assert!(issue.text.contains("Some card"), "{}", issue.text);
+        // Said once
+        s.banners.clear(Some("graphics_card_skipped"), None);
+        s.apply_saved_config();
+        assert!(s.banners.issue("graphics_card_skipped").is_none());
     }
 
     /// Takes the view and a timer in setup(), then offers a card that isn't Slint.

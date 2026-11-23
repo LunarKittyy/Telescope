@@ -25,6 +25,9 @@ Another account on this PC has Telescope open and both use the same local port. 
 **"Your settings couldn't be read"**
 Telescope started with defaults and paired phones need pairing again because `telescope_config.json` was damaged or edited wrongly. The banner shows where the old file was copied (`telescope_config.json.invalid-...`). Fix it and restore it, or pair again.
 
+**Light (H.264) streams fail with FFmpeg missing from the log (Windows)**
+Windows 11's Smart App Control, or an application control policy at work, blocked one of FFmpeg's DLLs, which aren't signed. The log line ends in "(os error 4551)" and the stream error names Smart App Control. Without FFmpeg only Heavy (MJPEG) works. Smart App Control can't be allowed per app. Switch it off in Windows Security under App & browser control, or set the stream to Heavy. Turning it back on later means reinstalling Windows, which is worth weighing first.
+
 **"Cannot mount AppImage" (Linux)**
 The AppImage needs `fusermount` or `fusermount3`, which nearly every desktop has. Install `fuse3` from your distro, or start it with `./Telescope-x86_64.AppImage --appimage-extract-and-run`, which unpacks it into your temp folder and needs no FUSE at all. It starts slower that way and the unpacked copy is left in the temp folder until it's cleared.
 
@@ -187,7 +190,7 @@ Your numbers can differ from these because task managers count memory in differe
 On Linux the decoder is VA-API or NVIDIA's CUDA. On Windows it's Direct3D 11. Without a usable card Light still decodes on the processor.
 
 **Telescope switched graphics card**
-The last start closed while Telescope was opening that card, or the card opened but couldn't draw the window. When every card has been skipped the processor draws the window. Telescope now leaves it out and uses another one, or the processor if none is left. The card is tried again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
+The next start shows a banner on Linux and a message box on Windows. The last start closed while Telescope was opening that card, or the card opened but couldn't draw the window. Anything that ends Telescope in its first second does this, a crash of the driver but also a kill by the system when memory ran out. When every card has been skipped the processor draws the window. Telescope now leaves it out and uses another one, or the processor if none is left. The card is tried again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
 
 **Telescope uses the other graphics card on Windows**
 Pick the card yourself under **Graphics card** in Video settings and restart. With **Automatic** Telescope follows the graphics setting for its own app in Windows Settings > System > Display > Graphics. It uses the high performance card, which on a laptop with two is the discrete one, with no setting or with **Let Windows decide**. **Power saving** runs everything on the integrated card, hardware decode included. Try it when a laptop with two cards runs hot or drains the battery. The log shows which setting Telescope found. On Intel cards DirectX 12 is tried before Vulkan because an old Intel Vulkan driver crashed while opening the card.

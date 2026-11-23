@@ -90,6 +90,21 @@ pub fn test_opus_tone(packets: usize, peak: f64) -> Option<Vec<Vec<u8>>> {
     }
 }
 
+/// Why FFmpeg's libraries wouldn't load, where they didn't.
+static FFMPEG_WHY: OnceLock<String> = OnceLock::new();
+
+/// What a decoder that can't be made says: not in this build, or why this copy couldn't load FFmpeg. Windows 11's Smart App Control
+/// (error 4551) blocks unsigned DLLs like FFmpeg's, which looks like a missing decoder unless it is said.
+fn decoder_missing(what: &str, why: Option<&str>) -> String {
+    match why {
+        Some(why) if why.contains("4551") => {
+            format!("{what} decoding needs FFmpeg, and Windows blocked its DLLs (Smart App Control or an application control policy): {why}")
+        }
+        Some(why) => format!("{what} decoding needs FFmpeg, which couldn't be loaded: {why}"),
+        None => format!("{what} decoding isn't in this build"),
+    }
+}
+
 /// Whether FFmpeg can be called here (h264_reader.available()). Windows loads its DLLs on first use, so a copy that lost one still
 /// starts: H.264, VP8 and Opus are then missing, MJPEG goes through plain_jpeg and pictures through picture. Without this, nothing
 /// may touch FFmpeg, its destructors included.
@@ -109,7 +124,15 @@ pub fn ffmpeg_available() -> bool {
                     true
                 }
                 Err(why) => {
-                    log::warn!("FFmpeg isn't available, so only MJPEG can be decoded: {why}");
+                    // The system's own words are in the error's source ("...blocked this file (os error 4551)"), not in its own text
+                    let mut text = why.to_string();
+                    let mut source = std::error::Error::source(&why);
+                    while let Some(e) = source {
+                        text = format!("{text}: {e}");
+                        source = e.source();
+                    }
+                    log::warn!("FFmpeg isn't available, so only MJPEG can be decoded: {text}");
+                    let _ = FFMPEG_WHY.set(text);
                     false
                 }
             })
@@ -138,7 +161,7 @@ fn make_decoder(codec: Codec, options: &DecodeOptions, tap: Arc<dyn PacketTap>, 
         return Ok(Box::new(plain_jpeg::PlainJpeg));
     }
     let _ = (options, tap);
-    Err(format!("{codec:?} decoding isn't in this build"))
+    Err(decoder_missing(&format!("{codec:?}"), FFMPEG_WHY.get().map(String::as_str)))
 }
 
 /// A picture file as RGBA, through FFmpeg when `ffmpeg` says it can be called.
@@ -263,7 +286,7 @@ impl Media for FfmpegMedia {
         if ffmpeg_available() {
             return Ok(Box::new(opus::Opus::new()?));
         }
-        Err("Opus decoding isn't in this build".into())
+        Err(decoder_missing("Opus", FFMPEG_WHY.get().map(String::as_str)))
     }
 
     fn scaler(&self) -> Box<dyn Scaler> {
@@ -327,6 +350,14 @@ mod tests {
         assert!(make_decoder(Codec::H264, &options, new_tap(), false).is_err());
         assert!(make_decoder(Codec::Vp8, &options, new_tap(), false).is_err());
         assert!(!make_decoder(Codec::Mjpeg, &options, new_tap(), false).unwrap().hardware());
+    }
+
+    #[test]
+    fn a_decoder_blocked_by_windows_says_so() {
+        assert_eq!(decoder_missing("H264", None), "H264 decoding isn't in this build");
+        let blocked = decoder_missing("H264", Some("LoadLibraryExW failed: An Application Control policy has blocked this file. (os error 4551)"));
+        assert!(blocked.contains("Smart App Control") && blocked.contains("os error 4551"), "{blocked}");
+        assert!(decoder_missing("Opus", Some("file not found (os error 126)")).contains("couldn't be loaded"));
     }
 
     /// Flat salmon pink: Y 180, U 100, V 160.
