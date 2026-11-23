@@ -149,6 +149,9 @@ object CameraRequestSelection {
 
     // SCALER_CROP_REGION for phone-side zoom: 1/crop of the visible frame, centred on (cx, cy) in 0..1 of
     // it and kept inside it. Stream-shaped, so the camera crops nothing more to fit the output.
+    // The lens whose own settings a request needs, as its crop goes there; only a request made for that lens has them
+    fun physicalSettingsId(cam: CameraEntry): String? = if (cam.logicalId != null && cam.cropZoomMax > 1f) cam.id else null
+
     fun cropRect(area: SensorBox, crop: Float, cx: Float, cy: Float, streamW: Int, streamH: Int): SensorBox {
         val (visLeft, visTop, visW, visH) = visibleFrame(area, streamW, streamH)
         val w = visW / crop.coerceAtLeast(1f)
