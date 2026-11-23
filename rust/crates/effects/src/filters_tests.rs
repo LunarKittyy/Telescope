@@ -83,7 +83,10 @@ fn only_step(s: &Settings) -> (FrameStage, ShaderStep, Box<dyn CpuStep>) {
 
 fn on_cpu(cpu: &mut Box<dyn CpuStep>, frame: &Frame, ctx: &Ctx) -> Frame {
     let mut out = frame.clone();
+    // these check the picture, not the clock (a slow runner would make the step step aside and the picture come out untouched)
+    super::tests_ignore_the_clock::set(true);
     cpu.process(&mut out, ctx);
+    super::tests_ignore_the_clock::set(false);
     out
 }
 
@@ -848,6 +851,19 @@ fn a_slow_cpu_step_in_the_real_pipeline_is_tried_once_and_then_skipped() {
         }
     }
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+}
+
+#[test]
+fn the_picture_checks_do_not_depend_on_how_fast_the_machine_is() {
+    // a run that is over the budget every time, as on a machine so busy that every frame is slow
+    let mut slow: Box<dyn CpuStep> = Box::new(Pixels::new(|rgb, _, _| {
+        std::thread::sleep(std::time::Duration::from_millis(CPU_BUDGET_MS + 15));
+        rgb.data[0] = 255;
+    }));
+    let frame = noisy(16, 16, 100, 1.0, 1);
+    for _ in 0..3 {
+        assert_eq!(on_cpu(&mut slow, &frame, &Ctx(None)).data[0], 255, "the step's work is kept, however long it took");
+    }
 }
 
 #[test]
