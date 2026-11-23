@@ -950,3 +950,17 @@ fn reset_puts_fps_quality_and_bitrate_back_and_keeps_the_size() {
 fn the_declared_settings_round_trip() {
     telescope_core::testing::settings_round_trip(&mut plugin(), &mut FakeHost::new());
 }
+
+#[test]
+fn a_fixed_bitrate_request_reaches_every_phone_not_only_the_shown_one() {
+    let (mut p, mut host) = phone_a();
+    host.background = vec![telescope_core::host::BackgroundStream { source_id: "phone-b".into(), name: "B".into(), session: 1 }];
+    start(&mut p, &mut host, "https://192.168.1.5:8443/v1/video.h264");
+    p.bitrate = DYNAMIC_POS;
+    host.calls.clear();
+    p.on_event(&mut host, &Event::FixedBitrateRequested { on: true });
+    let calls: Vec<&String> = host.calls.iter().filter(|c| c.starts_with("phone_control")).collect();
+    assert_eq!(calls.len(), 2, "{calls:?}");
+    assert!(calls.iter().any(|c| c.contains("phone-a")) && calls.iter().any(|c| c.contains("phone-b")));
+    assert!(calls.iter().all(|c| c.contains("\"value\":0")));
+}
