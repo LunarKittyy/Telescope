@@ -95,7 +95,7 @@ fn terms() -> &'static Terms {
     })
 }
 
-/// yuv_row for a whole row, the first 32 pixel blocks of it on AVX2 (within 1 of yuv_to_rgb) and the rest, or all of it on a processor without, the exact way.
+/// yuv_row for a whole row, the first 32 pixel blocks of it on AVX2 or SSE4.1 (within 1 of yuv_to_rgb) and the rest, or all of it on a processor with neither, the exact way.
 fn convert_row<const BGRA: bool>(t: &Terms, y: &[u8], u: &[u8], v: &[u8], out: &mut [u8]) {
     let done = if BGRA { telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(y, u, v, false, out) } else { telescope_core::yuv::row::<{ telescope_core::yuv::RGBA }>(y, u, v, false, out) };
     yuv_row::<BGRA>(t, &y[done..], &u[done / 2..], &v[done / 2..], &mut out[done * 4..]);
@@ -286,12 +286,76 @@ unsafe fn rgb4_pair_avx2<const BGRA: bool>(top_px: &[u8], bot_px: &[u8], top_y: 
     }
 }
 
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+unsafe fn rgb4_pair_sse41<const BGRA: bool>(top_px: &[u8], bot_px: &[u8], top_y: &mut [u8], bot_y: &mut [u8], urow: &mut [u8], vrow: &mut [u8], blocks: usize) {
+    use std::arch::x86_64::*;
+    let mask_ff = _mm_set1_epi32(0xFF);
+    let zero = _mm_setzero_ps();
+    let half = _mm_set1_ps(0.5);
+    let one = _mm_set1_ps(1.0);
+    let quarter = _mm_set1_ps(0.25);
+    let c16 = _mm_set1_ps(16.0);
+    let c128 = _mm_set1_ps(128.0);
+    let c255 = _mm_set1_ps(255.0);
+    let magic = _mm_set1_ps(8_388_608.0);
+    let (ky_r, ky_g, ky_b) = (_mm_set1_ps(0.257), _mm_set1_ps(0.504), _mm_set1_ps(0.098));
+    let (ku_r, ku_g, ku_b) = (_mm_set1_ps(0.148), _mm_set1_ps(0.291), _mm_set1_ps(0.439));
+    let (kv_r, kv_g, kv_b) = (_mm_set1_ps(0.439), _mm_set1_ps(0.368), _mm_set1_ps(0.071));
+
+    let round_i32 = |x: __m128| -> __m128i {
+        let x = _mm_min_ps(_mm_max_ps(x, zero), c255);
+        let t = _mm_sub_ps(_mm_add_ps(x, magic), magic);
+        let tie = _mm_cmpeq_ps(_mm_sub_ps(x, t), half);
+        _mm_cvttps_epi32(_mm_add_ps(t, _mm_and_ps(tie, one)))
+    };
+    // Four pixels' luma as bytes in the low 4 bytes, and their U and V still as floats
+    let load_yuv = |ptr: *const u8| -> (__m128i, __m128, __m128) {
+        let px = _mm_loadu_si128(ptr.cast());
+        let c0 = _mm_cvtepi32_ps(_mm_and_si128(px, mask_ff));
+        let g = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32::<8>(px), mask_ff));
+        let c2 = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32::<16>(px), mask_ff));
+        let (r, b) = if BGRA { (c2, c0) } else { (c0, c2) };
+        let y = _mm_add_ps(_mm_add_ps(_mm_add_ps(c16, _mm_mul_ps(r, ky_r)), _mm_mul_ps(g, ky_g)), _mm_mul_ps(b, ky_b));
+        let u = _mm_add_ps(_mm_sub_ps(_mm_sub_ps(c128, _mm_mul_ps(r, ku_r)), _mm_mul_ps(g, ku_g)), _mm_mul_ps(b, ku_b));
+        let v = _mm_sub_ps(_mm_sub_ps(_mm_add_ps(c128, _mm_mul_ps(r, kv_r)), _mm_mul_ps(g, kv_g)), _mm_mul_ps(b, kv_b));
+        (round_i32(y), u, v)
+    };
+    // Two vectors of four luma values (as i32) to 8 bytes
+    let pack8 = |lo: __m128i, hi: __m128i| -> __m128i { _mm_packus_epi16(_mm_packus_epi32(lo, hi), _mm_setzero_si128()) };
+    // Four chroma values from the four pixels around each: the even and odd pixels of the top two vectors and of the bottom two
+    let average = |t0: __m128, t1: __m128, b0: __m128, b1: __m128| -> i32 {
+        let a = _mm_shuffle_ps::<0x88>(t0, t1);
+        let c = _mm_shuffle_ps::<0xDD>(t0, t1);
+        let d = _mm_shuffle_ps::<0x88>(b0, b1);
+        let e = _mm_shuffle_ps::<0xDD>(b0, b1);
+        let avg = _mm_mul_ps(_mm_add_ps(_mm_add_ps(_mm_add_ps(a, c), d), e), quarter);
+        let p = _mm_packus_epi16(_mm_packus_epi32(round_i32(avg), _mm_setzero_si128()), _mm_setzero_si128());
+        _mm_cvtsi128_si32(p)
+    };
+
+    for b in 0..blocks * 2 {
+        let x = b * 8;
+        let (yt0, ut0, vt0) = load_yuv(top_px.as_ptr().add(x * 4));
+        let (yt1, ut1, vt1) = load_yuv(top_px.as_ptr().add((x + 4) * 4));
+        let (yb0, ub0, vb0) = load_yuv(bot_px.as_ptr().add(x * 4));
+        let (yb1, ub1, vb1) = load_yuv(bot_px.as_ptr().add((x + 4) * 4));
+        _mm_storel_epi64(top_y.as_mut_ptr().add(x).cast(), pack8(yt0, yt1));
+        _mm_storel_epi64(bot_y.as_mut_ptr().add(x).cast(), pack8(yb0, yb1));
+        urow.as_mut_ptr().add(b * 4).cast::<i32>().write_unaligned(average(ut0, ut1, ub0, ub1));
+        vrow.as_mut_ptr().add(b * 4).cast::<i32>().write_unaligned(average(vt0, vt1, vb0, vb1));
+    }
+}
+
 /// The row pairs of rgb_to_i420 from `first` on that fit in the planes' parts (each starting at that row pair).
 #[allow(clippy::too_many_arguments)]
 fn rgb_band_to_i420(pixels: &[u8], (w, h): (usize, usize), channels: usize, [ro, go, bo]: [usize; 3], mirror: bool, first: usize, luma: &mut [u8], us: &mut [u8], vs: &mut [u8]) {
     let (t, cw) = (terms(), w.div_ceil(2));
+    // Decided once, so scalar mode switching on mid-call can't land on the SSE4.1 loop
     #[cfg(target_arch = "x86_64")]
-    let simd_blocks = if channels == 4 && !mirror && ([ro, go, bo] == [0, 1, 2] || [ro, go, bo] == [2, 1, 0]) && telescope_core::image::avx2_wanted() { w / 16 } else { 0 };
+    let wide = telescope_core::image::avx2_wanted();
+    #[cfg(target_arch = "x86_64")]
+    let simd_blocks = if channels == 4 && !mirror && ([ro, go, bo] == [0, 1, 2] || [ro, go, bo] == [2, 1, 0]) && (wide || telescope_core::image::sse41_wanted()) { w / 16 } else { 0 };
     #[cfg(not(target_arch = "x86_64"))]
     let simd_blocks = 0usize;
     // Each pixel's U and V, and its luma written, from the pixel at output column x of row y (luma starting at row `first` * 2)
@@ -315,12 +379,18 @@ fn rgb_band_to_i420(pixels: &[u8], (w, h): (usize, usize), channels: usize, [ro,
                 if simd_blocks > 0 {
                     let top_px = &pixels[(2 * cy) * w * 4..][..w * 4];
                     let bot_px = &pixels[(2 * cy + 1) * w * 4..][..w * 4];
-                    // SAFETY: avx2_wanted() checked AVX2 support, and simd_blocks * 16 <= w keeps every load and store in bounds.
+                    // SAFETY: the processor was asked for AVX2 or SSE4.1 and simd_blocks * 16 <= w keeps every load and store in bounds.
                     unsafe {
-                        if ro == 2 {
-                            rgb4_pair_avx2::<true>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
+                        if wide {
+                            if ro == 2 {
+                                rgb4_pair_avx2::<true>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
+                            } else {
+                                rgb4_pair_avx2::<false>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
+                            }
+                        } else if ro == 2 {
+                            rgb4_pair_sse41::<true>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
                         } else {
-                            rgb4_pair_avx2::<false>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
+                            rgb4_pair_sse41::<false>(top_px, bot_px, top, bottom, urow, vrow, simd_blocks);
                         }
                     }
                     cx0 = simd_blocks * 8;
@@ -697,6 +767,30 @@ mod tests {
         // Rows too short for a block, or a buffer too short for the row, do nothing
         assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[..31], &u[..16], &v[..16], false, &mut [0u8; 124]), 0);
         assert_eq!(telescope_core::yuv::row::<{ telescope_core::yuv::BGRA }>(&y[..64], &u[..32], &v[..32], false, &mut [0u8; 64 * 4 - 4]), 32);
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn the_sse41_rows_make_the_bytes_the_avx2_rows_do() {
+        if !std::arch::is_x86_feature_detected!("avx2") {
+            return;
+        }
+        let (top, bot) = (noise(64 * 4, 21), noise(64 * 4, 22));
+        for bgra in [false, true] {
+            let (mut ty, mut by, mut uw, mut vw) = (vec![0u8; 64], vec![0u8; 64], vec![0u8; 32], vec![0u8; 32]);
+            let (mut ty2, mut by2, mut un, mut vn) = (vec![0u8; 64], vec![0u8; 64], vec![0u8; 32], vec![0u8; 32]);
+            // SAFETY: AVX2 was asked above (and implies SSE4.1), and 4 blocks of 16 pixels fit the 64 pixel rows
+            unsafe {
+                if bgra {
+                    rgb4_pair_avx2::<true>(&top, &bot, &mut ty, &mut by, &mut uw, &mut vw, 4);
+                    rgb4_pair_sse41::<true>(&top, &bot, &mut ty2, &mut by2, &mut un, &mut vn, 4);
+                } else {
+                    rgb4_pair_avx2::<false>(&top, &bot, &mut ty, &mut by, &mut uw, &mut vw, 4);
+                    rgb4_pair_sse41::<false>(&top, &bot, &mut ty2, &mut by2, &mut un, &mut vn, 4);
+                }
+            }
+            assert!(ty == ty2 && by == by2 && uw == un && vw == vn, "bgra {bgra}");
+        }
     }
 
     #[test]
