@@ -371,24 +371,35 @@ impl BrowserHub {
     }
 
     pub fn join(&self, bid: &str) -> Option<Arc<BrowserFeed>> {
+        self.join_with(bid, false).map(|(feed, _)| feed)
+    }
+
+    /// join() and the feed's connect() as one step: a refresh of the list in between would see a feed nobody is on and drop it.
+    pub fn join_connect(&self, bid: &str) -> Option<(Arc<BrowserFeed>, u64)> {
+        self.join_with(bid, true).and_then(|(feed, gen)| Some((feed, gen?)))
+    }
+
+    fn join_with(&self, bid: &str, connect: bool) -> Option<(Arc<BrowserFeed>, Option<u64>)> {
         if let Some(feed) = &self.single {
-            return Some(feed.clone());
+            return Some((feed.clone(), connect.then(|| feed.connect())));
         }
-        if let Some(feed) = self.feed(bid) {
-            return Some(feed);
-        }
-        if !(self.can_join)(bid) {
+        if self.feed(bid).is_none() && !(self.can_join)(bid) {
             return None;
         }
         let mut feeds = self.feeds_lock();
-        if let Some((_, feed)) = feeds.iter().find(|(id, _)| id == bid) {
-            return Some(feed.clone());
-        }
-        let feed = Arc::new(BrowserFeed::new());
-        let (w, h, fps) = *self.capture.lock().unwrap_or_else(|e| e.into_inner());
-        feed.set_capture(w, h, fps);
-        feeds.push((bid.into(), feed.clone()));
-        Some(feed)
+        let feed = match feeds.iter().find(|(id, _)| id == bid) {
+            Some((_, feed)) => feed.clone(),
+            None => {
+                let feed = Arc::new(BrowserFeed::new());
+                let (w, h, fps) = *self.capture.lock().unwrap_or_else(|e| e.into_inner());
+                feed.set_capture(w, h, fps);
+                feeds.push((bid.into(), feed.clone()));
+                feed
+            }
+        };
+        // Still under the lock: drop_feed takes it too, and keeps a feed that's connected
+        let gen = connect.then(|| feed.connect());
+        Some((feed, gen))
     }
 
     pub fn feed(&self, bid: &str) -> Option<Arc<BrowserFeed>> {
@@ -640,5 +651,28 @@ mod tests {
         assert!(!feed.take_keyframe_wish());
         assert!(video.request_keyframe());
         assert!(feed.take_keyframe_wish());
+    }
+
+    #[test]
+    fn a_feed_that_was_just_joined_is_never_dropped_before_it_connects() {
+        let hub = Arc::new(BrowserHub::new(|_| true));
+        let stop = Arc::new(AtomicBool::new(false));
+        // The desktop refreshing its camera list: it drops feeds nobody is on
+        let refresher = {
+            let (hub, stop) = (hub.clone(), stop.clone());
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::SeqCst) {
+                    hub.drop_feed("browser-aaaaaaaa");
+                }
+            })
+        };
+        for _ in 0..20_000 {
+            let (feed, gen) = hub.join_connect("browser-aaaaaaaa").unwrap();
+            let listed = hub.feed("browser-aaaaaaaa");
+            assert!(listed.is_some_and(|f| Arc::ptr_eq(&f, &feed)), "the connected browser's feed is the one the desktop lists");
+            feed.disconnect(gen);
+        }
+        stop.store(true, Ordering::SeqCst);
+        refresher.join().unwrap();
     }
 }
