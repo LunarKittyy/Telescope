@@ -29,6 +29,9 @@ const HEADER_UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include
 
 const T_SETTLE: &str = "settle";
 const T_RETRY: &str = "retry";
+const T_URL: &str = "url";
+/// How long the address box has to be quiet before the new address gets its first request.
+const URL_QUIET_MS: u64 = 800;
 const POST_WATCHED: &str = "watched";
 const POST_WEBHOOK: &str = "webhook";
 /// Quitting waits this long for the "off" to reach the light.
@@ -224,6 +227,19 @@ impl OnAirPlugin {
         format!("state:{}", self.state_gen)
     }
 
+    /// The address was changed: whatever failed before was about another one, so the state goes there now.
+    fn try_new_address(&mut self, host: &mut dyn Host) {
+        if !self.webhook_ready() {
+            return;
+        }
+        if self.webhook_failing {
+            self.webhook_failing = false;
+            host.clear_issue(Some(ISSUE), None);
+        }
+        self.send_state(host, true);
+        self.refresh(host);
+    }
+
     fn send_test(&mut self, host: &mut dyn Host, on: bool) {
         if !self.webhook_ready() {
             self.test_result = (tr("Enter an address starting with http:// or https:// first."), "status_err");
@@ -393,8 +409,11 @@ impl OnAirPlugin {
     }
 
     fn set_webhook(&mut self, host: &mut dyn Host, url: Option<&str>, method: Option<&str>, on: Option<&str>, off: Option<&str>) {
+        let mut moved = false;
         if let Some(url) = url {
-            self.webhook_url = url.trim().into();
+            let url = url.trim();
+            moved = url != self.webhook_url;
+            self.webhook_url = url.into();
         }
         if let Some(method) = method.filter(|m| METHODS.contains(m)) {
             self.webhook_method = method.into();
@@ -415,6 +434,10 @@ impl OnAirPlugin {
                 (self.retries, self.webhook_failing) = (0, false);
                 host.clear_issue(Some(ISSUE), None);
             }
+            host.cancel_schedule(T_URL);
+        } else if moved {
+            // Not on each key: once the box has been quiet a moment, the new address gets what's true now
+            host.schedule(URL_QUIET_MS, T_URL);
         }
         host.schedule_save();
     }
@@ -590,6 +613,7 @@ impl Plugin for OnAirPlugin {
         host.cancel_schedule(T_SETTLE);
         let retrying = std::mem::take(&mut self.retrying);
         host.cancel_schedule(T_RETRY);
+        host.cancel_schedule(T_URL);
         let unfinished = self.sender.as_ref().is_some_and(|sender| sender.slot_busy("state"));
         if let Some(sender) = self.sender.as_ref().filter(|_| self.webhook_ready()) {
             let deadline = Instant::now() + QUIT_WAIT;
@@ -636,6 +660,7 @@ impl Plugin for OnAirPlugin {
                     self.retrying = false;
                     self.send_state(host, false);
                 }
+                T_URL => self.try_new_address(host),
                 _ => {}
             },
             _ => {}
