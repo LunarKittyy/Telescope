@@ -235,7 +235,7 @@ class PreviewActivity : LookActivity() {
             textureView.surfaceTexture?.setDefaultBufferSize(streamSize.width, streamSize.height)
             // The stream's size or lens can change under the preview, so its buffer and crop follow each new session
             svc.attachPreviewSurface(surface) { id, size ->
-                try { textureView.surfaceTexture?.setDefaultBufferSize(size.width, size.height) } catch (_: Exception) {}
+                try { bufferFor(id, size).let { textureView.surfaceTexture?.setDefaultBufferSize(it.width, it.height) } } catch (_: Exception) {}
                 textureView.post { if (boundToRunningStream) applyPreviewTransform(id, size) }
             }
             setupLensPillsFromService(streamSize)
@@ -244,6 +244,15 @@ class PreviewActivity : LookActivity() {
             startStandalone(surface)
         }
     }
+
+    // The stream's size, or a smaller one of the same shape when the screen shows no more of it, so the camera moves less
+    private fun bufferFor(cameraId: String, stream: Size): Size = try {
+        val offered = (getSystemService(CAMERA_SERVICE) as CameraManager).getCameraCharacteristics(cameraId)
+            .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)?.getOutputSizes(SurfaceTexture::class.java).orEmpty()
+        val screen = resources.displayMetrics
+        PreviewSize.pick(stream.width to stream.height, offered.map { it.width to it.height }, screen.widthPixels, screen.heightPixels)
+            .let { Size(it.first, it.second) }
+    } catch (_: Exception) { stream }
 
     private fun tearDownPreview() {
         if (tornDown) return
