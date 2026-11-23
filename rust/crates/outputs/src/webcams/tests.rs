@@ -650,6 +650,57 @@ mod gphoto_scanning {
         assert_eq!(looks(&counter), 5, "an unplugged device should get a look and one more, no more");
     }
 
+    /// A look at the USB devices that says what the test tells it to.
+    fn told_look(said: &Arc<std::sync::Mutex<Option<String>>>) -> UsbLook {
+        let said = said.clone();
+        Box::new(move || said.lock().unwrap().clone())
+    }
+
+    #[test]
+    fn a_camera_swapped_for_another_on_the_same_port_gets_a_look() {
+        let tmp = telescope_core::testing::scratch_dir("gphoto-usb-swap");
+        let counter = tmp.join("looks");
+        let said = Arc::new(std::sync::Mutex::new(Some("USB\\VID_04A9&PID_32B4\\AAA".to_string())));
+        let p = program("counted", &format!("echo look >> {}\ncat <<'EOF'\n{DETECTED}EOF\n", counter.display()));
+        let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
+        scanner.usb = Some(told_look(&said));
+        scan_until(&mut scanner, |d| !d.is_empty());
+        scan_for_a_while(&mut scanner);
+        assert_eq!(looks(&counter), 1);
+        // The same number of devices, one of them another camera: it is the list that changes, not its length
+        *said.lock().unwrap() = Some("USB\\VID_04A9&PID_32B5\\BBB".to_string());
+        scan_until_looks(&mut scanner, &counter, 2);
+        scan_for_a_while(&mut scanner);
+        assert_eq!(looks(&counter), 3, "a swapped camera should get a look and one more, no more");
+    }
+
+    #[test]
+    fn a_usb_list_that_cant_be_had_looks_every_time() {
+        let tmp = telescope_core::testing::scratch_dir("gphoto-usb-unknown");
+        let counter = tmp.join("looks");
+        let said = Arc::new(std::sync::Mutex::new(None));
+        let p = program("counted", &format!("echo look >> {}\ncat <<'EOF'\n{DETECTED}EOF\n", counter.display()));
+        let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
+        scanner.usb = Some(told_look(&said));
+        scan_until_looks(&mut scanner, &counter, 4);
+        assert!(looks(&counter) >= 4, "with no list to go by, every scan should look");
+        // Once it can be had, the same devices stop being looked at again
+        *said.lock().unwrap() = Some("USB\\VID_04A9&PID_32B4\\AAA".to_string());
+        scan_for_a_while(&mut scanner);
+        let settled = looks(&counter);
+        scan_for_a_while(&mut scanner);
+        assert_eq!(looks(&counter), settled);
+    }
+
+    #[test]
+    fn the_device_managers_id_list_reads_the_same_in_any_order() {
+        let list = |ids: &[&str]| ids.iter().flat_map(|id| id.encode_utf16().chain([0])).chain([0]).collect::<Vec<u16>>();
+        let a = id_list_text(&list(&["USB\\VID_04A9&PID_32B4\\AAA", "USB\\ROOT_HUB30\\4&29E0ED52&0&0"]));
+        assert_eq!(a, id_list_text(&list(&["USB\\ROOT_HUB30\\4&29E0ED52&0&0", "USB\\VID_04A9&PID_32B4\\AAA"])));
+        assert_ne!(a, id_list_text(&list(&["USB\\VID_04A9&PID_32B5\\BBB", "USB\\ROOT_HUB30\\4&29E0ED52&0&0"])), "another camera is another list");
+        assert_eq!(id_list_text(&[0]), "", "nothing plugged in is an empty list");
+    }
+
     #[test]
     fn a_camera_that_was_not_ready_when_it_appeared_is_found_by_the_second_look() {
         let tmp = telescope_core::testing::scratch_dir("gphoto-usb-late");

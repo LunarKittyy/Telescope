@@ -711,12 +711,18 @@ fn windows_usb_devices() -> Option<String> {
         if unsafe { CM_Get_Device_ID_ListW(w!("USB"), &mut buffer, flags) } != CR_SUCCESS {
             continue;
         }
-        // The ids come as strings one after another, each ended by a NUL, and an empty one at the end
-        let mut ids: Vec<String> = buffer.split(|c| *c == 0).filter(|id| !id.is_empty()).map(String::from_utf16_lossy).collect();
-        ids.sort();
-        return Some(ids.join(" "));
+        return Some(id_list_text(&buffer));
     }
     None
+}
+
+/// The ids the device manager gives come as strings one after another, each ended by a NUL and an empty one at the end: sorted, so the
+/// same devices read the same whatever order they are listed in.
+#[cfg(any(windows, test))]
+fn id_list_text(buffer: &[u16]) -> String {
+    let mut ids: Vec<String> = buffer.split(|c| *c == 0).filter(|id| !id.is_empty()).map(String::from_utf16_lossy).collect();
+    ids.sort();
+    ids.join(" ")
 }
 
 /// Looks for DSLRs now and then on a thread of its own, so a slow gphoto2 never holds up the webcam rescan: scan() gives
