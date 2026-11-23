@@ -1152,6 +1152,20 @@ class CameraSessionController(
             builder.set(CaptureRequest.SCALER_CROP_REGION, rect)
     }
 
+    // The crop the camera says it took this frame with, as the `zoom` control's terms, for the encoder to tag the frame with:
+    // a camera may ignore or change the one asked for (Android ignores it at a zoom ratio above 1)
+    private fun reportedShare(result: TotalCaptureResult, cam: CameraEntry, area: SensorBox): FloatArray {
+        val physical = when {
+            cam.logicalId == null -> null
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> result.physicalCameraTotalResults[cam.id]
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P -> @Suppress("DEPRECATION") result.physicalCameraResults[cam.id]
+            else -> null
+        }
+        val rect = (physical ?: result).get(CaptureResult.SCALER_CROP_REGION)?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
+        val ratio = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) result.get(CaptureResult.CONTROL_ZOOM_RATIO) ?: 1f else 1f
+        return CameraRequestSelection.shareOf(area, rect, ratio, streamWidth, streamHeight)
+    }
+
     // Labels each output with what it's for, on cameras that take that: some (a vivo) only run 60 fps for a
     // stream marked as video recording, and otherwise stay at 30 whatever the request asks.
     @Volatile private var usedStreamUseCase = false
@@ -1483,6 +1497,10 @@ class CameraSessionController(
                 }
             }
             lastResult = result
+            val cam = currentCamera
+            val area = cam?.activeArray
+            val taken = result.get(CaptureResult.SENSOR_TIMESTAMP)
+            if (cam != null && area != null && taken != null) CropLog.shared.put(taken / 1000, reportedShare(result, cam, area))
             result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
             result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }
             result.get(CaptureResult.SENSOR_FRAME_DURATION)?.let { ns ->

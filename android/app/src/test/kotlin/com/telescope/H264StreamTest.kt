@@ -251,4 +251,29 @@ class H264StreamTest {
         }
         assertEquals(0, H264Stream.captureTimeSei(null, 1).size)
     }
+
+    @Test
+    fun `a crop goes after the time in the same SEI, escaped, and only with a time`() {
+        val sei = H264Stream.captureTimeSei(false, 0x0102030405060708L, floatArrayOf(1f, 2f, 0.5f, 0f))
+        val crop = hex(0x05, 32) + "TELESCOPE-CROP11".toByteArray(Charsets.US_ASCII) +
+            // 1.0, 2.0, 0.5 and 0.0 as floats, with an 03 after each 00 00 that a 00 follows
+            hex(0x3F, 0x80, 0, 0, 0x40, 0, 0, 3, 0, 0x3F, 0, 0, 3, 0, 0, 3, 0, 0, 3, 0, 0x80)
+        assertArrayEquals(seiHead + hex(1, 1, 2, 3, 4, 5, 6, 7, 8) + crop, sei)
+        assertEquals(0, H264Stream.captureTimeSei(null, 1, floatArrayOf(1f, 1f, 0.5f, 0.5f)).size)
+        assertArrayEquals(H264Stream.captureTimeSei(true, 5), H264Stream.captureTimeSei(true, 5, null))
+    }
+
+    @Test
+    fun `the crop log hands each frame its own crop and waits a little for a late one`() {
+        val log = CropLog(capacity = 3)
+        log.put(10, floatArrayOf(1f, 1f, 0.5f, 0.5f))
+        log.put(20, floatArrayOf(1f, 2f, 0.5f, 0.5f))
+        assertArrayEquals(floatArrayOf(1f, 2f, 0.5f, 0.5f), log.take(20, 0))
+        assertNull(log.take(20, 0))
+        Thread { Thread.sleep(5); log.put(30, floatArrayOf(1f, 3f, 0.5f, 0.5f)) }.start()
+        assertArrayEquals(floatArrayOf(1f, 3f, 0.5f, 0.5f), log.take(30, 2_000))
+        for (t in 40L..50L) log.put(t, floatArrayOf(1f, 1f, 0.5f, 0.5f))
+        assertNull(log.take(10, 0), "the oldest go once it's full")
+        assertTrue(log.take(50, 0) != null)
+    }
 }

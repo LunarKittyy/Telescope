@@ -158,6 +158,18 @@ object CameraRequestSelection {
         return SensorBox(left.toInt(), top.toInt(), w.toInt(), h.toInt())
     }
 
+    // What a reported SCALER_CROP_REGION shows, as the `zoom` control's ratio, crop, x and y (cropRect undone): the stream-shaped
+    // middle of `rect`, which is what the camera outputs, within that of `area`. A null rect is the whole view.
+    fun shareOf(area: SensorBox, rect: SensorBox?, ratio: Float, streamW: Int, streamH: Int): FloatArray {
+        val zoom = ratio.coerceAtLeast(1f)
+        if (rect == null || rect.width <= 0 || rect.height <= 0) return floatArrayOf(zoom, 1f, 0.5f, 0.5f)
+        val (visLeft, visTop, visW, visH) = visibleFrame(area, streamW, streamH)
+        val (left, top, w, h) = visibleFrame(rect, streamW, streamH)
+        val x = ((left + w / 2f - visLeft) / visW).coerceIn(0f, 1f)
+        val y = ((top + h / 2f - visTop) / visH).coerceIn(0f, 1f)
+        return floatArrayOf(zoom, (visW / w).coerceAtLeast(1f), x, y)
+    }
+
     // The centre crop of `area` to the stream's aspect ratio: left, top, width, height.
     private fun visibleFrame(area: SensorBox, streamW: Int, streamH: Int): FloatArray {
         val areaAspect = area.width.toFloat() / area.height
@@ -1051,7 +1063,7 @@ class CameraStreamService : Service() {
                 supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
                 supportsMeterPoint = e.maxAeRegions > 0 && e.activeArray != null,
-                zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
+                zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop, cropTags = true,
                 lensZooms = e.lensZooms,
                 maxFps = e.aeFpsRanges.maxOfOrNull { it.upper } ?: 0,
             )

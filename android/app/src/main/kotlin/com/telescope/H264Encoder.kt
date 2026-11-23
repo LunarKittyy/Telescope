@@ -39,6 +39,8 @@ class H264Encoder(
 
     companion object {
         private const val MIME = MediaFormat.MIMETYPE_VIDEO_AVC
+        // How long a frame's packet waits for the camera's result with its crop, which now and then comes a few ms after the frame
+        private const val CROP_WAIT_MS = 20L
 
         val ATTEMPTS: List<Attempt> = listOf(
             Attempt(Extra.values().toSet(), Profile.HIGH),
@@ -135,7 +137,8 @@ class H264Encoder(
                     }
                     if (config || onFrameAllowed(info.presentationTimeUs * 1000, key)) {
                         val bytes = if (config) ByteArray(info.size).also { buf.get(it) }
-                        else H264Stream.packet(buf, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000)
+                        else H264Stream.packet(buf, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000,
+                                               CropLog.shared.take(info.presentationTimeUs, CROP_WAIT_MS))
                         onPacket(bytes, key, config)
                     }
                 }

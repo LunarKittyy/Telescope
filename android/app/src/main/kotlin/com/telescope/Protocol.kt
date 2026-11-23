@@ -40,6 +40,7 @@ data class CameraCapability(
     val zoomRatioMax: Float = 1f,
     val cropZoomMax: Float = 1f,
     val freeformCrop: Boolean = false,
+    val cropTags: Boolean = false,  // each H.264 frame carries the crop its camera used, after its capture time
     val lensZooms: List<Float> = emptyList(),
     val maxFps: Int = 0,  // the fastest AE target FPS range this camera lists; 0 = none listed
     val stills: StillCapability? = null,  // what POST /v1/still can take with this lens; null = no photos here

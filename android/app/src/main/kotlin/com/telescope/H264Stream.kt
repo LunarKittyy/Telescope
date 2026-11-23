@@ -40,32 +40,41 @@ object H264Stream {
 
     // "TELESCOPE-TIME11": the user_data_unregistered UUID that marks the capture time SEI
     private val TIME_UUID = "TELESCOPE-TIME11".toByteArray(Charsets.US_ASCII)
+    // "TELESCOPE-CROP11": the one that marks the crop the camera reported for the picture, a second message in the same SEI
+    private val CROP_UUID = "TELESCOPE-CROP11".toByteArray(Charsets.US_ASCII)
 
     /**
      * An SEI NAL unit carrying the frame's capture time, to go in front of its packet. [realtime] says which clock
-     * [timeNs] is on: true = elapsed realtime (clock byte 0), false = System.nanoTime (1); null sends none.
+     * [timeNs] is on: true = elapsed realtime (clock byte 0), false = System.nanoTime (1); null sends none. [share] is the
+     * crop the camera reported for the frame as the `zoom` control's ratio, crop, x and y; a computer finds the frame by its time, so it goes only with one.
      */
-    fun captureTimeSei(realtime: Boolean?, timeNs: Long): ByteArray {
+    fun captureTimeSei(realtime: Boolean?, timeNs: Long, share: FloatArray? = null): ByteArray {
         if (realtime == null) return ByteArray(0)
-        val payload = ByteArray(9)
-        payload[0] = if (realtime) 0 else 1
-        for (i in 0 until 8) payload[1 + i] = (timeNs ushr (56 - 8 * i)).toByte()
+        val rbsp = java.io.ByteArrayOutputStream()
+        // Payload type 5 (user data unregistered), size 25: the UUID, the clock byte and the time
+        rbsp.write(5); rbsp.write(25); rbsp.write(TIME_UUID)
+        rbsp.write(if (realtime) 0 else 1)
+        for (i in 0 until 8) rbsp.write((timeNs ushr (56 - 8 * i)).toInt())
+        if (share != null && share.size == 4) {
+            rbsp.write(5); rbsp.write(32); rbsp.write(CROP_UUID)
+            for (v in share) { val bits = v.toRawBits(); for (i in 0 until 4) rbsp.write(bits ushr (24 - 8 * i)) }
+        }
+        rbsp.write(0x80)
+        // Emulation prevention: an 03 goes in after each 00 00 that a 00..03 follows, so nothing in it looks like a start code
         val escaped = java.io.ByteArrayOutputStream()
+        escaped.write(byteArrayOf(0, 0, 0, 1, 0x06))
         var zeros = 0
-        for (b in payload) {
+        for (b in rbsp.toByteArray()) {
             if (zeros >= 2 && (b.toInt() and 0xFF) <= 3) { escaped.write(3); zeros = 0 }
             escaped.write(b.toInt())
             zeros = if (b.toInt() == 0) zeros + 1 else 0
         }
-        // Payload size 25 counts the UUID and the unescaped bytes, as the reader sees them after removing emulation prevention
-        val head = byteArrayOf(0, 0, 0, 1, 0x06, 0x05, 25)
-        // The UUID has no zero bytes, so the escape state starts clean at the clock byte
-        return head + TIME_UUID + escaped.toByteArray() + byteArrayOf(0x80.toByte())
+        return escaped.toByteArray()
     }
 
     // Read the codec bytes straight into the packet, between its capture time and delimiter
-    fun packet(codec: ByteBuffer, realtime: Boolean?, timeNs: Long): ByteArray {
-        val sei = captureTimeSei(realtime, timeNs)
+    fun packet(codec: ByteBuffer, realtime: Boolean?, timeNs: Long, share: FloatArray? = null): ByteArray {
+        val sei = captureTimeSei(realtime, timeNs, share)
         val size = codec.remaining()
         val packet = ByteArray(sei.size + size + AUD.size)
         sei.copyInto(packet)
@@ -185,5 +194,40 @@ class H264ClientQueue(
         queuedAt.clear()
         isKey.clear()
         waitingForKey = true
+    }
+}
+
+/**
+ * The crop the camera reported for each recent frame, by its sensor time in microseconds (what the encoder's output
+ * carries), for the encoder to tag the frame with. The camera's result usually comes a few ms before the encoded frame,
+ * now and then a few ms after it, so [take] waits a little for one that hasn't come yet.
+ */
+class CropLog(private val capacity: Int = 64) {
+    private val lock = ReentrantLock()
+    private val arrived = lock.newCondition()
+    private val shares = LinkedHashMap<Long, FloatArray>()
+
+    fun put(timeUs: Long, share: FloatArray) = lock.withLock {
+        shares[timeUs] = share
+        while (shares.size > capacity) shares.remove(shares.keys.first())
+        arrived.signalAll()
+    }
+
+    /** The crop of the frame taken at [timeUs], waiting up to [waitMs] for it; null when none came. */
+    fun take(timeUs: Long, waitMs: Long): FloatArray? = lock.withLock {
+        var waitNs = TimeUnit.MILLISECONDS.toNanos(waitMs)
+        var share = shares.remove(timeUs)
+        while (share == null && waitNs > 0) {
+            waitNs = arrived.awaitNanos(waitNs)
+            share = shares.remove(timeUs)
+        }
+        share
+    }
+
+    fun clear() = lock.withLock { shares.clear() }
+
+    companion object {
+        // One camera streams H.264 at a time: its session writes here and its encoder reads
+        val shared = CropLog()
     }
 }

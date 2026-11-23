@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use telescope_core::event::{Event, LensBox};
 use telescope_core::host::{View, ViewChange};
-use telescope_core::view::{lens_boxes, pan_for, rest_within, split_zoom, window_centre, Geometry, PhoneZoom, PhoneZoomCaps, ViewStatus, ZoomSplit};
+use telescope_core::view::{lens_boxes, pan_for, rest_within, split_zoom_tagged, window_centre, Geometry, PhoneZoom, PhoneZoomCaps, ViewStatus, ZoomSplit};
 
 /// While steered, the phone is sent a share this much wider than the framing
 const HOLD_SLACK: f64 = 1.4;
@@ -42,6 +42,8 @@ pub struct ViewController {
     /// StreamInfo::session of that stream.
     session: u64,
     caps: Option<PhoneZoomCaps>,
+    /// The phone tags each frame with the crop its camera used (`cropTags` in its state).
+    crop_tags: bool,
     sent: Option<PhoneZoom>,
     sent_ratio_at: f64,
     /// While steered: since when the phone's share has been clearly off.
@@ -257,9 +259,10 @@ impl ViewController {
 
     pub fn camera_caps(&mut self, view: &View, cam: Option<&Value>, now: f64) -> Vec<Said> {
         let caps = PhoneZoomCaps::from_camera(cam);
+        let tags = cam.and_then(|c| c.get("cropTags")) == Some(&Value::Bool(true));
         let mut out = Vec::new();
-        if caps != self.caps {
-            self.caps = caps;
+        if caps != self.caps || tags != self.crop_tags {
+            (self.caps, self.crop_tags) = (caps, tags);
             self.sync(view, now, &mut out);
             out.push(self.lens_boxes(view, false));
         }
@@ -273,7 +276,7 @@ impl ViewController {
         let current = self.sent.map_or(1.0, |s| s.ratio);
         let caps = self.caps.clone().filter(|_| self.source.is_some() && self.engaged);
         let (zoom, px, py) = (view.zoom as f64, view.pan_x as f64, view.pan_y as f64);
-        let split = split_zoom(zoom, px, py, caps.as_ref(), current);
+        let split = split_zoom_tagged(zoom, px, py, caps.as_ref(), current, self.crop_tags);
         let (mut phone, mut desktop) = (split.phone, split.desktop);
         if view.distortion.abs() >= 1e-6 {
             // Lens correction takes the centre of the arriving frame for the lens's and the frame's diagonal for its strength, which
@@ -323,7 +326,7 @@ impl ViewController {
         let rest = held.and_then(|h| rest_within(zoom, px, py, &h, false));
         let wide = (zoom / HOLD_SLACK).max(1.0); // room around the framing, so small moves stay on this computer
         let centre = (window_centre(zoom, px), window_centre(zoom, py));
-        let Some(want) = split_zoom(wide, pan_for(centre.0, wide), pan_for(centre.1, wide), caps, current).phone else { return (split.phone, split.desktop) };
+        let Some(want) = split_zoom_tagged(wide, pan_for(centre.0, wide), pan_for(centre.1, wide), caps, current, self.crop_tags).phone else { return (split.phone, split.desktop) };
         let drifted = match held {
             None => true,
             Some(h) => {

@@ -11,16 +11,16 @@ thread_local! {
     static NOISE: std::cell::Cell<f64> = const { std::cell::Cell::new(0.0) };
 }
 
-fn caps(lens: Option<f64>, crop_max: f64) -> Value {
-    let mut cam = json!({"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": crop_max, "freeformCrop": true});
+fn caps(lens: Option<f64>, crop_max: f64, tags: bool) -> Value {
+    let mut cam = json!({"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": crop_max, "freeformCrop": true, "cropTags": tags});
     if let Some(l) = lens {
         cam["lensZooms"] = json!([l]);
     }
     json!({"cameras": [cam]})
 }
 
-/// What the phone sends for a share: that part of a scene with `amp` levels of texture.
-fn from_phone(share: &PhoneZoom, amp: f64, k: usize) -> Frame {
+/// What the phone sends for a share: that part of a scene with `amp` levels of texture, tagged with the share by a phone that does.
+fn from_phone(share: &PhoneZoom, amp: f64, k: usize, tags: bool) -> Frame {
     let cell = |x: i64, y: i64| ((x.wrapping_mul(7_919) ^ y.wrapping_mul(104_729)).wrapping_mul(2_654_435_761) >> 13 & 255) as f64;
     let scene = |u: f64, v: f64| {
         let (x, y) = (u * 32.0, v * 18.0);
@@ -49,7 +49,9 @@ fn from_phone(share: &PhoneZoom, amp: f64, k: usize) -> Frame {
         let g = (g + noise * NOISE.with(|n| n.get())).clamp(0.0, 255.0) as u8;
         [g, g, g, 255]
     }).collect();
-    Frame::new(fw, fh, PixelFormat::Rgba, data)
+    let mut frame = Frame::new(fw, fh, PixelFormat::Rgba, data);
+    frame.phone_share = tags.then_some(*share);
+    frame
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -76,6 +78,8 @@ struct Run {
     glide: f64,
     /// Levels of sensor noise.
     noise: f64,
+    /// The phone tags each frame with the crop its camera reported (a newer phone app).
+    tags: bool,
 }
 
 /// Steers `framing(t)` for `seconds` against a phone that applies each zoom `delay` late, and measures every frame.
@@ -84,7 +88,7 @@ fn run(r: &Run, seconds: f64, framing: &impl Fn(f64) -> (f32, f32, f32)) -> Vec<
     let (mut vc, mut view) = (ViewController::new(), View::default());
     let start = 1000.0;
     vc.stream_start(&view, "p1", 1, start);
-    vc.phone_state(&view, &caps(r.lens, r.crop_max), start);
+    vc.phone_state(&view, &caps(r.lens, r.crop_max, r.tags), start);
     vc.take("Auto framing");
     let gate = vc.gate();
     let mut actual = PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 };
@@ -126,7 +130,7 @@ fn run(r: &Run, seconds: f64, framing: &impl Fn(f64) -> (f32, f32, f32)) -> Vec<
                 gliding = None;
             }
         }
-        let frame = from_phone(&actual, r.amp, k);
+        let frame = from_phone(&actual, r.amp, k, r.tags);
         if restep {
             in_place = vc.frame_view(&view);
             label = vc.frame_window();
@@ -208,15 +212,15 @@ fn step_of(s: &[Sample]) -> f64 {
 
 /// How far the picture's zoom jumps from one frame to the next, at worst, in each kind of scene and phone: for a phone that
 /// lands a zoom on one frame, and for one that glides there (which can't be followed as closely).
-fn steps_in(name: &str, f: impl Fn(f64) -> (f32, f32, f32), seconds: f64) -> (Vec<f64>, Vec<f64>) {
+fn steps_in(name: &str, f: impl Fn(f64) -> (f32, f32, f32), seconds: f64, tags: bool) -> (Vec<f64>, Vec<f64>) {
     let (mut sudden, mut gliding) = (Vec::new(), Vec::new());
     for (scene, amp, noise) in [("textured", 1.0, 0.0), ("busy", 0.3, 1.0), ("dull", 0.1, 1.0)] {
         for (delay, glide) in [(0.2, 0.0), (0.4, 0.5), (0.5, 1.0)] {
-            let r = Run { delay, amp, lens: Some(2.1), crop_max: 4.0, glide, noise };
+            let r = Run { delay, amp, lens: Some(2.1), crop_max: 4.0, glide, noise, tags };
             let samples = run(&r, seconds, &f);
-            report(&format!("{name}, {scene}, phone {delay}s late gliding {glide}s"), &samples);
-            // A scene too dull to find the picture in, and a phone that glides there, can only be waited out
-            if glide == 0.0 {
+            report(&format!("{name}, {scene}, phone {delay}s late gliding {glide}s, tags {tags}"), &samples);
+            // A scene too dull to find the picture in, and a phone that glides there, can only be waited out, unless the frames say where they are
+            if glide == 0.0 || tags {
                 sudden.push(step_of(&samples));
             } else if scene != "dull" {
                 gliding.push(step_of(&samples));
@@ -233,28 +237,46 @@ fn assert_steady((sudden, gliding): (Vec<f64>, Vec<f64>)) {
 
 #[test]
 fn a_lens_that_lets_go_doesnt_make_the_picture_jump() {
-    assert_steady(steps_in("person steps aside", aside(10.0, 0.2, 5.0, 1.0, 5.0), 14.0));
+    // A phone that tags its frames gets no crop on the longer lens, and one that doesn't keeps getting one
+    for tags in [true, false] {
+        assert_steady(steps_in("person steps aside", aside(10.0, 0.2, 5.0, 1.0, 5.0), 14.0, tags));
+    }
 }
 
 #[test]
 fn zooming_in_on_a_person_doesnt_make_the_picture_jump() {
-    assert_steady(steps_in("person leans away", closer(3.5, 10.0, 4.0), 20.0));
+    for tags in [true, false] {
+        assert_steady(steps_in("person leans away", closer(3.5, 10.0, 4.0), 20.0, tags));
+    }
 }
 
 #[test]
 fn a_swaying_head_doesnt_make_the_picture_jump() {
-    assert_steady(steps_in("head sways", swaying(5.0), 30.0));
+    for tags in [true, false] {
+        assert_steady(steps_in("head sways", swaying(5.0), 30.0, tags));
+    }
+}
+
+/// With tags, the picture follows even a phone that glides, in any scene: the frames say where they are.
+#[test]
+fn a_phone_that_tags_its_frames_keeps_the_picture_still_through_every_hand_over() {
+    let framings: [(&str, Box<dyn Fn(f64) -> (f32, f32, f32)>, f64); 3] = [("person leans away", Box::new(closer(3.5, 10.0, 4.0)), 20.0),
+        ("head sways", Box::new(swaying(5.0)), 30.0), ("person steps aside", Box::new(aside(10.0, 0.2, 5.0, 1.0, 5.0)), 14.0)];
+    for (name, framing, seconds) in framings {
+        let (sudden, _) = steps_in(name, framing, seconds, true);
+        assert!(sudden.iter().all(|s| *s < 1.02), "{name}: {sudden:?}");
+    }
 }
 
 /// What the crop labels of a run's frames say about the phone's real crop: the worst error among the frames that don't call their label a guess (the zoom they
 /// name over the zoom the phone really sent, always 1 or more), and the worst among all.
-fn label_errors(name: &str, f: impl Fn(f64) -> (f32, f32, f32), seconds: f64) -> Vec<(String, f64, f64)> {
+fn label_errors(name: &str, f: impl Fn(f64) -> (f32, f32, f32), seconds: f64, tags: bool) -> Vec<(String, f64, f64)> {
     let mut worst = Vec::new();
     for (scene, amp, noise) in [("textured", 1.0, 0.0), ("busy", 0.3, 1.0), ("dull", 0.1, 1.0)] {
         for (delay, glide) in [(0.2, 0.0), (0.4, 0.5), (0.5, 1.0)] {
-            let r = Run { delay, amp, lens: Some(2.1), crop_max: 4.0, glide, noise };
+            let r = Run { delay, amp, lens: Some(2.1), crop_max: 4.0, glide, noise, tags };
             let samples = run(&r, seconds, &f);
-            let label = format!("{name}, {scene}, phone {delay}s late gliding {glide}s");
+            let label = format!("{name}, {scene}, phone {delay}s late gliding {glide}s, tags {tags}");
             report(&label, &samples);
             let off = |s: &Sample| s.label_off.ln().abs();
             let settled: Vec<&Sample> = samples.iter().filter(|s| s.t > 3.0).collect();
@@ -270,10 +292,14 @@ fn label_errors(name: &str, f: impl Fn(f64) -> (f32, f32, f32), seconds: f64) ->
 #[test]
 fn a_phone_that_glides_its_zoom_is_labelled_with_the_crop_it_sent() {
     type Framing = Box<dyn Fn(f64) -> (f32, f32, f32)>;
-    let scenes: [(&str, Framing, f64); 3] = [("person leans away", Box::new(closer(3.5, 10.0, 4.0)), 20.0), ("head sways", Box::new(swaying(5.0)), 30.0),
-                                             ("person steps aside", Box::new(aside(10.0, 0.2, 5.0, 1.0, 5.0)), 14.0)];
-    for (name, framing, seconds) in scenes {
-        let wrong: Vec<_> = label_errors(name, framing, seconds).into_iter().filter(|(_, sure, _)| *sure > 1.10).collect();
-        assert!(wrong.is_empty(), "a label that isn't called a guess is more than 10% off: {wrong:?}");
+    for tags in [false, true] {
+        let scenes: [(&str, Framing, f64); 3] = [("person leans away", Box::new(closer(3.5, 10.0, 4.0)), 20.0), ("head sways", Box::new(swaying(5.0)), 30.0),
+                                                 ("person steps aside", Box::new(aside(10.0, 0.2, 5.0, 1.0, 5.0)), 14.0)];
+        for (name, framing, seconds) in scenes {
+            // A tagged frame's label is the crop it came with, never a guess
+            let (limit, all) = if tags { (1.01, 1.01) } else { (1.10, f64::MAX) };
+            let wrong: Vec<_> = label_errors(name, framing, seconds, tags).into_iter().filter(|(_, sure, every)| *sure > limit || *every > all).collect();
+            assert!(wrong.is_empty(), "a label that isn't called a guess is off: {wrong:?}");
+        }
     }
 }

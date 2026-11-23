@@ -301,6 +301,7 @@ pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     fitted.number = frame.number;
     fitted.time_ns = frame.time_ns;
     fitted.capture_ns = frame.capture_ns;
+    fitted.phone_share = frame.phone_share;
     fitted
 }
 
@@ -316,6 +317,7 @@ pub fn to_nv12(frame: &Frame) -> Frame {
     let mut nv = Frame::new(frame.width, frame.height, PixelFormat::Nv12, out);
     nv.number = frame.number;
     nv.capture_ns = frame.capture_ns;
+    nv.phone_share = frame.phone_share;
     nv
 }
 
@@ -1766,7 +1768,7 @@ impl Shared {
             fitted_on_card.retain(|(n, _)| queued.iter().any(|(f, _)| f.number == *n) || shown.as_ref().is_some_and(|f| f.number == *n));
             let next = match pacer.pick(Instant::now(), &mut queued, fitted.is_some()) {
                 Pick::Wait => continue,
-                Pick::New(frame, at) => Some((frame, at)),
+                Pick::New(frame, at) => Some((*frame, at)),
                 Pick::Resend => None,
             };
             // A hiding that came after the frame was taken: it's not sent, the next pass takes the hidden one
@@ -1937,7 +1939,7 @@ enum Pick {
     /// Nothing is due yet.
     Wait,
     /// A picture waiting in the queue goes out, with how many had been published when it was.
-    New(Frame, u64),
+    New(Box<Frame>, u64),
     /// Nothing new came in time, so the last picture goes again.
     Resend,
 }
@@ -1972,7 +1974,7 @@ impl Pacer {
         let due = self.ended.is_none_or(|t| now.saturating_duration_since(t) >= 2 * self.period);
         if !paced {
             if let Some((frame, at)) = queue.pop_front() {
-                return Pick::New(frame, at);
+                return Pick::New(Box::new(frame), at);
             }
         }
         if paced || !due || !have_last { Pick::Wait } else { Pick::Resend }
@@ -2083,6 +2085,7 @@ fn stretch(frame: &Frame, width: u32, height: u32) -> Frame {
     f.number = frame.number;
     f.time_ns = frame.time_ns;
     f.capture_ns = frame.capture_ns;
+    f.phone_share = frame.phone_share;
     f
 }
 
