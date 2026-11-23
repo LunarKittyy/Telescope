@@ -1061,6 +1061,7 @@ impl Window {
         self.paint_layers();
         self.paint_message();
         self.refresh_tray_tip();
+        self.retune_housekeeping();
     }
 
     /// A stream's slot got a frame (WakingSlot): paints the newest one now, and any that came after the wake was asked for with it.
@@ -1082,12 +1083,49 @@ impl Window {
             }
         }
         self.set_popout_open(popout_seen);
+        self.retune_housekeeping();
+    }
+
+    /// Starts the timer that checks focus, stalled pictures and visible thumbnails.
+    pub fn start_housekeeping(self: &Rc<Self>) {
+        let weak = Rc::downgrade(self);
+        self.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
+            if let Some(w) = weak.upgrade() {
+                if crate::tray::take_raise() {
+                    w.show_window();
+                } else {
+                    w.housekeeping();
+                }
+            }
+        });
+    }
+
+    /// Sets how often the timer looks around (preview::housekeeping_interval). Also asked after every pass over the plugins' events, so
+    /// a stream, a message or a pop-out asked for is looked after at the quick pace from then on.
+    pub(crate) fn retune_housekeeping(&self) {
         let popout_visible = self.popout.borrow().as_ref().is_some_and(|p| p.window().is_visible());
         let plugin_visible = self.plugin_windows.borrow().iter().any(|(_, _, ui)| ui.window().is_visible());
-        let interval = crate::preview::housekeeping_interval(window_seen(self.ui.window()), popout_visible, plugin_visible);
+        let interval = crate::preview::housekeeping_interval(window_seen(self.ui.window()), popout_visible, plugin_visible, self.quiet());
         if self.preview_timer.interval() != interval {
             self.preview_timer.set_interval(interval);
         }
+        crate::input::set_lazy(interval == crate::preview::IDLE_TICK);
+    }
+
+    /// Nothing is going on in the window that the timer has to catch quickly: no stream, no message on the picture, no pop-out asked
+    /// for, and no touch for a moment.
+    fn quiet(&self) -> bool {
+        if crate::input::touched_lately() || self.is_streaming() || self.state.borrow().preview_messages.active() || self.popout.borrow().is_some() {
+            return false;
+        }
+        let asked = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card")
+            .is_some_and(|r| self.ui.get_property(&format!("{}-popout", r.id)).ok() == Some(SValue::Bool(true)));
+        !asked
+    }
+
+    /// How often the timer is set to look around now, for tests.
+    pub fn housekeeping_ms(&self) -> u128 {
+        self.preview_timer.interval().as_millis()
     }
 
     /// A window event says the main window may have been minimised or restored: looks now, not on the next slow tick.
@@ -2245,16 +2283,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         start_confirmed();
     }
     // Frames wake the window; this timer checks focus, stalled pictures and visible thumbnails.
-    let weak = Rc::downgrade(&window);
-    window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
-        if let Some(w) = weak.upgrade() {
-            if crate::tray::take_raise() {
-                w.show_window();
-            } else {
-                w.housekeeping();
-            }
-        }
-    });
+    window.start_housekeeping();
     if opts.autostart {
         let weak = Rc::downgrade(&window);
         slint::Timer::single_shot(Duration::from_millis(100), move || {

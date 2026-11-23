@@ -611,11 +611,17 @@ pub fn window_seen(visible: bool, minimized: bool) -> bool {
     visible && !minimized
 }
 
+/// How long the window's timer waits when the window is up but nothing is going on (no stream, no message, no touch for a moment).
+pub(crate) const IDLE_TICK: std::time::Duration = std::time::Duration::from_millis(500);
+
 /// How often the window's timer looks around: a window nobody can see (hidden or minimised) only needs it now and then, since the
-/// window's own events (input::watch) bring it back to the fast tick as soon as it's restored.
-pub(crate) fn housekeeping_interval(window_seen: bool, popout_visible: bool, plugin_visible: bool) -> std::time::Duration {
-    if window_seen || popout_visible || plugin_visible {
+/// window's own events (input::watch) bring it back to the fast tick as soon as it's restored. One that is up with nothing going
+/// on only needs it twice a second, and anything that changes that (a touch, a stream, a message, an event) speeds it up at once.
+pub(crate) fn housekeeping_interval(window_seen: bool, popout_visible: bool, plugin_visible: bool, quiet: bool) -> std::time::Duration {
+    if popout_visible || plugin_visible || (window_seen && !quiet) {
         std::time::Duration::from_millis(100)
+    } else if window_seen {
+        IDLE_TICK
     } else {
         std::time::Duration::from_secs(1)
     }
@@ -719,13 +725,20 @@ mod tests {
     }
 
     #[test]
-    fn housekeeping_slows_only_when_every_window_is_hidden() {
+    fn housekeeping_slows_when_every_window_is_hidden_and_when_nothing_is_going_on() {
+        let ms = |d: std::time::Duration| d.as_millis();
         for (state, visible, minimized) in [("hidden", false, false), ("visible", true, false), ("minimised", true, true)] {
             let seen = window_seen(visible, minimized);
             for popout in [false, true] {
                 for plugin in [false, true] {
-                    let expected = if state != "visible" && !popout && !plugin { 1000 } else { 100 };
-                    assert_eq!(housekeeping_interval(seen, popout, plugin), std::time::Duration::from_millis(expected), "{state}, popout={popout}, plugin={plugin}");
+                    for quiet in [false, true] {
+                        let expected = match (seen, popout || plugin, quiet) {
+                            (_, true, _) | (true, false, false) => 100,
+                            (true, false, true) => 500,
+                            (false, false, _) => 1000,
+                        };
+                        assert_eq!(ms(housekeeping_interval(seen, popout, plugin, quiet)), expected, "{state}, popout={popout}, plugin={plugin}, quiet={quiet}");
+                    }
                 }
             }
         }

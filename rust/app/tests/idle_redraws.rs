@@ -149,3 +149,33 @@ fn banners_draw_nothing_once_they_have_opened_or_shut() {
     assert!(r.rows("banners").is_empty());
     assert_eq!(redraws_over(&r, r.w.ui.window()), 0, "none");
 }
+
+/// How often the window's timer looks around, after the plugins' events were gone through.
+fn pace(r: &Rig) -> u128 {
+    r.w.process();
+    r.w.housekeeping_ms()
+}
+
+#[test]
+fn the_housekeeping_timer_slows_in_an_idle_window_and_speeds_up_for_what_changes() {
+    let r = up("idle-housekeeping");
+    r.w.start_housekeeping();
+    assert_eq!(pace(&r), 500, "a window with nothing going on is looked at twice a second");
+    r.skip(3000);
+    assert_eq!(pace(&r), 500);
+    // A touch, then a stream: quick at once, and slow again only after both are over
+    telescope_shell::input::touch();
+    assert_eq!(pace(&r), 100, "a touch needs the quick pace at once");
+    // The touch's two seconds run on the wall clock, which the rig's timers don't move
+    std::thread::sleep(std::time::Duration::from_millis(2100));
+    assert_eq!(pace(&r), 500, "the touch is over");
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    assert_eq!(pace(&r), 100, "a stream is looked at ten times a second");
+    r.skip(5000);
+    assert_eq!(pace(&r), 100);
+    r.stop(None);
+    r.pump();
+    assert_eq!(pace(&r), 500, "and when it ends the window is idle again");
+}
