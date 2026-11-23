@@ -3,6 +3,7 @@
 use super::*;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
+use telescope_core::effort::{FULL, MOST};
 use telescope_core::vision::Turn;
 
 #[derive(Default)]
@@ -112,8 +113,8 @@ pub(crate) struct Ready {
 pub(crate) fn make(find: Find) -> (Vision, Arc<Mutex<Vec<String>>>, Seen) {
     let (states, people): (Arc<Mutex<Vec<String>>>, Seen) = Default::default();
     let (s, p) = (states.clone(), people.clone());
-    let v = Vision::new(Box::new(move |k, found| p.lock().unwrap().push((k.to_string(), found))),
-                        Box::new(move |st| s.lock().unwrap().push(st.to_string())), find, None);
+    let v = Vision::with_effort(Arc::new(Effort::free()), Box::new(move |k, found| p.lock().unwrap().push((k.to_string(), found))),
+                                Box::new(move |st| s.lock().unwrap().push(st.to_string())), find, None);
     (v, states, people)
 }
 
@@ -137,11 +138,11 @@ pub(crate) fn wait(condition: impl Fn() -> bool) {
 // a bit more than Windows' clock step (about 16 ms), so turning a clock back by an interval is past it there too
 const TICK: f64 = 0.02;
 
-fn mask(v: &Vision, key: &str, seq: u64, frame: &Rgb) -> Option<Arc<Vec<u8>>> {
+pub(crate) fn mask(v: &Vision, key: &str, seq: u64, frame: &Rgb) -> Option<Arc<Vec<u8>>> {
     v.person_mask(key, seq, frame.w, frame.h, &mut || Some(frame.clone()))
 }
 
-fn feed(v: &Vision, key: &str, frame: &Rgb) {
+pub(crate) fn feed(v: &Vision, key: &str, frame: &Rgb) {
     v.feed_raw(key, &mut || Some(crate::ops::thumb(frame)), &mut || Some(frame.clone()), Upright::default())
 }
 
@@ -157,10 +158,10 @@ fn hold_mask_clock(v: &Vision) {
 }
 
 fn age_mask_clock(v: &Vision) {
-    sv(v, "a").mask.lock().unwrap().at -= HELD + MASK_STILL_EVERY_S.max(SAVING_MASK_EVERY_S) + TICK;
+    sv(v, "a").mask.lock().unwrap().at -= HELD + cadence(1).mask.still + TICK;
 }
 
-fn with_arm(base: &Rgb, x: (usize, usize), y: (usize, usize), value: u8) -> Rgb {
+pub(crate) fn with_arm(base: &Rgb, x: (usize, usize), y: (usize, usize), value: u8) -> Rgb {
     let mut out = base.clone();
     for row in y.0..y.1 {
         for col in x.0..x.1 {
@@ -356,7 +357,7 @@ fn test_shutdown_waits_for_a_state_callback_already_in_progress() {
     let (entered_tx, entered_rx) = mpsc::channel::<()>();
     let (finish_tx, finish_rx) = mpsc::channel::<()>();
     let (entered_tx, finish_rx) = (Mutex::new(entered_tx), Mutex::new(finish_rx));
-    let v = Vision::new(Box::new(|_, _| {}), Box::new(move |state| {
+    let v = Vision::with_effort(Arc::new(Effort::free()), Box::new(|_, _| {}), Box::new(move |state| {
         if state == READY {
             entered_tx.lock().unwrap().send(()).unwrap();
             finish_rx.lock().unwrap().recv_timeout(Duration::from_secs(2)).unwrap();
@@ -602,10 +603,10 @@ fn test_power_saving_runs_the_mask_soon_on_a_big_move() {
     assert_eq!(segmented(&r), 1);
     let standing = with_arm(&still, (200, 1100), (100, 720), 200);
     // not within the shortest gap of the last run, so 60 fps or a flickering picture doesn't make a mask every frame
-    mask_ran_ago(&r.v, SAVING_MASK_BIG_MOVE_EVERY_S / 2.0);
+    mask_ran_ago(&r.v, cadence(1).big_move.unwrap() / 2.0);
     mask(&r.v, "a", 2, &standing);
     assert_eq!(segmented(&r), 1);
-    mask_ran_ago(&r.v, SAVING_MASK_BIG_MOVE_EVERY_S * 1.5);
+    mask_ran_ago(&r.v, cadence(1).big_move.unwrap() * 1.5);
     mask(&r.v, "a", 3, &standing);
     assert_eq!(segmented(&r), 2);
 }
@@ -690,8 +691,108 @@ fn test_power_saving_runs_the_models_less_often_even_while_something_moves() {
     assert!(r.v.diagnostics()[0].1.contains("power saving"));
     r.v.want_people("x", true);
     r.v.inner.hold_people.store(true, Ordering::SeqCst);
-    let sent = sent_each(&r, &[(&moving[0], PEOPLE_EVERY_S), (&moving[1], SAVING_PEOPLE_EVERY_S), (&moving[2], 0.0)]);
+    let sent = sent_each(&r, &[(&moving[0], PEOPLE_EVERY_S), (&moving[1], cadence(1).people.moving), (&moving[2], 0.0)]);
     assert_eq!(sent, [true, false, true]);
+}
+
+/// What each effort level asks of the models: how often the mask runs while something moves, and how often people are looked for.
+#[test]
+fn test_each_effort_level_runs_the_mask_less_often_while_something_moves() {
+    for level in 0..=MOST {
+        let r = ready();
+        r.v.inner.effort.set_floor(level);
+        let moving: Vec<Rgb> = (0..4).map(|i| with_arm(&Rgb::filled(1280, 720, 80), (400, 700), (100 * i, 100 * i + 300), 200)).collect();
+        let runs = || r.backend.log.lock().unwrap().segmented.len();
+        let set_age = |ago: f64| sv(&r.v, "a").mask.lock().unwrap().at = monotonic() - ago;
+        mask(&r.v, "a", 0, &moving[0]);
+        let gap = cadence(level).mask.moving;
+        if level == FULL {
+            // Every frame that moves gets a mask
+            mask(&r.v, "a", 1, &moving[1]);
+            mask(&r.v, "a", 2, &moving[2]);
+            assert_eq!(runs(), 3);
+            continue;
+        }
+        set_age(gap / 2.0);
+        mask(&r.v, "a", 1, &moving[1]);
+        assert_eq!(runs(), 1, "level {level}: too soon");
+        set_age(gap + TICK);
+        mask(&r.v, "a", 2, &moving[2]);
+        assert_eq!(runs(), 2, "level {level}: due");
+    }
+}
+
+#[test]
+fn test_each_effort_level_runs_the_mask_for_a_still_picture_at_its_own_pace() {
+    for level in 0..=MOST {
+        let r = ready();
+        r.v.inner.effort.set_floor(level);
+        let still = Rgb::filled(1280, 720, 80);
+        let runs = || r.backend.log.lock().unwrap().segmented.len();
+        let set_age = |ago: f64| sv(&r.v, "a").mask.lock().unwrap().at = monotonic() - ago;
+        mask(&r.v, "a", 0, &still);
+        let gap = cadence(level).mask.still;
+        set_age(gap / 2.0);
+        mask(&r.v, "a", 1, &still);
+        assert_eq!(runs(), 1, "level {level}: too soon");
+        set_age(gap + TICK);
+        mask(&r.v, "a", 2, &still);
+        assert_eq!(runs(), 2, "level {level}: due");
+    }
+}
+
+#[test]
+fn test_each_effort_level_looks_for_people_at_its_own_pace() {
+    for level in 0..=MOST {
+        let r = ready();
+        r.v.inner.effort.set_floor(level);
+        r.v.want_people("x", true);
+        r.v.inner.hold_people.store(true, Ordering::SeqCst);
+        let people = cadence(level).people;
+        let below = if level == FULL { 0.0 } else { cadence(level - 1).people.moving };
+        let moving: Vec<Rgb> = (0..3).map(|i| with_arm(&Rgb::filled(1280, 720, 80), (400, 700), (100 * i, 100 * i + 300), 200)).collect();
+        let sent = sent_each(&r, &[(&moving[0], below), (&moving[1], people.moving), (&moving[2], 0.0)]);
+        assert_eq!(sent, [true, false, true], "level {level} while something moves");
+        let r = ready();
+        r.v.inner.effort.set_floor(level);
+        r.v.want_people("x", true);
+        r.v.inner.hold_people.store(true, Ordering::SeqCst);
+        let (still, moved) = (Rgb::filled(1280, 720, 80), with_arm(&Rgb::filled(1280, 720, 80), (400, 700), (200, 500), 200));
+        let sent = sent_each(&r, &[(&still, people.moving), (&still, people.still), (&still, people.moving), (&moved, 0.0)]);
+        assert_eq!(sent, [true, false, true, true], "level {level} while nothing does");
+    }
+}
+
+#[test]
+fn test_the_levels_only_ask_for_less_as_they_rise() {
+    for level in 1..=MOST {
+        let (lighter, heavier) = (cadence(level), cadence(level - 1));
+        assert!(lighter.mask.moving >= heavier.mask.moving && lighter.mask.still >= heavier.mask.still, "level {level} mask");
+        assert!(lighter.big_move.unwrap_or(f64::INFINITY) >= heavier.big_move.unwrap_or(f64::INFINITY), "level {level} big move");
+        assert!(lighter.people.moving > heavier.people.moving && lighter.people.still > heavier.people.still, "level {level} people");
+        assert!(lighter.cutout.is_none() || heavier.cutout.is_some_and(|h| lighter.cutout.unwrap().still >= h.still), "level {level} cutout");
+    }
+    assert_eq!(cadence(MOST + 9), cadence(MOST));
+    // Level 1 is exactly power-saving effects as it was
+    let saving = cadence(1);
+    assert_eq!((saving.mask.moving, saving.mask.still, saving.big_move), (0.1 - SAVING_MASK_JITTER_S, 0.1 - SAVING_MASK_JITTER_S, Some(0.025)));
+    assert_eq!((saving.cutout.map(|c| (c.moving, c.still)), saving.people.moving, saving.people.still), (Some((CUTOUT_STILL_EVERY_S, CUTOUT_STILL_EVERY_S)), 0.16, 0.5));
+}
+
+#[test]
+fn test_power_saving_is_the_floor_of_the_effort_level() {
+    let r = ready();
+    assert!(!r.v.power_saving());
+    assert_eq!(r.v.inner.effort.level(), FULL);
+    r.v.set_power_saving(true);
+    assert!(r.v.power_saving());
+    assert_eq!(r.v.inner.effort.level(), 1);
+    r.v.set_power_saving(false);
+    assert_eq!((r.v.power_saving(), r.v.inner.effort.level()), (false, FULL));
+    // A floor is power saving, not a step down
+    r.v.inner.effort.set_floor(2);
+    assert!(r.v.diagnostics()[0].1.contains("power saving"));
+    assert!(!r.v.diagnostics()[0].1.contains("stepped down"), "a floor isn't a step down");
 }
 
 fn released_counter(v: &Vision) -> Arc<Mutex<u32>> {
