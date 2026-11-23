@@ -112,6 +112,18 @@ class UpdateHttpTest {
         }
     }
 
+    @Test
+    fun `a download that can't be written says so instead of blaming the connection`() {
+        val url = serve { send(it, "HTTP/1.1 200 OK\r\nContent-Length: ${payload.size}\r\n\r\n" + String(payload)) }
+        val sha = MessageDigest.getInstance("SHA-256").digest(payload).joinToString("") { "%02x".format(it) }
+        val dir = File(root, "unwritable").apply { mkdirs() }
+        val dest = File(dir, "Telescope.apk")
+        File(dir, "Telescope.apk.part").mkdirs()  // the partial file can't be opened
+        val message = http.download(ManifestAsset("Telescope.apk", url, sha, payload.size.toLong()), dest, EnglishStrings) {}
+        assertEquals(EnglishStrings.get(R.string.update_error_save), message)
+        assertFalse(dest.exists())
+    }
+
     private fun manifest(build: Int, url: String, bytes: ByteArray): UpdateManifest {
         val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
         return UpdateManifest("1", build, "nightly", assets = listOf(
