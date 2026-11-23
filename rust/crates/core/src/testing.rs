@@ -890,6 +890,9 @@ impl Host for FakeHost {
     fn want_stats(&mut self, owner: &str, on: bool) {
         self.note(format!("want_stats {owner} {on}"));
     }
+    fn want_system(&mut self, owner: &str, on: bool) {
+        self.note(format!("want_system {owner} {on}"));
+    }
 }
 
 impl FakeHost {

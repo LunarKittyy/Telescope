@@ -29,6 +29,7 @@ pub mod machine;
 pub mod link;
 pub mod media;
 pub mod models;
+pub mod monitor;
 pub mod motion;
 pub mod names;
 pub mod output;

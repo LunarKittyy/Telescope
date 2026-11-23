@@ -6,6 +6,7 @@
 use crate::balance::{Balance, Place, Why};
 use crate::effort::{Effort, EffortSnapshot};
 use crate::event::Event;
+use crate::monitor::{Monitor, SystemReading};
 use crate::perf::STAGES;
 use crate::time::monotonic_ns;
 use crate::BusSender;
@@ -182,6 +183,10 @@ pub struct Timer {
 }
 
 impl Timer {
+    pub const fn new() -> Timer {
+        Timer { sum_us: AtomicU64::new(0), count: AtomicU32::new(0), max_us: AtomicU32::new(0) }
+    }
+
     #[inline]
     pub fn add(&self, ns: u64) {
         let us = (ns / 1000).min(u32::MAX as u64) as u32;
@@ -202,6 +207,17 @@ impl Timer {
         // A sample added during the take can be in the sum and not yet in the count, which mustn't put the mean past the slowest
         let max_ms = max as f32 / 1000.0;
         Timing { mean_ms: ((sum as f64 / count as f64 / 1000.0) as f32).min(max_ms), max_ms, count }
+    }
+}
+
+/// The vision models whose runs are timed, in the order `MODELS` holds their timers.
+const MODEL_NAMES: [&str; 3] = ["mask", "cutout", "people"];
+static MODELS: [Timer; 3] = [Timer::new(), Timer::new(), Timer::new()];
+
+/// A vision model ("mask", "cutout" or "people") took ns for one run; any other name is ignored. Always counted, three atomics a run.
+pub fn note_model(name: &str, ns: u64) {
+    if let Some(i) = MODEL_NAMES.iter().position(|n| *n == name) {
+        MODELS[i].add(ns);
     }
 }
 
@@ -519,6 +535,12 @@ pub struct AppSnapshot {
     pub effort: EffortSnapshot,
     /// How long each plugin's hooks (events, card updates, clicks) took over the last second, while something asked.
     pub hooks: Vec<NamedTiming>,
+    /// How long each vision model's runs took over the last second (the ones that ran), whether or not anything asked.
+    #[serde(default)]
+    pub models: Vec<NamedTiming>,
+    /// The whole computer's load, only while something asked (`Hub::want_system`). Live only: never logged, saved or sent, and left out of a snapshot's JSON, so a script plugin never hears it.
+    #[serde(default, skip_serializing)]
+    pub system: Option<SystemReading>,
     pub series: AppSeries,
 }
 
@@ -566,6 +588,8 @@ fn keep(series: &mut Vec<f32>, value: f32) {
 pub struct Hub {
     detailed: Arc<AtomicBool>,
     wanted: Mutex<BTreeSet<String>>,
+    /// Who wants the computer's load read, and the reader, which starts over whenever nobody does.
+    system: Mutex<(BTreeSet<String>, Monitor)>,
     sources: Mutex<Vec<Entry>>,
     app: Mutex<AppTrack>,
     hooks: Timers,
@@ -604,6 +628,7 @@ impl Hub {
             hooks: Timers::new(detailed.clone()),
             detailed,
             wanted: Mutex::new(BTreeSet::new()),
+            system: Mutex::new((BTreeSet::new(), Monitor::new())),
             sources: Mutex::new(Vec::new()),
             app: Mutex::new(AppTrack::default()),
             balance,
@@ -636,6 +661,17 @@ impl Hub {
             wanted.remove(owner);
         }
         self.detailed.store(!wanted.is_empty(), Ordering::Relaxed);
+    }
+
+    /// owner wants the whole computer's load read into each snapshot (`AppSnapshot::system`), or lets go. Nothing is read while nobody does.
+    pub fn want_system(&self, owner: &str, on: bool) {
+        let mut system = self.system.lock().unwrap_or_else(|p| p.into_inner());
+        if on {
+            system.0.insert(owner.to_string());
+        } else if system.0.remove(owner) && system.0.is_empty() {
+            // The next reading after a pause would average over the whole pause, so it starts over
+            system.1 = Monitor::new();
+        }
     }
 
     pub fn detailed(&self) -> bool {
@@ -674,11 +710,16 @@ impl Hub {
         }
         let series = app.series.clone();
         drop(app);
+        let system = {
+            let mut system = self.system.lock().unwrap_or_else(|p| p.into_inner());
+            let wanted = !system.0.is_empty();
+            wanted.then(|| system.1.read())
+        };
         Snapshot {
             at_ms: now_ns / 1_000_000,
             detailed,
             sources,
-            app: AppSnapshot { cpu_percent, memory_mb, balance: self.balance_snapshot(now_ns), effort: self.effort.snapshot(), hooks: self.hooks.take_all(), series },
+            app: AppSnapshot { cpu_percent, memory_mb, balance: self.balance_snapshot(now_ns), effort: self.effort.snapshot(), hooks: self.hooks.take_all(), models: take_models(), system, series },
         }
     }
 
@@ -735,6 +776,11 @@ impl Default for Hub {
     fn default() -> Self {
         Hub::new()
     }
+}
+
+/// What each model's runs took since the last snapshot; those that didn't run are left out.
+fn take_models() -> Vec<NamedTiming> {
+    MODEL_NAMES.iter().zip(&MODELS).map(|(name, t)| NamedTiming { name: (*name).into(), timing: t.take() }).filter(|t| t.timing.count > 0).collect()
 }
 
 fn sample(e: &mut Entry, now_ns: u64) -> SourceSnapshot {

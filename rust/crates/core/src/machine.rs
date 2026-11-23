@@ -81,7 +81,7 @@ fn total_memory_bytes() -> Option<u64> {
 }
 
 /// Whether the computer runs on its battery; None for one without a battery or when it can't tell.
-fn on_battery() -> Option<bool> {
+pub(crate) fn on_battery() -> Option<bool> {
     #[cfg(target_os = "linux")]
     {
         let (mut battery, mut mains) = (false, false);

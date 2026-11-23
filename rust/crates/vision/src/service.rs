@@ -1160,6 +1160,7 @@ impl Vision {
     // Diagnostics
 
     fn note(&self, kind: &'static str, t0: std::time::Instant) {
+        telescope_core::stats::note_model(kind, t0.elapsed().as_nanos() as u64);
         let mut ms = self.inner.ms.lock().unwrap();
         let recent = ms.entry(kind).or_default();
         recent.push(t0.elapsed().as_secs_f64() * 1000.0);
