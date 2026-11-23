@@ -348,8 +348,17 @@ impl Pipeline {
         }
         self.card_decoder |= Gpu::importable(&frame);
         // A decoder's picture still on the card is only for a first step that runs there: any other gets the picture in memory, as it always did
+        // What the CPU does this frame that the card would have done, for the balance
+        let mut cpu_ns = 0;
         if frame.surface().is_some() && !self.starts_on_card() {
+            let began = monotonic_ns();
             frame = frame.materialise();
+            if self.steps.iter().find(|e| !e.skipped()).is_none_or(|e| matches!(e.kind, Kind::Either(..))) {
+                cpu_ns += monotonic_ns().saturating_sub(began);
+            }
+        }
+        if let Some(fps) = self.stats.as_ref().map(|s| s.target_fps()).filter(|fps| *fps > 0) {
+            self.balance.set_interval(1_000_000_000 / fps as u64);
         }
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
         let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
@@ -399,7 +408,9 @@ impl Pipeline {
             let either = matches!(self.steps[i].kind, Kind::Either(..)) && !self.steps[i].no_shader && !self.card_lost;
             if either && !(on_card && self.gpu().is_some()) {
                 self.ready_on_card(i);
+                let began = monotonic_ns();
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
+                cpu_ns += monotonic_ns().saturating_sub(began);
                 off_card = true;
             } else if either || matches!(self.steps[i].kind, Kind::Shader(_)) {
                 self.run_shader(i, &mut frame, &mut chain, ctx, time);
@@ -466,7 +477,10 @@ impl Pipeline {
         }
         // A plain stream that would convert on the card but was moved off it tries the card again like a step with both ways
         off_card |= !on_card && self.card_decoder && !self.card_lost && plain_allowed() && self.no_steps_run();
+        // The decoder's copy into memory is the CPU's too, for a decoder that could have left the picture on the card
+        let copied = self.stats.as_ref().and_then(|s| s.take_latest("take_frame")).filter(|_| self.card_decoder);
         if off_card {
+            self.balance.note_cpu(cpu_ns + copied.unwrap_or(0));
             if !self.was_off_card && ON_THE_CARD.load(Ordering::SeqCst) <= 1 {
                 if let Some(gpu) = self.gpu.clone().flatten() {
                     gpu.release_idle();
@@ -2454,6 +2468,24 @@ pub(crate) mod tests {
         assert_eq!(balance.place(), Place::Cpu);
         p.process(grey(8, 8, 100), &NoContext);
         assert_eq!(p.last_transfers, (0, 0));
+    }
+
+    #[test]
+    fn a_step_off_the_card_tells_the_balance_what_it_cost_the_cpu_and_the_stream_s_rate_sets_the_late_line() {
+        let balance = Arc::new(Balance::free());
+        let (mut p, _) = either(Place::Card);
+        p.balance = balance.clone();
+        let hub = telescope_core::stats::Hub::new();
+        let stats = hub.register("cost", 1);
+        stats.set_target_fps(60);
+        p.set_stats(stats);
+        (0..8).for_each(|_| balance.note_wait(50_000_000));
+        assert_eq!((balance.place(), balance.cpu_cost()), (Place::Cpu, None));
+        for _ in 0..10 {
+            p.process(grey(64, 64, 100), &NoContext);
+        }
+        assert!(balance.cpu_cost().is_some(), "ten frames on the CPU were heard");
+        assert_eq!(balance.late_ns(), 12_500_000, "three quarters of a 60 fps frame");
     }
 
     #[test]

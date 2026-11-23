@@ -8428,6 +8428,9 @@ msgstr "ponsel tidak merespons melalui USB"
 msgid "the phone plugged in over USB is a different one"
 msgstr "ponsel yang terhubung melalui USB adalah ponsel yang berbeda"
 
+msgid "the processor was no quicker than the card"
+msgstr ""
+
 msgid "the shutter speed"
 msgstr ""
 

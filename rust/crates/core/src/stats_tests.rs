@@ -380,3 +380,17 @@ fn the_computer_is_slow_when_a_tenth_of_the_frames_are_shed_for_a_few_seconds() 
     assert!(four_a_second.computer_is_slow(), "{:?}", four_a_second.shed_share(4));
     assert_eq!(four_a_second.shed_share(100), None, "not that many seconds counted yet");
 }
+
+#[test]
+fn a_stage_s_newest_time_is_there_once_and_the_rate_without_the_lock() {
+    let (_hub, stats, _) = running();
+    assert_eq!(stats.take_latest("take_frame"), None);
+    stats.stage(2, 4 * MS);
+    stats.stage(2, 11 * MS);
+    assert_eq!(stats.take_latest("take_frame"), Some(11 * MS), "the newest");
+    assert_eq!(stats.take_latest("take_frame"), None, "taken");
+    assert_eq!(stats.take_latest("no such stage"), None);
+    assert_eq!(stats.target_fps(), 0);
+    stats.set_target_fps(60);
+    assert_eq!(stats.target_fps(), 60);
+}

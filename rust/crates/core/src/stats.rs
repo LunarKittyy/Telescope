@@ -286,6 +286,10 @@ pub struct SourceStats {
     repeated: AtomicU64,
     drops: [AtomicU64; 7],
     stages: [StageAcc; STAGES.len()],
+    /// Each stage's newest time in microseconds plus one, or 0 once taken (take_latest).
+    latest: [AtomicU32; STAGES.len()],
+    /// Meta's target_fps, for the frame path to read without the lock.
+    fps: AtomicU32,
     steps: Timers,
     meta: Mutex<Meta>,
 }
@@ -301,6 +305,8 @@ impl SourceStats {
             repeated: AtomicU64::new(0),
             drops: [const { AtomicU64::new(0) }; 7],
             stages: std::array::from_fn(|_| StageAcc::default()),
+            latest: [const { AtomicU32::new(0) }; STAGES.len()],
+            fps: AtomicU32::new(0),
             steps: Timers::new(detailed),
             meta: Mutex::new(Meta { source_id: source_id.into(), slot, url: String::new(), plugin_source: false, target_fps: 0, transport: None }),
         }
@@ -345,6 +351,16 @@ impl SourceStats {
     #[inline]
     fn stage(&self, index: usize, ns: u64) {
         self.stages[index].0.add(ns);
+        self.latest[index].store((ns / 1000).min(u32::MAX as u64 - 1) as u32 + 1, Ordering::Relaxed);
+    }
+
+    /// The newest time a stage (a name from perf::STAGES) took on this stream's threads, if one came since the last ask.
+    pub fn take_latest(&self, stage: &str) -> Option<u64> {
+        let i = STAGES.iter().position(|s| *s == stage)?;
+        match self.latest[i].swap(0, Ordering::Relaxed) {
+            0 => None,
+            us => Some((us - 1) as u64 * 1000),
+        }
     }
 
     /// The timers of each plugin's frame step, which the pipeline fills while Timers::on.
@@ -362,6 +378,12 @@ impl SourceStats {
 
     pub fn set_target_fps(&self, fps: u32) {
         self.meta.lock().unwrap_or_else(|p| p.into_inner()).target_fps = fps;
+        self.fps.store(fps, Ordering::Relaxed);
+    }
+
+    /// The rate the stream is meant to keep, 0 before it is set.
+    pub fn target_fps(&self) -> u32 {
+        self.fps.load(Ordering::Relaxed)
     }
 
     fn totals(&self) -> Counts {

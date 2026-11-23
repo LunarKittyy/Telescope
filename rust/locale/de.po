@@ -8446,6 +8446,9 @@ msgstr "das Smartphone antwortet nicht über USB"
 msgid "the phone plugged in over USB is a different one"
 msgstr "Das über USB angeschlossene Smartphone ist ein anderes"
 
+msgid "the processor was no quicker than the card"
+msgstr ""
+
 msgid "the shutter speed"
 msgstr ""
 
