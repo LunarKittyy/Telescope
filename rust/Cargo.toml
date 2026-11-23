@@ -83,6 +83,8 @@ ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "
 zune-jpeg = "0.5"
 zune-core = "0.5"
 image = { version = "0.25", default-features = false }
+# Cleared pixel buffers for the offscreen window drawing in tests, as zeroed memory (already in the tree through Slint)
+bytemuck = { version = "1.25", features = ["extern_crate_alloc"] }
 # The program's own icon and name on Windows, for Explorer, the tray and the firewall's question
 winresource = "0.1"
 cpal = "0.18"
@@ -103,6 +105,12 @@ lto = "fat"
 codegen-units = 1
 strip = true
 # No panic = "abort": the host catches a panicking plugin and carries on, as the Python app catches its exceptions
+
+# Nightlies and test packages: the release build without its slowest steps, a few minutes quicker on CI. Stable releases use release
+[profile.nightly]
+inherits = "release"
+lto = "thin"
+codegen-units = 16
 
 # Crates that run once at a start or a click, never per frame: smaller code instead of faster
 [profile.release.package.naga]

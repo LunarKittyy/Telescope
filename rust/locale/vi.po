@@ -417,6 +417,9 @@ msgstr ""
 msgid "Auto framing"
 msgstr "Căn khung tự động"
 
+msgid "Auto framing follows your body until you close Telescope, even while effects are lighter."
+msgstr ""
+
 msgid "Auto framing speed"
 msgstr "Tốc độ căn khung tự động"
 
@@ -1869,6 +1872,9 @@ msgstr "Tìm"
 msgid "Finding the current adb…"
 msgstr "Đang tìm adb hiện tại…"
 
+msgid "Finding your face costs a fraction of finding your body. Auto framing uses your body again when it finds no face or sees several people."
+msgstr ""
+
 msgid "Fine tune"
 msgstr "Tinh chỉnh"
 
@@ -1947,6 +1953,9 @@ msgstr "Theo dõi khuôn mặt"
 msgid "Follow one person"
 msgstr ""
 
+msgid "Follow your body"
+msgstr ""
+
 msgid "Forget this device."
 msgstr "Quên thiết bị này."
 
@@ -1993,6 +2002,10 @@ msgstr "Khung hình ra"
 msgid "Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."
 msgstr "Số khung hình mỗi giây cho cả quá trình thu hình trên điện thoại và camera ảo. Giảm xuống giúp tiết kiệm dữ liệu và pin."
 
+#, python-brace-format
+msgid "Frames ran late and the camera can't use more than {sent}, picked {picked}"
+msgstr ""
+
 msgid "Frames to collect"
 msgstr ""
 
@@ -2001,6 +2014,9 @@ msgstr ""
 
 msgid "Framing"
 msgstr "Căn khung"
+
+msgid "Framing by face"
+msgstr ""
 
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
@@ -2197,7 +2213,7 @@ msgstr ""
 msgid "Heavy"
 msgstr "Nặng"
 
-msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
+msgid "Heavy effects work less often while frames run late or the computer is saving power. They return to full quality once there is room."
 msgstr ""
 
 msgid "Height"
@@ -2667,6 +2683,9 @@ msgstr "Phạm vi nhỏ hơn giúp các bước chỉnh chi tiết hơn. Phạm 
 msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
 msgstr ""
 
+msgid "Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked."
+msgstr ""
+
 msgid "Let an AI app read and change Telescope's settings."
 msgstr "Cho phép ứng dụng AI đọc và thay đổi cài đặt của Telescope."
 
@@ -2746,6 +2765,9 @@ msgid "Lighter"
 msgstr ""
 
 msgid "Lighter effects"
+msgstr ""
+
+msgid "Lighter effects when saving power"
 msgstr ""
 
 msgid "Like the camera"
@@ -4748,6 +4770,9 @@ msgstr "Nguồn gửi không chạy"
 msgid "Sending…"
 msgstr "Đang gửi…"
 
+msgid "Sends the size you picked until you close Telescope, even while frames run late."
+msgstr ""
+
 msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
 msgstr ""
 
@@ -5213,6 +5238,9 @@ msgstr "Tốc độ màn trập chậm hơn giúp ảnh sáng hơn nhưng làm n
 msgid "Small"
 msgstr "Nhỏ"
 
+msgid "Smaller stream size"
+msgstr ""
+
 msgid "Smear"
 msgstr "Vệt nhòe"
 
@@ -5359,6 +5387,9 @@ msgstr "Bắt đầu"
 msgctxt "setting"
 msgid "Start"
 msgstr "Bắt đầu"
+
+msgid "Start Background and Auto framing at Power-saving level while the computer is in battery saver or a power-saver mode. Telescope only looks at this while a stream runs and doesn't keep or send it."
+msgstr ""
 
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "Bắt đầu bố cục mới với các luồng phát đang chạy được sắp xếp như thế này."
@@ -5565,10 +5596,19 @@ msgstr ""
 msgid "Stops"
 msgstr "Bước sáng"
 
+msgid "Stops Auto framing following your face to save effort, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
 msgstr ""
 
+msgid "Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when the computer is saving power, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
@@ -6280,6 +6320,9 @@ msgstr ""
 msgid "The computer is running on battery."
 msgstr ""
 
+msgid "The computer is saving power"
+msgstr ""
+
 msgid "The computer is too slow for the effects in use."
 msgstr ""
 
@@ -6499,6 +6542,9 @@ msgstr "Điện thoại đã từ chối yêu cầu micrô (HTTP {code})."
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "Điện thoại đã từ chối yêu cầu bắt đầu truyền phát ({error})."
+
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It moves up to the picked size when you zoom in or use Auto framing. A photo keeps the size it began at."
+msgstr ""
 
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Điện thoại đã gửi dữ liệu mà phiên bản này không thể đọc. Hãy cập nhật cả hai ứng dụng lên cùng một phiên bản."
@@ -7389,6 +7435,9 @@ msgstr "Sử dụng micrô của điện thoại trên máy tính này khi đang
 msgid "Use the phone's microphone on this computer."
 msgstr "Dùng micrô của điện thoại trên máy tính này."
 
+msgid "Use the size I picked"
+msgstr ""
+
 msgid "Use zoom"
 msgstr ""
 
@@ -7641,6 +7690,9 @@ msgstr "Hướng chạy của các dải hình."
 
 msgid "While Telescope is in the background"
 msgstr "Khi Telescope đang chạy ngầm"
+
+msgid "While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off."
+msgstr ""
 
 msgid "White"
 msgstr "Trắng"
@@ -7976,11 +8028,15 @@ msgid "audio sound voice input volume"
 msgstr "âm thanh giọng nói đầu vào âm lượng audio sound voice input volume"
 
 msgctxt "search"
+msgid "auto framing face head body tracking power saving lighter effects processor battery"
+msgstr ""
+
+msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr "tự động bắt đầu dừng camera ứng dụng mở điện thoại thiết bị sẵn sàng chờ rảnh tay auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k"
 msgstr ""
 
 msgctxt "search"
@@ -8002,6 +8058,10 @@ msgstr "tự khởi động đăng nhập khởi động chạy khi khởi độ
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "pin năng lượng tiêu thụ máy tính xách tay bộ xử lý mức sử dụng quạt nhiệt chậm làm mờ căn khung hiệu ứng nhẹ hơn chất lượng battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
+
+msgctxt "search"
+msgid "battery saver power saver profile mode laptop effects power saving"
+msgstr ""
 
 msgid "blue"
 msgstr "xanh dương"
@@ -8400,6 +8460,10 @@ msgid "stable nightly beta release track builds testing"
 msgstr "ổn định nightly beta bản phát hành kênh bản dựng kiểm thử stable nightly beta release track builds testing"
 
 msgctxt "search"
+msgid "stream size resolution 4k 1080p 720p smaller lower decode slow late frames"
+msgstr ""
+
+msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "kéo giãn ép tỷ lệ cao stretch squish aspect tall"
 
@@ -8435,6 +8499,9 @@ msgstr "điện thoại không phản hồi qua USB"
 
 msgid "the phone plugged in over USB is a different one"
 msgstr "điện thoại cắm qua USB là một thiết bị khác"
+
+msgid "the processor was late too and not much quicker than the card"
+msgstr ""
 
 msgid "the shutter speed"
 msgstr ""

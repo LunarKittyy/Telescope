@@ -19,6 +19,7 @@ i-slint-core = "=1.18.1"
 slint-interpreter = { workspace = true, features = ["internal"] }
 i-slint-compiler = { version = "=1.18.1", default-features = false }
 telescope-ui-kit.workspace = true
+bytemuck.workspace = true
 
 
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -33,11 +33,22 @@ fn squeeze_avx2(plane: &mut [u8], to: impl Fn(u8) -> u8) {
     squeeze(plane, to);
 }
 
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+fn squeeze_sse41(plane: &mut [u8], to: impl Fn(u8) -> u8) {
+    squeeze(plane, to);
+}
+
 fn run(plane: &mut [u8], to: impl Fn(u8) -> u8) {
     #[cfg(target_arch = "x86_64")]
     if std::arch::is_x86_feature_detected!("avx2") {
         // SAFETY: the processor was just asked whether it has AVX2
         return unsafe { squeeze_avx2(plane, to) };
+    }
+    #[cfg(target_arch = "x86_64")]
+    if telescope_core::image::sse41_wanted() {
+        // SAFETY: the processor was just asked whether it has SSE4.1
+        return unsafe { squeeze_sse41(plane, to) };
     }
     squeeze(plane, to);
 }

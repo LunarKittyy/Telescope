@@ -417,6 +417,9 @@ msgstr ""
 msgid "Auto framing"
 msgstr "自动构图"
 
+msgid "Auto framing follows your body until you close Telescope, even while effects are lighter."
+msgstr ""
+
 msgid "Auto framing speed"
 msgstr "自动构图速度"
 
@@ -1869,6 +1872,9 @@ msgstr "查找"
 msgid "Finding the current adb…"
 msgstr "正在查找当前版本的 adb…"
 
+msgid "Finding your face costs a fraction of finding your body. Auto framing uses your body again when it finds no face or sees several people."
+msgstr ""
+
 msgid "Fine tune"
 msgstr "微调"
 
@@ -1947,6 +1953,9 @@ msgstr "跟随我的脸"
 msgid "Follow one person"
 msgstr ""
 
+msgid "Follow your body"
+msgstr ""
+
 msgid "Forget this device."
 msgstr "移除此设备。"
 
@@ -1993,6 +2002,10 @@ msgstr "输出帧率"
 msgid "Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."
 msgstr "手机采集和虚拟相机输出的每秒帧数。调低可节省流量和电量。"
 
+#, python-brace-format
+msgid "Frames ran late and the camera can't use more than {sent}, picked {picked}"
+msgstr ""
+
 msgid "Frames to collect"
 msgstr ""
 
@@ -2001,6 +2014,9 @@ msgstr ""
 
 msgid "Framing"
 msgstr "构图"
+
+msgid "Framing by face"
+msgstr ""
 
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
@@ -2197,7 +2213,7 @@ msgstr ""
 msgid "Heavy"
 msgstr "完整"
 
-msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
+msgid "Heavy effects work less often while frames run late or the computer is saving power. They return to full quality once there is room."
 msgstr ""
 
 msgid "Height"
@@ -2667,6 +2683,9 @@ msgstr "更小的范围可提供更精细的调节步进。更大的范围有助
 msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
 msgstr ""
 
+msgid "Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked."
+msgstr ""
+
 msgid "Let an AI app read and change Telescope's settings."
 msgstr "允许 AI 应用读取和修改 Telescope 的设置。"
 
@@ -2746,6 +2765,9 @@ msgid "Lighter"
 msgstr ""
 
 msgid "Lighter effects"
+msgstr ""
+
+msgid "Lighter effects when saving power"
 msgstr ""
 
 msgid "Like the camera"
@@ -4748,6 +4770,9 @@ msgstr "发送端未运行"
 msgid "Sending…"
 msgstr "正在发送…"
 
+msgid "Sends the size you picked until you close Telescope, even while frames run late."
+msgstr ""
+
 msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
 msgstr ""
 
@@ -5213,6 +5238,9 @@ msgstr "放慢快门速度会让画面更亮，但运动画面容易模糊。"
 msgid "Small"
 msgstr "小"
 
+msgid "Smaller stream size"
+msgstr ""
+
 msgid "Smear"
 msgstr "拖影"
 
@@ -5359,6 +5387,9 @@ msgstr "开始"
 msgctxt "setting"
 msgid "Start"
 msgstr "开始"
+
+msgid "Start Background and Auto framing at Power-saving level while the computer is in battery saver or a power-saver mode. Telescope only looks at this while a stream runs and doesn't keep or send it."
+msgstr ""
 
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "按此排列方式将正在运行的串流新建为布局。"
@@ -5565,10 +5596,19 @@ msgstr ""
 msgid "Stops"
 msgstr "档"
 
+msgid "Stops Auto framing following your face to save effort, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
 msgstr ""
 
+msgid "Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when the computer is saving power, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
@@ -6280,6 +6320,9 @@ msgstr ""
 msgid "The computer is running on battery."
 msgstr ""
 
+msgid "The computer is saving power"
+msgstr ""
+
 msgid "The computer is too slow for the effects in use."
 msgstr ""
 
@@ -6499,6 +6542,9 @@ msgstr "手机拒绝了麦克风请求（HTTP {code}）。"
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "手机拒绝了开始串流的请求（{error}）。"
+
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It moves up to the picked size when you zoom in or use Auto framing. A photo keeps the size it began at."
+msgstr ""
 
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "手机发送了此版本无法读取的数据。请将两端的应用更新到同一版本。"
@@ -7389,6 +7435,9 @@ msgstr "串流时在这台电脑上使用手机的麦克风。应用里会显示
 msgid "Use the phone's microphone on this computer."
 msgstr "在这台电脑上使用手机的麦克风。"
 
+msgid "Use the size I picked"
+msgstr ""
+
 msgid "Use zoom"
 msgstr ""
 
@@ -7641,6 +7690,9 @@ msgstr "扫描条带的延伸方向。"
 
 msgid "While Telescope is in the background"
 msgstr "当 Telescope 处于后台时"
+
+msgid "While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off."
+msgstr ""
 
 msgid "White"
 msgstr "白色"
@@ -7976,11 +8028,15 @@ msgid "audio sound voice input volume"
 msgstr "音频 声音 语音 输入 音量 audio sound voice input volume"
 
 msgctxt "search"
+msgid "auto framing face head body tracking power saving lighter effects processor battery"
+msgstr ""
+
+msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr "自动 开始 停止 相机 摄像头 应用 打开 手机 设备 就绪 空闲 免动手 auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k"
 msgstr ""
 
 msgctxt "search"
@@ -8002,6 +8058,10 @@ msgstr "自启 登录 开机 开机启动 启动 电脑启动 托盘 autostart l
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "电池 电量 功耗 笔记本 处理器 占用 风扇 发热 虚化 构图 特效 质量 省电 降温 battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
+
+msgctxt "search"
+msgid "battery saver power saver profile mode laptop effects power saving"
+msgstr ""
 
 msgid "blue"
 msgstr "蓝色"
@@ -8400,6 +8460,10 @@ msgid "stable nightly beta release track builds testing"
 msgstr "稳定版 nightly 测试版 发布 通道 构建 测试 stable nightly beta release track builds testing"
 
 msgctxt "search"
+msgid "stream size resolution 4k 1080p 720p smaller lower decode slow late frames"
+msgstr ""
+
+msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "拉伸 挤压 宽高比 竖屏 比例 stretch squish aspect tall"
 
@@ -8435,6 +8499,9 @@ msgstr "手机没有通过 USB 响应"
 
 msgid "the phone plugged in over USB is a different one"
 msgstr "通过 USB 连接的是另一部手机"
+
+msgid "the processor was late too and not much quicker than the card"
+msgstr ""
 
 msgid "the shutter speed"
 msgstr ""

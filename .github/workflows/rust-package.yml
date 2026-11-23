@@ -83,9 +83,11 @@ jobs:
           name: ffmpeg-linux
           path: ffmpeg
 
+      # Stable and nightly build with different Cargo profiles (package_linux.sh, build_windows.ps1), so each keeps its own cache
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
+          key: ${{ inputs.channel == 'stable' && 'stable' || 'nightly' }}
 
       - name: Build the package
         run: rust/tools/package_linux.sh --ffmpeg ffmpeg --out bundle --channel "${{ inputs.channel || 'dev' }}" --build "${{ inputs.build || '0' }}" --commit "$GITHUB_SHA"
@@ -127,9 +129,11 @@ jobs:
           name: ffmpeg-windows
           path: ffmpeg
 
+      # Stable and nightly build with different Cargo profiles (package_linux.sh, build_windows.ps1), so each keeps its own cache
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
+          key: ${{ inputs.channel == 'stable' && 'stable' || 'nightly' }}
 
       - name: Build the package
         shell: pwsh
