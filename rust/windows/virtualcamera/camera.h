@@ -58,11 +58,14 @@ public:
     bool Fill(BYTE* dst, LONG pitch, UINT32 width, UINT32 height);
     // Whether Telescope has written a frame since the last Fill, so a caller can hand it out as it lands
     bool HasNew(UINT32 width, UINT32 height) const;
+    // Set by Telescope after each frame (a newer one; an older one never does), or null without the shared memory
+    HANDLE FrameEvent() const { return m_event; }
 
 private:
     bool ReadNewest(UINT32 width, UINT32 height);
 
     HANDLE m_map = nullptr;
+    HANDLE m_event = nullptr;
     SharedHeader* m_header = nullptr;
     std::vector<BYTE> m_frame;
     std::vector<BYTE> m_copy;
