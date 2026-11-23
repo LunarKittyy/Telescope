@@ -8446,7 +8446,7 @@ msgstr "telefon USB üzerinden yanıt vermiyor"
 msgid "the phone plugged in over USB is a different one"
 msgstr "USB üzerinden bağlı telefon farklı bir telefon"
 
-msgid "the processor was no quicker than the card"
+msgid "the processor was late too and not much quicker than the card"
 msgstr ""
 
 msgid "the shutter speed"

@@ -9,7 +9,7 @@ use crate::transfers;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
-use telescope_core::balance::{Balance, Place};
+use telescope_core::balance::{Balance, Lane, Place};
 use telescope_core::image::SparePool;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, Touch};
 use telescope_core::media::{FramePipeline, PipelineFrame, StagedStep};
@@ -179,8 +179,6 @@ struct Chain {
     mask: Option<(u32, u32, Option<(u32, u32, Arc<Vec<u8>>)>)>,
     /// What it has waited for the card so far.
     waited_ns: u64,
-    /// Whether the steps are being timed, so the readbacks are too.
-    timing: bool,
     /// How long the readbacks took, which isn't the cost of the step that happened to trigger one.
     down_ns: u64,
     /// The frame in hand was replaced by a dark one to hide the picture, so a step that could bring the picture back from its own history is left out.
@@ -264,7 +262,8 @@ pub struct Pipeline {
     tally: Tally,
     /// What the last frame cost: (up, down).
     last_transfers: (u32, u32),
-    balance: Arc<Balance>,
+    /// This stream's way in to the balance.
+    balance: Lane,
     /// The card failed a frame: steps that can run on the CPU stay there until the next stream, whatever the balance says.
     card_lost: bool,
     deferred_failed: Arc<AtomicBool>,
@@ -273,7 +272,7 @@ pub struct Pipeline {
     pool: SparePool,
     /// Whether this pipeline is counted in ON_THE_CARD.
     on_card: bool,
-    /// How long the last frame spent bringing pictures down from the card (measured while the steps are timed).
+    /// How long the last frame spent bringing pictures down from the card.
     last_readback_ns: u64,
     /// The steps that hide as they are now, and as the frame last through the steps had them (a frame sent again is only missing the difference).
     hiding: Arc<Vec<Applied>>,
@@ -322,7 +321,7 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
+        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance: balance.lane(), card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
         // Asked before the first picture, which sizes the decoder's pool: a stream with no steps yet takes them in on the card
         pipeline.note_surface_wish();
         pipeline
@@ -348,12 +347,17 @@ impl Pipeline {
         }
         self.card_decoder |= Gpu::importable(&frame);
         // A decoder's picture still on the card is only for a first step that runs there: any other gets the picture in memory, as it always did
-        // What the CPU does this frame that the card would have done, for the balance
-        let mut cpu_ns = 0;
+        // What the CPU does this frame that the card would have done, for the balance: the decoder's copy off the card and packing (this
+        // frame's own, taken before the next picture is decoded; none from a decoder that wasn't on the card) and making a surface's picture
+        // ready in memory, when the first step would have taken the picture on the card
+        let card_takes_it = self.steps.iter().find(|e| !e.skipped()).is_none_or(|e| matches!(e.kind, Kind::Either(..)));
+        let decoded = self.stats.as_ref().and_then(|s| s.take_latest("take_frame"));
+        let copied = self.stats.as_ref().and_then(|s| s.take_latest("transfer")).and(decoded);
+        let mut cpu_ns = copied.filter(|_| card_takes_it).unwrap_or(0);
         if frame.surface().is_some() && !self.starts_on_card() {
             let began = monotonic_ns();
             frame = frame.materialise();
-            if self.steps.iter().find(|e| !e.skipped()).is_none_or(|e| matches!(e.kind, Kind::Either(..))) {
+            if card_takes_it {
                 cpu_ns += monotonic_ns().saturating_sub(began);
             }
         }
@@ -374,7 +378,6 @@ impl Pipeline {
         let mut off_card = false;
         // Asked once a frame: a step is only timed while the stats panel wants every plugin's time
         let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
-        chain.timing = timing;
         // A step that covers the whole picture makes what pixel-only steps before it did on this frame pointless; the cover itself always runs
         let covered_by = self.steps.iter().position(Entry::covers);
         for i in 0..self.steps.len() {
@@ -410,7 +413,8 @@ impl Pipeline {
                 self.ready_on_card(i);
                 let began = monotonic_ns();
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
-                cpu_ns += monotonic_ns().saturating_sub(began);
+                // Bringing down what a step that only runs on the card made is the card's, whichever way this one runs
+                cpu_ns += monotonic_ns().saturating_sub(began).saturating_sub(chain.down_ns - down_before);
                 off_card = true;
             } else if either || matches!(self.steps[i].kind, Kind::Shader(_)) {
                 self.run_shader(i, &mut frame, &mut chain, ctx, time);
@@ -477,10 +481,8 @@ impl Pipeline {
         }
         // A plain stream that would convert on the card but was moved off it tries the card again like a step with both ways
         off_card |= !on_card && self.card_decoder && !self.card_lost && plain_allowed() && self.no_steps_run();
-        // The decoder's copy into memory is the CPU's too, for a decoder that could have left the picture on the card
-        let copied = self.stats.as_ref().and_then(|s| s.take_latest("take_frame")).filter(|_| self.card_decoder);
         if off_card {
-            self.balance.note_cpu(cpu_ns + copied.unwrap_or(0));
+            self.balance.note_cpu(cpu_ns);
             if !self.was_off_card && ON_THE_CARD.load(Ordering::SeqCst) <= 1 {
                 if let Some(gpu) = self.gpu.clone().flatten() {
                     gpu.release_idle();
@@ -524,15 +526,13 @@ impl Pipeline {
         if let (Some(held), true) = (chain.held.as_mut(), pending) {
             chain.downs += 1;
             let cap = SPARE_POOL_FRAMES * held.size().0 as usize * held.size().1 as usize * 3;
-            let down_began = chain.timing.then(monotonic_ns);
+            let down_began = monotonic_ns();
             // The card gives back a new frame, so the cut-out the one in hand carries goes onto it
             let alpha = frame.alpha().cloned();
             let geometry = frame.geometry.clone();
             let mask_space = frame.mask_space;
             let landed = self.pool.scope(cap, || gpu.land_until(held, &|| ctx.stopped()).map(|out| std::mem::replace(frame, out).recycle()));
-            if let Some(began) = down_began {
-                chain.down_ns += monotonic_ns().saturating_sub(began);
-            }
+            chain.down_ns += monotonic_ns().saturating_sub(down_began);
             match landed {
                 Ok(()) => {
                     frame.geometry = geometry;
@@ -689,6 +689,7 @@ impl Pipeline {
     }
 
     fn steps_changed(&mut self) {
+        self.balance.steps_changed();
         self.note_surface_wish();
         let mut now = self.hiding_now();
         let mut applied = (*self.applied).clone();
@@ -1043,7 +1044,7 @@ impl Pipeline {
 
 
 /// A trial out on the card, however it ends: a panic or a thread that wouldn't start still lets the next one go. The flag is set when the pipeline is going away.
-struct Trial(Arc<Balance>, Option<u64>, Arc<AtomicBool>);
+struct Trial(Lane, Option<u64>, Arc<AtomicBool>);
 
 impl Drop for Trial {
     fn drop(&mut self) {
@@ -2211,7 +2212,7 @@ pub(crate) mod tests {
         let (mut lefts, mut ups) = (Vec::new(), Vec::new());
         for n in 0..90 {
             // Every seventh frame the card gets busy or has room again, the first time with the shader not built yet
-            p.balance = if (n / 7) % 2 == 0 { on_card.clone() } else { on_cpu.clone() };
+            p.balance = if (n / 7) % 2 == 0 { on_card.lane() } else { on_cpu.lane() };
             let view = View { zoom: 2.0, pan_x: -0.8 + n as f32 * 0.015, ..View::default() };
             p.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
             cpu.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
@@ -2461,7 +2462,7 @@ pub(crate) mod tests {
         }
         let balance = Arc::new(Balance::free());
         let (mut p, _) = either(Place::Card);
-        p.balance = balance.clone();
+        p.balance = balance.lane();
         p.process(grey(8, 8, 100), &NoContext);
         assert_eq!(p.last_transfers, (1, 1));
         (0..8).for_each(|_| balance.note_wait(50_000_000));
@@ -2474,18 +2475,68 @@ pub(crate) mod tests {
     fn a_step_off_the_card_tells_the_balance_what_it_cost_the_cpu_and_the_stream_s_rate_sets_the_late_line() {
         let balance = Arc::new(Balance::free());
         let (mut p, _) = either(Place::Card);
-        p.balance = balance.clone();
+        p.balance = balance.lane();
         let hub = telescope_core::stats::Hub::new();
         let stats = hub.register("cost", 1);
         stats.set_target_fps(60);
         p.set_stats(stats);
         (0..8).for_each(|_| balance.note_wait(50_000_000));
-        assert_eq!((balance.place(), balance.cpu_cost()), (Place::Cpu, None));
+        assert_eq!((balance.place(), p.balance.cpu_cost()), (Place::Cpu, None));
         for _ in 0..10 {
             p.process(grey(64, 64, 100), &NoContext);
         }
-        assert!(balance.cpu_cost().is_some(), "ten frames on the CPU were heard");
-        assert_eq!(balance.late_ns() / 1000, 12_499, "three quarters of a 60 fps frame");
+        assert!(p.balance.cpu_cost().is_some(), "ten frames on the CPU were heard");
+        assert_eq!(p.balance.late_ns() / 1000, 12_499, "three quarters of a 60 fps frame");
+        let other = Balance::lane(&balance);
+        assert_eq!((other.cpu_cost(), other.late_ns() / 1000), (None, 24_999), "another stream's rate and cost are its own");
+    }
+
+    #[test]
+    fn the_decoder_s_copy_counts_for_the_cpu_only_when_it_came_off_the_card() {
+        let balance = Arc::new(Balance::free());
+        let (mut p, _) = either(Place::Card);
+        p.balance = balance.lane();
+        let hub = telescope_core::stats::Hub::new();
+        let stats = hub.register("copy", 1);
+        p.set_stats(stats.clone());
+        let _counting = telescope_core::stats::bind(&stats);
+        (0..8).for_each(|_| balance.note_wait(50_000_000));
+        // A decoder working in software packs the picture whichever way the steps run
+        for _ in 0..8 {
+            telescope_core::perf::record("take_frame", 40_000_000);
+            p.process(grey(8, 8, 100), &NoContext);
+        }
+        assert!(p.balance.cpu_cost().unwrap() < 40_000_000, "{:?}", p.balance.cpu_cost());
+        // One on the card copies it off first, which the card's way would have saved
+        p.balance.steps_changed();
+        for _ in 0..8 {
+            telescope_core::perf::record("transfer", 30_000_000);
+            telescope_core::perf::record("take_frame", 40_000_000);
+            p.process(grey(8, 8, 100), &NoContext);
+        }
+        assert!(p.balance.cpu_cost().unwrap() >= 40_000_000, "{:?}", p.balance.cpu_cost());
+    }
+
+    #[test]
+    fn a_step_off_the_card_isn_t_charged_for_bringing_a_card_step_s_picture_down() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let balance = Arc::new(Balance::free());
+        let mut p = Pipeline::with_balance(balance.clone());
+        let own = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let either = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(either, Box::new(Slow(own.clone()))) }]);
+        (0..8).for_each(|_| balance.note_wait(50_000_000));
+        let mut readback_ns = 0;
+        for _ in 0..8 {
+            p.process(grey(1920, 1080, 126), &NoContext);
+            readback_ns += p.last_readback_ns;
+        }
+        assert!(readback_ns > 0, "the shader's picture came down");
+        let (own_ms, readback_ms) = (own.load(Ordering::SeqCst) as f64 / 8e6, readback_ns as f64 / 8e6);
+        let cost_ms = p.balance.cpu_cost().unwrap() as f64 / 1e6;
+        assert!(cost_ms <= own_ms + 0.3, "the CPU's cost was {cost_ms:.2} ms for a step that took {own_ms:.2} ms, with a readback of {readback_ms:.2} ms in front of it");
     }
 
     #[test]

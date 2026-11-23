@@ -1397,11 +1397,11 @@ pub(crate) struct CardFrame {
     shape: (u32, u32, PixelFormat),
     fallback: LandingFailure,
     failed: Arc<AtomicBool>,
-    balance: Arc<telescope_core::balance::Balance>,
+    balance: telescope_core::balance::Lane,
 }
 
 impl CardFrame {
-    pub(crate) fn new(gpu: Arc<Gpu>, mut held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Arc<telescope_core::balance::Balance>) -> Self {
+    pub(crate) fn new(gpu: Arc<Gpu>, mut held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: telescope_core::balance::Lane) -> Self {
         let shape = (before.width, before.height, before.format);
         // The submission is already queued, so scratch textures (b, temporaries) can return to the pool right away.
         let mut release = std::mem::take(&mut held.used);

@@ -432,7 +432,7 @@ fn rows_listing(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context, 
             let why = match m.why {
                 telescope_core::balance::Why::CardBusy => tr("frames waited {n} for the card").field("n", ms(m.wait_ms)),
                 telescope_core::balance::Why::CardClear => tr("the card was clear for a while"),
-                telescope_core::balance::Why::CpuSlower => tr("the processor was no quicker than the card"),
+                telescope_core::balance::Why::CpuSlower => tr("the processor was late too and not much quicker than the card"),
             };
             out.push(Row::line(&label, ago).note(why).pin(&format!("stats.balancer_move_{i}")));
         }

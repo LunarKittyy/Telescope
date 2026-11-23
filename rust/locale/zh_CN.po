@@ -8428,7 +8428,7 @@ msgstr "手机没有通过 USB 响应"
 msgid "the phone plugged in over USB is a different one"
 msgstr "通过 USB 连接的是另一部手机"
 
-msgid "the processor was no quicker than the card"
+msgid "the processor was late too and not much quicker than the card"
 msgstr ""
 
 msgid "the shutter speed"
