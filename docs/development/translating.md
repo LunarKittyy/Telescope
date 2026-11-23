@@ -1,4 +1,4 @@
-<!-- covers: rust/locale/telescope.pot rust/tools/i18n.py rust/crates/core/src/i18n* rust/crates/core/tests/i18n.rs rust/app/tests/texts_in_code.rs rust/app/tests/text_fits.rs android/app/src/main/res/values/strings.xml automation/translation; checked: 0d35dc883 -->
+<!-- covers: rust/locale/telescope.pot rust/tools/i18n.py rust/crates/core/src/i18n* rust/crates/core/tests/i18n.rs rust/app/tests/texts_in_code.rs rust/app/tests/text_fits.rs android/app/src/main/res/values/strings.xml automation/translation; checked: 277bbbf1a -->
 # Translating Telescope
 
 ## Helping without any tools
@@ -73,7 +73,6 @@ That writes `locale/sv.po` with every text and an empty `msgstr` under each. Fil
 
 ```
 #. what a translator should know, from the code
-#: rust/crates/link/src/plugin.rs:343
 #, python-brace-format
 msgid "Paired with {name}"
 msgstr "Parkopplad med {name}"
@@ -83,6 +82,7 @@ msgstr "Parkopplad med {name}"
 - `msgid_plural` entries take one `msgstr[0]`, `msgstr[1]`... per plural form in your header
 - `msgctxt "search"` marks the words the settings search looks for rather than a sentence. Put in the words people would type in your language and leave names like OBS, adb or VA-API as they are
 - `\n` is a line break. Put the breaks where the English has them and make the lines about as long
+- Entries are sorted by their English and carry no file or line numbers. Moving code never changes these files, and `python tools/i18n.py todo` prints where each text is in the code
 - `#, fuzzy` means the English changed since it was translated. The app ignores fuzzy entries. Check the translation and remove the flag
 
 To see what's left and to check for broken fields:
@@ -149,4 +149,4 @@ const TITLE: &str = n_("Camera");                                              /
 
 A `// Translators:` comment right above the call goes into the `.po` file. `tr_ctx("search", "...")` gives a text a context. When a text a keyboard shortcut can pick is translated (a segment button, a list entry), use its English as the value. A saved shortcut then still finds it in another language.
 
-Then run `python tools/i18n.py extract` in `rust/` and commit `locale`. `app/tests/texts_in_code.rs` fails when the template is out of date or when a text is built from pieces, and `core/tests/i18n.rs` fails when a catalogue is missing a text or a translation has a field the English doesn't.
+Then run `python tools/i18n.py extract` in `rust/` and commit `locale`. A new text adds a few lines to each file and changes nothing else. Most pairs of PRs that add texts merge cleanly. When two collide, run `git checkout --ours rust/locale` and then `extract` again to add back the other PR's texts. `app/tests/texts_in_code.rs` fails when the template is out of date or when a text is built from pieces, and `core/tests/i18n.rs` fails when a catalogue is missing a text or a translation has a field the English doesn't.

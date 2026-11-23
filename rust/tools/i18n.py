@@ -40,7 +40,7 @@ class Entry:
         self.ctx = ctx
         self.msgstr: List[str] = []
         self.comments: List[str] = []     # "#." from a "// Translators:" comment
-        self.locations: List[str] = []    # "#:" file:line
+        self.locations: List[str] = []    # file:line, found in the code; not written to the files, so moving code never changes them
         self.flags: List[str] = []        # "#," e.g. fuzzy, python-brace-format
         self.obsolete = False
 
@@ -148,8 +148,6 @@ def write_po(path: Path, header: str, entries: Iterable[Entry], header_comments:
     for e in entries:
         prefix = "#~ " if e.obsolete else ""
         out += [f"#. {c}" for c in e.comments]
-        if e.locations and not e.obsolete:
-            out.append("#: " + " ".join(e.locations))
         if e.flags:
             out.append("#, " + ", ".join(e.flags))
         if e.ctx:
@@ -388,8 +386,13 @@ def plain_literals(path: Path) -> Dict[str, str]:
     return found
 
 
+def sort_key(e: Entry) -> Tuple[str, str]:
+    """The order of every .po file: by English, then context, so two PRs adding texts rarely touch the same lines."""
+    return e.msgid, e.ctx
+
+
 def find_all(previous: List[Entry]) -> Tuple[List[Entry], List[str]]:
-    """Every text in the code, merged by (context, English), in the order they first appear."""
+    """Every text in the code, merged by (context, English), sorted so a new text lands in a place that doesn't depend on the code."""
     merged: Dict[Tuple[str, str], Entry] = {}
     problems: List[str] = []
     literals: Dict[str, str] = {}
@@ -421,7 +424,7 @@ def find_all(previous: List[Entry]) -> Tuple[List[Entry], List[str]]:
             kept.comments, kept.flags = list(old.comments), list(old.flags)
             kept.locations = [literals[old.msgid]]
             merged[old.key] = kept
-    return list(merged.values()), problems
+    return sorted(merged.values(), key=sort_key), problems
 
 
 # ── The commands ─────────────────────────────────────────────────────────────
@@ -488,6 +491,7 @@ def merge(po: Path, template, forget: bool = False) -> None:
             gone.obsolete = True
             gone.comments, gone.locations = [], []
             merged.append(gone)
+    merged.sort(key=lambda e: (e.obsolete, *sort_key(e)))
     write_po(po, head, merged)
 
 
@@ -553,12 +557,13 @@ def todo(args) -> int:
     po = LOCALE_DIR / f"{args.lang}.po"
     entries, head = read_po(po)
     left = [e for e in entries if not (e.msgstr and all(e.msgstr)) or e.fuzzy]
+    places = {e.key: e.locations for e in find_all(entries)[0]}
     sys.stdout.reconfigure(encoding="utf-8")
     print(f"# {len(left)} of {len(entries)} still to translate in {po.name}\n")
     for e in left:
         for c in e.comments:
             print(f"#. {c}")
-        print(f"#: {' '.join(e.locations[:3])}")
+        print(f"#: {' '.join(places.get(e.key, [])[:3])}")
         if e.flags:
             print(f"#, {', '.join(e.flags)}")
         if e.ctx:
