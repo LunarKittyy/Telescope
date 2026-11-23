@@ -52,10 +52,10 @@ jobs:
         if: github.event_name == 'pull_request'
         run: python3 .github/checklist_due.py --check-map
 
-  # The tests take about 20 minutes on one runner, so they're split in three by nextest, each part building the
-  # workspace itself (a shared build would wait for an upload and three downloads, which costs about the same)
+  # The tests take about 20 minutes on one runner, so they're split in two by nextest, each part building the
+  # workspace itself (a shared build would wait for an upload and the downloads, which costs about the same)
   linux-tests:
-    name: linux (${{ matrix.part }}/3)
+    name: linux (${{ matrix.part }}/2)
     needs: changes
     # Runs unless changes said there's nothing to check, so a changes job that failed doesn't pass this silently
     if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
@@ -63,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [1, 2, 3]
+        part: [1, 2]
     # A new push to a ready pull request cancels the check still running for the old one. Every push to a draft
     # runs on its own (its group has the commit in it), so each one finishes and reports.
     concurrency:
@@ -89,6 +89,8 @@ jobs:
         with:
           workspaces: rust
           shared-key: linux
+          # The dev profile's settings are in rust/Cargo.toml, which the automatic key leaves out
+          key: ${{ hashFiles('rust/Cargo.toml') }}
           save-if: ${{ matrix.part == 1 }}
 
       - uses: taiki-e/install-action@v2
@@ -108,7 +110,7 @@ jobs:
 
       # Tests run side by side and only failures print. rust/.config/nextest.toml has what can't share a machine
       - name: Test
-        run: cargo nextest run --workspace --locked --profile ci --partition slice:${{ matrix.part }}/3
+        run: cargo nextest run --workspace --locked --profile ci --partition slice:${{ matrix.part }}/2
 
       # How long each test took, to find the slow ones
       - uses: actions/upload-artifact@v7
@@ -131,14 +133,17 @@ jobs:
           [ "${{ needs.linux-tests.result }}" = success ] || [ "${{ needs.linux-tests.result }}" = skipped ]
 
   windows-tests:
-    name: windows (${{ matrix.part }}/3)
+    name: windows (${{ matrix.part }}/2)
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
     runs-on: windows-latest
+    # Rust's own copy of LLD links the test programs in about half the time of Microsoft's linker
+    env:
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld
     strategy:
       fail-fast: false
       matrix:
-        part: [1, 2, 3]
+        part: [1, 2]
     concurrency:
       group: rust-windows-${{ matrix.part }}-${{ github.event.pull_request.number || github.run_id }}${{ github.event.pull_request.draft && format('-{0}', github.sha) || '' }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft }}
@@ -170,6 +175,7 @@ jobs:
         with:
           workspaces: rust
           shared-key: windows
+          key: ${{ hashFiles('rust/Cargo.toml') }}
           save-if: ${{ matrix.part == 1 }}
 
       - uses: taiki-e/install-action@v2
@@ -181,7 +187,7 @@ jobs:
         run: cargo clippy --workspace --locked --all-targets --features telescope-app/ffmpeg-windows -- -D warnings
 
       - name: Test
-        run: cargo nextest run --workspace --locked --features telescope-app/ffmpeg-windows --profile ci --partition slice:${{ matrix.part }}/3
+        run: cargo nextest run --workspace --locked --features telescope-app/ffmpeg-windows --profile ci --partition slice:${{ matrix.part }}/2
 
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
