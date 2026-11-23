@@ -7,7 +7,7 @@ use windows::core::{w, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, FILETIME, HANDLE};
 use windows::Win32::Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
 use windows::Win32::System::Performance::{PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhGetFormattedCounterArrayW, PdhOpenQueryW, PDH_FMT_COUNTERVALUE_ITEM_W, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY, PDH_MORE_DATA};
-use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
+use windows::Win32::System::Power::{EffectivePowerModeBatterySaver, EffectivePowerModeBetterBattery, GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 use windows::Win32::System::ProcessStatus::EnumProcesses;
 use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use windows::Win32::System::Threading::{GetCurrentProcess, GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION};
@@ -238,10 +238,42 @@ fn image_name(process: HANDLE) -> Option<String> {
     Some(String::from_utf16_lossy(&buf[..(len as usize).min(buf.len())]))
 }
 
-/// Battery saver is on when the status flag says 1.
-fn power_saver() -> Option<bool> {
+/// The computer is saving power when battery saver is on or the power mode is one of the two that favour the battery.
+pub(super) fn power_saver() -> Option<bool> {
+    let mode = effective_mode::get();
     let mut status = SYSTEM_POWER_STATUS::default();
     // SAFETY: the struct is SYSTEM_POWER_STATUS
-    unsafe { GetSystemPowerStatus(&mut status) }.ok()?;
-    Some(status.SystemStatusFlag == 1)
+    let saver_flag = unsafe { GetSystemPowerStatus(&mut status) }.ok().map(|_| status.SystemStatusFlag == 1);
+    match (mode, saver_flag) {
+        (None, None) => None,
+        (mode, flag) => Some(flag == Some(true) || mode.is_some_and(|m| m == EffectivePowerModeBatterySaver || m == EffectivePowerModeBetterBattery)),
+    }
+}
+
+/// The effective power mode, which Windows reports once on registering and again on every change: no polling.
+mod effective_mode {
+    use std::ffi::c_void;
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::OnceLock;
+    use windows::Win32::System::Power::{PowerRegisterForEffectivePowerModeNotifications, EFFECTIVE_POWER_MODE, EFFECTIVE_POWER_MODE_V2};
+
+    const UNKNOWN: i32 = i32::MIN;
+    static MODE: AtomicI32 = AtomicI32::new(UNKNOWN);
+    static REGISTERED: OnceLock<bool> = OnceLock::new();
+
+    unsafe extern "system" fn changed(mode: EFFECTIVE_POWER_MODE, _context: *const c_void) {
+        MODE.store(mode.0, Ordering::Relaxed);
+    }
+
+    pub(super) fn get() -> Option<EFFECTIVE_POWER_MODE> {
+        REGISTERED.get_or_init(|| {
+            let mut handle: *mut c_void = std::ptr::null_mut();
+            // SAFETY: the callback is a plain function that only stores into an atomic, and the registration lives as long as the process
+            unsafe { PowerRegisterForEffectivePowerModeNotifications(EFFECTIVE_POWER_MODE_V2, Some(changed), None, &mut handle) }.is_ok()
+        });
+        match MODE.load(Ordering::Relaxed) {
+            UNKNOWN => None,
+            mode => Some(EFFECTIVE_POWER_MODE(mode)),
+        }
+    }
 }

@@ -404,8 +404,8 @@ impl HostStreams for FakeHost {
     fn reconnect_source(&mut self, source_id: &str) {
         self.note(format!("reconnect_source {source_id}"));
     }
-    fn hand_over_stream(&mut self, route: &RouteSpec, _source_id: Option<&str>) -> bool {
-        self.note(format!("hand_over_stream {route:?}"));
+    fn hand_over_stream(&mut self, route: &RouteSpec, source_id: Option<&str>) -> bool {
+        self.note(format!("hand_over_stream {route:?} {}", source_id.unwrap_or_default()));
         false
     }
     fn focused_source_id(&self) -> Option<String> {
@@ -898,6 +898,9 @@ impl Host for FakeHost {
     }
     fn set_effects_step_down(&mut self, on: bool) {
         self.note(format!("set_effects_step_down {on}"));
+    }
+    fn set_effects_follow_power(&mut self, on: bool) {
+        self.note(format!("set_effects_follow_power {on}"));
     }
     fn hold_effects_full(&mut self, on: bool) {
         self.note(format!("hold_effects_full {on}"));

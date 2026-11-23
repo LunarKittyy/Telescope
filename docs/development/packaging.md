@@ -33,6 +33,8 @@ On Windows `rust/tools/build_windows.ps1 -Channel nightly -Build 123 -Commit <sh
 
 A stamped build (channel `stable` or `nightly`) uses the real settings folder, where a `dev` build uses a profile of its own.
 
+Both scripts build a `stable` channel with Cargo's `release` profile (fat LTO and one codegen unit: the fastest program and the slowest build). `nightly` and `dev` use the `nightly` profile from `rust/Cargo.toml`, which keeps the rest of `release` with thin LTO and 16 codegen units.
+
 `python rust/tools/check_package.py --version 4.2.0 --build 123 --channel nightly <folder, archive or AppImage>` is the package's smoke check.
 
 The packaging scripts use Python 3 for two small jobs, `tools/fetch_rnnoise.py` (RNNoise out of a pinned wheel) and `tools/write_notices.py` (the notices file).

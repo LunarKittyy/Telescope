@@ -568,18 +568,18 @@ impl Offer {
     fn offer_to(&self, adb: &Adb, serial: &str, package: &str) -> bool {
         let b64 = crate::util::base64(self.server.offer.usb_payload.as_bytes());
         let ports = self.usb_ports();
-        let Some(fresh) = self.reversed.lock().unwrap().as_mut().map(|r| r.insert(serial.to_string())) else { return false };
-        if fresh {
-            for port in &ports {
-                adb.reverse(*port, Some(serial));
-            }
+        match self.reversed.lock().unwrap().as_mut() {
+            Some(reversed) => reversed.insert(serial.to_string()),
+            None => return false,
+        };
+        // Every time, not only the first: unplugging makes adb drop the tunnel, and a first reverse can fail
+        for port in &ports {
+            adb.reverse(*port, Some(serial));
         }
         if self.reversed.lock().unwrap().is_none() {
             // Revoked during that reverse: its removal may have gone first
-            if fresh {
-                for port in &ports {
-                    adb.unreverse(*port, Some(serial));
-                }
+            for port in &ports {
+                adb.unreverse(*port, Some(serial));
             }
             return false;
         }
@@ -860,6 +860,16 @@ mod tests {
         assert!(seen.recv_timeout(Duration::from_secs(2)).is_ok_and(|cmd| removes_reverse(&cmd)));
         assert!(!PairingOffer::offer_to(&*offer, "serial-2", "app"), "revoked stays revoked");
         assert!(seen.try_recv().is_err());
+    }
+
+    #[test]
+    fn every_usb_offer_puts_the_reverse_back_in_case_the_cable_was_replugged() {
+        let (adb, seen, _free) = stalling_adb("never");
+        let offer = Offer::start_with(None, "computer", "desk", None, adb).unwrap();
+        assert!(Offer::offer_to(&offer, &(offer.adb)(), "serial-1", "app"));
+        assert!(Offer::offer_to(&offer, &(offer.adb)(), "serial-1", "app"));
+        let reversed = seen.try_iter().filter(|c| c.iter().any(|a| a == "reverse") && !removes_reverse(c)).count();
+        assert_eq!(reversed, 2);
     }
 
     #[test]

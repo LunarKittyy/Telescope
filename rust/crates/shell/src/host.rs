@@ -859,6 +859,9 @@ impl Host for Ctx<'_> {
     fn set_effects_step_down(&mut self, on: bool) {
         telescope_core::effort::Effort::shared().set_auto(on);
     }
+    fn set_effects_follow_power(&mut self, on: bool) {
+        telescope_core::stats::Hub::shared().set_power_aware(on);
+    }
     fn hold_effects_full(&mut self, on: bool) {
         telescope_core::effort::Effort::shared().hold_full(on);
     }

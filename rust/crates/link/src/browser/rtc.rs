@@ -148,6 +148,12 @@ pub struct StrSession {
     keyframe: Arc<AtomicBool>,
 }
 
+/// Makes a StrSession per offer, offering the addresses `addresses` gives at that moment.
+pub fn str_maker(addresses: impl Fn() -> Vec<IpAddr> + Send + Sync + 'static,
+                 opus: Arc<dyn Fn() -> Option<Box<dyn AudioDecoder>> + Send + Sync>) -> RtcMaker {
+    Arc::new(move |video, audio| Box::new(StrSession::new(addresses(), opus.clone(), video, audio)) as Box<dyn RtcSession>)
+}
+
 impl StrSession {
     /// `addresses` are the ones the browser may reach this computer on; `opus` makes the mic's decoder.
     pub fn new(addresses: Vec<IpAddr>, opus: Arc<dyn Fn() -> Option<Box<dyn AudioDecoder>> + Send + Sync>, video: VideoSink,
