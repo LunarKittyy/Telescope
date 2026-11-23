@@ -81,6 +81,7 @@ class CameraSessionController(
         private const val TAG = "CameraSessionController"
         private const val REOPEN_TRIES = 8        // after the camera failed: up to about 4 s for it to come back
         private const val REOPEN_RETRY_MS = 500L
+        private const val OPEN_SETTLE_MS = 5_000L  // how long stop() waits for an open to answer
         private const val ENCODER_CAP_CHECK_MS = 3_000L
         private const val COOL_DOWN_MS = 30_000L
         // False once this phone's encoder was caught ignoring KEY_MAX_FPS_TO_ENCODER; every step is checked until then
@@ -186,6 +187,9 @@ class CameraSessionController(
 
     // Guards against stale onOpened/onConfigured callbacks after a new open.
     @Volatile private var cameraGeneration = 0
+
+    // Opens the camera service hasn't answered yet; stop() waits for them so a device that arrives late is closed.
+    private val opens = OpensInFlight()
 
     // Guards against stale onConfigured callbacks from rapid reconfigureSession() calls.
     @Volatile private var sessionGeneration = 0
@@ -766,8 +770,12 @@ class CameraSessionController(
             try {
                 teardown()
             } finally {
-                runCatching { handlerThread?.quitSafely() }
-                onStopped?.invoke()
+                // A camera still opening answers later: the thread stays up to close it, and the lease waits for that
+                opens.whenSettled {
+                    runCatching { handlerThread?.quitSafely() }
+                    onStopped?.invoke()
+                }
+                h.postDelayed({ opens.giveUp() }, OPEN_SETTLE_MS)
             }
         }
         if (!posted) {
@@ -900,17 +908,20 @@ class CameraSessionController(
 
         val myGeneration = ++cameraGeneration
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val open = opens.begin()
         try {
             @Suppress("MissingPermission")
             manager.openCamera(openCameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
-                    if (myGeneration != cameraGeneration) { camera.close(); return }
+                    if (myGeneration != cameraGeneration) { camera.close(); open.end(); return }  // the lease waits for this close
+                    open.end()
                     cameraDevice = camera
                     onStateChanged(StreamState.ConfiguringSession, "openCamera.onOpened", null)
                     createSession(camera, physicalCameraId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
+                    open.end()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         cameraTaken("openCamera.onDisconnected", null)
@@ -918,6 +929,7 @@ class CameraSessionController(
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
+                    open.end()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         val e = RuntimeException("Camera2 error code $error")
@@ -932,6 +944,7 @@ class CameraSessionController(
                 }
             }, handler)
         } catch (e: Exception) {
+            open.end()
             if (takenBy(e)) cameraTaken("openCamera", e) else fail("openCamera", e)
         }
     }
@@ -1526,17 +1539,20 @@ class CameraSessionController(
         val openId = entry.logicalId ?: entry.id
         val physId = if (entry.logicalId != null) entry.id else null
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val open = opens.begin()
         try {
             @Suppress("MissingPermission")
             manager.openCamera(openId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
-                    if (myGeneration != cameraGeneration) { camera.close(); return }
+                    if (myGeneration != cameraGeneration) { camera.close(); open.end(); return }  // the lease waits for this close
+                    open.end()
                     cameraDevice = camera
                     if (outputSurface() == null) buildOutputs()  // a reopen this switch overtook had released them
                     createSession(camera, physId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
+                    open.end()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         cameraTaken("switchCameraTo.onDisconnected", null)
@@ -1544,6 +1560,7 @@ class CameraSessionController(
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
+                    open.end()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         val e = RuntimeException("Camera2 error code $error")
@@ -1552,6 +1569,7 @@ class CameraSessionController(
                 }
             }, handler)
         } catch (e: Exception) {
+            open.end()
             if (takenBy(e)) cameraTaken("switchCameraTo", e) else fail("switchCameraTo", e)
         }
     }
@@ -1594,17 +1612,20 @@ class CameraSessionController(
         val openId = cam.logicalId ?: cam.id
         val physId = if (cam.logicalId != null) cam.id else null
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val open = opens.begin()
         try {
             @Suppress("MissingPermission")
             manager.openCamera(openId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
-                    if (myGeneration != cameraGeneration) { camera.close(); return }
+                    if (myGeneration != cameraGeneration) { camera.close(); open.end(); return }  // the lease waits for this close
+                    open.end()
                     cameraDevice = camera
                     buildOutputs()
                     createSession(camera, physId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
+                    open.end()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         cameraTaken("$op.onDisconnected", null)
@@ -1612,6 +1633,7 @@ class CameraSessionController(
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
+                    open.end()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         val e = RuntimeException("Camera2 error code $error")
@@ -1628,6 +1650,7 @@ class CameraSessionController(
                 }
             }, handler)
         } catch (e: Exception) {
+            open.end()
             if (takenBy(e)) { cameraTaken(op, e); return }
             // Right after the camera failed it can be briefly unknown ("Unable to retrieve camera characteristics")
             if (tries > 0 && retryReopen(op, tries, myGeneration)) return

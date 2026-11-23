@@ -83,6 +83,18 @@ object UpdateLogic {
 
     const val DAY_MS = 24L * 60 * 60 * 1000
 
+    // A second download over one in flight would write the same file twice; one waiting for the installer holds its state too
+    fun downloadMayStart(downloading: Boolean, installing: Boolean): Boolean = !downloading && !installing
+
+    // An install session that fails halfway is dropped, not left in the phone's installer until Android clears it
+    fun <T> abandonOnFailure(abandon: () -> Unit, body: () -> T): T =
+        try {
+            body()
+        } catch (e: Exception) {
+            runCatching { abandon() }
+            throw e
+        }
+
     // The installer reports nothing if its confirm screen is left with Home; after this long the update is offered again
     fun installStuck(sinceMs: Long, nowMs: Long): Boolean = nowMs - sinceMs >= INSTALL_STUCK_MS
 

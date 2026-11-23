@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -92,5 +93,29 @@ class UpdateLogicTest {
     fun `an install with no word from the installer is given up on after a minute`() {
         assertFalse(UpdateLogic.installStuck(1000, 1000 + UpdateLogic.INSTALL_STUCK_MS - 1))
         assertTrue(UpdateLogic.installStuck(1000, 1000 + UpdateLogic.INSTALL_STUCK_MS))
+    }
+
+    @Test
+    fun `a download doesn't start over one in flight or one waiting for the installer`() {
+        assertTrue(UpdateLogic.downloadMayStart(downloading = false, installing = false))
+        assertFalse(UpdateLogic.downloadMayStart(downloading = true, installing = false))
+        assertFalse(UpdateLogic.downloadMayStart(downloading = false, installing = true))
+    }
+
+    @Test
+    fun `an install session that fails halfway is abandoned and the failure still comes out`() {
+        var abandoned = 0
+        val failure = assertThrows(java.io.IOException::class.java) {
+            UpdateLogic.abandonOnFailure({ abandoned++ }) { throw java.io.IOException("disk full") }
+        }
+        assertEquals("disk full", failure.message)
+        assertEquals(1, abandoned)
+    }
+
+    @Test
+    fun `an install session that goes through is left alone`() {
+        var abandoned = 0
+        assertTrue(UpdateLogic.abandonOnFailure({ abandoned++ }) { true })
+        assertEquals(0, abandoned)
     }
 }

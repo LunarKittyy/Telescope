@@ -128,7 +128,10 @@ object Updater {
         val app = context.applicationContext
         if (UpdateLogic.apkAsset(manifest) == null) return
         if (streamBusyNow()) return
-        synchronized(lock) { set(State.Downloading(manifest, 0)) }  // under the lock, so a check's answer in flight can't land on top of it
+        synchronized(lock) {  // under the lock, so a check's answer in flight can't land on top of it
+            if (!UpdateLogic.downloadMayStart(state is State.Downloading, state is State.Installing)) return
+            set(State.Downloading(manifest, 0))
+        }
         Thread {
             val apk = File(File(app.cacheDir, "updates").apply { mkdirs() }, "Telescope.apk")
             try {
@@ -191,21 +194,23 @@ object Updater {
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         params.setAppPackageName(context.packageName)
         val sessionId = installer.createSession(params)
-        return installer.openSession(sessionId).use { session ->
-            session.openWrite("Telescope.apk", 0, apk.length()).use { out ->
-                apk.inputStream().use { it.copyTo(out) }
-                session.fsync(out)
+        return UpdateLogic.abandonOnFailure({ installer.abandonSession(sessionId) }) {
+            installer.openSession(sessionId).use { session ->
+                session.openWrite("Telescope.apk", 0, apk.length()).use { out ->
+                    apk.inputStream().use { it.copyTo(out) }
+                    session.fsync(out)
+                }
+                if (streamBusyNow()) {
+                    session.abandon()
+                    return@use false
+                }
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                    (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
+                val intent = Intent(context, UpdateInstallReceiver::class.java)
+                val pending = PendingIntent.getBroadcast(context, sessionId, intent, flags)
+                session.commit(pending.intentSender)
+                true
             }
-            if (streamBusyNow()) {
-                session.abandon()
-                return@use false
-            }
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
-            val intent = Intent(context, UpdateInstallReceiver::class.java)
-            val pending = PendingIntent.getBroadcast(context, sessionId, intent, flags)
-            session.commit(pending.intentSender)
-            true
         }
     }
 
