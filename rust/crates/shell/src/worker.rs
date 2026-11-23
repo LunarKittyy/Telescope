@@ -1409,7 +1409,7 @@ impl Shared {
                 Ended::Dropped => {}
             }
             // The dropped stream's decoder and pictures go now, not after the wait for the phone, and the heap they leave goes back to the system
-            cap = None;
+            drop(cap.take());
             (crate::window::app_hooks().release_memory_soon)();
             let Some(new) = self.reconnect() else { return };
             cap = Some(new);
