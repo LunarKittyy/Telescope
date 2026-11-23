@@ -89,7 +89,7 @@ object H264Stream {
  */
 class H264ClientQueue(
     private val capacity: Int = 90,
-    private val clock: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long = PhoneStats::monotonicMs,
     private val onWaited: (Long) -> Unit = {},  // how long each packet waited, for the Stats card
 ) {
     private val lock = ReentrantLock()

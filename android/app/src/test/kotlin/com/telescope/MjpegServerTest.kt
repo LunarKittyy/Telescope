@@ -451,7 +451,7 @@ class MjpegServerTest {
                 readUntil(socket.getInputStream(), "\r\n\r\n".toByteArray())
                 assertTrue(server.hasActiveViewer())
                 // Nothing written for longer than the stale window: a link that went quiet.
-                val later = System.currentTimeMillis() + MjpegServer.VIEWER_STALE_MS + 1_000
+                val later = PhoneStats.monotonicMs() + MjpegServer.VIEWER_STALE_MS + 1_000
                 assertFalse(server.hasActiveViewer(later))
             }
         } finally {
@@ -469,6 +469,22 @@ class MjpegServerTest {
 
             authGet(actualPort(server), "/v1/state", "secret-token")
             assertTrue(server.idleForMs() < 60)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `a wall-clock step does not change the idle time`() {
+        // The server never reads the wall clock, so stepping it can't matter; the injected clock is the only time it knows
+        var now = 1_000L
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") }, clock = { now })
+        server.start()
+        try {
+            now += 30_000
+            assertEquals(30_000L, server.idleForMs())
+            authGet(actualPort(server), "/v1/state", "secret-token")
+            assertEquals(0L, server.idleForMs())
         } finally {
             server.stop()
         }
@@ -587,7 +603,7 @@ class MjpegServerTest {
                 assertArrayEquals(byteArrayOf(1, 2, 3, 4), got)
                 // With the camera off the mic is the whole stream: a listener keeps the idle watchdog away.
                 assertTrue(server.hasActiveViewer())
-                assertFalse(server.hasActiveViewer(System.currentTimeMillis() + MjpegServer.VIEWER_STALE_MS + 1_000))
+                assertFalse(server.hasActiveViewer(PhoneStats.monotonicMs() + MjpegServer.VIEWER_STALE_MS + 1_000))
             }
             val deadline = System.currentTimeMillis() + 5_000
             while (stops.get() == 0 && System.currentTimeMillis() < deadline) {
