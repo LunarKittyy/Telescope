@@ -327,7 +327,11 @@ class PreviewActivity : LookActivity() {
                     if (myGeneration == standaloneGeneration) { cameraDevice = null; lostCamera(null) }
                 }
             }, handler)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            // Camera in use or disabled, or permission taken back: say so, the lens buttons stay for another try
+            android.util.Log.w(TAG, "Preview could not open camera ${cam.id}", e)
+            Toast.makeText(this, getString(R.string.preview_session_failed), Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun openStandaloneSession(camera: CameraDevice, surface: Surface, physId: String?, generation: Int) {
