@@ -6,8 +6,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Photo requests and their files in the app's cache until fetched and forgotten or too old; one shoots at a time
-class StillJobs(private val dir: File, private val clock: () -> Long = System::currentTimeMillis) {
+// Photo requests and their files in the app's cache until fetched and forgotten or too old; one shoots at a time.
+// Every wait and expiry runs on clock (a monotonic one), so a clock change can't fail a photo or drop its files; wall only names the files.
+class StillJobs(
+    private val dir: File,
+    private val wall: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long = IntervalClock::nowMs,
+) {
     companion object {
         const val KEEP_MS = 10 * 60_000L  // files a computer never came back for go after this
         const val MAX_KEPT = 4             // and only the newest few are kept at all
@@ -19,7 +24,7 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
         }
     }
 
-    private class Job(val id: String, val shots: Int, val startedAt: Long, var shootAt: Long, val deadline: Long) {
+    private class Job(val id: String, val shots: Int, val startedAtWall: Long, var shootAt: Long, val deadline: Long) {
         var state = "waiting"
         var taken = 0
         var paused = false
@@ -44,7 +49,7 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
         sweep()
         val id = ByteArray(8).also(random::nextBytes).joinToString("") { "%02x".format(it) }
         val now = clock()
-        jobs[id] = Job(id, shots, now, now + timerMs, if (limitMs > 0L) now + timerMs + limitMs else 0L)
+        jobs[id] = Job(id, shots, wall(), now + timerMs, if (limitMs > 0L) now + timerMs + limitMs else 0L)
         return id
     }
 
@@ -72,7 +77,7 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
     fun newFile(id: String, ext: String): File? {
         val job = jobs[id]?.takeIf { it.endedAt == 0L } ?: return null
         dir.mkdirs()
-        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(Date(job.startedAt))
+        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(Date(job.startedAtWall))
         return File(dir, "IMG_${stamp}_${"%02d".format(++job.named)}_$id.$ext.part")
     }
 

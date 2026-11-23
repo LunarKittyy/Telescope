@@ -24,6 +24,29 @@ class StillJobsTest {
     }
 
     @Test
+    fun `files are named by the wall clock, whatever count the interval clock is at`() {
+        now = 5_000L  // an interval clock counts from boot
+        val jobs = jobs()
+        val id = jobs.start(1, 0)!!
+        val name = jobs.newFile(id, "jpg")!!.name
+        assertTrue(name.startsWith("IMG_${java.time.Year.now()}"), name)
+    }
+
+    @Test
+    fun `a wall clock step doesn't fail a photo or drop finished ones`() {
+        var wall = 1_700_000_000_000L
+        val jobs = StillJobs(dir, { wall }) { now }
+        val shooting = jobs.start(1, 0, limitMs = 60_000)!!
+        wall += 3_600_000  // network time moved the clock an hour on
+        assertEquals(shooting, jobs.active())
+        assertEquals("waiting", jobs.status(shooting)!!.state)
+        writeFile(jobs, shooting, "jpg", 4)
+        jobs.finish(shooting)
+        wall += 3_600_000
+        assertEquals(1, jobs.status(shooting)!!.files.size)
+    }
+
+    @Test
     fun `one request shoots at a time`() {
         val jobs = jobs()
         val id = jobs.start(1, 0)!!
