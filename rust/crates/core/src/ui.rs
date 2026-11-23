@@ -172,6 +172,9 @@ fn err() -> String {
     "err".into()
 }
 
+/// Banners whose text names a program the person runs, which is read live: shown, but only their title goes in the event log.
+pub const LIVE_ONLY_BANNERS: &[&str] = &["falling_behind"];
+
 /// A banner button.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct IssueAction {

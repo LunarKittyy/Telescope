@@ -21,7 +21,7 @@ use telescope_core::ui::{Issue, SettingsSection, SlintSource, UiEvent, UiSpec};
 pub const NAME: &str = "adjustments";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/adjustments.slint"));
 const SECTION: &str = "adjustments";
-const BANNER: &str = "falling_behind";
+const BANNER: &str = telescope_core::ui::LIVE_ONLY_BANNERS[0];
 /// Dynamic has lowered the bitrate when it is under this share of the highest it has been this stream.
 const LOWERED_BELOW: f64 = 0.8;
 /// A cost under this many ms a frame isn't worth a tag.
