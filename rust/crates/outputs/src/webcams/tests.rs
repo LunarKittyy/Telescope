@@ -599,6 +599,93 @@ mod gphoto_scanning {
         assert_eq!(woken.load(std::sync::atomic::Ordering::SeqCst), 1, "the same cameras again are no news");
     }
 
+    fn plug(root: &std::path::Path, name: &str, bus: &str, dev: &str) {
+        let d = root.join(name);
+        std::fs::create_dir_all(&d).unwrap();
+        for (file, value) in [("busnum", bus), ("devnum", dev), ("idVendor", "04a9"), ("idProduct", "32b4")] {
+            std::fs::write(d.join(file), format!("{value}\n")).unwrap();
+        }
+    }
+
+    fn looks(counter: &std::path::Path) -> usize {
+        std::fs::read_to_string(counter).map(|t| t.lines().count()).unwrap_or(0)
+    }
+
+    /// Scans for a while, so a gate that was going to look again has had its chance.
+    fn scan_for_a_while(scanner: &mut GphotoScanner) {
+        for _ in 0..30 {
+            scanner.scan();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    fn scan_until_looks(scanner: &mut GphotoScanner, counter: &std::path::Path, n: usize) {
+        let until = Instant::now() + Duration::from_secs(5);
+        while looks(counter) < n && Instant::now() < until {
+            scanner.scan();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn the_usb_bus_is_only_asked_again_when_a_device_comes_or_goes() {
+        let tmp = telescope_core::testing::scratch_dir("gphoto-usb-gate");
+        let (root, counter) = (tmp.join("devices"), tmp.join("looks"));
+        plug(&root, "1-2", "1", "2");
+        std::fs::create_dir_all(root.join("1-2:1.0")).unwrap();
+        let p = program("counted", &format!("echo look >> {}\ncat <<'EOF'\n{DETECTED}EOF\n", counter.display()));
+        let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
+        scanner.usb_root = Some(root.clone());
+        scan_until(&mut scanner, |d| !d.is_empty());
+        scan_for_a_while(&mut scanner);
+        assert_eq!(looks(&counter), 1, "the same devices were looked through again");
+        // A change gets its look and one more, then it is quiet again
+        plug(&root, "1-3", "1", "3");
+        scan_until_looks(&mut scanner, &counter, 2);
+        scan_for_a_while(&mut scanner);
+        assert_eq!(looks(&counter), 3, "a new device should get a look and one more, no more");
+        std::fs::remove_dir_all(root.join("1-3")).unwrap();
+        scan_until_looks(&mut scanner, &counter, 4);
+        scan_for_a_while(&mut scanner);
+        assert_eq!(looks(&counter), 5, "an unplugged device should get a look and one more, no more");
+    }
+
+    #[test]
+    fn a_camera_that_was_not_ready_when_it_appeared_is_found_by_the_second_look() {
+        let tmp = telescope_core::testing::scratch_dir("gphoto-usb-late");
+        let (root, counter) = (tmp.join("devices"), tmp.join("looks"));
+        plug(&root, "1-2", "1", "2");
+        // Lists nothing until the first look after the plug-in is over
+        let p = program("late", &format!("echo look >> {c}\nif [ -e {c}.plugged ] && [ $(wc -l < {c}) -lt 3 ]; then exit 0; fi\nif [ -e {c}.plugged ]; then cat <<'EOF'\n{DETECTED}EOF\nfi\n", c = counter.display()));
+        let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
+        scanner.usb_root = Some(root.clone());
+        scan_until_looks(&mut scanner, &counter, 1);
+        scan_for_a_while(&mut scanner);
+        assert!(scanner.scan().is_empty());
+        std::fs::write(tmp.join("looks.plugged"), "").unwrap();
+        plug(&root, "1-3", "1", "3");
+        let found = scan_until(&mut scanner, |d| !d.is_empty());
+        assert!(!found.is_empty(), "the camera that wasn't ready for the first look was never found");
+        scan_for_a_while(&mut scanner);
+        assert_eq!(looks(&counter), 3);
+    }
+
+    #[test]
+    fn a_look_that_failed_is_tried_again_with_the_same_devices() {
+        let tmp = telescope_core::testing::scratch_dir("gphoto-usb-failed");
+        let (root, counter) = (tmp.join("devices"), tmp.join("looks"));
+        plug(&root, "1-2", "1", "2");
+        let p = program("failing", &format!("echo look >> {}\nexit 1\n", counter.display()));
+        let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
+        scanner.usb_root = Some(root);
+        let until = Instant::now() + Duration::from_secs(5);
+        while looks(&counter) < 3 && Instant::now() < until {
+            scanner.scan();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(looks(&counter) >= 3, "a failed look was not retried");
+    }
+
     #[test]
     fn a_stuck_gphoto2_is_cut_off() {
         let p = program("stuck", "exec sleep 30\n");

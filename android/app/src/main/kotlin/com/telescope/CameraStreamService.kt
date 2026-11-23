@@ -585,7 +585,7 @@ class CameraStreamService : Service() {
     private fun setState(newState: StreamState, op: String, error: Throwable? = null) {
         val old = state
         if (newState !in BUSY_STATES) busySinceMs = 0L
-        else if (old != newState) busySinceMs = System.currentTimeMillis()
+        else if (old != newState) busySinceMs = IntervalClock.nowMs()
         val transition = stateMachine.transition(newState, op, error)
         if (old == StreamState.StartingServer && newState != StreamState.StartingServer) SessionStartWindow.settle()
         if (newState == StreamState.Streaming) {
@@ -980,7 +980,7 @@ class CameraStreamService : Service() {
                 if (!running.get()) break
                 val srv = server ?: continue
                 val since = busySinceMs
-                if (since != 0L && System.currentTimeMillis() - since >= BUSY_STUCK_MS) {
+                if (since != 0L && IntervalClock.nowMs() - since >= BUSY_STUCK_MS) {
                     mainHandler.post {
                         // A stream that stopped and restarted since this was posted has its own watchdog
                         if (running.get() && state in BUSY_STATES) {
