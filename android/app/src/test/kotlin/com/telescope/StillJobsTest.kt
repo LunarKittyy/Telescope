@@ -70,6 +70,16 @@ class StillJobsTest {
     }
 
     @Test
+    fun `a shots RAW and JPEG share a number and a second file of one kind gets the next`() {
+        val jobs = jobs()
+        val id = jobs.start(2, 0)!!
+        val names = listOf("dng" to 100L, "jpg" to 100L, "jpg" to 100L, "jpg" to 200L, "dng" to 200L).map { (ext, shot) ->
+            jobs.newFile(id, ext, shot)!!.name.removeSuffix(".part").replace(Regex("^IMG_\\d{8}_\\d{6}_|_$id"), "")
+        }
+        assertEquals(listOf("01.dng", "01.jpg", "02.jpg", "03.jpg", "03.dng"), names)
+    }
+
+    @Test
     fun `the status counts down, then lists the files as they're written`() {
         val jobs = jobs()
         val id = jobs.start(2, 5_000)!!

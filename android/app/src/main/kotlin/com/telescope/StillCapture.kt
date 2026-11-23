@@ -766,7 +766,7 @@ class StillCapture(
 
     // A compressed picture is copied out and freed at once; a RAW one holds its image until the writer has the DNG
     private fun save(r: Run, output: Output, image: Image, result: TotalCaptureResult?) {
-        val file = jobs.newFile(r.id, extension(output.format)) ?: run { close(output, image); return }
+        val file = jobs.newFile(r.id, extension(output.format), image.timestamp) ?: run { close(output, image); return }
         writes.incrementAndGet()
         if (output.format != StillOptions.RAW) {
             val bytes = try {

@@ -23,6 +23,8 @@ pub const STAGING_DIR: &str = ".update-staging";
 pub const PREVIOUS_DIR: &str = ".previous";
 pub const EXE_NAME: &str = "TelescopeDesktop.exe";
 pub const OLD_EXE_NAME: &str = "TelescopeDesktop.old.exe";
+/// The new exe once it is known to be movable, still in the staging folder.
+pub const READY_EXE_NAME: &str = "TelescopeDesktop.ready.exe";
 pub const FAILED_EXE_NAME: &str = "TelescopeDesktop.failed.exe";
 /// + the build number: the Python exe's library folder (telescope.spec). This app has none.
 pub const LIB_PREFIX: &str = "lib-";
@@ -170,13 +172,24 @@ fn finish_windows(directory: &Path, staging: &Path, skipped: &mut Vec<String>, m
         }
     }
     let mut swapped = false;
-    let (new_exe, current, old) = (staging.join(EXE_NAME), directory.join(EXE_NAME), directory.join(OLD_EXE_NAME));
+    let (staged, new_exe) = (staging.join(EXE_NAME), staging.join(READY_EXE_NAME));
+    let (current, old) = (directory.join(EXE_NAME), directory.join(OLD_EXE_NAME));
+    // A scanner holding the staged exe is waited out while the old exe is still in place, so the exe's path is never empty during the wait
+    if staged.exists() {
+        move_patiently(mv, &staged, &new_exe)?;
+    }
     if new_exe.exists() {
         if current.exists() {
             remove(&old)?;
             mv(&current, &old)?; // allowed while it runs; overwriting isn't
         }
-        move_patiently(mv, &new_exe, &current)?;
+        if let Err(e) = mv(&new_exe, &current) {
+            if old.exists() && !current.exists() {
+                // Never leave no exe at all: nothing could start to retry this
+                mv(&old, &current)?;
+            }
+            return Err(e);
+        }
         swapped = true;
     }
     let previous = directory.join(PREVIOUS_DIR);
@@ -1160,6 +1173,38 @@ mod tests {
         assert!(result.skipped.is_empty(), "{:?}", result.skipped);
         assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
         assert_eq!(read(&app.join("ui-kit/extra.slint")), "extra 131");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn the_exe_path_is_never_empty_while_a_scanner_holds_the_new_exe() {
+        let base = root("scanned-exe-path");
+        let app = windows_app(&base);
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131")]);
+        let (mut busy, mut gaps) = (3, 0);
+        let mut scanned = |s: &Path, d: &Path| {
+            if s.starts_with(app.join(STAGING_DIR)) && s.ends_with(EXE_NAME) && busy > 0 {
+                busy -= 1;
+                gaps += u32::from(!app.join(EXE_NAME).exists());
+                return Err(io::Error::from_raw_os_error(32));
+            }
+            rename(s, d)
+        };
+        install_windows(&archive, &app, 131, &mut scanned).unwrap();
+        assert_eq!((busy, gaps), (0, 0), "the old exe stays in place through every retry");
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn an_exe_that_cannot_be_moved_into_place_leaves_the_old_one_there() {
+        let base = root("exe-stuck");
+        let app = windows_app(&base);
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131")]);
+        let target = app.join(EXE_NAME);
+        let mut stuck = |s: &Path, d: &Path| if d == target && s.ends_with(READY_EXE_NAME) { Err(io::Error::from_raw_os_error(5)) } else { rename(s, d) };
+        let _ = install_windows(&archive, &app, 131, &mut stuck);
+        assert_eq!(read(&target), "exe 130");
         std::fs::remove_dir_all(&base).unwrap();
     }
 

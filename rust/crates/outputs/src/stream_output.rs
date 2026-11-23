@@ -274,17 +274,17 @@ impl StreamOutputPlugin {
         out
     }
 
-    fn send(&self, host: &mut dyn Host, body: Value) {
+    fn send(&self, host: &mut dyn Host, body: &Value) {
         if let Some(sid) = &self.stream {
-            host.phone_control(Some(sid), &body);
+            host.phone_control(Some(sid), body);
         }
     }
 
     fn push_initial_settings(&self, host: &mut dyn Host) {
         if self.stream.is_some() {
-            self.send(host, json!({"action": "jpeg_quality", "value": self.quality}));
-            self.send(host, json!({"action": "bitrate", "value": self.bitrate_bps()}));
-            self.send(host, json!({"action": "fps_target", "value": self.fps()}));
+            self.send(host, &json!({"action": "jpeg_quality", "value": self.quality}));
+            self.send(host, &json!({"action": "bitrate", "value": self.bitrate_bps()}));
+            self.send(host, &json!({"action": "fps_target", "value": self.fps()}));
         }
     }
 
@@ -435,7 +435,7 @@ impl StreamOutputPlugin {
             host.schedule_save();
             return;
         }
-        self.send(host, json!({"action": "resolution", "width": w, "height": h}));
+        self.send(host, &json!({"action": "resolution", "width": w, "height": h}));
         host.emit(Event::ResolutionChangeRequested { width: w, height: h });
         host.schedule_save();
     }
@@ -481,7 +481,7 @@ impl StreamOutputPlugin {
     fn apply_fps(&self, host: &mut dyn Host) {
         let fps = self.fps();
         host.update_stream_output(OutputChange { fps: Some(Some(fps)), ..OutputChange::default() }, None);
-        self.send(host, json!({"action": "fps_target", "value": fps}));
+        self.send(host, &json!({"action": "fps_target", "value": fps}));
     }
 
     /// A saved rate (older versions took any 5-60) as the closest choice, the lower one on a tie.
@@ -1134,7 +1134,11 @@ impl StreamOutputPlugin {
             Event::FixedBitrateRequested { on } => {
                 if *on != self.fixed_bitrate {
                     self.fixed_bitrate = *on;
-                    self.send(host, json!({"action": "bitrate", "value": self.bitrate_bps()}));
+                    let body = json!({"action": "bitrate", "value": self.bitrate_bps()});
+                    self.send(host, &body);
+                    for s in host.background_streams() {
+                        host.phone_control(Some(&s.source_id), &body); // every phone adapts the same way, not only the shown one
+                    }
                 }
             }
             Event::SourceSelected { source_id } => {
@@ -1177,7 +1181,7 @@ impl StreamOutputPlugin {
             return;
         }
         self.quality = q;
-        self.send(host, json!({"action": "jpeg_quality", "value": q}));
+        self.send(host, &json!({"action": "jpeg_quality", "value": q}));
         host.schedule_save();
     }
 
@@ -1187,7 +1191,7 @@ impl StreamOutputPlugin {
             return;
         }
         self.bitrate = b;
-        self.send(host, json!({"action": "bitrate", "value": self.bitrate_bps()}));
+        self.send(host, &json!({"action": "bitrate", "value": self.bitrate_bps()}));
         host.schedule_save();
         host.emit(Event::StreamTransportChanged);
     }

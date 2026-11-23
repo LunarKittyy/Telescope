@@ -801,6 +801,22 @@ fn phototrap_use_zoom_defaults_off_and_survives_a_preset() {
 }
 
 #[test]
+fn the_card_offers_the_shutter_choices_of_the_phone_on_screen_not_the_armed_one() {
+    let (mut p, mut h, _) = armed();
+    let mut c = caps();
+    c["shot"] = json!({"shutter": {"min_ns": 250_000, "max_ns": 10_000_000_000i64}, "iso": {"min": 100, "max": 800}});
+    h.still_caps = Some(c);
+    p.on_event(&mut h, &Event::StillCapsChanged { source_id: "phone".into() });
+    assert!(card(&h)["shot-shutter-stops"].as_array().is_some_and(|s| s.len() > 1));
+    // Another phone with no manual control comes on screen
+    h.focused = Some("other".into());
+    h.still_only_for = Some("phone".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    click(&mut p, &mut h, "shot-shutter-picked", json!(2));
+    assert!(p.get_config().get("shot").is_none(), "the armed phone's stops are not offered for this one");
+}
+
+#[test]
 fn the_camera_choice_clears_a_shot_override_without_the_phones_capabilities() {
     let (mut p, _) = plugin();
     let mut h = host();

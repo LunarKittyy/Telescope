@@ -96,11 +96,13 @@ pub fn drop_unchanged(cfg: &mut Value, changes_only: &[String], defaults: &Map<S
     }
 }
 
-/// forget_device_settings: a removed phone's settings and virtual camera go. True if anything did.
+/// forget_device_settings: a removed phone's settings and virtual camera go, and it no longer needs the start's cleanup to spare it.
+/// True if anything did.
 pub fn forget_device(cfg: &mut Value, id: &str) -> bool {
     let a = cfg.get_mut("devices").and_then(Value::as_object_mut).and_then(|d| d.remove(id)).is_some();
     let b = cfg.get_mut("output_slots").and_then(Value::as_object_mut).and_then(|d| d.remove(id)).is_some();
-    a || b
+    let c = set_kept(cfg, |kept| kept.retain(|k| k != id));
+    a || b || c
 }
 
 /// A source id that is a phone's own: browsers and webcams carry a prefix (`browser:..`, `webcam:..`), a phone's id has none.
@@ -108,25 +110,69 @@ fn is_phone_id(id: &str) -> bool {
     id != "browser" && !id.contains(':')
 }
 
-/// drop_unpaired_phones: settings and virtual cameras left behind by a phone that was removed on an earlier run go. Only entries
-/// that are phone ids go, and only when the file is of this version and Connection's list is a non-empty list in which every entry
-/// has an id. An empty list is what a reset or unreadable Connection section saves, so it never counts as "nobody is paired" (a
-/// removal already forgets the phone's settings on the spot). True if anything did.
+/// The top-level list of phone ids whose settings the start's cleanup must leave alone.
+const KEPT: &str = "spared_phone_settings";
+
+fn kept(cfg: &Value) -> Vec<String> {
+    cfg.get(KEPT).and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(str::to_string).collect()
+}
+
+/// Changes the list of spared ids (the key goes when it is empty). True if the list is different afterwards.
+fn set_kept(cfg: &mut Value, change: impl FnOnce(&mut Vec<String>)) -> bool {
+    let before = kept(cfg);
+    let mut after = before.clone();
+    change(&mut after);
+    if after == before {
+        return false;
+    }
+    let Some(map) = cfg.as_object_mut() else { return false };
+    if after.is_empty() {
+        map.shift_remove(KEPT);
+    } else {
+        map.insert(KEPT.into(), json!(after));
+    }
+    true
+}
+
+/// The id of a phone entry Connection can read (it needs an id, a name and a token, and `ips`, when there, a list of text).
+fn readable_phone_id(entry: &Value) -> Option<&str> {
+    let text = |k: &str| entry.get(k).and_then(Value::as_str).filter(|s| !s.is_empty());
+    let ips_ok = entry.get("ips").is_none_or(|ips| ips.as_array().is_some_and(|l| l.iter().all(Value::is_string)));
+    let (id, _, _) = (text("id")?, text("name")?, text("token")?);
+    ips_ok.then_some(id)
+}
+
+/// drop_unpaired_phones: settings and virtual cameras left behind by a phone that was removed on an earlier run go, but only
+/// when it is sure the phone is gone: the file is of this version and Connection's list is a non-empty list of entries it can all
+/// read. Anything else (a reset or unreadable section, an empty list, an entry that lost its id or token) is a list Connection
+/// may shorten when it next saves, so the phone ids that have settings and no readable entry are written down as spared first
+/// and never go in a later cleanup (an orphan is cheaper than a phone's lost settings). A removal already forgets the phone's
+/// settings on the spot. Only entries that are phone ids count. True if the file changed.
 pub fn drop_unpaired_phones(cfg: &mut Value) -> bool {
+    let entries = cfg.pointer("/plugin_configs/connection/phones").and_then(Value::as_array).cloned().unwrap_or_default();
+    let readable: Vec<String> = entries.iter().filter_map(readable_phone_id).map(str::to_string).collect();
+    let complete = !entries.is_empty() && readable.len() == entries.len();
+    let with_settings: Vec<String> = ["devices", "output_slots"].into_iter().filter_map(|key| cfg.get(key).and_then(Value::as_object))
+        .flat_map(|map| map.keys()).filter(|id| is_phone_id(id)).cloned().collect();
+    if !complete {
+        return set_kept(cfg, |kept| {
+            for id in with_settings.iter().filter(|id| !readable.contains(id)) {
+                if !kept.contains(id) {
+                    kept.push(id.clone());
+                }
+            }
+        });
+    }
     if cfg.get("version").and_then(Value::as_i64) != Some(CONFIG_VERSION) {
         return false;
     }
-    let Some(phones) = cfg.pointer("/plugin_configs/connection/phones").and_then(Value::as_array).filter(|p| !p.is_empty()) else { return false };
-    let ids: Vec<Option<&str>> = phones.iter().map(|p| p.get("id").and_then(Value::as_str).filter(|id| !id.is_empty())).collect();
-    if ids.contains(&None) {
-        return false;
-    }
-    let paired: Vec<String> = ids.into_iter().flatten().map(str::to_string).collect();
-    let mut changed = false;
+    // Phones listed again no longer need sparing: if they are removed some day, the removal says so
+    let mut changed = set_kept(cfg, |kept| kept.retain(|id| !readable.contains(id)));
+    let spared = kept(cfg);
     for key in ["devices", "output_slots"] {
         if let Some(map) = cfg.get_mut(key).and_then(Value::as_object_mut) {
             let before = map.len();
-            map.retain(|id, _| !is_phone_id(id) || paired.contains(id));
+            map.retain(|id, _| !is_phone_id(id) || readable.contains(id) || spared.contains(id));
             changed |= map.len() != before;
         }
     }
@@ -220,11 +266,15 @@ mod tests {
         assert_eq!(cfg, json!({"devices": {}, "output_slots": {}}));
     }
 
+    fn phone(id: &str) -> Value {
+        json!({"id": id, "name": "Phone", "token": "tok"})
+    }
+
     #[test]
     fn settings_of_phones_that_are_no_longer_paired_go_but_browsers_and_webcams_stay() {
         let mut cfg = json!({
             "version": 3,
-            "plugin_configs": {"connection": {"phones": [{"id": "kept"}]}},
+            "plugin_configs": {"connection": {"phones": [phone("kept")]}},
             "devices": {"kept": {}, "gone": {}, "browser": {}, "browser:abc": {}, "webcam:cam1": {}},
             "output_slots": {"kept": 1, "gone": 2, "browser:abc": 3, "webcam:cam1": 4},
         });
@@ -238,39 +288,85 @@ mod tests {
     fn nothing_is_dropped_without_a_list_of_paired_phones_to_go_by() {
         let mut cfg = json!({"version": 3, "plugin_configs": {}, "devices": {"a": {}}, "output_slots": {"a": 1}});
         let before = cfg.clone();
-        assert!(!drop_unpaired_phones(&mut cfg));
+        drop_unpaired_phones(&mut cfg);
         cfg["plugin_configs"]["connection"] = json!({"phones": "damaged"});
-        assert!(!drop_unpaired_phones(&mut cfg));
+        drop_unpaired_phones(&mut cfg);
         assert_eq!(cfg["devices"], before["devices"]);
+        assert_eq!(cfg["output_slots"], before["output_slots"]);
     }
 
     #[test]
     fn an_empty_list_drops_nothing_because_it_is_what_a_reset_section_looks_like() {
         let mut cfg = json!({"version": 3, "plugin_configs": {"connection": {"phones": []}}, "devices": {"a": {}}, "output_slots": {"a": 1}});
         let before = cfg.clone();
-        assert!(!drop_unpaired_phones(&mut cfg));
-        assert_eq!(cfg, before);
+        drop_unpaired_phones(&mut cfg);
+        assert_eq!(cfg["devices"], before["devices"]);
+        assert_eq!(cfg["output_slots"], before["output_slots"]);
     }
 
     #[test]
-    fn a_list_with_an_entry_that_has_no_id_drops_nothing() {
-        for phones in [json!([{"id": "a"}, {"name": "no id"}]), json!([{"id": "a"}, "junk"]), json!([{"id": ""}]), json!([{"id": 5}])] {
-            let mut cfg = json!({"version": 3, "plugin_configs": {"connection": {"phones": phones}}, "devices": {"a": {}, "b": {}}, "output_slots": {"b": 1}});
+    fn a_list_with_an_entry_connection_cannot_read_drops_nothing() {
+        let bad = [json!({"name": "no id", "token": "t"}), json!("junk"), json!({"id": "", "name": "n", "token": "t"}), json!({"id": 5}),
+                   json!({"id": "b"}), json!({"id": "b", "name": "n"}), json!({"id": "b", "name": "n", "token": "t", "ips": "10.0.0.5"})];
+        for entry in bad {
+            let mut cfg = json!({"version": 3, "plugin_configs": {"connection": {"phones": [phone("a"), entry]}},
+                                 "devices": {"a": {}, "b": {}}, "output_slots": {"b": 1}});
             let before = cfg.clone();
-            assert!(!drop_unpaired_phones(&mut cfg), "{phones}");
-            assert_eq!(cfg, before, "{phones}");
+            drop_unpaired_phones(&mut cfg);
+            assert_eq!(cfg["devices"], before["devices"], "{entry}");
+            assert_eq!(cfg["output_slots"], before["output_slots"], "{entry}");
         }
+    }
+
+    #[test]
+    fn a_phone_whose_entry_was_damaged_keeps_its_settings_after_connection_drops_the_entry() {
+        let mut cfg = json!({"version": 3, "plugin_configs": {"connection": {"phones": [phone("a"), {"name": "lost its id", "token": "t"}]}},
+                             "devices": {"a": {}, "b": {}}, "output_slots": {"a": 1, "b": 2}});
+        // First start: Connection can't read the second entry
+        assert!(drop_unpaired_phones(&mut cfg));
+        assert_eq!(cfg["devices"], json!({"a": {}, "b": {}}));
+        // Connection saves the list without it, and a later start sees a list it can read in full
+        cfg["plugin_configs"]["connection"]["phones"] = json!([phone("a")]);
+        assert!(!drop_unpaired_phones(&mut cfg));
+        assert_eq!(cfg["devices"], json!({"a": {}, "b": {}}));
+        assert_eq!(cfg["output_slots"], json!({"a": 1, "b": 2}));
+        // Even after a phone is paired meanwhile
+        cfg["plugin_configs"]["connection"]["phones"] = json!([phone("a"), phone("c")]);
+        assert!(!drop_unpaired_phones(&mut cfg));
+        assert!(cfg["devices"].get("b").is_some());
+    }
+
+    #[test]
+    fn a_phone_that_is_removed_after_being_spared_loses_its_settings_and_its_spared_mark() {
+        let mut cfg = json!({"version": 3, "plugin_configs": {"connection": {"phones": [{"id": "b"}]}}, "devices": {"b": {}}});
+        drop_unpaired_phones(&mut cfg);
+        assert_eq!(cfg["spared_phone_settings"], json!(["b"]));
+        assert!(forget_device(&mut cfg, "b"));
+        assert!(cfg.get("spared_phone_settings").is_none());
+        assert_eq!(cfg["devices"], json!({}));
+    }
+
+    #[test]
+    fn a_spared_phone_that_is_listed_again_is_cleaned_up_like_any_other_when_it_goes() {
+        let mut cfg = json!({"version": 3, "plugin_configs": {"connection": {"phones": []}}, "devices": {"b": {}}});
+        drop_unpaired_phones(&mut cfg);
+        cfg["plugin_configs"]["connection"]["phones"] = json!([phone("b")]);
+        drop_unpaired_phones(&mut cfg);
+        assert!(cfg.get("spared_phone_settings").is_none());
+        cfg["plugin_configs"]["connection"]["phones"] = json!([phone("c")]);
+        assert!(drop_unpaired_phones(&mut cfg));
+        assert_eq!(cfg["devices"], json!({}));
     }
 
     #[test]
     fn a_file_from_another_version_drops_nothing() {
         for version in [json!(99), json!(2), json!(null), json!("3")] {
-            let mut cfg = json!({"version": version, "plugin_configs": {"connection": {"phones": [{"id": "a"}]}}, "devices": {"a": {}, "b": {}}});
+            let mut cfg = json!({"version": version, "plugin_configs": {"connection": {"phones": [phone("a")]}}, "devices": {"a": {}, "b": {}}});
             let before = cfg.clone();
             assert!(!drop_unpaired_phones(&mut cfg));
             assert_eq!(cfg, before);
         }
-        let mut cfg = json!({"plugin_configs": {"connection": {"phones": [{"id": "a"}]}}, "devices": {"a": {}, "b": {}}});
+        let mut cfg = json!({"plugin_configs": {"connection": {"phones": [phone("a")]}}, "devices": {"a": {}, "b": {}}});
         assert!(!drop_unpaired_phones(&mut cfg), "no version at all");
     }
 

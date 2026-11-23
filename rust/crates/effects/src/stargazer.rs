@@ -1983,6 +1983,8 @@ impl Plugin for StargazerPlugin {
             "photo_count": self.photo_count, "photo_every": self.photo_every, "camera": self.camera, "use_zoom": self.use_zoom,
         });
         if self.shot_initialized { cfg["shot"] = self.shot.to_options_value(); }
+        // So a restart still knows the saved shot is the first-pick default and not a choice
+        if self.shot_initialized && self.shot_default { cfg["shot_default"] = json!(true); }
         cfg
     }
 
@@ -2002,7 +2004,7 @@ impl Plugin for StargazerPlugin {
         self.camera = cfg.get("camera") == Some(&Value::Bool(true));
         self.use_zoom = cfg.get("use_zoom") == Some(&Value::Bool(true));
         self.shot_initialized = cfg.get("shot").is_some() || self.input == Input::Photos;
-        self.shot_default = cfg.get("shot").is_none() && self.input == Input::Photos;
+        self.shot_default = self.input == Input::Photos && (cfg.get("shot").is_none() || cfg.get("shot_default") == Some(&Value::Bool(true)));
         self.shot = cfg.get("shot").cloned().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_else(|| {
             if self.input == Input::Photos { Self::default_shot() } else { ShotChoice::default() }
         });
@@ -2021,6 +2023,10 @@ impl Plugin for StargazerPlugin {
         let mut merged = self.get_config();
         for (key, value) in &cfg {
             merged[key] = value.clone();
+        }
+        // A shot a preset brings is a choice unless it says it's the default
+        if cfg.contains_key("shot") && !cfg.contains_key("shot_default") {
+            merged.as_object_mut().map(|m| m.remove("shot_default"));
         }
         let wanted_mode = merged["mode"].as_str().and_then(Mode::from_key).unwrap_or(Mode::Lucky);
         let wanted_input = merged["input"].as_str().and_then(Input::from_key).filter(|i| i.suits(wanted_mode)).unwrap_or(Input::Video);

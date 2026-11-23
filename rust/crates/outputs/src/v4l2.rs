@@ -121,6 +121,11 @@ pub fn slot_ready_in(sysfs: &str, slot: u32) -> bool {
     slot == 0 || slot_device_in(sysfs, slot).is_some()
 }
 
+/// Whether the main camera is there: at the usual node (usual_node_exists), or hand-made under another number and found by its label.
+pub fn main_camera_ready_in(sysfs: &str, usual_node_exists: bool) -> bool {
+    usual_node_exists || slot_device_in(sysfs, 0).is_some()
+}
+
 /// The size device is held at while a reader still has buffers ("YU12:1280x720@30" in sysfs), else None.
 /// v4l2loopback silently ignores a new writer asking for another size, so the next writer has to use this one.
 pub fn locked_size_in(sysfs: &str, device: &str) -> Option<(u32, u32)> {
@@ -255,6 +260,15 @@ mod tests {
         assert_eq!(slot_device_in(&moved.to_string_lossy(), 0).as_deref(), Some("/dev/video30"));
         let old = sysfs(&[("video11", "Phone Camera", "")]);
         assert_eq!(slot_device_in(&old.to_string_lossy(), 0).as_deref(), Some(PHONE_DEV));
+    }
+
+    #[test]
+    fn a_main_camera_on_another_node_still_counts_as_there() {
+        let hand_made = sysfs(&[("video30", "Telescope", "")]);
+        assert!(main_camera_ready_in(&hand_made.to_string_lossy(), false));
+        let none = sysfs(&[("video30", "Other", "")]);
+        assert!(!main_camera_ready_in(&none.to_string_lossy(), false));
+        assert!(main_camera_ready_in(&none.to_string_lossy(), true));
     }
 
     #[test]

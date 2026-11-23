@@ -64,6 +64,8 @@ On a DSLR the Photos card has its own ISO and Shutter dials. What you set there 
 
 ## Phototrap
 
+Optional. Draw up to four zones on the preview and arm it. Each time something moves in a zone the phone takes a short burst of photos. Nothing is saved until then and it never records video.
+
 Each phone has its own Phototrap zones and settings.
 
 Open **Customise camera** between **Pause** and **Night** to choose a shutter speed and ISO for unattended photos. **Camera** uses the camera's own value. These choices are saved with Phototrap settings and presets. When the phone maker's Night mode is available and switched on, it sets its own exposure and the two dials are disabled without erasing your choices. Focus overrides aren't available yet. **Use zoom** crops these photos to the manual zoom and position from Transforms and is saved in presets with the other settings.

@@ -628,6 +628,19 @@ fn an_address_half_typed_is_a_problem_not_a_crash() {
 }
 
 #[test]
+fn editing_the_address_while_a_retry_waits_sends_once_when_the_box_is_quiet() {
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    rig.answered("Connection refused");
+    assert!(rig.retry_timer().is_some());
+    let before = rig.sent_count();
+    rig.ui("url-edited", vec![json!("http://hub.local/hook2")]);
+    assert!(rig.retry_timer().is_none(), "the old retry doesn't go to the address as typed so far");
+    assert_eq!(rig.sent_count(), before);
+    rig.fire_url();
+    assert_eq!(rig.sent_count(), before + 1);
+}
+
+#[test]
 fn a_newer_change_replaces_the_retries() {
     let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
     let old = rig.plugin.state_tag();
