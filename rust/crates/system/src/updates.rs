@@ -392,7 +392,16 @@ fn stays_inside(name: &Path) -> bool {
     true
 }
 
+/// Unpacks the archive into a fresh staging folder, which is gone again if that fails (a full disk leaves half an update there).
 pub fn extract(archive: &Path, staging: &Path) -> Result<()> {
+    let result = unpack(archive, staging);
+    if result.is_err() {
+        let _ = std::fs::remove_dir_all(staging);
+    }
+    result
+}
+
+fn unpack(archive: &Path, staging: &Path) -> Result<()> {
     let unpack_failed = || UpdateError(tr("The download couldn't be unpacked."));
     if staging.exists() {
         std::fs::remove_dir_all(staging).map_err(|_| unpack_failed())?;
@@ -460,6 +469,8 @@ fn merged(journal: &Value, changes: Value) -> Value {
 fn swap(directory: &Path, journal: Value, mv: Mover) -> Result<Vec<String>> {
     let journaled = update_guard::write_journal_with(directory, &merged(&journal, json!({"state": "swapping", "from_build": version::build()})), mv);
     if let Err(e) = journaled {
+        // Nothing is swapped yet, so the unpacked update only takes up room
+        let _ = std::fs::remove_dir_all(directory.join(STAGING_DIR));
         return Err(UpdateError(tr("Couldn't replace Telescope's files: {error}").field("error", strerror(&e))));
     }
     let mut skipped = Vec::new();
@@ -1456,5 +1467,51 @@ mod tests {
         assert!(!at(200).was_rolled_back(Some(&m)));
         at(150).forget_rolled_back();
         assert!(at(150).is_newer(Some(&m)));
+    }
+
+    /// The folder's files, as a sorted list of relative names.
+    fn left_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn an_update_that_cannot_be_unpacked_leaves_no_staging_folder_behind() {
+        let root = tmp("unpack-fails");
+        let app = root.join("app");
+        std::fs::create_dir_all(&app).unwrap();
+        std::fs::write(app.join(EXE_NAME), "old exe").unwrap();
+        // The second file's bytes are damaged, so unpacking fails after the first has been written (a full disk fails the same way)
+        let archive = root.join("w.zip");
+        let mut z = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
+        let stored = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        for (name, data) in [(EXE_NAME, vec![1u8; 64]), ("big.bin", vec![7u8; 4096])] {
+            z.start_file(name, stored).unwrap();
+            z.write_all(&data).unwrap();
+        }
+        z.finish().unwrap();
+        let mut bytes = std::fs::read(&archive).unwrap();
+        let at = bytes.windows(4096).position(|w| w.iter().all(|b| *b == 7)).unwrap();
+        bytes[at + 100] = 8;
+        std::fs::write(&archive, bytes).unwrap();
+        assert!(install_windows(&archive, &app, 0, &mut rename()).is_err());
+        assert_eq!(std::fs::read_to_string(app.join(EXE_NAME)).unwrap(), "old exe");
+        assert_eq!(left_in(&app), [EXE_NAME]);
+    }
+
+    #[test]
+    fn an_update_whose_journal_cannot_be_written_leaves_nothing_behind() {
+        let root = tmp("journal-fails");
+        let app = linux_app(&root);
+        let before = left_in(&app);
+        let mut full = |a: &Path, b: &Path| {
+            if b.ends_with(update_guard::JOURNAL) {
+                return Err(io::Error::from_raw_os_error(28));
+            }
+            std::fs::rename(a, b)
+        };
+        assert!(install_linux(&tarball(&root.join("l.tar.gz"), &NEW_LINUX), &app, 0, &mut full).is_err());
+        assert_eq!(left_in(&app), before);
     }
 }

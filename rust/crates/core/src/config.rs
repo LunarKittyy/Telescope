@@ -249,12 +249,13 @@ impl ConfigFile {
         let mut tmp_name = self.path.file_name().unwrap_or_default().to_os_string();
         tmp_name.push(".tmp");
         let tmp = self.path.with_file_name(tmp_name);
-        let mut f = open_private(&tmp, chmod)?;
-        f.write_all(bytes)?;
-        f.flush()?;
-        f.sync_all()?;
-        drop(f);
-        fs::rename(&tmp, &self.path)
+        let written = open_private(&tmp, chmod).and_then(|mut f| f.write_all(bytes).and_then(|_| f.flush()).and_then(|_| f.sync_all()));
+        let result = written.and_then(|_| fs::rename(&tmp, &self.path));
+        if result.is_err() {
+            // A full disk or a refused rename leaves half a file that nothing reads again
+            let _ = fs::remove_file(&tmp);
+        }
+        result
     }
 
     /// Reads the file again, changes it and saves it, as every save in the window does; false when it couldn't be read or written.
@@ -850,6 +851,18 @@ mod tests {
         file.restore_copy(None).unwrap();
         file.resume_saves();
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_save_that_fails_leaves_no_half_written_file_beside_the_settings() {
+        let dir = scratch_dir("config-fail");
+        // A folder where the file belongs, so the final rename is refused
+        fs::create_dir_all(dir.join(CONFIG_FILENAME)).unwrap();
+        let f = ConfigFile::at(dir.join(CONFIG_FILENAME));
+        assert!(!f.save(&mut json!({"plugin_configs": {}})));
+        let mut names: Vec<String> = fs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        assert_eq!(names, [CONFIG_FILENAME]);
     }
 }
 
