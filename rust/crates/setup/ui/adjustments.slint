@@ -1,0 +1,172 @@
+// Adjustments: the chip in the top bar with its list, and the Automatic adjustments card on the Video tab. Joined after parts.slint.
+
+struct AdjustRow {
+    name: string,
+    why: string,
+    tip: string,
+    a-icon: string,
+    a-label: string,
+    a-tip: string,
+    b-icon: string,
+    b-label: string,
+    b-tip: string,
+}
+
+struct CostTag {
+    name: string,
+    tip: string,
+}
+
+// One adjustment in the list: its name, why in a dim line, and a button for each way to override it
+component AdjustItem inherits Rectangle {
+    in property <AdjustRow> item;
+    in property <int> index;
+    callback override-clicked(int, int);
+    height: strip.height;
+    accessible-role: none;
+    // The row's own sentence, under its buttons so they stay clickable
+    Tip { says: item.name; detail: item.tip; inert: true; }
+    strip := ListRow {
+        title: item.name;
+        sub: item.why;
+        if item.a-icon != "": IconButton {
+            on-strip: true;
+            icon: Icons.named(item.a-icon);
+            label: item.a-label;
+            tip: item.a-label;
+            tip-detail: item.a-tip;
+            clicked => { root.override-clicked(root.index, 0); }
+        }
+        if item.b-icon != "": IconButton {
+            on-strip: true;
+            icon: Icons.named(item.b-icon);
+            label: item.b-label;
+            tip: item.b-label;
+            tip-detail: item.b-tip;
+            clicked => { root.override-clicked(root.index, 1); }
+        }
+    }
+}
+
+// The top bar's "Adjusting · 2": there while something is adjusted, an icon and the count when the window is narrow. It opens its list in a bubble.
+export component AdjustmentsChip inherits Rectangle {
+    in property <bool> shown;
+    in property <string> text;
+    in property <string> short-text;
+    in property <[string]> reserve;
+    in property <string> tip;
+    in property <string> tip-detail;
+    in property <[AdjustRow]> rows;
+    in property <string> status;
+    in property <string> status-kind;
+    in property <[CostTag]> costs;
+    callback opened;
+    callback closed;
+    callback override-clicked(int, int);
+    // The window's own width decides, since the bar's room is what the chip has to fit in
+    property <bool> narrow: WindowBox.width > 0px && WindowBox.width < Theme.u(450);
+    reveal := Unfold { open: root.shown; }
+    height: Theme.u(18);
+    // Comes and goes by growing from nothing, so what is beside it slides instead of jumping
+    width: reveal.lands * button.preferred-width;
+    clip: reveal.value < 1;
+    visible: reveal.value > 0;
+    accessible-role: none;
+    changed shown => { if (!shown) { bubble.close(); } }
+    button := Button {
+        x: 0px;
+        width: max(root.width, self.preferred-width);
+        height: parent.height;
+        text: root.narrow ? root.short-text : root.text;
+        reserve: root.narrow ? [] : root.reserve;
+        has-icon: true;
+        icon: Icons.gauge;
+        padding-x: root.narrow ? Theme.u(4) : Theme.u(6);
+        tip: root.tip;
+        tip-detail: root.tip-detail;
+        clicked => { root.opened(); bubble.show(); }
+    }
+    bubble := Bubble {
+        width: parent.width;
+        height: parent.height;
+        content-width: Theme.u(170);
+        label: root.tip;
+        closed => { root.closed(); }
+        VerticalLayout {
+            spacing: Theme.u(4);
+            KitStatus {
+                text: root.status;
+                kind: root.status-kind;
+                name: root.tip;
+            }
+            if root.costs.length > 0: HorizontalLayout {
+                spacing: Theme.gap;
+                alignment: start;
+                for cost in root.costs: Tag {
+                    text: cost.name;
+                    detail: cost.tip;
+                    tint: Theme.accent;
+                }
+            }
+            for r[i] in root.rows: AdjustItem {
+                item: r;
+                index: i;
+                override-clicked(a, b) => { root.override-clicked(a, b); }
+            }
+        }
+    }
+}
+
+// Every automatic system with its switch, on the Video tab after the Video card
+export component AdjustmentsSettings inherits Card {
+    in property <bool> reset-shown;
+    in-out property <bool> effects: true;
+    in-out property <bool> balance: true;
+    in-out property <bool> dynamic: true;
+    callback reset-clicked;
+    callback effects-toggled(bool);
+    callback balance-toggled(bool);
+    callback dynamic-toggled(bool);
+
+    title: @tr("Automatic adjustments");
+    tip: @tr("Switch off any of the automatic changes Telescope makes for a smoother stream.");
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Switch every automatic adjustment back on.");
+    reset => { root.reset-clicked(); }
+    keywords: @tr("search" => "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate");
+    icon: Icons.sliders;
+    hue: Theme.plugin-hue("streaming");
+
+    SwitchRow {
+        icon: Icons.sparkle;
+        label: @tr("Lighter effects");
+        tip: @tr("Lighter effects");
+        tip-detail: @tr("Allow heavy effects such as Background and Auto framing to work less often while frames run late. Full quality returns once there is room.");
+        keywords: @tr("search" => "effects step down quality lag late frames background auto framing");
+        hue: root.hue;
+        checked <=> root.effects;
+        toggled(on) => { root.effects-toggled(on); }
+    }
+    SwitchRow {
+        icon: Icons.chip;
+        label: @tr("Effects off a busy graphics card");
+        tip: @tr("Effects off a busy graphics card");
+        tip-detail: @tr("Let effects that can run on either the graphics card or the processor use the processor while the card is busy, for example during a game.");
+        keywords: @tr("search" => "gpu graphics card busy game balance processor cpu move effects");
+        hue: root.hue;
+        checked <=> root.balance;
+        toggled(on) => { root.balance-toggled(on); }
+    }
+    SwitchRow {
+        icon: Icons.gauge;
+        label: @tr("Dynamic bitrate");
+        tip: @tr("Dynamic bitrate");
+        tip-detail: @tr("Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic.");
+        keywords: @tr("search" => "dynamic bitrate frame rate fps connection wifi slow lower");
+        hue: root.hue;
+        checked <=> root.dynamic;
+        toggled(on) => { root.dynamic-toggled(on); }
+    }
+}

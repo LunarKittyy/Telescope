@@ -170,6 +170,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
         Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(Arc::new(telescope_link::web::SystemWeb), Some(outputs))),
         Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
         Box::new(telescope_setup::stats::StatsPlugin::new()),
+        Box::new(telescope_setup::adjustments::AdjustmentsPlugin::new(Arc::new(telescope_media::FfmpegMedia))),
         Box::new(telescope_system::mcp::McpPlugin::new(telescope_system::mcp::McpHandle::default())),
     ];
     plugins.extend(telescope_shell::plugins::builtins(None, bus));
@@ -182,6 +183,7 @@ const NOT_IN_PRESETS: &[(&str, &str)] = &[
     ("connection", "connection state, not a look"),
     ("monitoring", "a readout, nothing to recall"),
     ("stats", "a readout, nothing to recall"),
+    ("adjustments", "what the computer does to cope, not a look"),
     ("updates", "per-machine update channel"),
     ("shortcuts", "per-machine key bindings"),
     ("mcp", "per-machine tool server"),

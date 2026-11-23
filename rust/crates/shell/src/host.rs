@@ -841,6 +841,15 @@ impl Host for Ctx<'_> {
     fn want_system(&mut self, owner: &str, on: bool) {
         telescope_core::stats::Hub::shared().want_system(owner, on);
     }
+    fn set_effects_step_down(&mut self, on: bool) {
+        telescope_core::effort::Effort::shared().set_auto(on);
+    }
+    fn hold_effects_full(&mut self, on: bool) {
+        telescope_core::effort::Effort::shared().hold_full(on);
+    }
+    fn keep_steps_on_card(&mut self, on: bool) {
+        telescope_core::balance::Balance::shared().keep_on_card(on);
+    }
 }
 
 /// copy_action's Rust form, for a plugin's Issue: a button that copies text and leaves the banner up.

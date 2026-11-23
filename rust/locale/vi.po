@@ -211,6 +211,13 @@ msgstr "Địa chỉ"
 msgid "Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."
 msgstr ""
 
+#, python-brace-format
+msgid "Adjusting · {n}"
+msgstr ""
+
+msgid "Adjustments"
+msgstr ""
+
 msgid "Advanced settings"
 msgstr "Cài đặt nâng cao"
 
@@ -238,6 +245,9 @@ msgstr "Kéo hết sang phải là Linh hoạt, tự điều chỉnh theo kết 
 
 msgid "Allow USB debugging on the phone."
 msgstr "Cho phép gỡ lỗi USB trên điện thoại."
+
+msgid "Allow heavy effects such as Background and Auto framing to work less often while frames run late. Full quality returns once there is room."
+msgstr ""
 
 msgid "Allow the microphone in Telescope on the phone"
 msgstr "Cho phép sử dụng micrô trong Telescope trên điện thoại"
@@ -324,6 +334,9 @@ msgstr "Một ứng dụng khác có thể đang dùng webcam. Hãy tắt webcam
 
 msgid "Another app on the phone is using the camera"
 msgstr "Một ứng dụng khác trên điện thoại đang sử dụng camera"
+
+msgid "Another program is keeping the graphics card busy."
+msgstr ""
 
 msgid "Anti-flicker"
 msgstr "Chống nhấp nháy"
@@ -416,6 +429,9 @@ msgstr "Mức tự động"
 msgid "Automatic"
 msgstr "Tự động"
 
+msgid "Automatic adjustments"
+msgstr ""
+
 msgid "Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart."
 msgstr ""
 
@@ -458,8 +474,15 @@ msgstr "Lần bộ cân bằng chuyển"
 msgid "Bar"
 msgstr "Thanh ngang"
 
+msgid "Battery saver is slowing the computer down."
+msgstr ""
+
 msgid "Battery under"
 msgstr "Pin dưới mức"
+
+#, python-brace-format
+msgid "Behind at {n} fps"
+msgstr ""
 
 msgid "Behind you"
 msgstr "Phía sau bạn"
@@ -942,6 +965,12 @@ msgstr "Đóng hướng dẫn thiết lập"
 msgid "Closed on the phone"
 msgstr "Đã đóng trên điện thoại"
 
+msgid "Closing it will help the most."
+msgstr ""
+
+msgid "Closing other programs will help."
+msgstr ""
+
 msgid "Cloudy"
 msgstr ""
 
@@ -1329,6 +1358,9 @@ msgstr ""
 msgid "Cut-in"
 msgstr "Thu viền"
 
+msgid "Cutout"
+msgstr ""
+
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Nguy hiểm! Bất kỳ ai kiểm soát kho lưu trữ của tiện ích đều có thể chạy mã mới trên máy tính này mỗi khi họ xuất bản bản phát hành mới."
 
@@ -1373,6 +1405,9 @@ msgstr "Bộ giải mã: chờ đầu ra"
 
 msgid "Decoding"
 msgstr "Giải mã"
+
+msgid "Decoding on the processor"
+msgstr ""
 
 msgid "Decrease by"
 msgstr "Giảm bớt"
@@ -1597,9 +1632,22 @@ msgstr "Khung hình bị rớt"
 msgid "Dynamic"
 msgstr "Linh hoạt"
 
+msgid "Dynamic bitrate"
+msgstr ""
+
+#, python-brace-format
+msgid "Dynamic is following the connection: {n} Mbps"
+msgstr ""
+
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "Định dạng Linh hoạt đã giảm tốc độ khung hình xuống {fps} fps để theo kịp kết nối chậm."
+
+msgid "Dynamic lowers how much video the phone sends when the connection can't carry more."
+msgstr ""
+
+msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
+msgstr ""
 
 msgid "EV"
 msgstr ""
@@ -1638,6 +1686,15 @@ msgstr "Sửa {shortcut}"
 
 msgid "Effect"
 msgstr "Hiệu ứng"
+
+msgid "Effects off a busy graphics card"
+msgstr ""
+
+msgid "Effects on the processor"
+msgstr ""
+
+msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
+msgstr ""
 
 msgid "Emergency"
 msgstr "Khẩn cấp"
@@ -1939,6 +1996,9 @@ msgstr "Số khung hình mỗi giây cho cả quá trình thu hình trên điệ
 msgid "Frames to collect"
 msgstr ""
 
+msgid "Frames were running late"
+msgstr ""
+
 msgid "Framing"
 msgstr "Căn khung"
 
@@ -2114,6 +2174,9 @@ msgstr "HEIC"
 msgid "Hardware acceleration"
 msgstr "Tăng tốc phần cứng"
 
+msgid "Hardware acceleration is set there."
+msgstr ""
+
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr "Tăng tốc phần cứng, tiết kiệm năng lượng, phạm vi thu phóng và kích thước camera ảo."
 
@@ -2129,6 +2192,9 @@ msgstr ""
 
 msgid "Heavy"
 msgstr "Nặng"
+
+msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
+msgstr ""
 
 msgid "Height"
 msgstr "Chiều cao"
@@ -2594,11 +2660,17 @@ msgstr "Chuyển ống kính"
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Phạm vi nhỏ hơn giúp các bước chỉnh chi tiết hơn. Phạm vi lớn hơn sẽ hỗ trợ điện thoại có âm lượng nhỏ."
 
+msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
+msgstr ""
+
 msgid "Let an AI app read and change Telescope's settings."
 msgstr "Cho phép ứng dụng AI đọc và thay đổi cài đặt của Telescope."
 
 msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
 msgstr "Cho phép một ứng dụng AI như Claude Desktop đọc và thay đổi cài đặt của Telescope, thông qua một lệnh không mở bất kỳ cổng mạng nào."
+
+msgid "Let effects that can run on either the graphics card or the processor use the processor while the card is busy, for example during a game."
+msgstr ""
 
 msgid "Let the camera decide."
 msgstr "Để camera tự quyết định."
@@ -2669,6 +2741,9 @@ msgstr "Vẽ bằng ánh sáng"
 msgid "Lighter"
 msgstr ""
 
+msgid "Lighter effects"
+msgstr ""
+
 msgid "Like the camera"
 msgstr ""
 
@@ -2704,6 +2779,9 @@ msgstr "Đã liệt kê các thao tác"
 #, python-brace-format
 msgid "Listed the {plugin} settings"
 msgstr "Đã liệt kê cài đặt {plugin}"
+
+msgid "Lists the changes Telescope makes for a smoother stream, with a button to undo each one."
+msgstr ""
 
 msgid "Live"
 msgstr "Trực tiếp"
@@ -2799,8 +2877,14 @@ msgstr "Mất kết nối với điện thoại trong khi đang chụp ảnh."
 msgid "Low light"
 msgstr "Thiếu sáng"
 
+msgid "Lower bitrate"
+msgstr ""
+
 msgid "Lower by"
 msgstr "Giảm bớt"
+
+msgid "Lower frame rate"
+msgstr ""
 
 msgid "Lower numbers open the lens wider and let in more light."
 msgstr "Số nhỏ hơn sẽ mở ống kính rộng hơn và thu nhiều ánh sáng hơn."
@@ -2884,6 +2968,9 @@ msgstr "Làm chữ viết trên tờ giấy nổi bật rõ hơn."
 
 msgid "Make the writing stand out"
 msgstr "Làm nổi bật chữ viết"
+
+msgid "Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic."
+msgstr ""
 
 msgid "Manual"
 msgstr "Tay"
@@ -3534,6 +3621,9 @@ msgstr "Mở Telescope khi bạn đăng nhập và thiết lập Truyền phát 
 msgid "Open Telescope when you sign in."
 msgstr "Mở Telescope khi bạn đăng nhập."
 
+msgid "Open Video settings"
+msgstr ""
+
 msgid "Open download page"
 msgstr "Mở trang tải về"
 
@@ -3577,6 +3667,9 @@ msgid "Open the link in a browser on any device on the same network and tap the 
 msgstr "Mở liên kết trong trình duyệt trên bất kỳ thiết bị nào cùng mạng và chạm vào trang để phóng to toàn màn hình. Liên kết vẫn giữ nguyên sau khi Telescope khởi động lại."
 
 msgid "Open the link in the headset's browser on the same Wi-Fi and accept the certificate warning once, then press Enter VR."
+msgstr ""
+
+msgid "Open the list to see what Telescope has adjusted for a smoother stream and to undo any of it."
 msgstr ""
 
 msgid "Open the preview in a separate window."
@@ -3693,6 +3786,12 @@ msgid "People"
 msgstr "Người"
 
 msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
+msgstr ""
+
+msgid "People tracking"
+msgstr ""
+
+msgid "Person mask"
 msgstr ""
 
 msgid "Phone"
@@ -3872,6 +3971,9 @@ msgstr "Phát"
 msgid "Plug it in, or pick another camera."
 msgstr "Hãy cắm thiết bị vào, hoặc chọn camera khác."
 
+msgid "Plugging it in will help."
+msgstr ""
+
 msgid "Plugins"
 msgstr "Tiện ích bổ sung"
 
@@ -3902,6 +4004,9 @@ msgstr "Vị trí và kiểu dáng"
 
 msgid "Power-saving effects"
 msgstr "Hiệu ứng tiết kiệm năng lượng"
+
+msgid "Power-saving effects is on"
+msgstr ""
 
 msgid "Preset"
 msgstr "Cài đặt sẵn"
@@ -4412,6 +4517,12 @@ msgid "Roundness"
 msgstr "Độ tròn"
 
 msgid "Run"
+msgstr ""
+
+msgid "Runs effects at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Runs effects on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Same as the system"
@@ -5100,6 +5211,10 @@ msgstr "Vệt nhòe"
 msgid "Smooth"
 msgstr "Mượt mà"
 
+#, python-brace-format
+msgid "Smooth at {n} fps"
+msgstr ""
+
 msgid "Smooth out grain in the picture."
 msgstr "Làm mịn hạt nhiễu trong ảnh."
 
@@ -5442,6 +5557,15 @@ msgstr ""
 msgid "Stops"
 msgstr "Bước sáng"
 
+msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops every stream you have running."
 msgstr ""
 
@@ -5589,8 +5713,14 @@ msgstr ""
 msgid "Swaps position and size with the stream you pick."
 msgstr ""
 
+msgid "Switch every automatic adjustment back on."
+msgstr ""
+
 msgid "Switch off"
 msgstr "Tắt"
+
+msgid "Switch off any of the automatic changes Telescope makes for a smoother stream."
+msgstr ""
 
 #, python-brace-format
 msgid "Switch off {plugin}?"
@@ -5652,6 +5782,9 @@ msgid_plural "Switches are back as they were. {n} other changes still need a res
 msgstr[0] "Các công tắc đã trở về trạng thái cũ. {n} thay đổi khác vẫn cần khởi động lại"
 
 msgid "Switches the lens outlines and skeleton off and stops smoothing."
+msgstr ""
+
+msgid "Switching it off removes the Adjusting list, the Automatic adjustments settings and the falling behind banner. Telescope still lowers effects, frame rate and bitrate as before."
 msgstr ""
 
 msgid "Switching needs a restart."
@@ -5872,6 +6005,9 @@ msgstr "Telescope đang chạy cho một người dùng khác trên máy tính n
 msgid "Telescope is evening out the two phones' brightness and colour, which takes a few seconds."
 msgstr "Telescope đang cân bằng độ sáng và màu sắc của hai điện thoại, quá trình này mất vài giây."
 
+msgid "Telescope is falling behind"
+msgstr ""
+
 msgid "Telescope is still running"
 msgstr "Telescope vẫn đang chạy"
 
@@ -5941,6 +6077,9 @@ msgstr "Đã có Telescope {version}."
 
 msgid "Telescope's mic is live"
 msgstr "Mic của Telescope đang bật"
+
+msgid "Telescope's own effects are using most of the computer."
+msgstr ""
 
 msgid "Telescope: hidden"
 msgstr "Telescope: đang ẩn"
@@ -6127,9 +6266,22 @@ msgstr "Màu đã chọn từ khung xem trước. Bấm để chọn lại."
 msgid "The colour that marks the sharp parts of the picture"
 msgstr "Màu sắc đánh dấu các phần rõ nét của hình ảnh"
 
+msgid "The computer is low on memory."
+msgstr ""
+
+msgid "The computer is running on battery."
+msgstr ""
+
+msgid "The computer is too slow for the effects in use."
+msgstr ""
+
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "Kết nối đang đặt thành Chỉ USB: {why}. Chuyển sang Tự động để sử dụng Wi-Fi."
+
+#, python-brace-format
+msgid "The connection is slow: {n} fps"
+msgstr ""
 
 msgid "The decoder failed"
 msgstr "Bộ giải mã gặp lỗi"
@@ -6195,6 +6347,12 @@ msgstr "Đường dẫn thư mục lưu ảnh."
 
 msgid "The graphics card"
 msgstr "Card đồ họa"
+
+msgid "The graphics card is busy"
+msgstr ""
+
+msgid "The graphics card was too slow"
+msgstr ""
 
 msgid "The height of the stream's box in pixels."
 msgstr ""
@@ -6292,6 +6450,10 @@ msgstr ""
 "\n"
 "Hãy thử lại sau giây lát."
 
+#, python-brace-format
+msgid "The phone is hot: {n} fps"
+msgstr ""
+
 msgid "The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most."
 msgstr "Điện thoại đang kết nối Wi-Fi 2,4 GHz vốn chậm hơn và thường bị quá tải. Mạng 5 GHz hoặc dây cáp sẽ giúp ích nhiều nhất."
 
@@ -6315,6 +6477,9 @@ msgstr "Điện thoại rất nóng"
 
 msgid "The phone isn't ready for photos yet. Try again in a moment."
 msgstr "Điện thoại chưa sẵn sàng để chụp ảnh. Hãy thử lại sau giây lát."
+
+msgid "The phone lowers its frame rate when it gets hot to protect itself. There is no way to override that."
+msgstr ""
 
 msgid "The phone meters on the point you picked by hand."
 msgstr "Điện thoại đo sáng tại điểm bạn đã chọn thủ công."
@@ -6444,6 +6609,9 @@ msgstr "Cài đặt sẵn mà phím tắt dùng"
 
 msgid "The processor"
 msgstr "Bộ xử lý"
+
+msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
+msgstr ""
 
 msgid "The result may drift with the camera set to auto."
 msgstr "Kết quả có thể bị sai lệch khi camera được đặt ở chế độ tự động."
@@ -6965,11 +7133,24 @@ msgstr ""
 msgid "Turn the tools off and set the guides and scope back to default."
 msgstr "Tắt các công cụ và đặt lại các đường căn khung cùng biểu đồ về mặc định."
 
+msgid "Turn this off"
+msgstr ""
+
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "Biến hai điện thoại thành một hình ảnh 3D, chia đôi màn hình cho kính thực tế ảo hoặc đỏ và lục lam cho kính đeo."
 
 msgid "Turn two running streams into one 3D picture."
 msgstr "Biến hai luồng phát đang chạy thành một hình ảnh 3D."
+
+msgid "Turning it off will help."
+msgstr ""
+
+msgid "Turning off an effect or lowering the frame rate will help."
+msgstr ""
+
+#, python-brace-format
+msgid "Turning off {name} will help the most."
+msgstr ""
 
 msgid "Turning the phone's camera on…"
 msgstr "Đang bật camera điện thoại…"
@@ -7147,6 +7328,9 @@ msgstr "Lộn ngược"
 msgid "Use USB or Wi-Fi, or let Telescope pick."
 msgstr "Dùng USB hoặc Wi-Fi, hoặc để Telescope tự chọn."
 
+msgid "Use a fixed bitrate"
+msgstr ""
+
 msgid "Use default"
 msgstr "Dùng mặc định"
 
@@ -7154,6 +7338,12 @@ msgid "Use extra noise reduction and sharpening on the photo only, not the video
 msgstr "Tăng cường giảm nhiễu và tăng độ nét cho riêng ảnh chụp, không áp dụng cho video. Chụp ảnh sẽ mất thêm một chút thời gian."
 
 msgid "Use full colours with brighter text and lines."
+msgstr ""
+
+msgid "Use full quality"
+msgstr ""
+
+msgid "Use graphics card"
 msgstr ""
 
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
@@ -7376,6 +7566,10 @@ msgstr "Mục cần thêm"
 
 msgid "What your phones call it"
 msgstr "Tên hiển thị trên điện thoại"
+
+#, python-brace-format
+msgid "What {name} adds to every frame"
+msgstr ""
 
 msgid "What's new"
 msgstr "Có gì mới"
@@ -7778,6 +7972,10 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "tự động bắt đầu dừng camera ứng dụng mở điện thoại thiết bị sẵn sàng chờ rảnh tay auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgstr ""
+
+msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "cập nhật tự động tự kiểm tra mỗi ngày chạy ngầm automatic updates auto check every day background"
 
@@ -7867,8 +8065,16 @@ msgid "down"
 msgstr "xuống"
 
 msgctxt "search"
+msgid "dynamic bitrate frame rate fps connection wifi slow lower"
+msgstr ""
+
+msgctxt "search"
 msgid "edge"
 msgstr "độ nét đường viền tăng độ nét edge"
+
+msgctxt "search"
+msgid "effects step down quality lag late frames background auto framing"
+msgstr ""
 
 msgctxt "search"
 msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
@@ -7907,6 +8113,10 @@ msgstr "phím tắt toàn hệ thống cổng phím gán lại global hotkeys po
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
 msgstr "toàn hệ thống phím nóng nền ứng dụng khác global system wide hotkeys background other apps"
+
+msgctxt "search"
+msgid "gpu graphics card busy game balance processor cpu move effects"
+msgstr ""
 
 msgctxt "search"
 msgid "gpu graphics card nvidia amd intel integrated discrete laptop hybrid switch choose select"
@@ -8459,6 +8669,18 @@ msgid "{name} has to be a number, not {value}."
 msgstr "{name} phải là một số, không phải {value}."
 
 #, python-brace-format
+msgid "{name} is keeping the graphics card busy."
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is using most of the processor."
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is using the graphics card"
+msgstr ""
+
+#, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} chưa được cắm"
 
@@ -8477,6 +8699,10 @@ msgstr "{name} đã ghép đôi như một điện thoại mới. Điều này x
 #, python-brace-format
 msgid "{name} to {value}"
 msgstr "{name} thành {value}"
+
+#, python-brace-format
+msgid "{name} {ms} ms"
+msgstr ""
 
 #, python-brace-format
 msgid "{near} m-∞"

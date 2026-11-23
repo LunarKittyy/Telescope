@@ -50,7 +50,7 @@ pub const ORDER: &[&str] = &[
     "setup", "connection", "camera_control", "browser_camera", "webcam", "spout", "spout_send", "cinema", "face_exposure", "background",
     "chroma_key", "fun_pack", "privacy_blur", "photos", "phototrap", "stargazer", "colour_grading", "filters", "stream_output", "transforms", "framing",
     "desk", "name_tag", "notes", "stereo", "composite", "microphone", "presets", "qr_reader", "preview", "onboarding",
-    "monitoring", "stats", "updates", "wait_screen", "on_air", "shortcuts", "startup", "mcp",
+    "monitoring", "stats", "adjustments", "updates", "wait_screen", "on_air", "shortcuts", "startup", "mcp",
 ];
 
 /// Built-ins in their registration order, then added plugins as they came.

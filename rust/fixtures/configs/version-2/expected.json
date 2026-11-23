@@ -1,5 +1,6 @@
 {
   "plugins": [
+    "adjustments",
     "browser_camera",
     "camera_control",
     "connection",
@@ -21,6 +22,11 @@
     "collapsed": [],
     "devices": {},
     "plugin_configs": {
+      "adjustments": {
+        "balance": true,
+        "dynamic": true,
+        "effects": true
+      },
       "browser_camera": {
         "address": "",
         "fps": 30,

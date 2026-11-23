@@ -212,6 +212,13 @@ msgstr ""
 msgid "Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."
 msgstr ""
 
+#, python-brace-format
+msgid "Adjusting · {n}"
+msgstr ""
+
+msgid "Adjustments"
+msgstr ""
+
 msgid "Advanced settings"
 msgstr ""
 
@@ -238,6 +245,9 @@ msgid "All the way right is Dynamic, which adjusts to your connection."
 msgstr ""
 
 msgid "Allow USB debugging on the phone."
+msgstr ""
+
+msgid "Allow heavy effects such as Background and Auto framing to work less often while frames run late. Full quality returns once there is room."
 msgstr ""
 
 msgid "Allow the microphone in Telescope on the phone"
@@ -321,6 +331,9 @@ msgid "Another app may be using the webcam. Close the webcam in that app, then s
 msgstr ""
 
 msgid "Another app on the phone is using the camera"
+msgstr ""
+
+msgid "Another program is keeping the graphics card busy."
 msgstr ""
 
 msgid "Anti-flicker"
@@ -415,6 +428,9 @@ msgstr ""
 msgid "Automatic"
 msgstr ""
 
+msgid "Automatic adjustments"
+msgstr ""
+
 msgid "Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart."
 msgstr ""
 
@@ -457,7 +473,14 @@ msgstr ""
 msgid "Bar"
 msgstr ""
 
+msgid "Battery saver is slowing the computer down."
+msgstr ""
+
 msgid "Battery under"
+msgstr ""
+
+#, python-brace-format
+msgid "Behind at {n} fps"
 msgstr ""
 
 msgid "Behind you"
@@ -941,6 +964,12 @@ msgstr ""
 msgid "Closed on the phone"
 msgstr ""
 
+msgid "Closing it will help the most."
+msgstr ""
+
+msgid "Closing other programs will help."
+msgstr ""
+
 msgid "Cloudy"
 msgstr ""
 
@@ -1330,6 +1359,9 @@ msgstr ""
 msgid "Cut-in"
 msgstr ""
 
+msgid "Cutout"
+msgstr ""
+
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr ""
 
@@ -1373,6 +1405,9 @@ msgid "Decoder: waiting for output"
 msgstr ""
 
 msgid "Decoding"
+msgstr ""
+
+msgid "Decoding on the processor"
 msgstr ""
 
 msgid "Decrease by"
@@ -1598,8 +1633,21 @@ msgstr ""
 msgid "Dynamic"
 msgstr ""
 
+msgid "Dynamic bitrate"
+msgstr ""
+
+#, python-brace-format
+msgid "Dynamic is following the connection: {n} Mbps"
+msgstr ""
+
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
+msgstr ""
+
+msgid "Dynamic lowers how much video the phone sends when the connection can't carry more."
+msgstr ""
+
+msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
 msgstr ""
 
 msgid "EV"
@@ -1638,6 +1686,15 @@ msgid "Edit {shortcut}"
 msgstr ""
 
 msgid "Effect"
+msgstr ""
+
+msgid "Effects off a busy graphics card"
+msgstr ""
+
+msgid "Effects on the processor"
+msgstr ""
+
+msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
 msgstr ""
 
 msgid "Emergency"
@@ -1940,6 +1997,9 @@ msgstr ""
 msgid "Frames to collect"
 msgstr ""
 
+msgid "Frames were running late"
+msgstr ""
+
 msgid "Framing"
 msgstr ""
 
@@ -2115,6 +2175,9 @@ msgstr ""
 msgid "Hardware acceleration"
 msgstr ""
 
+msgid "Hardware acceleration is set there."
+msgstr ""
+
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr ""
 
@@ -2129,6 +2192,9 @@ msgid "Headset failed to start"
 msgstr ""
 
 msgid "Heavy"
+msgstr ""
+
+msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
 msgstr ""
 
 msgid "Height"
@@ -2598,10 +2664,16 @@ msgstr ""
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr ""
 
+msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
+msgstr ""
+
 msgid "Let an AI app read and change Telescope's settings."
 msgstr ""
 
 msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
+msgstr ""
+
+msgid "Let effects that can run on either the graphics card or the processor use the processor while the card is busy, for example during a game."
 msgstr ""
 
 msgid "Let the camera decide."
@@ -2673,6 +2745,9 @@ msgstr ""
 msgid "Lighter"
 msgstr ""
 
+msgid "Lighter effects"
+msgstr ""
+
 msgid "Like the camera"
 msgstr ""
 
@@ -2707,6 +2782,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Listed the {plugin} settings"
+msgstr ""
+
+msgid "Lists the changes Telescope makes for a smoother stream, with a button to undo each one."
 msgstr ""
 
 msgid "Live"
@@ -2803,7 +2881,13 @@ msgstr ""
 msgid "Low light"
 msgstr ""
 
+msgid "Lower bitrate"
+msgstr ""
+
 msgid "Lower by"
+msgstr ""
+
+msgid "Lower frame rate"
 msgstr ""
 
 msgid "Lower numbers open the lens wider and let in more light."
@@ -2887,6 +2971,9 @@ msgid "Make the writing on the sheet stand out."
 msgstr ""
 
 msgid "Make the writing stand out"
+msgstr ""
+
+msgid "Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic."
 msgstr ""
 
 msgid "Manual"
@@ -3541,6 +3628,9 @@ msgstr ""
 msgid "Open Telescope when you sign in."
 msgstr ""
 
+msgid "Open Video settings"
+msgstr ""
+
 msgid "Open download page"
 msgstr ""
 
@@ -3584,6 +3674,9 @@ msgid "Open the link in a browser on any device on the same network and tap the 
 msgstr ""
 
 msgid "Open the link in the headset's browser on the same Wi-Fi and accept the certificate warning once, then press Enter VR."
+msgstr ""
+
+msgid "Open the list to see what Telescope has adjusted for a smoother stream and to undo any of it."
 msgstr ""
 
 msgid "Open the preview in a separate window."
@@ -3700,6 +3793,12 @@ msgid "People"
 msgstr ""
 
 msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
+msgstr ""
+
+msgid "People tracking"
+msgstr ""
+
+msgid "Person mask"
 msgstr ""
 
 msgid "Phone"
@@ -3879,6 +3978,9 @@ msgstr ""
 msgid "Plug it in, or pick another camera."
 msgstr ""
 
+msgid "Plugging it in will help."
+msgstr ""
+
 msgid "Plugins"
 msgstr ""
 
@@ -3908,6 +4010,9 @@ msgid "Position and style"
 msgstr ""
 
 msgid "Power-saving effects"
+msgstr ""
+
+msgid "Power-saving effects is on"
 msgstr ""
 
 msgid "Preset"
@@ -4420,6 +4525,12 @@ msgid "Roundness"
 msgstr ""
 
 msgid "Run"
+msgstr ""
+
+msgid "Runs effects at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Runs effects on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Same as the system"
@@ -5110,6 +5221,10 @@ msgstr ""
 msgid "Smooth"
 msgstr ""
 
+#, python-brace-format
+msgid "Smooth at {n} fps"
+msgstr ""
+
 msgid "Smooth out grain in the picture."
 msgstr ""
 
@@ -5455,6 +5570,15 @@ msgstr ""
 msgid "Stops"
 msgstr ""
 
+msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops every stream you have running."
 msgstr ""
 
@@ -5602,7 +5726,13 @@ msgstr ""
 msgid "Swaps position and size with the stream you pick."
 msgstr ""
 
+msgid "Switch every automatic adjustment back on."
+msgstr ""
+
 msgid "Switch off"
+msgstr ""
+
+msgid "Switch off any of the automatic changes Telescope makes for a smoother stream."
 msgstr ""
 
 #, python-brace-format
@@ -5666,6 +5796,9 @@ msgstr[0] ""
 msgstr[1] ""
 
 msgid "Switches the lens outlines and skeleton off and stops smoothing."
+msgstr ""
+
+msgid "Switching it off removes the Adjusting list, the Automatic adjustments settings and the falling behind banner. Telescope still lowers effects, frame rate and bitrate as before."
 msgstr ""
 
 msgid "Switching needs a restart."
@@ -5883,6 +6016,9 @@ msgstr ""
 msgid "Telescope is evening out the two phones' brightness and colour, which takes a few seconds."
 msgstr ""
 
+msgid "Telescope is falling behind"
+msgstr ""
+
 msgid "Telescope is still running"
 msgstr ""
 
@@ -5942,6 +6078,9 @@ msgid "Telescope {version} is available."
 msgstr ""
 
 msgid "Telescope's mic is live"
+msgstr ""
+
+msgid "Telescope's own effects are using most of the computer."
 msgstr ""
 
 msgid "Telescope: hidden"
@@ -6125,8 +6264,21 @@ msgstr ""
 msgid "The colour that marks the sharp parts of the picture"
 msgstr ""
 
+msgid "The computer is low on memory."
+msgstr ""
+
+msgid "The computer is running on battery."
+msgstr ""
+
+msgid "The computer is too slow for the effects in use."
+msgstr ""
+
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
+msgstr ""
+
+#, python-brace-format
+msgid "The connection is slow: {n} fps"
 msgstr ""
 
 msgid "The decoder failed"
@@ -6192,6 +6344,12 @@ msgid "The folder path photos are saved in."
 msgstr ""
 
 msgid "The graphics card"
+msgstr ""
+
+msgid "The graphics card is busy"
+msgstr ""
+
+msgid "The graphics card was too slow"
 msgstr ""
 
 msgid "The height of the stream's box in pixels."
@@ -6281,6 +6439,10 @@ msgid ""
 "Try again in a moment."
 msgstr ""
 
+#, python-brace-format
+msgid "The phone is hot: {n} fps"
+msgstr ""
+
 msgid "The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most."
 msgstr ""
 
@@ -6303,6 +6465,9 @@ msgid "The phone is very hot"
 msgstr ""
 
 msgid "The phone isn't ready for photos yet. Try again in a moment."
+msgstr ""
+
+msgid "The phone lowers its frame rate when it gets hot to protect itself. There is no way to override that."
 msgstr ""
 
 msgid "The phone meters on the point you picked by hand."
@@ -6426,6 +6591,9 @@ msgid "The preset the shortcut applies"
 msgstr ""
 
 msgid "The processor"
+msgstr ""
+
+msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
 msgstr ""
 
 msgid "The result may drift with the camera set to auto."
@@ -6948,10 +7116,23 @@ msgstr ""
 msgid "Turn the tools off and set the guides and scope back to default."
 msgstr ""
 
+msgid "Turn this off"
+msgstr ""
+
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr ""
 
 msgid "Turn two running streams into one 3D picture."
+msgstr ""
+
+msgid "Turning it off will help."
+msgstr ""
+
+msgid "Turning off an effect or lowering the frame rate will help."
+msgstr ""
+
+#, python-brace-format
+msgid "Turning off {name} will help the most."
 msgstr ""
 
 msgid "Turning the phone's camera on…"
@@ -7130,6 +7311,9 @@ msgstr ""
 msgid "Use USB or Wi-Fi, or let Telescope pick."
 msgstr ""
 
+msgid "Use a fixed bitrate"
+msgstr ""
+
 msgid "Use default"
 msgstr ""
 
@@ -7137,6 +7321,12 @@ msgid "Use extra noise reduction and sharpening on the photo only, not the video
 msgstr ""
 
 msgid "Use full colours with brighter text and lines."
+msgstr ""
+
+msgid "Use full quality"
+msgstr ""
+
+msgid "Use graphics card"
 msgstr ""
 
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
@@ -7358,6 +7548,10 @@ msgid "What to add"
 msgstr ""
 
 msgid "What your phones call it"
+msgstr ""
+
+#, python-brace-format
+msgid "What {name} adds to every frame"
 msgstr ""
 
 msgid "What's new"
@@ -7762,6 +7956,10 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr ""
 
 msgctxt "search"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgstr ""
+
+msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr ""
 
@@ -7851,7 +8049,15 @@ msgid "down"
 msgstr ""
 
 msgctxt "search"
+msgid "dynamic bitrate frame rate fps connection wifi slow lower"
+msgstr ""
+
+msgctxt "search"
 msgid "edge"
+msgstr ""
+
+msgctxt "search"
+msgid "effects step down quality lag late frames background auto framing"
 msgstr ""
 
 msgctxt "search"
@@ -7890,6 +8096,10 @@ msgstr ""
 
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
+msgstr ""
+
+msgctxt "search"
+msgid "gpu graphics card busy game balance processor cpu move effects"
 msgstr ""
 
 msgctxt "search"
@@ -8445,6 +8655,18 @@ msgid "{name} has to be a number, not {value}."
 msgstr ""
 
 #, python-brace-format
+msgid "{name} is keeping the graphics card busy."
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is using most of the processor."
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is using the graphics card"
+msgstr ""
+
+#, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr ""
 
@@ -8462,6 +8684,10 @@ msgstr ""
 
 #, python-brace-format
 msgid "{name} to {value}"
+msgstr ""
+
+#, python-brace-format
+msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format

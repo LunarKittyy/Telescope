@@ -835,6 +835,12 @@ pub trait Host:
     fn want_stats(&mut self, _owner: &str, _on: bool) {}
     /// The whole computer's load (processor, graphics card, memory, power, the user's busiest programs) is read into each stats snapshot while any plugin wants it. Live only: never logged, saved or sent.
     fn want_system(&mut self, _owner: &str, _on: bool) {}
+    /// Whether the effects step down by themselves while frames run late (a saved setting). Off, only Power-saving effects holds them down.
+    fn set_effects_step_down(&mut self, _on: bool) {}
+    /// Keeps the effects at full quality for this run of the app, whatever stepping down says. Not saved.
+    fn hold_effects_full(&mut self, _on: bool) {}
+    /// Keeps frame steps that can run either way on the graphics card instead of letting them move to the processor while it is busy. Not saved here: the asking plugin saves it.
+    fn keep_steps_on_card(&mut self, _on: bool) {}
 
     /// Puts value in the host's registry as "<owner>.<name>" for other plugins to read, or takes it out with None. Everyone hears
     /// Event::SharedChanged. Only the owner writes its keys; the values go when it stops, and nothing is kept past a restart.

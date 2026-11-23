@@ -248,6 +248,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(machine.web.clone(), Some(sign_outputs.clone()))),
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
                 Box::new(telescope_setup::stats::StatsPlugin::new()),
+                Box::new(telescope_setup::adjustments::AdjustmentsPlugin::new(setup_media.clone())),
                 Box::new(telescope_system::mcp::McpPlugin::new(telescope_system::mcp::McpHandle::global())),
             ];
             // An added plugin whose built-in plugins aren't switched on is left out before any of its code runs

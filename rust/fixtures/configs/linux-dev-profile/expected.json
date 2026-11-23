@@ -1,5 +1,6 @@
 {
   "plugins": [
+    "adjustments",
     "browser_camera",
     "camera_control",
     "chroma_key",
@@ -188,6 +189,11 @@
       "00000000-0000-4000-8000-000000000001": 1
     },
     "plugin_configs": {
+      "adjustments": {
+        "balance": true,
+        "dynamic": true,
+        "effects": true
+      },
       "browser_camera": {
         "address": "192.168.1.10",
         "fps": 30,

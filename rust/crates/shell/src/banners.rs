@@ -86,7 +86,8 @@ pub enum Pressed {
 
 impl Banners {
     pub fn show(&mut self, key: &str, issue: Issue) {
-        let line = if issue.text.is_empty() { format!("Banner: {}", issue.title) } else { format!("Banner: {}. {}", issue.title, issue.text) };
+        let live_only = telescope_core::ui::LIVE_ONLY_BANNERS.contains(&key);
+        let line = if issue.text.is_empty() || live_only { format!("Banner: {}", issue.title) } else { format!("Banner: {}. {}", issue.title, issue.text) };
         telescope_core::diagnostics::events().note(&line);
         self.shown.retain(|(k, _)| k != key);
         self.shown.push((key.to_string(), issue));
@@ -198,5 +199,18 @@ mod tests {
         assert!(view.rows()[0].open);
         assert_eq!(view.rows()[0].rev, 0);
         assert_eq!(view.remove_shut("a"), None);
+    }
+
+    #[test]
+    fn a_banner_that_names_another_program_is_logged_by_its_title_only() {
+        let mut banners = Banners::default();
+        let named = Issue { text: "Zzprogram is using most of the processor.".into(), ..issue("Telescope is falling behind") };
+        banners.show(telescope_core::ui::LIVE_ONLY_BANNERS[0], named.clone());
+        banners.show("other", Issue { text: "Visible in the log text.".into(), ..issue("Other") });
+        let log = telescope_core::diagnostics::events().lines(400).join("\n");
+        assert!(log.contains("Banner: Telescope is falling behind"), "{log}");
+        assert!(!log.contains("Zzprogram"), "{log}");
+        assert!(log.contains("Visible in the log text."), "every other banner still logs its text");
+        assert_eq!(banners.issue(telescope_core::ui::LIVE_ONLY_BANNERS[0]), Some(&named), "it is still shown in full");
     }
 }

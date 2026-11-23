@@ -4,6 +4,7 @@
 use serde_json::{json, Value};
 use telescope_core::bar::{self, BarStat};
 use telescope_core::event::Event;
+use crate::titles::plugin_title;
 use telescope_core::host::{Host, PluginLook};
 use telescope_core::i18n::{n_, number, tr, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
@@ -254,15 +255,6 @@ fn drop_cause(reason: DropReason) -> &'static str {
     }
 }
 
-/// "privacy_blur" as a name for people.
-fn plugin_label(name: &str) -> String {
-    let mut chars = name.replace('_', " ").chars().collect::<Vec<_>>();
-    if let Some(first) = chars.first_mut() {
-        *first = first.to_ascii_uppercase();
-    }
-    chars.into_iter().collect()
-}
-
 fn asked_text(asked: f64) -> String {
     if asked < 0.0 {
         tr("asked for Dynamic")
@@ -285,14 +277,6 @@ fn fixed_order<'a>(list: &'a [NamedTiming], looks: &[PluginLook], listed: usize)
     let mut list = slowest_first(list, listed);
     list.sort_by_key(|t| plugin_title(&t.name, looks));
     list
-}
-
-/// A plugin's name as people read it (what the Plugins tab calls it, translated), or the id tidied up when no plugin by that name is known.
-fn plugin_title(name: &str, looks: &[PluginLook]) -> String {
-    match looks.iter().find(|l| l.name == name && !l.title.is_empty()) {
-        Some(look) => tr(&look.title),
-        None => plugin_label(name),
-    }
 }
 
 /// A plugin's own icon, for its line's pin in the bar; the chip when none is known.
