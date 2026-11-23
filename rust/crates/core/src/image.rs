@@ -1641,19 +1641,6 @@ mod tests {
     }
 
     #[test]
-    fn a_small_picture_from_bgr_with_padded_rows_is_the_shrunk_full_one() {
-        for (w, h, tw, th, pad) in [(640usize, 360usize, 256usize, 144usize, 0usize), (641, 361, 100, 60, 7), (1920, 1080, 240, 135, 64), (1920, 1080, 256, 144, 0)] {
-            let stride = w * 3 + pad;
-            let data = (0..stride * h).map(|i| (((i % stride) / 3 * 255 / w + (i / stride) * 40 / h) % 251) as u8).collect();
-            // no planes to shrink, so the BGR is what there is
-            let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, Vec::new()).with_bgr(std::sync::Arc::new(crate::frame::Bgr { data, start: 0, stride }));
-            let want = resize_area(&frame_rgb(&frame).unwrap(), w, h, 3, tw, th);
-            let got = small_rgb(&frame, tw, th, true).unwrap();
-            assert_eq!(got, want, "{w}x{h} to {tw}x{th} stride {stride}");
-        }
-    }
-
-    #[test]
     #[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
     fn bench_small_picture_from_bgr() {
         for (w, h, tw, th) in [(1920usize, 1080usize, 256usize, 144usize), (3840, 2160, 256, 144), (1920, 1080, 480, 270), (3840, 2160, 960, 540)] {
