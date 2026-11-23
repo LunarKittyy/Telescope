@@ -397,8 +397,15 @@ pub fn handle_message(message: &Value, call: &dyn Fn(&str, Value) -> Reply) -> O
 }
 
 fn send(writer: &Mutex<dyn Write + Send>, message: &Value) {
+    let mut line = message.to_string();
+    // The bridge throws away a line longer than it takes in, which would leave the AI app waiting for this answer for ever
+    if line.len() > MAX_LINE {
+        let why = "That answer is too long to send (over 1 MiB). Ask for less at a time.";
+        line = result(&message["id"], tool_result(Err(why.into()))).to_string();
+    }
+    line.push('\n');
     let mut w = writer.lock().unwrap_or_else(|e| e.into_inner());
-    let _ = w.write_all(format!("{message}\n").as_bytes()).and_then(|()| w.flush());
+    let _ = w.write_all(line.as_bytes()).and_then(|()| w.flush());
 }
 
 /// Counts a connection's running calls until dropped.
