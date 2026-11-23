@@ -89,8 +89,17 @@ class H264Encoder(
         }
 
         // Whether the encoder takes a size at all; true when it can't say, so the size is still offered and tried.
-        fun supportsSize(width: Int, height: Int): Boolean =
-            try { videoCapabilities?.isSizeSupported(width, height) ?: true } catch (_: Exception) { true }
+        fun supportsSize(width: Int, height: Int): Boolean = videoCapabilities?.let { fits(it, width, height) } ?: true
+
+        // The size within the encoder's limits. Not isSizeSupported(): that also wants the size aligned to what the encoder
+        // prefers, which some report as 16 and 1080 isn't. A capability that can't be read doesn't stop anything.
+        private fun fits(caps: MediaCodecInfo.VideoCapabilities, width: Int, height: Int): Boolean = try {
+            caps.supportedWidths.contains(width) && caps.getSupportedHeightsFor(width).contains(height)
+        } catch (_: IllegalArgumentException) {
+            false  // getSupportedHeightsFor: a width it doesn't take at all
+        } catch (_: Exception) {
+            true
+        }
 
         /** The most the phone's first H.264 encoder takes (the one createEncoderByType picks), for Dynamic's ceiling. */
         val maxBitrate: Int by lazy {
@@ -114,35 +123,22 @@ class H264Encoder(
 
     private val thread = HandlerThread("h264-out").also { it.start() }
     @Volatile private var released = false
+    private val buffers = Any()  // held while a packet is copied out of the codec's buffer, and to release
     private val codec: MediaCodec
     val inputSurface: Surface
 
     private val callback = object : MediaCodec.Callback() {
         override fun onInputBufferAvailable(mc: MediaCodec, index: Int) {}  // Surface input
         override fun onOutputBufferAvailable(mc: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
-            if (released) return
+            val config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+            val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
             try {
-                val buf = mc.getOutputBuffer(index)
-                if (buf != null && info.size > 0) {
-                    buf.position(info.offset)
-                    buf.limit(info.offset + info.size)
-                    val config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
-                    val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
-                    if (!config) {
-                        checkOrder(info.presentationTimeUs)
-                        outputRate.tick()
-                        if (PhoneStats.shared.active()) {
-                            PhoneStats.delayMs(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps)?.let { PhoneStats.shared.addEncode(it) }
-                        }
-                    }
-                    if (config || onFrameAllowed(info.presentationTimeUs * 1000, key)) {
-                        val bytes = if (config) ByteArray(info.size).also { buf.get(it) }
-                        else H264Stream.packet(buf, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000,
-                                               CropLog.shared.take(info.presentationTimeUs, CROP_WAIT_MS))
-                        onPacket(bytes, key, config)
-                    }
-                }
-                mc.releaseOutputBuffer(index, false)
+                // The buffer is the codec's memory, which release() frees: it waits until the packet is copied out
+                val bytes = synchronized(buffers) {
+                    if (released) return
+                    copyOut(mc.getOutputBuffer(index), info, config, key).also { mc.releaseOutputBuffer(index, false) }
+                } ?: return
+                onPacket(bytes, key, config)
             } catch (e: Exception) {
                 if (!released) onError(e)
             }
@@ -210,6 +206,24 @@ class H264Encoder(
         mc.codecInfo.getCapabilitiesForType(MIME).isFeatureSupported(MediaCodecInfo.CodecCapabilities.FEATURE_IntraRefresh)
     } catch (_: Exception) { false }
 
+    // The packet in an output buffer, or null when there's nothing to send; on the encoder's thread
+    private fun copyOut(buf: java.nio.ByteBuffer?, info: MediaCodec.BufferInfo, config: Boolean, key: Boolean): ByteArray? {
+        if (buf == null || info.size <= 0) return null
+        buf.position(info.offset)
+        buf.limit(info.offset + info.size)
+        if (!config) {
+            checkOrder(info.presentationTimeUs)
+            outputRate.tick()
+            if (PhoneStats.shared.active()) {
+                PhoneStats.delayMs(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps)?.let { PhoneStats.shared.addEncode(it) }
+            }
+        }
+        if (!config && !onFrameAllowed(info.presentationTimeUs * 1000, key)) return null
+        return if (config) ByteArray(info.size).also { buf.get(it) }
+        else H264Stream.packet(buf, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000,
+                               CropLog.shared.take(info.presentationTimeUs, CROP_WAIT_MS))
+    }
+
     private fun checkOrder(ptsUs: Long) {
         if (ptsUs < lastPtsUs && !reordered && profile == Profile.HIGH && ++backwards >= REORDERS_TO_DROP_HIGH) {
             reordered = true
@@ -217,16 +231,6 @@ class H264Encoder(
             onReorder()
         }
         lastPtsUs = maxOf(lastPtsUs, ptsUs)
-    }
-
-    // The size within the encoder's limits. Not isSizeSupported(): that also wants the size aligned to what the encoder
-    // prefers, which some report as 16 and 1080 isn't. A capability that can't be read doesn't stop anything.
-    private fun fits(caps: MediaCodecInfo.VideoCapabilities, width: Int, height: Int): Boolean = try {
-        caps.supportedWidths.contains(width) && caps.getSupportedHeightsFor(width).contains(height)
-    } catch (_: IllegalArgumentException) {
-        false  // getSupportedHeightsFor: a width it doesn't take at all
-    } catch (_: Exception) {
-        true
     }
 
     private fun format(width: Int, height: Int, fps: Int, bitrate: Int, attempt: Attempt): MediaFormat =
@@ -280,7 +284,7 @@ class H264Encoder(
     }
 
     fun release() {
-        released = true
+        synchronized(buffers) { released = true }  // after any packet being copied out; none starts after this
         try { codec.stop() } catch (_: Exception) {}
         try { codec.release() } catch (_: Exception) {}
         try { inputSurface.release() } catch (_: Exception) {}  // createInputSurface's Surface isn't freed with the codec

@@ -42,6 +42,9 @@ class StillJobs(
     private val jobs = LinkedHashMap<String, Job>()
     private val random = SecureRandom()
 
+    // Files from a run that ended without a stop (the app was killed) belong to no request here
+    init { dir.listFiles()?.forEach { it.delete() } }
+
     // A new request, or null while another one is still shooting; limitMs after its timer it fails however the camera is doing (0 = never)
     @Synchronized
     fun start(shots: Int, timerMs: Long, limitMs: Long = 0L): String? {

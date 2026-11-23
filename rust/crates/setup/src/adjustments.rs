@@ -1,5 +1,6 @@
 //! Adjustments: what Telescope changes by itself to cope, said out loud and undoable. It keeps the list of adjustments in effect now (effects
-//! stepped down, effects moved to the processor, Dynamic lowering the bitrate or frame rate, the phone's heat cap, decoding on the processor)
+//! stepped down, Auto framing following faces, effects moved to the processor, Dynamic lowering the bitrate or frame rate, the phone's heat cap,
+//! decoding on the processor)
 //! for the chip in the top bar, shows a banner when the computer can't keep up even with the effects as light as they go, and has the switches
 //! in Settings. It reads stats and the phone's state and acts through the host and events, never through another plugin. What it learns of the
 //! computer (busiest programs, load) is used live: never logged, saved or sent.
@@ -65,6 +66,7 @@ pub fn stays_dismissed(was: &Dismissal, cause: &str, shed: f32) -> bool {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     Effects,
+    Heads,
     Balance,
     Bitrate,
     FrameRate,
@@ -77,10 +79,13 @@ pub enum Kind {
 pub enum Override {
     /// For this run of the app.
     KeepFull,
+    KeepBodies,
     KeepOnCard,
     FixedBitrate,
     /// The saved switch.
     TurnOff,
+    /// The saved switch for following the computer's power saving.
+    TurnOffPower,
     OpenVideoSettings,
 }
 
@@ -89,6 +94,8 @@ pub enum Override {
 pub enum Reason {
     FramesLate,
     PowerSaving,
+    /// The computer itself says it is saving power (battery saver, a power-saver profile).
+    ComputerSavesPower,
     CardBusy(Option<String>),
     FollowsConnection { mbps: f64 },
     SlowConnection { fps: i64 },
@@ -107,13 +114,15 @@ pub struct Item {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Switches {
     pub effects: bool,
+    pub heads: bool,
     pub balance: bool,
     pub dynamic: bool,
+    pub power: bool,
 }
 
 impl Default for Switches {
     fn default() -> Self {
-        Switches { effects: true, balance: true, dynamic: true }
+        Switches { effects: true, heads: true, balance: true, dynamic: true, power: true }
     }
 }
 
@@ -152,14 +161,25 @@ pub struct Seen {
 pub fn items(seen: &Seen) -> Vec<Item> {
     let mut out = Vec::new();
     let e = &seen.effort;
+    // The level comes from stepping down only while that is above what Power-saving effects and the computer's power saving ask for
+    let stepping = e.auto && !e.held && e.auto_level > e.floor.max(e.machine_floor);
+    let why = if stepping {
+        Reason::FramesLate
+    } else if e.machine_floor > e.floor {
+        Reason::ComputerSavesPower
+    } else {
+        Reason::PowerSaving
+    };
     if e.level > 0 {
-        // The level comes from stepping down only while that is above what Power-saving effects asks for
-        let stepping = e.auto && !e.held && e.auto_level > e.floor;
-        out.push(Item {
-            kind: Kind::Effects,
-            reason: if stepping { Reason::FramesLate } else { Reason::PowerSaving },
-            overrides: if stepping { vec![Override::KeepFull, Override::TurnOff] } else { Vec::new() },
-        });
+        let overrides = match why {
+            Reason::FramesLate => vec![Override::KeepFull, Override::TurnOff],
+            Reason::ComputerSavesPower => vec![Override::KeepFull, Override::TurnOffPower],
+            _ => Vec::new(),
+        };
+        out.push(Item { kind: Kind::Effects, reason: why.clone(), overrides });
+    }
+    if e.heads {
+        out.push(Item { kind: Kind::Heads, reason: why, overrides: vec![Override::KeepBodies, Override::TurnOff] });
     }
     if !seen.balance.on_card && !seen.balance.pinned {
         out.push(Item { kind: Kind::Balance, reason: Reason::CardBusy(seen.busiest_gpu.clone()), overrides: vec![Override::KeepOnCard, Override::TurnOff] });
@@ -260,6 +280,7 @@ pub fn behind_issue(cause: Option<&Cause>, dearest_effect: Option<&str>) -> Issu
 fn name_of(kind: Kind) -> String {
     match kind {
         Kind::Effects => tr("Lighter effects"),
+        Kind::Heads => tr("Framing by face"),
         Kind::Balance => tr("Effects on the processor"),
         Kind::Bitrate => tr("Lower bitrate"),
         Kind::FrameRate | Kind::Heat => tr("Lower frame rate"),
@@ -271,6 +292,7 @@ fn why_of(reason: &Reason) -> String {
     match reason {
         Reason::FramesLate => tr("Frames were running late"),
         Reason::PowerSaving => tr("Power-saving effects is on"),
+        Reason::ComputerSavesPower => tr("The computer is saving power"),
         Reason::CardBusy(Some(name)) => tr("{name} is using the graphics card").field("name", name.clone()),
         Reason::CardBusy(None) => tr("The graphics card is busy"),
         Reason::FollowsConnection { mbps } => tr("Dynamic is following the connection: {n} Mbps").field("n", number(*mbps, 1, false)),
@@ -283,7 +305,8 @@ fn why_of(reason: &Reason) -> String {
 /// The tooltip's sentence for the row itself.
 fn row_tip_of(kind: Kind) -> String {
     match kind {
-        Kind::Effects => tr("Heavy effects work less often while frames run late. They return to full quality once there is room."),
+        Kind::Effects => tr("Heavy effects work less often while frames run late or the computer is saving power. They return to full quality once there is room."),
+        Kind::Heads => tr("Finding your face costs a fraction of finding your body. Auto framing uses your body again when it finds no face or sees several people."),
         Kind::Balance => tr("Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."),
         Kind::Bitrate => tr("Dynamic lowers how much video the phone sends when the connection can't carry more."),
         Kind::FrameRate => tr("Dynamic lowers the frame rate when the connection is too slow for the one asked for."),
@@ -296,11 +319,14 @@ fn row_tip_of(kind: Kind) -> String {
 fn override_text(kind: Kind, o: Override) -> (&'static str, String, String) {
     match o {
         Override::KeepFull => ("sparkle", tr("Use full quality"), tr("Runs effects at full quality until you close Telescope, even while frames run late.")),
+        Override::KeepBodies => ("framing", tr("Follow your body"), tr("Auto framing follows your body until you close Telescope, even while effects are lighter.")),
         Override::KeepOnCard => ("chip", tr("Use graphics card"), tr("Runs effects on the graphics card until you close Telescope, even while it is busy.")),
         Override::FixedBitrate => ("lock", tr("Use a fixed bitrate"), tr("Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic.")),
         Override::OpenVideoSettings => ("sliders", tr("Open Video settings"), tr("Hardware acceleration is set there.")),
+        Override::TurnOffPower => ("power", tr("Turn this off"), tr("Stops Telescope lightening effects when the computer is saving power, until you switch it back on under Video in Settings.")),
         Override::TurnOff => ("power", tr("Turn this off"), match kind {
             Kind::Effects => tr("Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."),
+            Kind::Heads => tr("Stops Auto framing following your face to save effort, until you switch it back on under Video in Settings."),
             Kind::Balance => tr("Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."),
             _ => tr("Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."),
         }),
@@ -331,6 +357,7 @@ pub struct AdjustmentsPlugin {
     switches: Switches,
     /// For this run of the app.
     held_full: bool,
+    held_bodies: bool,
     held_card: bool,
     held_fixed: bool,
     /// What was last handed to the host, so a repeat says nothing.
@@ -355,7 +382,7 @@ pub struct AdjustmentsPlugin {
 impl AdjustmentsPlugin {
     pub fn new(media: Arc<dyn Media>) -> AdjustmentsPlugin {
         AdjustmentsPlugin {
-            media, switches: Switches::default(), held_full: false, held_card: false, held_fixed: false, told_fixed: false, phone: Phone::default(), rows: Vec::new(),
+            media, switches: Switches::default(), held_full: false, held_bodies: false, held_card: false, held_fixed: false, told_fixed: false, phone: Phone::default(), rows: Vec::new(),
             behind: false, showing_banner: false, dismissed: None, quiet_since: None, last_shed: 0.0, list_open: false, asking: false, last_cause: None,
         }
     }
@@ -364,9 +391,15 @@ impl AdjustmentsPlugin {
 
     fn apply_all(&mut self, host: &mut dyn Host) {
         host.set_effects_step_down(self.switches.effects);
+        host.set_effects_follow_power(self.switches.power);
         host.hold_effects_full(self.held_full);
+        self.apply_heads(host);
         self.apply_card(host);
         self.apply_fixed(host);
+    }
+
+    fn apply_heads(&self, host: &mut dyn Host) {
+        host.allow_heads(self.switches.heads && !self.held_bodies);
     }
 
     fn apply_card(&self, host: &mut dyn Host) {
@@ -387,6 +420,16 @@ impl AdjustmentsPlugin {
                 self.held_full = true;
                 host.hold_effects_full(true);
             }
+            Override::TurnOffPower => {
+                self.switches.power = false;
+                self.apply_all(host);
+                host.schedule_save();
+                host.set_ui_props(SECTION, &self.section_props());
+            }
+            Override::KeepBodies => {
+                self.held_bodies = true;
+                self.apply_heads(host);
+            }
             Override::KeepOnCard => {
                 self.held_card = true;
                 self.apply_card(host);
@@ -399,6 +442,7 @@ impl AdjustmentsPlugin {
             Override::TurnOff => {
                 match kind {
                     Kind::Effects => self.switches.effects = false,
+                    Kind::Heads => self.switches.heads = false,
                     Kind::Balance => self.switches.balance = false,
                     _ => self.switches.dynamic = false,
                 }
@@ -505,12 +549,12 @@ impl AdjustmentsPlugin {
     fn section_props(&self) -> Value {
         json!({
             "reset-shown": off_default(&self.get_config(), &AdjustmentsPlugin::defaults(), &[]),
-            "effects": self.switches.effects, "balance": self.switches.balance, "dynamic": self.switches.dynamic,
+            "effects": self.switches.effects, "heads": self.switches.heads, "balance": self.switches.balance, "dynamic": self.switches.dynamic, "power": self.switches.power,
         })
     }
 
     fn defaults() -> Value {
-        json!({"effects": true, "balance": true, "dynamic": true})
+        json!({"effects": true, "heads": true, "balance": true, "dynamic": true, "power": true})
     }
 
     /// Nothing is running any more: the list empties, the banner goes and nothing is asked for.
@@ -568,8 +612,10 @@ impl Plugin for AdjustmentsPlugin {
     fn shutdown(&mut self, host: &mut dyn Host) {
         // Nothing this plugin held stays held without it
         host.hold_effects_full(false);
+        host.allow_heads(true);
         host.keep_steps_on_card(false);
         host.set_effects_step_down(true);
+        host.set_effects_follow_power(false);
         host.want_system(NAME, false);
         host.want_stats(NAME, false);
         if self.told_fixed {
@@ -618,10 +664,12 @@ impl Plugin for AdjustmentsPlugin {
                     }
                 }
             }
-            (SECTION, "effects-toggled") | (SECTION, "balance-toggled") | (SECTION, "dynamic-toggled") => {
+            (SECTION, "effects-toggled") | (SECTION, "heads-toggled") | (SECTION, "balance-toggled") | (SECTION, "dynamic-toggled") | (SECTION, "power-toggled") => {
                 match event.callback.as_str() {
                     "effects-toggled" => self.switches.effects = flag(0),
+                    "heads-toggled" => self.switches.heads = flag(0),
                     "balance-toggled" => self.switches.balance = flag(0),
+                    "power-toggled" => self.switches.power = flag(0),
                     _ => self.switches.dynamic = flag(0),
                 }
                 self.apply_all(host);
@@ -639,12 +687,12 @@ impl Plugin for AdjustmentsPlugin {
     }
 
     fn get_config(&self) -> Value {
-        json!({"effects": self.switches.effects, "balance": self.switches.balance, "dynamic": self.switches.dynamic})
+        json!({"effects": self.switches.effects, "heads": self.switches.heads, "balance": self.switches.balance, "dynamic": self.switches.dynamic, "power": self.switches.power})
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         let on = |key: &str| cfg.get(key).and_then(Value::as_bool).unwrap_or(true);
-        self.switches = Switches { effects: on("effects"), balance: on("balance"), dynamic: on("dynamic") };
+        self.switches = Switches { effects: on("effects"), heads: on("heads"), balance: on("balance"), dynamic: on("dynamic"), power: on("power") };
         Ok(())
     }
 }

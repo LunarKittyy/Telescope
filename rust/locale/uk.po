@@ -419,6 +419,9 @@ msgstr ""
 msgid "Auto framing"
 msgstr "Автокадрування"
 
+msgid "Auto framing follows your body until you close Telescope, even while effects are lighter."
+msgstr ""
+
 msgid "Auto framing speed"
 msgstr "Швидкість автокадрування"
 
@@ -1875,6 +1878,9 @@ msgstr "Знайти"
 msgid "Finding the current adb…"
 msgstr "Пошук актуальної версії adb…"
 
+msgid "Finding your face costs a fraction of finding your body. Auto framing uses your body again when it finds no face or sees several people."
+msgstr ""
+
 msgid "Fine tune"
 msgstr "Точне налаштування"
 
@@ -1953,6 +1959,9 @@ msgstr "Стежити за обличчям"
 msgid "Follow one person"
 msgstr ""
 
+msgid "Follow your body"
+msgstr ""
+
 msgid "Forget this device."
 msgstr "Забути цей пристрій."
 
@@ -2007,6 +2016,9 @@ msgstr ""
 
 msgid "Framing"
 msgstr "Кадрування"
+
+msgid "Framing by face"
+msgstr ""
 
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
@@ -2203,7 +2215,7 @@ msgstr ""
 msgid "Heavy"
 msgstr "Важкий"
 
-msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
+msgid "Heavy effects work less often while frames run late or the computer is saving power. They return to full quality once there is room."
 msgstr ""
 
 msgid "Height"
@@ -2758,6 +2770,9 @@ msgid "Lighter"
 msgstr ""
 
 msgid "Lighter effects"
+msgstr ""
+
+msgid "Lighter effects when saving power"
 msgstr ""
 
 msgid "Like the camera"
@@ -5388,6 +5403,9 @@ msgctxt "setting"
 msgid "Start"
 msgstr "Запуск"
 
+msgid "Start Background and Auto framing at Power-saving level while the computer is in battery saver or a power-saver mode. Telescope only looks at this while a stream runs and doesn't keep or send it."
+msgstr ""
+
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "Почати нову композицію з таким розташуванням активних потоків."
 
@@ -5595,10 +5613,16 @@ msgstr ""
 msgid "Stops"
 msgstr "Ступені"
 
+msgid "Stops Auto framing following your face to save effort, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when the computer is saving power, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
@@ -6312,6 +6336,9 @@ msgid "The computer is low on memory."
 msgstr ""
 
 msgid "The computer is running on battery."
+msgstr ""
+
+msgid "The computer is saving power"
 msgstr ""
 
 msgid "The computer is too slow for the effects in use."
@@ -7676,6 +7703,9 @@ msgstr "У якому напрямку йдуть смуги."
 msgid "While Telescope is in the background"
 msgstr "Коли Telescope у фоновому режимі"
 
+msgid "While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off."
+msgstr ""
+
 msgid "White"
 msgstr "Білий"
 
@@ -8012,6 +8042,10 @@ msgid "audio sound voice input volume"
 msgstr "аудіо звук голос вхідний гучність audio sound voice input volume"
 
 msgctxt "search"
+msgid "auto framing face head body tracking power saving lighter effects processor battery"
+msgstr ""
+
+msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr "авто автоматично старт стоп запуск зупинка камера програма відкривається діскорд обс зум міт тімс телефон пристрій готовий очікування без рук auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
@@ -8038,6 +8072,10 @@ msgstr "автозапуск вхід у систему запуск комп'ю
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "батарея акумулятор живлення енергія вати ноутбук процесор навантаження вентилятор нагрів повільно розмиття кадрування легші ефекти якість battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
+
+msgctxt "search"
+msgid "battery saver power saver profile mode laptop effects power saving"
+msgstr ""
 
 msgid "blue"
 msgstr "синього"

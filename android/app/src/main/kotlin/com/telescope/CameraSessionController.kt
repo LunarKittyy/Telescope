@@ -1582,7 +1582,13 @@ class CameraSessionController(
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         val e = RuntimeException("Camera2 error code $error")
-                        if (takenBy(error)) cameraTaken("switchCameraTo.onError", e) else fail("switchCameraTo.onError", e)
+                        if (takenBy(error)) { cameraTaken("switchCameraTo.onError", e); return }
+                        if (codec == H264Stream.CODEC_H264 && error == CameraDevice.StateCallback.ERROR_CAMERA_DEVICE) {
+                            // As in openCamera: the new lens can't feed the encoder at this size or rate, so MJPEG
+                            encoderFailed(e, CodecFailure.CAMERA_STOPPED, reopenTries = REOPEN_TRIES)
+                            return
+                        }
+                        fail("switchCameraTo.onError", e)
                     }
                 }
             }, handler)

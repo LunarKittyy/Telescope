@@ -135,20 +135,31 @@ impl Picture {
     }
 }
 
+/// A cleared buffer of `len` pixels. Zeroed memory is the same as `vec![default; len]`, which a test build fills one pixel at a time
+fn blank(len: usize) -> Vec<PremultipliedRgbaColor> {
+    bytemuck::zeroed_vec(len)
+}
+
+/// The pixels as RGBA bytes with full alpha
+fn opaque(buffer: &[PremultipliedRgbaColor]) -> Vec<u8> {
+    let mut rgba = bytemuck::cast_slice::<PremultipliedRgbaColor, u8>(buffer).to_vec();
+    for px in rgba.as_chunks_mut::<4>().0 {
+        px[3] = 255;
+    }
+    rgba
+}
+
 /// One frame of the most recently created window at the size it has, as the window would paint right after an event, with no
 /// timers or changed handlers run first (draw lets them settle).
 pub fn frame(width: f32, height: f32, scale: f32) -> Option<Picture> {
     let adapter = WINDOWS.with(|w| w.borrow().last().cloned())?;
     let (pw, ph) = ((width * scale).round() as u32, (height * scale).round() as u32);
-    let mut buffer = vec![PremultipliedRgbaColor::default(); (pw * ph) as usize];
+    let mut buffer = blank((pw * ph) as usize);
     adapter.request_redraw();
     adapter.draw_if_needed(|r| {
         r.render(&mut buffer, pw as usize);
     });
-    let mut rgba = Vec::with_capacity(buffer.len() * 4);
-    for px in buffer {
-        rgba.extend_from_slice(&[px.red, px.green, px.blue, 255]);
-    }
+    let rgba = opaque(&buffer);
     Some(Picture { width: pw, height: ph, rgba })
 }
 
@@ -157,7 +168,7 @@ pub fn frame(width: f32, height: f32, scale: f32) -> Option<Picture> {
 pub fn redraw(window: &slint::Window) -> bool {
     let Some(adapter) = WINDOWS.with(|w| w.borrow().iter().find(|a| std::ptr::eq(a.window(), window)).cloned()) else { return false };
     let size = adapter.size();
-    let mut buffer = vec![PremultipliedRgbaColor::default(); (size.width * size.height) as usize];
+    let mut buffer = blank((size.width * size.height) as usize);
     adapter.draw_if_needed(|r| {
         r.render(&mut buffer, size.width as usize);
     })
@@ -173,19 +184,16 @@ pub fn draw(window: &slint::Window, width: f32, height: f32, scale: f32) -> Opti
     for _ in 0..3 {
         slint::platform::update_timers_and_animations();
         adapter.request_redraw();
-        let mut scratch = vec![PremultipliedRgbaColor::default(); (pw * ph) as usize];
+        let mut scratch = blank((pw * ph) as usize);
         adapter.draw_if_needed(|r| {
             r.render(&mut scratch, pw as usize);
         });
     }
-    let mut buffer = vec![PremultipliedRgbaColor::default(); (pw * ph) as usize];
+    let mut buffer = blank((pw * ph) as usize);
     adapter.request_redraw();
     adapter.draw_if_needed(|r| {
         r.render(&mut buffer, pw as usize);
     });
-    let mut rgba = Vec::with_capacity(buffer.len() * 4);
-    for px in buffer {
-        rgba.extend_from_slice(&[px.red, px.green, px.blue, 255]);
-    }
+    let rgba = opaque(&buffer);
     Some(Picture { width: pw, height: ph, rgba })
 }
