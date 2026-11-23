@@ -102,7 +102,7 @@ fn people_rgb(frame: &Frame) -> Option<Rgb> {
     small_rgb(frame, pw, ph, true).map(|data| Rgb::new(pw, ph, data))
 }
 
-/// The tiny grey copy a frame is told to have moved by (ops::THUMB), followed by a coarse grid of each chroma plane (U, then V), so a change of colour at the same luma moves it too. A YUV frame gives its grey from the luma plane alone.
+/// The tiny grey copy a frame is told to have moved by (ops::THUMB), followed by a coarse grid of each chroma plane (U, then V), so a change of colour at the same luma moves it too. A YUV frame gives its grey from the luma plane alone, never making its decoder's BGR.
 fn people_look(frame: &Frame) -> Option<Vec<u8>> {
     let (w, h) = (frame.width as usize, frame.height as usize);
     let (tw, th) = ops::THUMB;
@@ -110,7 +110,7 @@ fn people_look(frame: &Frame) -> Option<Vec<u8>> {
         return rgb(frame).map(|picture| ops::thumb(&picture));
     }
     let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-    if matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12) && frame.bgr().is_none() {
+    if matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12) {
         let mut look = small_grey(frame, tw, th)?;
         if frame.format == PixelFormat::I420 && frame.data.len() >= PixelFormat::I420.size(frame.width, frame.height) {
             if let Some((_, u, v)) = frame.i420_planes() {
