@@ -609,10 +609,6 @@ mod tests {
         (server, paired)
     }
 
-    fn free_port() -> u16 {
-        bind(0).unwrap().local_addr().unwrap().port()
-    }
-
     #[test]
     fn the_ports_are_the_new_block_and_the_old_pairing_port() {
         assert_eq!((PAIRING_PORT, OLD_PAIRING_PORT), (7479, 8765));
@@ -620,7 +616,7 @@ mod tests {
 
     #[test]
     fn a_phone_knocking_on_the_old_port_is_not_paired_and_is_named() {
-        let (server, paired) = with_old_port(Some(free_port()));
+        let (server, paired) = with_old_port(Some(0));
         let offer = server.offer.clone();
         let old = offer.old_port.unwrap();
         assert_ne!(old, offer.port);
@@ -635,7 +631,7 @@ mod tests {
 
     #[test]
     fn a_phone_knocking_again_is_named_once() {
-        let (server, _) = with_old_port(Some(free_port()));
+        let (server, _) = with_old_port(Some(0));
         let offer = server.offer.clone();
         let old = offer.old_port.unwrap();
         for _ in 0..3 {
@@ -647,7 +643,7 @@ mod tests {
 
     #[test]
     fn only_a_few_names_wait_to_be_shown() {
-        let (server, _) = with_old_port(Some(free_port()));
+        let (server, _) = with_old_port(Some(0));
         let offer = server.offer.clone();
         let old = offer.old_port.unwrap();
         for i in 0..MAX_OLD_PHONES + 3 {
@@ -662,7 +658,7 @@ mod tests {
 
     #[test]
     fn the_old_port_names_only_phones_that_read_the_offer() {
-        let (server, _) = with_old_port(Some(free_port()));
+        let (server, _) = with_old_port(Some(0));
         let offer = server.offer.clone();
         let old = offer.old_port.unwrap();
         assert_eq!(post(old, "/pair/not-the-nonce", b"{}"), 404);
@@ -672,13 +668,22 @@ mod tests {
 
     #[test]
     fn the_offer_tells_old_phones_the_old_port_and_new_ones_the_pairing_port() {
-        let (server, _) = with_old_port(Some(free_port()));
+        let (server, _) = with_old_port(Some(0));
         let offer = &server.offer;
         for raw in [&offer.payload, &offer.usb_payload] {
             let data: Value = serde_json::from_str(raw).unwrap();
             assert_eq!(data["port"], offer.old_port.unwrap());
             assert_eq!(data["pairing_port"], offer.port);
         }
+    }
+
+    #[test]
+    fn an_old_port_of_zero_is_always_opened_even_when_every_other_port_is_taken() {
+        // Asking for a port by number races with other processes; 0 lets the system pick one that is free right now
+        let hogs: Vec<TcpListener> = (0..20).filter_map(|_| TcpListener::bind(("0.0.0.0", 0)).ok()).collect();
+        let (server, _) = with_old_port(Some(0));
+        let old = server.offer.old_port.expect("the old port is opened");
+        assert!(hogs.iter().all(|h| h.local_addr().unwrap().port() != old));
     }
 
     #[test]
@@ -692,7 +697,7 @@ mod tests {
 
     #[test]
     fn stopping_closes_the_old_port_too() {
-        let (server, _) = with_old_port(Some(free_port()));
+        let (server, _) = with_old_port(Some(0));
         let offer = server.offer.clone();
         server.stop();
         let deadline = Instant::now() + Duration::from_secs(2);
