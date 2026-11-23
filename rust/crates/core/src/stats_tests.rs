@@ -342,6 +342,11 @@ fn model_runs_are_timed_always_and_the_computer_only_while_asked() {
     assert!(hub.snapshot_at(began + 4 * SECOND, None, None).app.system.is_some(), "one still wants it");
     hub.want_system("other", false);
     assert!(hub.snapshot_at(began + 5 * SECOND, None, None).app.system.is_none());
+    // Asked again after a pause, the first reading starts over, so its rates don't average the whole pause
+    hub.want_system("test", true);
+    assert!(!hub.system.lock().unwrap().1.has_history());
+    hub.snapshot_at(began + 6 * SECOND, None, None);
+    assert!(hub.system.lock().unwrap().1.has_history());
 }
 
 #[test]
