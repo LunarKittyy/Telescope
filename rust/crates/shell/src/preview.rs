@@ -246,6 +246,13 @@ fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPref
     ordered
 }
 
+/// The card's limits, but with a small binding count: DX12 sizes its shader-visible descriptor heap from it.
+fn window_limits(adapter: &wgpu::Adapter) -> wgpu::Limits {
+    let mut limits = adapter.limits();
+    limits.max_non_sampler_bindings = limits.max_non_sampler_bindings.min(16384);
+    limits
+}
+
 /// Looks for a graphics card the window can draw on and opens it. `select` gets the configuration to hand Slint, and says whether it took.
 fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result<(), String>) -> Result<(wgpu::Device, wgpu::Queue), String> {
     (|| {
@@ -267,7 +274,7 @@ fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result
                 let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                     label: Some("telescope window"),
             required_features: surface_features(&adapter),
-                    required_limits: adapter.limits(),
+                    required_limits: window_limits(&adapter),
                     memory_hints: wgpu::MemoryHints::Manual { suballocated_device_memory_block_size: (4 << 20)..(8 << 20) },
                     ..Default::default()
                 })).map_err(|e| e.to_string())?;
@@ -299,7 +306,7 @@ fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope window"),
                     required_features: surface_features(&adapter),
-            required_limits: adapter.limits(),
+            required_limits: window_limits(&adapter),
             memory_hints: wgpu::MemoryHints::Manual { suballocated_device_memory_block_size: (4 << 20)..(8 << 20) },
             ..Default::default()
         })).map_err(|e| e.to_string())?;
