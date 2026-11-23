@@ -130,6 +130,7 @@ impl Offsets {
     }
 
     /// What the samples of these U and V rows add.
+    #[inline(always)]
     fn fill(&mut self, m: &Matrix, us: &[u8], vs: &[u8]) {
         for (((r, g), b), (&u, &v)) in self.red.iter_mut().zip(&mut self.green).zip(&mut self.blue).zip(us.iter().zip(vs)) {
             let (u, v) = (u as i32 - 128, v as i32 - 128);
@@ -141,10 +142,11 @@ impl Offsets {
     }
 
     /// Spread over the pixels: each sample's offsets for both of the pair it colours (an odd width's last sample has one pixel).
+    #[inline(always)]
     fn spread(&self, to: &mut Offsets) {
         for (from, to) in [(&self.red, &mut to.red), (&self.green, &mut to.green), (&self.blue, &mut to.blue)] {
             for (pair, &a) in to.as_chunks_mut::<2>().0.iter_mut().zip(from) {
-                pair.fill(a);
+                *pair = [a, a];
             }
         }
     }
@@ -160,17 +162,35 @@ struct Scratch {
 /// A pixel's red, green and blue (8-bit, clamped as the BGR would be) from its luma and its chroma sample's offsets. Sixteen
 /// bit lanes, so a vector holds sixteen pixels.
 #[inline(always)]
-fn colour(gain: i16, black: i16, y: u8, offsets: [i16; 3]) -> [i16; 3] {
+fn colour(gain: i16, black: i16, y: u8, [r, g, b]: [i16; 3]) -> [i16; 3] {
+    // No array::map: a build without link-time optimisation leaves it a call, and the rows 30 times slower
     // 5 fractional bits
     let base = ((((y as i16 - black) << 7) as i32 * gain as i32) >> 16) as i16;
-    offsets.map(|off| ((base + off) >> 5).clamp(0, 255))
+    [level(base, r), level(base, g), level(base, b)]
+}
+
+/// One of a pixel's red, green or blue from its luma's part and its chroma's.
+#[inline(always)]
+fn level(base: i16, offset: i16) -> i16 {
+    ((base + offset) >> 5).clamp(0, 255)
 }
 
 /// Weighs colours as OpenCV's BT.601 does: a bias with 6 fractional bits, then each of R, G, B at 15 fractional bits.
 #[inline(always)]
 fn weigh(bias: i16, rgb: [i16; 3], weights: [i16; 3]) -> i16 {
-    let sum = rgb.iter().zip(weights).fold(bias, |a, (&c, w)| a + (((c << 7) as i32 * w as i32) >> 16) as i16);
+    // An indexed loop, for the same reason as in colour: a fold over a zip stays calls too, and writing the three out ran slower
+    let mut sum = bias;
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..3 {
+        sum += part(rgb[i], weights[i]);
+    }
     (sum + 32) >> 6
+}
+
+/// A colour times its weight, as OpenCV's fixed point takes it.
+#[inline(always)]
+fn part(c: i16, w: i16) -> i16 {
+    (((c << 7) as i32 * w as i32) >> 16) as i16
 }
 
 /// OpenCV's BT.601 weights of R, G, B for luma, U and V, at 15 fractional bits.
@@ -615,7 +635,7 @@ mod tests {
         }
     }
 
-    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_conversion_costs
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_conversion_costs (CARGO_PROFILE_RELEASE_LTO=off for a build without link-time optimisation)
     #[test]
     #[ignore = "a measurement"]
     #[cfg(target_arch = "x86_64")]
