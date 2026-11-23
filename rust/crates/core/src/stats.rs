@@ -426,6 +426,11 @@ pub fn note_decoded(frames: u64) {
     with_current(|s| s.decoded(frames));
 }
 
+/// How many new frames this thread's stream has sent to the virtual camera so far, or None on a thread no stream is bound to.
+pub fn delivered_total() -> Option<u64> {
+    BOUND.try_with(|b| b.try_borrow().ok().and_then(|b| b.as_deref().map(|s| s.delivered.load(Ordering::Relaxed)))).ok().flatten()
+}
+
 /// The feed on this thread's stream carries its video this way now, whatever its URL said.
 pub fn note_transport(transport: Transport) {
     with_current(|s| s.meta.lock().unwrap_or_else(|p| p.into_inner()).transport = Some(transport));

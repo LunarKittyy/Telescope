@@ -380,3 +380,14 @@ fn the_computer_is_slow_when_a_tenth_of_the_frames_are_shed_for_a_few_seconds() 
     assert!(four_a_second.computer_is_slow(), "{:?}", four_a_second.shed_share(4));
     assert_eq!(four_a_second.shed_share(100), None, "not that many seconds counted yet");
 }
+
+#[test]
+fn the_delivered_total_is_the_bound_streams_own() {
+    let (_hub, stats, _) = running();
+    assert_eq!(delivered_total(), None);
+    let _counting = bind(&stats);
+    assert_eq!(delivered_total(), Some(0));
+    stats.delivered();
+    stats.delivered();
+    assert_eq!(delivered_total(), Some(2));
+}
