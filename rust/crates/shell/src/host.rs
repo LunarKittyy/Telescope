@@ -39,6 +39,7 @@ impl Ctx<'_> {
         self.preview_composited(&me, None);
         self.want_sensors(&me, &[]);
         self.want_stats(&me, false);
+        self.want_system(&me, false);
         self.want_frames(&me, false);
         self.want_frame_history(&me, 0);
         self.state.colour.remove_owner(&me);
@@ -836,6 +837,9 @@ impl Host for Ctx<'_> {
             self.state.frame_wants.remove(&key);
         }
         self.state.sync_idle();
+    }
+    fn want_system(&mut self, owner: &str, on: bool) {
+        telescope_core::stats::Hub::shared().want_system(owner, on);
     }
 }
 
