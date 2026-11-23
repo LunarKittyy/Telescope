@@ -5,7 +5,7 @@ New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is
 
 ## For users
 
-- [Features](features/README.md) lists everything the apps can do, split by area in [features/](features/camera.md)
+- [Features](features/README.md) is a tour of what the apps can do, grouped by area, with a link to the details for each
 - [Troubleshooting](troubleshooting.md) has common problems and their fixes
 - [Plugins](features/plugins.md) explains switching parts of the app off and installing plugins other people made
 - [MCP server](features/mcp.md) covers letting an AI app like Claude Desktop read and change Telescope's settings

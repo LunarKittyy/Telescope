@@ -398,3 +398,48 @@ fn a_pack_zipped_with_lzma_installs() {
 fn a_pack_zipped_with_deflate_from_an_older_release_still_installs() {
     installs_from_python_zip(include_bytes!("../testdata/deflate.zip"), zip::CompressionMethod::Deflated);
 }
+
+#[test]
+fn older_pack_ids_come_from_the_platforms_entry() {
+    let info = PackInfo::from_json(&serde_json::json!({"linux": {"id": "a", "size": 1, "older": ["b", 3, "c"]}, "windows": {"id": "d"}}), Some("linux"));
+    assert_eq!(info.older, ["b", "c"]);
+    assert!(PackInfo::from_json(&serde_json::json!({"windows": {"id": "d"}}), Some("windows")).older.is_empty());
+}
+
+#[test]
+fn this_versions_pack_comes_before_an_older_one() {
+    let f = Fixture::new();
+    f.download().unwrap();
+    let older = f.tree.clone();
+    let both = PackInfo { older: vec![older.clone()], ..f.info.clone() };
+    assert_eq!(both.usable(&f.folder).and_then(|p| p.id), Some(older), "only the one there");
+    let mut ahead = both.clone();
+    ahead.id = Some("e".repeat(64));
+    assert_eq!(ahead.usable(&f.folder).and_then(|p| p.id), Some(f.tree.clone()));
+    assert!(PackInfo { older: Vec::new(), ..ahead }.usable(&f.folder).is_none());
+}
+
+#[test]
+fn a_pack_zip_of_an_older_pack_this_version_still_runs_is_installed() {
+    let f = Fixture::new();
+    let newer = PackInfo { id: Some("e".repeat(64)), older: vec![f.tree.clone()], ..f.info.clone() };
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
+    let last = install_zip(&newer, &f.folder, &zip).unwrap();
+    assert_eq!(last, f.folder.join(&f.tree[..16]));
+    assert_eq!(newer.usable(&f.folder).and_then(|p| p.id), Some(f.tree.clone()));
+    assert!(!newer.installed(&f.folder), "this version's own pack is still missing");
+}
+
+#[test]
+fn installing_an_older_pack_zip_keeps_this_versions_pack() {
+    let f = Fixture::new();
+    let newer = PackInfo { id: Some("e".repeat(64)), older: vec![f.tree.clone()], ..f.info.clone() };
+    let own = f.folder.join(newer.pack_id().unwrap());
+    std::fs::create_dir_all(&own).unwrap();
+    std::fs::write(own.join(DONE), newer.pack_id().unwrap()).unwrap();
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
+    install_zip(&newer, &f.folder, &zip).unwrap();
+    assert!(newer.installed(&f.folder), "{:?}", names(&f.folder));
+}

@@ -121,10 +121,12 @@ export component AdjustmentsChip inherits Rectangle {
 export component AdjustmentsSettings inherits Card {
     in property <bool> reset-shown;
     in-out property <bool> effects: true;
+    in-out property <bool> heads: true;
     in-out property <bool> balance: true;
     in-out property <bool> dynamic: true;
     callback reset-clicked;
     callback effects-toggled(bool);
+    callback heads-toggled(bool);
     callback balance-toggled(bool);
     callback dynamic-toggled(bool);
 
@@ -148,6 +150,16 @@ export component AdjustmentsSettings inherits Card {
         hue: root.hue;
         checked <=> root.effects;
         toggled(on) => { root.effects-toggled(on); }
+    }
+    SwitchRow {
+        icon: Icons.framing;
+        label: @tr("Framing by face");
+        tip: @tr("Framing by face");
+        tip-detail: @tr("While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off.");
+        keywords: @tr("search" => "auto framing face head body tracking power saving lighter effects processor battery");
+        hue: root.hue;
+        checked <=> root.heads;
+        toggled(on) => { root.heads-toggled(on); }
     }
     SwitchRow {
         icon: Icons.chip;

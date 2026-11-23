@@ -3,8 +3,8 @@
 //! as Python's do. The models are read into memory (a path with non-ASCII characters fails on Windows).
 
 use crate::ops::{convert_scale_abs, Rgb};
-use crate::pack::{POSE_MODEL, SEGMENTER_MODEL};
-use crate::service::{Backend, Gray, PoseModel, Segmenter, VisionError};
+use crate::pack::{FACE_MODEL, POSE_MODEL, SEGMENTER_MODEL};
+use crate::service::{Backend, Face, FaceModel, Gray, PoseModel, Segmenter, VisionError};
 use libloading::Library;
 use std::ffi::{c_char, c_int, c_uint, c_void, CStr, CString};
 use std::path::{Path, PathBuf};
@@ -103,6 +103,55 @@ struct PoseResult {
     pose_world_landmarks_count: u32,
 }
 
+#[repr(C)]
+struct FaceOptions {
+    base_options: BaseOptions,
+    running_mode: c_int,
+    min_detection_confidence: f32,
+    min_suppression_threshold: f32,
+    result_callback: ResultCallback,
+}
+
+#[repr(C)]
+struct Category {
+    index: c_int,
+    score: f32,
+    category_name: *const c_char,
+    display_name: *const c_char,
+}
+
+/// MpRect: whole pixels, in this order.
+#[repr(C)]
+struct Rect {
+    left: c_int,
+    top: c_int,
+    bottom: c_int,
+    right: c_int,
+}
+
+#[repr(C)]
+struct Keypoint {
+    x: f32,
+    y: f32,
+    label: *const c_char,
+    score: f32,
+}
+
+#[repr(C)]
+struct Detection {
+    categories: *mut Category,
+    categories_count: u32,
+    bounding_box: Rect,
+    keypoints: *mut Keypoint,
+    keypoints_count: u32,
+}
+
+#[repr(C)]
+struct DetectionResult {
+    detections: *mut Detection,
+    detections_count: u32,
+}
+
 type Err = *mut *mut c_char;
 
 /// The C functions we call, looked up once.
@@ -125,6 +174,10 @@ struct Api {
     pose_video: unsafe extern "C" fn(*mut c_void, *mut c_void, *const c_void, i64, *mut PoseResult, Err) -> c_int,
     pose_close_result: unsafe extern "C" fn(*mut PoseResult),
     pose_close: unsafe extern "C" fn(*mut c_void, Err) -> c_int,
+    face_create: unsafe extern "C" fn(*const FaceOptions, *mut *mut c_void, Err) -> c_int,
+    face_video: unsafe extern "C" fn(*mut c_void, *mut c_void, *const c_void, i64, *mut DetectionResult, Err) -> c_int,
+    face_close_result: unsafe extern "C" fn(*mut DetectionResult),
+    face_close: unsafe extern "C" fn(*mut c_void, Err) -> c_int,
 }
 
 /// Python's exception type for an MpStatus (mediapipe_c_utils.convert_to_exception), so problem() reads the same.
@@ -166,6 +219,10 @@ impl Api {
             pose_video: sym!("MpPoseLandmarkerDetectForVideo"),
             pose_close_result: sym!("MpPoseLandmarkerCloseResult"),
             pose_close: sym!("MpPoseLandmarkerClose"),
+            face_create: sym!("MpFaceDetectorCreate"),
+            face_video: sym!("MpFaceDetectorDetectForVideo"),
+            face_close_result: sym!("MpFaceDetectorCloseResult"),
+            face_close: sym!("MpFaceDetectorClose"),
             _lib: std::mem::ManuallyDrop::new(lib),
         })
     }
@@ -239,6 +296,8 @@ pub struct MediaPipe {
     api: Arc<Api>,
     segmenter_model: Arc<Vec<u8>>,
     pose_model: Arc<Vec<u8>>,
+    /// None in a pack from before it had the face finder
+    face_model: Option<Arc<Vec<u8>>>,
     strings: Arc<Strings>,
     version: String,
 }
@@ -277,13 +336,14 @@ impl MediaPipe {
         });
         let segmenter_model = Arc::new(read(SEGMENTER_MODEL)?);
         let pose_model = Arc::new(read(POSE_MODEL)?);
+        let face_model = read(FACE_MODEL).ok().map(Arc::new);
         let api = Arc::new(Api::load(&library_path(folder)).map_err(LoadError::Failed)?);
         let cert = folder.join("site").join("certifi").join("cacert.pem");
         let strings = Arc::new(Strings {
             host_version: CString::new(format!("telescope-rs-{}", telescope_core::version::version())).unwrap_or_default(),
             ca_bundle: cert.exists().then(|| CString::new(cert.to_string_lossy().into_owned()).ok()).flatten(),
         });
-        let backend = MediaPipe { api, segmenter_model, pose_model, strings, version: version_of(folder) };
+        let backend = MediaPipe { api, segmenter_model, pose_model, face_model, strings, version: version_of(folder) };
         drop(backend.segmenter().map_err(LoadError::Failed)?);
         Ok(backend)
     }
@@ -339,6 +399,14 @@ impl Backend for MediaPipe {
         let mut handle = ptr::null_mut();
         self.api.check(|err| unsafe { (self.api.pose_create)(&options, &mut handle, err) })?;
         Ok(Box::new(MpPose { api: self.api.clone(), handle, _model: self.pose_model.clone() }))
+    }
+
+    fn faces(&self) -> Result<Box<dyn FaceModel>, VisionError> {
+        let model = self.face_model.clone().ok_or_else(|| VisionError::new("FileNotFoundError", "no face model in the pack"))?;
+        let options = FaceOptions { base_options: self.base(&model), running_mode: VIDEO, min_detection_confidence: 0.5, min_suppression_threshold: 0.3, result_callback: None };
+        let mut handle = ptr::null_mut();
+        self.api.check(|err| unsafe { (self.api.face_create)(&options, &mut handle, err) })?;
+        Ok(Box::new(MpFaces { api: self.api.clone(), handle, _model: model }))
     }
 }
 
@@ -415,6 +483,46 @@ impl Drop for MpPose {
         let api = &*self.api;
         if let Err(e) = api.check(|err| unsafe { (api.pose_close)(self.handle, err) }) {
             log::warn!("Closing the pose model failed: {e:?}");
+        }
+    }
+}
+
+struct MpFaces {
+    api: Arc<Api>,
+    handle: *mut c_void,
+    _model: Arc<Vec<u8>>,
+}
+
+// Safety: as MpSegmenter.
+unsafe impl Send for MpFaces {}
+
+impl FaceModel for MpFaces {
+    fn detect(&mut self, frame: &Rgb, ts_ms: i64) -> Result<Vec<Face>, VisionError> {
+        let api = &*self.api;
+        let image = api.image(frame)?;
+        let mut result = DetectionResult { detections: ptr::null_mut(), detections_count: 0 };
+        api.check(|err| unsafe { (api.face_video)(self.handle, image.ptr, ptr::null(), ts_ms, &mut result, err) })?;
+        let (w, h) = (frame.w.max(1) as f64, frame.h.max(1) as f64);
+        let found = if result.detections.is_null() { &[][..] } else { unsafe { std::slice::from_raw_parts(result.detections, result.detections_count as usize) } };
+        let faces = found.iter().filter_map(|d| {
+            let points = if d.keypoints.is_null() { &[][..] } else { unsafe { std::slice::from_raw_parts(d.keypoints, d.keypoints_count as usize) } };
+            // right eye, left eye, nose tip, mouth, right ear, left ear (the person's own sides, as the pose model names them)
+            let [re, le, nose, _, rear, lear] = points else { return None };
+            let score = if d.categories.is_null() || d.categories_count == 0 { 0.0 } else { unsafe { (*d.categories).score as f64 } };
+            let b = &d.bounding_box;
+            let at = |k: &Keypoint| (k.x as f64, k.y as f64);
+            Some(Face { area: (b.left as f64 / w, b.top as f64 / h, b.right as f64 / w, b.bottom as f64 / h), right_eye: at(re), left_eye: at(le), nose: at(nose), right_ear: at(rear), left_ear: at(lear), score })
+        }).collect();
+        unsafe { (api.face_close_result)(&mut result) };
+        Ok(faces)
+    }
+}
+
+impl Drop for MpFaces {
+    fn drop(&mut self) {
+        let api = &*self.api;
+        if let Err(e) = api.check(|err| unsafe { (api.face_close)(self.handle, err) }) {
+            log::warn!("Closing the face finder failed: {e:?}");
         }
     }
 }
