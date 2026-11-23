@@ -8,6 +8,7 @@
 use crate::ffmpeg::{aligned_start, padded_stride, Padded};
 use ffmpeg_sys_next as ff;
 use std::cell::RefCell;
+use std::mem::MaybeUninit;
 use std::ptr;
 use std::sync::Arc;
 use telescope_core::frame::{spare_bgr, Bgr, LazyBgr};
@@ -19,6 +20,75 @@ pub use crate::range::full_to_limited;
 pub struct Encoding {
     pub matrix: i32,
     pub full_range: bool,
+}
+
+/// One plane of a decoded picture where the decoder left it, rows `stride` bytes apart.
+#[derive(Clone, Copy)]
+pub struct Plane<'a> {
+    pub bytes: &'a [u8],
+    pub stride: usize,
+}
+
+impl Plane<'_> {
+    #[inline(always)]
+    fn row(&self, y: usize, len: usize) -> &[u8] {
+        &self.bytes[y * self.stride..][..len]
+    }
+}
+
+/// A decoded picture's chroma: U and V planes of their own, or NV12's U, V pairs in one.
+#[derive(Clone, Copy)]
+pub enum Chroma<'a> {
+    Split(Plane<'a>, Plane<'a>),
+    Paired(Plane<'a>),
+}
+
+/// A decoded 4:2:0 picture's planes, read where they are instead of copied out first.
+#[derive(Clone, Copy)]
+pub struct Planes<'a> {
+    pub luma: Plane<'a>,
+    pub chroma: Chroma<'a>,
+}
+
+impl<'a> Planes<'a> {
+    /// Packed I420: each plane straight after the one before, rows without padding.
+    pub fn packed(i420: &'a [u8], width: usize, height: usize) -> Planes<'a> {
+        let (cw, ch) = (width.div_ceil(2), height.div_ceil(2));
+        let (y, rest) = i420.split_at(width * height);
+        let (u, v) = rest.split_at(cw * ch);
+        Planes { luma: Plane { bytes: y, stride: width }, chroma: Chroma::Split(Plane { bytes: u, stride: cw }, Plane { bytes: v, stride: cw }) }
+    }
+}
+
+/// The planes as packed I420, NV12's pairs split as they go.
+pub fn packed(planes: &Planes, width: usize, height: usize) -> Vec<u8> {
+    let (cw, ch) = (width.div_ceil(2), height.div_ceil(2));
+    let mut out = Vec::with_capacity(width * height + 2 * cw * ch);
+    for y in 0..height {
+        out.extend_from_slice(planes.luma.row(y, width));
+    }
+    match planes.chroma {
+        Chroma::Split(u, v) => {
+            for plane in [u, v] {
+                for y in 0..ch {
+                    out.extend_from_slice(plane.row(y, cw));
+                }
+            }
+        }
+        Chroma::Paired(uv) => {
+            // Both planes written in one pass over the pairs, into room that is never cleared first
+            let (u, v) = out.spare_capacity_mut()[..2 * cw * ch].split_at_mut(cw * ch);
+            for (y, (u, v)) in u.chunks_exact_mut(cw).zip(v.chunks_exact_mut(cw)).enumerate() {
+                for ((pair, u), v) in uv.row(y, cw * 2).as_chunks::<2>().0.iter().zip(u).zip(v) {
+                    u.write(pair[0]);
+                    v.write(pair[1]);
+                }
+            }
+            // SAFETY: the loop above wrote all ch rows of cw samples of both planes
+            unsafe { out.set_len(width * height + 2 * cw * ch) };
+        }
+    }
+    out
 }
 
 /// swscale's YUV to RGB coefficients for a matrix; the ones it falls back to for a number it doesn't know.
@@ -141,6 +211,18 @@ impl Offsets {
         }
     }
 
+    /// What the samples of a row of NV12's U, V pairs add.
+    #[inline(always)]
+    fn fill_paired(&mut self, m: &Matrix, uv: &[u8]) {
+        for (((r, g), b), pair) in self.red.iter_mut().zip(&mut self.green).zip(&mut self.blue).zip(uv.as_chunks::<2>().0) {
+            let (u, v) = (pair[0] as i32 - 128, pair[1] as i32 - 128);
+            let q5 = |x: i32| (x >> 11) as i16;
+            *r = q5(m.crv * v);
+            *g = q5(-(m.cgu * u + m.cgv * v));
+            *b = q5(m.cbu * u);
+        }
+    }
+
     /// Spread over the pixels: each sample's offsets for both of the pair it colours (an odd width's last sample has one pixel).
     #[inline(always)]
     fn spread(&self, to: &mut Offsets) {
@@ -200,23 +282,21 @@ const RED_DIFF: [i16; 3] = [14385, -12059, -2327];
 
 /// One row of luma as BT.601 limited out of the stream's.
 #[inline(always)]
-fn luma_row(gain: i16, black: i16, y: &[u8], offsets: &Offsets, out: &mut [u8]) {
+fn luma_row(gain: i16, black: i16, y: &[u8], offsets: &Offsets, out: &mut [MaybeUninit<u8>]) {
     let n = out.len();
     let (y, red, green, blue) = (&y[..n], &offsets.red[..n], &offsets.green[..n], &offsets.blue[..n]);
     for ((((l, &y), &r), &g), &b) in out.iter_mut().zip(y).zip(red).zip(green).zip(blue) {
-        *l = weigh(16 << 6, colour(gain, black, y, [r, g, b]), LUMA) as u8;
+        l.write(weigh(16 << 6, colour(gain, black, y, [r, g, b]), LUMA) as u8);
     }
 }
 
-/// The planes of `src` (packed I420, in the encoding `m` is for) as BT.601 limited in `out`: what going through 8-bit BGR does
+/// The planes of `src` (in the encoding `m` is for) as BT.601 limited packed I420 in `out`, every byte of it written: what going through 8-bit BGR does
 /// (the clamping included), without making the BGR. Each chroma sample colours its 2 x 2 pixels, and the top left one's colour
 /// gives the sample back, which is what swscale does too when the height is even (a picture with an odd height gets its chroma
 /// stretched and takes `standard`'s old way).
 #[inline(always)]
-fn matrix_rows(m: &Matrix, src: &[u8], out: &mut [u8], scratch: &mut Scratch, width: usize, height: usize) {
+fn matrix_rows(m: &Matrix, src: &Planes, out: &mut [MaybeUninit<u8>], scratch: &mut Scratch, width: usize, height: usize) {
     let (cw, ch) = (width.div_ceil(2), height.div_ceil(2));
-    let (y_in, chroma_in) = src.split_at(width * height);
-    let (u_in, v_in) = chroma_in.split_at(cw * ch);
     let (y_out, chroma_out) = out.split_at_mut(width * height);
     let (u_out, v_out) = chroma_out.split_at_mut(cw * ch);
     let Scratch { chroma, spread } = scratch;
@@ -224,32 +304,35 @@ fn matrix_rows(m: &Matrix, src: &[u8], out: &mut [u8], scratch: &mut Scratch, wi
     spread.resize(cw * 2);
     let (gain, black) = ((m.luma >> 2) as i16, m.black as i16);
     for cy in 0..ch {
-        chroma.fill(m, &u_in[cy * cw..(cy + 1) * cw], &v_in[cy * cw..(cy + 1) * cw]);
+        match src.chroma {
+            Chroma::Split(u, v) => chroma.fill(m, u.row(cy, cw), v.row(cy, cw)),
+            Chroma::Paired(uv) => chroma.fill_paired(m, uv.row(cy, cw * 2)),
+        }
         chroma.spread(spread);
         // The chroma out of the top left pixel of each block
-        let top = &y_in[cy * 2 * width..(cy * 2 + 1) * width];
+        let top = src.luma.row(cy * 2, width);
         let (us_out, vs_out) = (&mut u_out[cy * cw..(cy + 1) * cw], &mut v_out[cy * cw..(cy + 1) * cw]);
         let whole = top.as_chunks::<2>().0.iter().zip(&chroma.red).zip(&chroma.green).zip(&chroma.blue);
         for ((((y, &r), &g), &b), (uo, vo)) in whole.zip(us_out.iter_mut().zip(vs_out.iter_mut())) {
             let rgb = colour(gain, black, y[0], [r, g, b]);
-            *uo = weigh(128 << 6, rgb, BLUE_DIFF) as u8;
-            *vo = weigh(128 << 6, rgb, RED_DIFF) as u8;
+            uo.write(weigh(128 << 6, rgb, BLUE_DIFF) as u8);
+            vo.write(weigh(128 << 6, rgb, RED_DIFF) as u8);
         }
         if width % 2 == 1 {
             let i = cw - 1;
             let rgb = colour(gain, black, top[width - 1], [chroma.red[i], chroma.green[i], chroma.blue[i]]);
-            us_out[i] = weigh(128 << 6, rgb, BLUE_DIFF) as u8;
-            vs_out[i] = weigh(128 << 6, rgb, RED_DIFF) as u8;
+            us_out[i].write(weigh(128 << 6, rgb, BLUE_DIFF) as u8);
+            vs_out[i].write(weigh(128 << 6, rgb, RED_DIFF) as u8);
         }
         for y in (cy * 2..cy * 2 + 2).filter(|&y| y < height) {
-            luma_row(gain, black, &y_in[y * width..(y + 1) * width], spread, &mut y_out[y * width..(y + 1) * width]);
+            luma_row(gain, black, src.luma.row(y, width), spread, &mut y_out[y * width..(y + 1) * width]);
         }
     }
 }
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
-fn matrix_rows_avx2(m: &Matrix, src: &[u8], out: &mut [u8], scratch: &mut Scratch, width: usize, height: usize) {
+fn matrix_rows_avx2(m: &Matrix, src: &Planes, out: &mut [MaybeUninit<u8>], scratch: &mut Scratch, width: usize, height: usize) {
     matrix_rows(m, src, out, scratch, width, height);
 }
 
@@ -363,9 +446,23 @@ impl Converter {
             // swscale scales the chroma of a picture with an odd height in a way the rows below don't follow, so it still goes through BGR
             if let Some(bgr) = bgr_of(&i420, width, height, enc) {
                 let out = bgr_to_i420(&bgr.data[bgr.start..][..bgr.stride * height], bgr.stride, width, height);
-                return (out, Some(lazy_bgr(i420, width, height, enc)));
+                return (out, Some(lazy_bgr(move || i420, width, height, enc)));
             }
         }
+        let out = self.matrix(&Planes::packed(&i420, width, height), width, height, enc);
+        (out, Some(lazy_bgr(move || i420, width, height, enc)))
+    }
+
+    /// BT.601 limited I420 straight from a picture's planes; None for one the matrix doesn't take alone (BT.601, an odd height), which goes through `standard`.
+    pub fn direct(&mut self, planes: &Planes, width: usize, height: usize, enc: Encoding) -> Option<Vec<u8>> {
+        if is_bt601(enc.matrix) || width == 0 || height == 0 || height % 2 == 1 {
+            return None;
+        }
+        Some(self.matrix(planes, width, height, enc))
+    }
+
+    /// The matrix rows into a new buffer, which isn't cleared first since they write all of it.
+    fn matrix(&mut self, planes: &Planes, width: usize, height: usize, enc: Encoding) -> Vec<u8> {
         let matrix = match self.matrix {
             Some((for_enc, m)) if for_enc == enc => m,
             _ => {
@@ -374,21 +471,28 @@ impl Converter {
                 m
             }
         };
-        let mut out = vec![0u8; width * height + 2 * cw * ch];
+        let len = width * height + 2 * width.div_ceil(2) * height.div_ceil(2);
+        let mut out = Vec::with_capacity(len);
+        let room = &mut out.spare_capacity_mut()[..len];
         #[cfg(target_arch = "x86_64")]
         if std::arch::is_x86_feature_detected!("avx2") {
             // SAFETY: the processor was just asked whether it has AVX2
-            unsafe { matrix_rows_avx2(&matrix, &i420, &mut out, &mut self.scratch, width, height) };
-            return (out, Some(lazy_bgr(i420, width, height, enc)));
+            unsafe { matrix_rows_avx2(&matrix, planes, room, &mut self.scratch, width, height) };
+            // SAFETY: matrix_rows wrote every byte of the len
+            unsafe { out.set_len(len) };
+            return out;
         }
-        matrix_rows(&matrix, &i420, &mut out, &mut self.scratch, width, height);
-        (out, Some(lazy_bgr(i420, width, height, enc)))
+        matrix_rows(&matrix, planes, room, &mut self.scratch, width, height);
+        // SAFETY: matrix_rows wrote every byte of the len
+        unsafe { out.set_len(len) };
+        out
     }
 }
 
-/// The BGR of a picture still in its own encoding, made the first time it is read.
-fn lazy_bgr(i420: Vec<u8>, width: usize, height: usize, enc: Encoding) -> Arc<LazyBgr> {
+/// The BGR of a picture still in its own encoding (`i420` gives it packed), made the first time it is read.
+pub fn lazy_bgr(i420: impl FnOnce() -> Vec<u8> + Send + 'static, width: usize, height: usize, enc: Encoding) -> Arc<LazyBgr> {
     Arc::new(LazyBgr::new(move || {
+        let i420 = i420();
         bgr_of(&i420, width, height, enc).unwrap_or_else(|| {
             log::warn!("A {width}x{height} picture in matrix {} couldn't be given colours; its effects will read it as BT.601", enc.matrix);
             Bgr::default()
@@ -664,13 +768,13 @@ mod tests {
                 with_bgr.push(t.elapsed().as_secs_f64() * 1e3);
             }
             let m = Matrix::new(bt709());
-            let mut out = vec![0u8; pic.len()];
+            let mut out = vec![MaybeUninit::new(0u8); pic.len()];
             let mut offsets = Scratch::default();
             let mut rows_only = Vec::new();
             for _ in 0..20 {
                 let t = Instant::now();
                 // SAFETY: the bench runs where AVX2 is
-                unsafe { matrix_rows_avx2(&m, &pic, &mut out, &mut offsets, w, h) };
+                unsafe { matrix_rows_avx2(&m, &Planes::packed(&pic, w, h), &mut out, &mut offsets, w, h) };
                 rows_only.push(t.elapsed().as_secs_f64() * 1e3);
             }
             println!("{w}x{h}: the rows alone on a buffer already touched {:.2} ms", med(rows_only));
