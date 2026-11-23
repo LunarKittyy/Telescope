@@ -182,6 +182,12 @@ impl Matrix {
     }
 }
 
+/// The matrix as convert.wgsl's cpu_colour takes it, to make the same bytes as the rows here: luma gain, black, then the chroma terms.
+pub(crate) fn card_terms(enc: Encoding) -> [i32; 8] {
+    let m = Matrix::new(enc);
+    [m.luma >> 2, m.black, m.crv, m.cbu, m.cgu, m.cgv, 0, 0]
+}
+
 /// What a row of chroma samples adds to red, green and blue (5 fractional bits).
 #[derive(Default)]
 struct Offsets {

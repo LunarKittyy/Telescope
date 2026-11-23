@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
-use telescope_core::image::spare_bytes;
+use telescope_core::image::{spare_bytes, spare_room};
 use telescope_core::shader;
 use telescope_core::time::{monotonic_ns, span};
 use wgpu::naga;
@@ -575,7 +575,13 @@ impl Gpu {
     }
 
     fn convert_pass_encoded(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), block_chroma: bool, colour: u32) {
-        let settings: [u32; 4] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 } | colour, taps.max(1), src_size.0, src_size.1];
+        let mut settings: [u32; 12] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 } | colour, taps.max(1), src_size.0, src_size.1, 0, 0, 0, 0, 0, 0, 0, 0];
+        #[cfg(all(any(target_os = "linux", windows), ffmpeg))]
+        if colour & FROM_NV12 != 0 {
+            // The decoder's own encoding (16 BT.709, 32 full range), which the shader turns into BT.601 limited as the CPU would
+            let enc = crate::yuv::Encoding { matrix: if colour & 16 != 0 { 1 } else { 5 }, full_range: colour & 32 != 0 };
+            settings[4..].copy_from_slice(&crate::yuv::card_terms(enc).map(|t| t as u32));
+        }
         let buf = self.uniform(bytemuck_u32(&settings));
         let view = target.create_view(&Default::default());
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -610,6 +616,16 @@ impl Gpu {
     /// Whether the device was lost or wgpu panicked on it: nothing more goes to it.
     pub fn is_lost(&self) -> bool {
         self.lost.load(Ordering::SeqCst)
+    }
+
+    /// Whether this card is the processor drawing in software (WARP, llvmpipe), where work on the card only costs CPU.
+    pub(crate) fn is_software(&self) -> bool {
+        self.wait_limit == SOFTWARE_READBACK_WAIT
+    }
+
+    /// Whether the frame is a decoder's picture this card can take in where it is, with no copy through memory.
+    pub(crate) fn importable(frame: &Frame) -> bool {
+        frame.surface().is_some_and(|source| decoder_surface(source.as_any()))
     }
 
     /// Whether this card can still be used.
@@ -735,14 +751,12 @@ impl Gpu {
         let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
         // Rows go straight into one buffer from the spares, so the readback is the only copy
         let total: usize = textures.iter().zip(bpp).map(|(t, b)| (t.width() * b) as usize * t.height() as usize).sum();
-        let mut out = spare_bytes(total);
-        let mut put = 0;
+        let mut out = spare_room(total);
         for ((t, b), off) in textures.iter().zip(bpp).zip(&offsets) {
             let (row, stride) = ((t.width() * b) as usize, aligned_row(t.width() * b) as usize);
             for y in 0..t.height() as usize {
                 let at = *off as usize + y * stride;
-                out[put..put + row].copy_from_slice(&mapped[at..at + row]);
-                put += row;
+                out.extend_from_slice(&mapped[at..at + row]);
             }
         }
         drop(mapped);
@@ -1197,6 +1211,13 @@ impl Gpu {
         Ok(waited)
     }
 
+    /// As if this were the processor drawing in software, for tests (only the Linux VA-API ones use it).
+    #[cfg(all(test, target_os = "linux"))]
+    pub(crate) fn pretend_software(mut self) -> Self {
+        self.wait_limit = SOFTWARE_READBACK_WAIT;
+        self
+    }
+
     /// As if the card went away, for tests.
     #[cfg(test)]
     pub(crate) fn lose(&self) {
@@ -1238,6 +1259,22 @@ impl Gpu {
         self.give_back(used);
         Ok(out)
     }
+}
+
+/// Whether a decoder's picture is one this build imports onto the card (VA-API on Linux, D3D11VA on Windows).
+#[cfg(all(target_os = "linux", ffmpeg))]
+fn decoder_surface(source: &dyn std::any::Any) -> bool {
+    source.is::<crate::vaapi_import::Surface>()
+}
+
+#[cfg(all(windows, ffmpeg))]
+fn decoder_surface(source: &dyn std::any::Any) -> bool {
+    source.is::<crate::d3d11_import::Surface>()
+}
+
+#[cfg(not(any(all(target_os = "linux", ffmpeg), all(windows, ffmpeg))))]
+fn decoder_surface(_source: &dyn std::any::Any) -> bool {
+    false
 }
 
 /// Why a DX12 device was removed (a driver reset, the card unplugged); None on other backends and while it's fine.

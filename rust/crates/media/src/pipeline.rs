@@ -164,6 +164,24 @@ struct Chain {
     down_ns: u64,
     /// The frame in hand was replaced by a dark one to hide the picture, so a step that could bring the picture back from its own history is left out.
     withheld: bool,
+    /// held is the decoder's picture taken in and converted on the card with no step on it, still to come down.
+    plain: bool,
+}
+
+impl Chain {
+    /// Whether the card holds something the frame in hand doesn't have yet.
+    fn pending(&self) -> bool {
+        !self.ahead.is_empty() || self.plain
+    }
+}
+
+/// Whether a plain stream may convert on the card: always on Linux, on Windows only with TELESCOPE_PLAIN_ON_CARD set, since it hasn't run on a real card there yet.
+pub(crate) fn plain_allowed() -> bool {
+    plain_gate(cfg!(windows), std::env::var_os("TELESCOPE_PLAIN_ON_CARD").is_some_and(|v| v != "0"))
+}
+
+fn plain_gate(windows: bool, opted_in: bool) -> bool {
+    !windows || opted_in
 }
 
 /// A step that hides, as the frame last through the steps had it: what a frame sent again is compared with.
@@ -251,6 +269,8 @@ pub struct Pipeline {
     was_off_card: bool,
     /// The newest trial of the card still out, and the flag that calls it off.
     trial: Option<(std::thread::JoinHandle<()>, Arc<AtomicBool>)>,
+    /// Whether the stream's decoder has left pictures on the card this card can take in.
+    card_decoder: bool,
 }
 
 impl Drop for Pipeline {
@@ -281,7 +301,16 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None }
+        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
+        // Asked before the first picture, which sizes the decoder's pool: a stream with no steps yet takes them in on the card
+        pipeline.note_surface_wish();
+        pipeline
+    }
+
+    /// Runs on this card instead of the app's, for tests that lose it.
+    #[cfg(all(test, target_os = "linux", ffmpeg))]
+    pub(crate) fn use_card(&mut self, gpu: Arc<Gpu>) {
+        self.gpu = Some(Some(gpu));
     }
 
     /// How many times the newest frame went up to the card and came down, for this pipeline alone.
@@ -296,6 +325,7 @@ impl Pipeline {
         if self.deferred_failed.load(Ordering::SeqCst) {
             self.lost_card("a deferred landing failed");
         }
+        self.card_decoder |= Gpu::importable(&frame);
         // A decoder's picture still on the card is only for a first step that runs there: any other gets the picture in memory, as it always did
         if frame.surface().is_some() && !self.starts_on_card() {
             frame = frame.materialise();
@@ -383,8 +413,12 @@ impl Pipeline {
             }
             frame.mask_space = mask_space;
         }
+        // No step took the decoder's picture: it is converted on the card into the camera's format, and only that comes down
+        if chain.held.is_none() && !chain.withheld && !ctx.stopped() && Gpu::importable(&frame) && self.plain_on_card() {
+            self.lift_plain(&frame, &mut chain);
+        }
         let mut picture = None;
-        if matches!(finish, Finish::Card) && !chain.ahead.is_empty() && !ctx.stopped() {
+        if matches!(finish, Finish::Card) && chain.pending() && !ctx.stopped() {
             let gpu = self.gpu.clone().flatten().unwrap();
             match gpu.submit_held(chain.held.as_mut().unwrap(), &mut self.pacing, &|| ctx.stopped()) {
                 Ok(()) => {
@@ -394,6 +428,7 @@ impl Pipeline {
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
                     }
+                    chain.plain = false;
                     picture = Some(Arc::new(gpu::CardFrame::new(gpu, chain.held.take().unwrap(), frame.clone(), fallback, self.deferred_failed.clone(), self.balance.clone())) as Arc<dyn telescope_core::media::CardPicture>);
                 }
                 Err(why) => self.card_failed(&why, &mut chain, &mut frame, ctx, &gpu),
@@ -408,6 +443,8 @@ impl Pipeline {
         if chain.downs > 0 {
             self.balance.note_wait(chain.waited_ns);
         }
+        // A plain stream that would convert on the card but was moved off it tries the card again like a step with both ways
+        off_card |= !on_card && self.card_decoder && !self.card_lost && plain_allowed() && self.no_steps_run();
         if off_card {
             if !self.was_off_card && ON_THE_CARD.load(Ordering::SeqCst) <= 1 {
                 if let Some(gpu) = self.gpu.clone().flatten() {
@@ -444,11 +481,12 @@ impl Pipeline {
 
     /// Brings frame up to date with the card, and drops the card's copy unless keep.
     fn bring_down(&mut self, chain: &mut Chain, frame: &mut Frame, ctx: &dyn FrameContext, keep: bool) {
-        if chain.ahead.is_empty() && frame.surface().is_some() {
+        if !chain.pending() && frame.surface().is_some() {
             *frame = frame.materialise();
         }
         let Some(gpu) = self.gpu.clone().flatten() else { return };
-        if let (Some(held), false) = (chain.held.as_mut(), chain.ahead.is_empty()) {
+        let pending = chain.pending();
+        if let (Some(held), true) = (chain.held.as_mut(), pending) {
             chain.downs += 1;
             let cap = SPARE_POOL_FRAMES * held.size().0 as usize * held.size().1 as usize * 3;
             let down_began = chain.timing.then(monotonic_ns);
@@ -471,10 +509,12 @@ impl Pipeline {
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
                     }
+                    chain.plain = false;
                 }
                 Err(_) if ctx.stopped() => {
                     // Stop is waiting on this frame: it isn't worth the CPU's work, the card isn't to blame, and what it was missing mustn't go out as it is
                     chain.ahead.clear();
+                    chain.plain = false;
                     gpu.put_down(chain.held.take().unwrap());
                     *frame = neutral((frame.width, frame.height), frame.format, frame);
                     chain.withheld = true;
@@ -495,6 +535,8 @@ impl Pipeline {
     /// The card failed what it was doing for this frame: the frame in hand is the last good one, and what the card did after it is lost with it.
     fn card_failed(&mut self, why: &str, chain: &mut Chain, frame: &mut Frame, ctx: &dyn FrameContext, gpu: &Gpu) {
         let lost: Vec<usize> = std::mem::take(&mut chain.ahead);
+        // A plain picture still has the decoder's in hand, which comes down the CPU's way
+        chain.plain = false;
         for &i in &lost {
             if matches!(self.steps[i].kind, Kind::Shader(_)) {
                 self.steps[i].failed(why);
@@ -540,6 +582,7 @@ impl Pipeline {
     /// Lets go of what the card holds for this frame without bringing it down, for a frame whose picture is being withheld.
     fn drop_card_work(&mut self, chain: &mut Chain) {
         chain.ahead.clear();
+        chain.plain = false;
         if let (Some(held), Some(gpu)) = (chain.held.take(), self.gpu.clone().flatten()) {
             gpu.put_down(held);
         }
@@ -567,11 +610,43 @@ impl Pipeline {
             None => true,
         };
         let on_card = card && self.balance.place() == Place::Card && !self.card_lost;
-        self.steps.iter().find(|e| !e.skipped()).is_some_and(|e| match &e.kind {
-            Kind::Shader(_) => card,
-            Kind::Either(..) => on_card && !e.no_shader,
-            Kind::Cpu(_) => false,
-        })
+        match self.steps.iter().find(|e| !e.skipped()) {
+            None => self.plain_on_card(),
+            Some(e) => match &e.kind {
+                Kind::Shader(_) => card,
+                Kind::Either(..) => on_card && !e.no_shader,
+                Kind::Cpu(_) => false,
+            },
+        }
+    }
+
+    /// Whether a stream with no step to run converts the decoder's picture on the card: not on one drawing in software, nor while the balance has moved work off it.
+    fn plain_on_card(&self) -> bool {
+        let card = match &self.gpu {
+            Some(Some(gpu)) => !gpu.is_lost() && !gpu.is_software(),
+            Some(None) => false,
+            None => true,
+        };
+        card && !self.card_lost && plain_allowed() && self.balance.place() == Place::Card && self.no_steps_run()
+    }
+
+    /// Whether every step is left out (none, or all skipped for failing).
+    fn no_steps_run(&self) -> bool {
+        self.steps.iter().all(Entry::skipped)
+    }
+
+    /// Takes the decoder's picture in on the card, converted there into I420; anything that stops that leaves it to come down the CPU's way.
+    fn lift_plain(&mut self, frame: &Frame, chain: &mut Chain) {
+        let Some(gpu) = self.gpu().filter(|gpu| !gpu.is_lost() && !gpu.is_software()) else { return };
+        match gpu.lift(frame) {
+            Ok(held) if held.was_imported() => {
+                chain.held = Some(held);
+                chain.plain = true;
+            }
+            // The stream's import was refused and the picture went up through memory: it comes down the CPU's way, as the next ones will
+            Ok(held) => gpu.put_down(held),
+            Err(why) => self.lost_card(&why),
+        }
     }
 
     fn note_surface_wish(&self) {
@@ -3267,7 +3342,7 @@ pub(crate) mod tests {
     #[test]
     fn the_decoder_is_only_asked_for_pictures_on_the_card_while_the_first_step_runs_there() {
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        assert!(!wish(&p), "no steps");
+        assert_eq!(wish(&p), plain_allowed(), "no steps: the picture is converted on the card for the camera, where that's on");
         p.set_steps(vec![shader(INVERT)]);
         assert!(wish(&p), "a card step first");
         p.set_steps(vec![step("first", FrameStage::Background, Brightens), shader(INVERT)]);
@@ -3275,11 +3350,33 @@ pub(crate) mod tests {
         p.set_steps(vec![shader(INVERT), step("last", FrameStage::Privacy, Brightens)]);
         assert!(wish(&p), "a card step first, a CPU step after it");
         p.set_steps(Vec::new());
-        assert!(!wish(&p), "steps taken off again");
+        assert_eq!(wish(&p), plain_allowed(), "steps taken off again");
+        p.set_steps(vec![step("first", FrameStage::Background, Brightens)]);
+        assert!(!wish(&p), "a CPU step alone");
         let (p, _) = either(Place::Card);
         assert!(wish(&p), "a step with both ways, with the card ahead");
         let (p, _) = either(Place::Cpu);
         assert!(!wish(&p), "a step with both ways, with the CPU ahead");
+    }
+
+    #[test]
+    fn a_plain_stream_converts_on_the_card_on_windows_only_when_asked_to() {
+        assert!(plain_gate(false, false), "Linux: on by default");
+        assert!(!plain_gate(true, false), "Windows: off by default");
+        assert!(plain_gate(true, true), "Windows: opted in");
+    }
+
+    #[test]
+    fn a_stream_with_no_steps_only_converts_on_the_card_while_one_is_there_to_use() {
+        assert!(!wish(&Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Cpu)))), "the balance moved work off a busy card");
+        let mut missing = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        missing.gpu = Some(None);
+        missing.set_steps(Vec::new());
+        assert!(!wish(&missing), "no card");
+        let mut lost = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        lost.lost_card("a test");
+        lost.set_steps(Vec::new());
+        assert!(!wish(&lost), "a card that failed a frame");
     }
 
     #[test]

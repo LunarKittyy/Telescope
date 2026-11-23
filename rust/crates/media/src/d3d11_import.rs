@@ -689,6 +689,38 @@ mod tests {
     }
 
     #[test]
+    fn a_stream_with_no_steps_converts_the_decoders_picture_on_the_card_as_the_cpu_would() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::media::FramePipeline;
+        if !crate::pipeline::plain_allowed() {
+            return eprintln!("a plain stream converting on the card is opt-in on Windows (TELESCOPE_PLAIN_ON_CARD=1); skipped");
+        }
+        let Some(gpu) = card() else { return eprintln!("no graphics card; skipped") };
+        if gpu.adapter_name.contains("Vulkan") && std::env::var_os("TELESCOPE_VULKAN_SURFACE_IMPORT").is_none() {
+            return eprintln!("sharing with Vulkan is off; skipped");
+        }
+        let Ok(mut codec) = Codec::h264(Some(Hw::D3d11va)) else { return eprintln!("no D3D11VA device; skipped") };
+        codec.surfaces(true);
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        for (w, h) in [(256, 144), (1920, 1080)] {
+            for (y, u, v, matrix, range) in [(70, 112, 145, "smpte170m", "tv"), (170, 150, 110, "bt709", "tv"), (110, 100, 152, "bt709", "pc"), (110, 100, 152, "smpte170m", "pc"), (200, 40, 230, "bt709", "pc")] {
+                let Some(packets) = testenc::h264_yuv(y, u, v, w, h, matrix, range) else { return eprintln!("no H.264 encoder; skipped") };
+                let frame = decode_surface(&mut codec, &packets).expect("a decoded frame");
+                let out = pipeline.process_picture(frame.clone(), &NoContext);
+                assert!(out.picture().is_some(), "{w}x{h} {matrix}/{range}: the picture didn't stay on the card");
+                let on_card = out.land();
+                let surface = frame.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap();
+                assert!(surface.ram.get().is_none(), "{w}x{h} {matrix}/{range}: the CPU converted the picture as well");
+                let cpu = frame.materialise();
+                assert_eq!(on_card.data.len(), cpu.data.len());
+                let worst = on_card.data.iter().zip(cpu.data.iter()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                assert_eq!(worst, 0, "{w}x{h} {matrix}/{range}: the card made other bytes than the CPU");
+            }
+        }
+    }
+
+    #[test]
     fn a_failed_share_still_gives_this_and_following_pictures_without_a_dark_frame() {
         let Some(gpu) = card() else { return eprintln!("no graphics card; skipped") };
         let Ok(mut codec) = Codec::h264(Some(Hw::D3d11va)) else { return eprintln!("no D3D11VA device; skipped") };

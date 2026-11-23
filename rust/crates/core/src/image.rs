@@ -178,21 +178,33 @@ impl SparePool {
     }
 }
 
-/// A buffer of len bytes for work that writes every one of them: what's in it is whatever was left there.
-pub fn spare_bytes(len: usize) -> Vec<u8> {
-    let found = SPARES.with_borrow_mut(|s| {
+/// The smallest spare that holds len bytes, while a step is lending any.
+fn spare_for(len: usize) -> Option<Vec<u8>> {
+    SPARES.with_borrow_mut(|s| {
         let lent = s.as_mut()?;
         lent.asked += 1;
         let (i, _) = lent.held.iter().enumerate().filter(|(_, b)| b.capacity() >= len).min_by_key(|(_, b)| b.capacity())?;
         Some(lent.held.swap_remove(i))
-    });
-    match found {
+    })
+}
+
+/// A buffer of len bytes for work that writes every one of them: what's in it is whatever was left there.
+pub fn spare_bytes(len: usize) -> Vec<u8> {
+    match spare_for(len) {
         Some(mut buffer) => {
             buffer.resize(len, 0);
             buffer
         }
         None => vec![0; len],
     }
+}
+
+/// An empty buffer with room for len bytes, for work that pushes every byte: nothing is cleared first, which a new 4K picture's zeroes would cost.
+pub fn spare_room(len: usize) -> Vec<u8> {
+    let mut buffer = spare_for(len).unwrap_or_default();
+    buffer.clear();
+    buffer.reserve_exact(len);
+    buffer
 }
 
 /// Hands a finished buffer back for the frame's other work and the next frame, if a step is lending any.

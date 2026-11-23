@@ -1213,18 +1213,17 @@ impl Shared {
         let people_due = self.vision.as_ref().is_some_and(|f| f.service.people_due(&self.source_id));
         let now_s = telescope_core::time::monotonic_ns() as f64 / 1e9;
         let motion_due = self.vision.as_ref().and_then(|f| f.motion.as_ref()).is_some_and(|m| m.due(&self.source_id, now_s));
-        if people_due || motion_due {
-            frame = frame.materialise();
-        }
-        if people_due {
+        // A copy for them: the frame keeps the decoder's picture, so a stream converting it on the card does so for every frame and the colours never switch ways
+        let seen = (people_due || motion_due).then(|| frame.materialise());
+        if let (true, Some(seen)) = (people_due, &seen) {
             let feed = self.vision.as_ref().expect("a feed");
-            let upright = feed.upright.lock().unwrap().for_frame(frame.width, frame.height);
-            feed.service.feed_raw(&self.source_id, &frame, upright);
+            let upright = feed.upright.lock().unwrap().for_frame(seen.width, seen.height);
+            feed.service.feed_raw(&self.source_id, seen, upright);
         }
-        if motion_due {
+        if let (true, Some(seen)) = (motion_due, &seen) {
             let feed = self.vision.as_ref().expect("a feed");
-            let upright = feed.upright.lock().unwrap().for_frame(frame.width, frame.height);
-            feed.motion.as_ref().expect("a watch").feed(&frame, &self.source_id, Some(&upright), now_s);
+            let upright = feed.upright.lock().unwrap().for_frame(seen.width, seen.height);
+            feed.motion.as_ref().expect("a watch").feed(seen, &self.source_id, Some(&upright), now_s);
         }
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
@@ -1999,6 +1998,8 @@ fn stretch(frame: &Frame, width: u32, height: u32) -> Frame {
     if (frame.width, frame.height) == (width, height) || frame.format != PixelFormat::I420 {
         return frame.clone();
     }
+    // A picture the decoder left on the card has no pixels in memory until asked
+    let frame = &frame.materialise();
     let mut out = vec![0u8; PixelFormat::I420.size(width, height)];
     let (sy, su, sv) = frame.i420_planes().unwrap();
     let (cw, ch) = (width.div_ceil(2) as usize, height.div_ceil(2) as usize);

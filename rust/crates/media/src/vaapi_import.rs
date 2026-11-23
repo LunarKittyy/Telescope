@@ -491,7 +491,139 @@ mod tests {
             let transferred_pixels = gpu.land(&mut uploaded).unwrap();
             gpu.put_down(uploaded);
             let worst = imported_pixels.data.iter().zip(transferred_pixels.data.iter()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
-            assert!(worst <= 3, "{matrix}/{range}: imported and transferred pixels differ by {worst} levels");
+            assert_eq!(worst, 0, "{matrix}/{range}: imported and transferred pixels differ by {worst} levels");
+        }
+    }
+
+    #[test]
+    fn a_stream_with_no_steps_converts_the_decoders_picture_on_the_card_as_the_cpu_would() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::media::FramePipeline;
+        if Gpu::shared().is_none() {
+            return eprintln!("no Vulkan device; skipped");
+        }
+        let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
+        codec.surfaces(true);
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        for (y, u, v, matrix, range) in [(70, 112, 145, "smpte170m", "tv"), (170, 150, 110, "bt709", "tv"), (110, 100, 152, "bt709", "pc"), (110, 100, 152, "smpte170m", "pc"), (16, 128, 128, "bt709", "tv"), (235, 128, 128, "bt709", "tv"), (200, 40, 230, "bt709", "pc")] {
+            let Some(packets) = testenc::h264_yuv(y, u, v, 256, 144, matrix, range) else { return eprintln!("no H.264 encoder; skipped") };
+            let frame = decode_surface(&mut codec, &packets).expect("a decoded frame");
+            let out = pipeline.process_picture(frame.clone(), &NoContext);
+            assert!(out.picture().is_some(), "{matrix}/{range}: the picture didn't stay on the card");
+            let on_card = out.land();
+            let surface = frame.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap();
+            assert!(surface.ram.get().is_none(), "{matrix}/{range}: the CPU converted the picture as well");
+            let cpu = frame.materialise();
+            assert_eq!(on_card.data.len(), cpu.data.len());
+            let worst = on_card.data.iter().zip(cpu.data.iter()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+            assert_eq!(worst, 0, "{matrix}/{range}: the card made other bytes than the CPU");
+            let again = decode_surface(&mut codec, &packets).expect("a decoded frame");
+            assert_eq!(pipeline.process(again, &NoContext).data, on_card.data, "{matrix}/{range}: a reader in memory gets the same picture");
+        }
+    }
+
+    #[test]
+    fn a_stream_moving_between_the_card_and_the_cpu_sends_every_picture_as_the_cpu_makes_it() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::frame::{CpuStep, FrameContext, FrameStage, FrameStep};
+        use telescope_core::media::{Decoder, FramePipeline, Packet, StagedStep};
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let Ok(mut decoder) = crate::h264::H264::new(true, None) else { return eprintln!("no decoder; skipped") };
+        if decoder.hw().is_none() {
+            return eprintln!("no VA-API device; skipped");
+        }
+        let Some(packets) = testenc::h264_hd(48, 256, 144) else { return eprintln!("no H.264 encoder; skipped") };
+        let balance = Arc::new(Balance::free());
+        let mut pipeline = Pipeline::with_balance(balance.clone());
+        decoder.set_surface_wish(pipeline.surface_wish().unwrap());
+        struct Untouched;
+        impl CpuStep for Untouched {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        }
+        let mut ways = [0; 2];
+        for (i, data) in packets.into_iter().enumerate() {
+            match i {
+                // A CPU step comes on and goes, then the balance moves work off a busy card
+                12 => pipeline.set_steps(vec![StagedStep { owner: "cpu".into(), stage: FrameStage::Effects, step: FrameStep::Cpu(Box::new(Untouched)) }]),
+                24 => pipeline.set_steps(Vec::new()),
+                36 => while balance.place() == Place::Card {
+                    balance.note_wait(1_000_000_000);
+                },
+                _ => {}
+            }
+            let Some(frame) = decoder.decode(&Packet { data, time_ns: 0 }).newest else { continue };
+            let out = pipeline.process_picture(frame.clone(), &NoContext);
+            ways[out.picture().is_some() as usize] += 1;
+            assert_eq!(out.land().data, frame.materialise().data, "picture {i}");
+        }
+        assert!(ways[0] >= 12 && ways[1] >= 12, "pictures sent each way (CPU, card): {ways:?}");
+    }
+
+    #[test]
+    fn a_plain_stream_on_a_card_drawing_in_software_converts_on_the_cpu() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::media::FramePipeline;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
+        codec.surfaces(true);
+        let Some(packets) = testenc::h264_hd(3, 256, 144) else { return eprintln!("no H.264 encoder; skipped") };
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        pipeline.use_card(Arc::new(gpu.pretend_software()));
+        pipeline.set_steps(Vec::new());
+        assert!(!pipeline.surface_wish().unwrap().load(std::sync::atomic::Ordering::Relaxed), "the decoder is asked to keep pictures on a card that only costs CPU");
+        for i in 0..packets.len() {
+            let Some(frame) = decode_surface(&mut codec, &packets[i..=i]) else { continue };
+            let out = pipeline.process_picture(frame.clone(), &NoContext);
+            assert!(out.picture().is_none(), "picture {i} went to a software card");
+            assert_eq!(out.land().data, frame.materialise().data, "picture {i}");
+        }
+    }
+
+    #[test]
+    fn a_plain_stream_whose_import_is_refused_gets_the_cpus_picture() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::media::FramePipeline;
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
+        codec.surfaces(true);
+        let Some(packets) = testenc::h264_hd(1, 256, 144) else { return eprintln!("no H.264 encoder; skipped") };
+        let frame = decode_surface(&mut codec, &packets).expect("a decoded frame");
+        frame.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap().disable("a test");
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let out = pipeline.process_picture(frame.clone(), &NoContext);
+        assert!(out.picture().is_none(), "a refused picture stayed on the card");
+        assert_eq!(out.land().data, frame.materialise().data);
+    }
+
+    #[test]
+    fn a_card_lost_mid_stream_leaves_a_plain_stream_the_same_pictures_from_the_cpu() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::media::FramePipeline;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
+        codec.surfaces(true);
+        let Some(packets) = testenc::h264_hd(6, 256, 144) else { return eprintln!("no H.264 encoder; skipped") };
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        pipeline.use_card(gpu.clone());
+        for i in 0..packets.len() {
+            let Some(frame) = decode_surface(&mut codec, &packets[i..=i]) else { continue };
+            let out = pipeline.process_picture(frame.clone(), &NoContext);
+            assert_eq!(out.picture().is_some(), i < 2, "picture {i}");
+            if i == 1 {
+                // Lost with a picture out that hasn't come down yet
+                gpu.lose();
+            }
+            assert_eq!(out.land().data, frame.materialise().data, "picture {i}");
         }
     }
 
