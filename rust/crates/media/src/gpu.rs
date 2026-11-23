@@ -22,6 +22,8 @@ const BLOCK_CHROMA: u32 = 8;
 /// Set on the convert shader's mode so ToY/ToU/ToV read directly from NV12 planes instead of an RGBA texture.
 #[cfg(all(any(target_os = "linux", windows), ffmpeg))]
 const FROM_NV12: u32 = 64;
+/// Set on the convert shader's mode to stretch where it reads by the factors in the first two terms (as f32 bits), for a chroma plane whose half sample over an odd edge isn't a picture.
+const SCALE_UV: u32 = 128;
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
 const BLUR: &str = include_str!("shaders/blur.wgsl");
 /// What the blurred copies are worked in: more than 8 bits, so the weighted blur's sums don't band.
@@ -54,6 +56,13 @@ const WAIT_SLICE: std::time::Duration = std::time::Duration::from_millis(50);
 
 #[path = "gpu_tint.rs"]
 mod tint;
+#[path = "gpu_fit.rs"]
+mod fit;
+#[cfg(test)]
+pub(crate) use fit::cpu_fit;
+#[cfg(test)]
+#[path = "gpu_small_tests.rs"]
+mod small_tests;
 pub use tint::{CardPreview, Scope, ScopeRead, ScopeSamples};
 
 /// What a test makes go wrong on the next readback.
@@ -74,6 +83,8 @@ pub(crate) enum Fault {
     PreparePanic,
     /// The next picture or mask going up is refused, as when the card can't allocate for it.
     BadUpload,
+    /// Every readback is submitted and then never answers in time, as with a stalled card (each one is counted, see Gpu::stalls).
+    Stalled,
 }
 
 // wgpu compares devices by id alone, and two instances hand out the same ids, so each connection gets its own number
@@ -99,6 +110,10 @@ pub struct Gpu {
     pool: Mutex<Pool<(u32, u32, wgpu::TextureFormat), wgpu::Texture>>,
     /// The tint shader's pipelines (gpu_tint.rs), built when a picture is first tinted.
     tint_kit: Mutex<Option<Arc<tint::Kit>>>,
+    /// The camera fit's pipeline (gpu_fit.rs), built when a picture is first fitted.
+    fit_kit: OnceLock<fit::Kit>,
+    /// Set once fitting a picture on this card failed: the processor fits them from then on.
+    fit_refused: AtomicBool,
     pub adapter_name: String,
     /// Set when the device is lost or wgpu panicked: nothing more goes to this card.
     lost: Arc<AtomicBool>,
@@ -106,6 +121,9 @@ pub struct Gpu {
     wait_limit: std::time::Duration,
     #[cfg(test)]
     fault: Mutex<Option<Fault>>,
+    /// How many readbacks a Fault::Stalled gave up on.
+    #[cfg(test)]
+    stalls: std::sync::atomic::AtomicU32,
 }
 
 /// One picture on the card in its own format, ready for the convert shader.
@@ -401,11 +419,15 @@ impl Gpu {
             blank,
             pool: Mutex::new(Pool::new(POOL_BUDGET)),
             tint_kit: Mutex::default(),
+            fit_kit: OnceLock::new(),
+            fit_refused: AtomicBool::new(false),
             adapter_name,
             lost,
             wait_limit,
             #[cfg(test)]
             fault: Mutex::new(None),
+            #[cfg(test)]
+            stalls: std::sync::atomic::AtomicU32::new(0),
         }
     }
 
@@ -582,7 +604,17 @@ impl Gpu {
             let enc = crate::yuv::Encoding { matrix: if colour & 16 != 0 { 1 } else { 5 }, full_range: colour & 32 != 0 };
             settings[4..].copy_from_slice(&crate::yuv::card_terms(enc).map(|t| t as u32));
         }
-        let buf = self.uniform(bytemuck_u32(&settings));
+        self.convert_draw(enc, planes, target, &settings);
+    }
+
+    /// One pass of the convert shader that reads the plane stretched by `scale` (SCALE_UV), a chroma plane that covers a picture of an odd size.
+    fn convert_pass_scaled(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), scale: (f32, f32)) {
+        let settings: [u32; 12] = [mode as u32 | SCALE_UV, taps.max(1), src_size.0, src_size.1, scale.0.to_bits(), scale.1.to_bits(), 0, 0, 0, 0, 0, 0];
+        self.convert_draw(enc, planes, target, &settings);
+    }
+
+    fn convert_draw(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], target: &wgpu::Texture, settings: &[u32; 12]) {
+        let buf = self.uniform(bytemuck_u32(settings));
         let view = target.create_view(&Default::default());
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("convert"),
@@ -654,7 +686,19 @@ impl Gpu {
     fn fault(&self) -> Option<Fault> {
         let mut fault = self.fault.lock().unwrap();
         // The panics above belong to their own calls, so a readback leaves them for those
-        if matches!(*fault, Some(Fault::LiftPanic | Fault::ShadePanic | Fault::PreparePanic | Fault::BadUpload)) { None } else { fault.take() }
+        if matches!(*fault, Some(Fault::LiftPanic | Fault::ShadePanic | Fault::PreparePanic | Fault::BadUpload)) {
+            None
+        } else if matches!(*fault, Some(Fault::Stalled)) {
+            *fault
+        } else {
+            fault.take()
+        }
+    }
+
+    /// How many readbacks a Fault::Stalled gave up on, for tests.
+    #[cfg(test)]
+    pub(crate) fn stalls(&self) -> u32 {
+        self.stalls.load(Ordering::SeqCst)
     }
 
     /// Takes the fault if it is the one asked for, for tests.
@@ -727,7 +771,11 @@ impl Gpu {
         if matches!(fault, Some(Fault::PollPanic)) {
             panic!("an injected panic while polling");
         }
-        let polled = self.wait_for(index, cancel);
+        #[cfg(test)]
+        let stalled = matches!(fault, Some(Fault::Stalled)) && self.stalls.fetch_add(1, Ordering::SeqCst) < u32::MAX;
+        #[cfg(not(test))]
+        let stalled = false;
+        let polled = if stalled { Err("the graphics card didn't answer in time".to_string()) } else { self.wait_for(index, cancel) };
         #[cfg(test)]
         if matches!(fault, Some(Fault::Lost)) {
             self.lost.store(true, Ordering::SeqCst);
@@ -855,7 +903,7 @@ impl Gpu {
             }
         })?;
         span("upload", began);
-        Ok(Held { enc, a, b: None, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: false })
+        Ok(Held { enc, a, b: None, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: false, broken: false })
     }
 
     #[cfg(all(target_os = "linux", ffmpeg))]
@@ -891,7 +939,7 @@ impl Gpu {
             self.queue.on_submitted_work_done(move || drop((source, planes)));
             Ok(out)
         })??;
-        Ok(Held { enc: self.device.create_command_encoder(&Default::default()), a, b: None, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: true })
+        Ok(Held { enc: self.device.create_command_encoder(&Default::default()), a, b: None, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: true, broken: false })
     }
 
     /// Ensures held.a holds the current picture as RGBA, converting from held.planes on demand.
@@ -948,7 +996,7 @@ impl Gpu {
             self.queue.on_submitted_work_done(move || drop((source, imported)));
             Ok(out)
         })??;
-        Ok(Some(Held { enc: self.device.create_command_encoder(&Default::default()), a, b: None, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: true }))
+        Ok(Some(Held { enc: self.device.create_command_encoder(&Default::default()), a, b: None, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: true, broken: false }))
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
@@ -959,6 +1007,7 @@ impl Gpu {
     /// As shade, with history false the shader isn't given the step's last frame (previous() has nothing), as for a picture that is not the one that frame belongs to.
     pub fn shade_with(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>, history: bool) -> Result<(), String> {
         self.guarded("recording a shader", || {
+            held.usable()?;
             self.shade_unguarded(held, slot, time, mask, history);
             Ok(())
         })
@@ -1050,6 +1099,7 @@ impl Gpu {
         #[cfg(test)]
         let _timing = transfers::measurement::time(transfers::measurement::Stage::Land);
         self.card_ok()?;
+        held.usable()?;
         let (w, h) = (held.width, held.height);
         let rgba = if held.format == PixelFormat::I420 && held.planes.is_some() {
             None
@@ -1101,9 +1151,68 @@ impl Gpu {
         Ok(result)
     }
 
+    /// The picture so far shrunk on the card to an I420 picture of `size` and read back, for the vision models that only need a small one. The held picture stays as it was, so the steps after go on from it.
+    pub fn land_small(&self, held: &mut Held, size: (u32, u32), cancel: &dyn Fn() -> bool) -> Result<Option<Frame>, String> {
+        self.guarded("reading a small picture back", || {
+            self.card_ok()?;
+            held.usable()?;
+            let (w, h) = (held.width, held.height);
+            let (sw, sh) = size;
+            // One output pixel averages a grid of this many samples a side, enough to cover the source pixels it stands for
+            let taps = |from: u32, to: u32| from.div_ceil(to.max(1)).clamp(1, 16);
+            let mut enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
+            // The steps recorded so far are in that encoder and go or fail with this readback, so until it has worked nothing on the card is the picture
+            held.broken = true;
+            let mut targets = Vec::new();
+            let planes = [self.texture(sw, sh, wgpu::TextureFormat::R8Unorm), self.texture(chroma(sw), chroma(sh), wgpu::TextureFormat::R8Unorm), self.texture(chroma(sw), chroma(sh), wgpu::TextureFormat::R8Unorm)];
+            match (&held.planes, &held.a) {
+                // Each plane on its own, so no colour is turned into another and back
+                (Some(source), _) if held.format == PixelFormat::I420 => {
+                    for (i, (from, to)) in source.iter().zip(&planes).enumerate() {
+                        let size = if i == 0 { (w, h) } else { (chroma(w), chroma(h)) };
+                        let views = [from.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+                        if i == 0 {
+                            self.convert_pass(&mut enc, &views, Mode::Rgba, to, taps(size.0, to.width()), size);
+                        } else {
+                            // A chroma sample stands for 2 x 2 pixels, so a picture of an odd size has half a sample more than it has pixels to cover: read where the pixels are, not across the whole plane
+                            let scale = ((w * chroma(sw)) as f32 / (sw * chroma(w)) as f32, (h * chroma(sh)) as f32 / (sh * chroma(h)) as f32);
+                            self.convert_pass_scaled(&mut enc, &views, Mode::Rgba, to, taps(size.0, to.width()), size, scale);
+                        }
+                    }
+                }
+                (_, Some(a)) => {
+                    let small = self.texture(sw, sh, WORK);
+                    let views = [a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+                    self.convert_pass(&mut enc, &views, Mode::Rgba, &small, taps(w, sw), (w, h));
+                    let work = [small.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+                    for (plane, mode) in planes.iter().zip([Mode::ToY, Mode::ToU, Mode::ToV]) {
+                        self.convert_pass(&mut enc, &work, mode, plane, 1, (sw, sh));
+                    }
+                    targets.push(small);
+                }
+                _ => {
+                    held.enc = enc;
+                    held.broken = false;
+                    self.give_back(planes);
+                    return Ok(None);
+                }
+            }
+            let read = self.download_until(enc, &[&planes[0], &planes[1], &planes[2]], &[1, 1, 1], cancel);
+            targets.extend(planes);
+            self.give_back(targets);
+            let (out, waited) = read?;
+            held.broken = false;
+            held.waited_ns += waited;
+            let mut small = Frame::new(sw, sh, PixelFormat::I420, out);
+            (small.number, small.time_ns, small.capture_ns) = (held.number, held.time_ns, held.capture_ns);
+            Ok(Some(small))
+        })
+    }
+
     /// Submit the recorded steps without copying any pixels to RAM, after the pipeline's own last submission has finished.
     pub(crate) fn submit_held(&self, held: &mut Held, pacing: &mut Pacing, cancel: &dyn Fn() -> bool) -> Result<(), String> {
         self.guarded("submitting a card picture", || {
+            held.usable()?;
             // Wait for this pipeline's previous picture before queuing more work; other streams on the card have their own
             if let Some(index) = pacing.0.take().filter(|(serial, _)| *serial == self.serial).map(|(_, index)| index) {
                 let began = monotonic_ns();
@@ -1359,12 +1468,19 @@ pub struct Held {
     /// Whether it went up with YUV chroma read by block, so what is made from planes later is read the same way.
     block_chroma: bool,
     imported: bool,
+    /// Set when a readback that took the recorded steps failed: they may never have run, so nothing on the card is this picture any more.
+    broken: bool,
 }
 
 impl Held {
     pub(crate) fn was_imported(&self) -> bool { self.imported }
     pub fn size(&self) -> (u32, u32) {
         (self.width, self.height)
+    }
+
+    /// An error when the card's copy can't be trusted (see broken), for everything that would read or add to it.
+    fn usable(&self) -> Result<(), String> {
+        if self.broken { Err("the picture was lost with a failed readback".into()) } else { Ok(()) }
     }
 
     pub fn take_waited(&mut self) -> u64 {
@@ -1394,15 +1510,21 @@ pub(crate) struct CardFrame {
     landed: OnceLock<Frame>,
     /// What the card steps began from, only until the picture lands (its last good frame if the landing fails, and the cut-out it carries): a decoder surface in it isn't held longer.
     before: Mutex<Option<Frame>>,
+    /// Whether the picture carries a cut-out, known from the start (`before` goes when a landing begins, which would leave a gap to read it in).
+    cut_out: bool,
+    /// What stands in for the picture once its landing failed.
+    stood_in: OnceLock<telescope_core::media::StandIn>,
     shape: (u32, u32, PixelFormat),
     fallback: LandingFailure,
     failed: Arc<AtomicBool>,
-    balance: Arc<telescope_core::balance::Balance>,
+    /// The stream's way in to the balance, for a picture whose wait says where its steps should run.
+    balance: Option<telescope_core::balance::Lane>,
 }
 
 impl CardFrame {
-    pub(crate) fn new(gpu: Arc<Gpu>, mut held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Arc<telescope_core::balance::Balance>) -> Self {
+    pub(crate) fn new(gpu: Arc<Gpu>, mut held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Option<telescope_core::balance::Lane>) -> Self {
         let shape = (before.width, before.height, before.format);
+        let cut_out = before.alpha().is_some();
         // The submission is already queued, so scratch textures (b, temporaries) can return to the pool right away.
         let mut release = std::mem::take(&mut held.used);
         release.extend(held.b.take());
@@ -1414,7 +1536,13 @@ impl CardFrame {
         };
         gpu.give_back(release);
         let size = held.size();
-        Self { gpu, shown: (shown, size), held: Mutex::new(Some(held)), landed: OnceLock::new(), before: Mutex::new(Some(before)), shape, fallback, failed, balance }
+        Self { gpu, shown: (shown, size), held: Mutex::new(Some(held)), landed: OnceLock::new(), before: Mutex::new(Some(before)), cut_out, stood_in: OnceLock::new(), shape, fallback, failed, balance }
+    }
+
+    /// The state a landing in progress leaves the picture in, for tests: what it began from is taken and nothing has landed yet.
+    #[cfg(test)]
+    pub(crate) fn begin_landing_for_test(&self) {
+        self.before.lock().unwrap().take();
     }
 
     /// Whether this card can draw the picture itself: it is on the same device and the card didn't fail to land it.
@@ -1447,7 +1575,10 @@ impl telescope_core::media::CardPicture for CardFrame {
                     if let Some(alpha) = before.as_ref().and_then(Frame::alpha) {
                         frame.set_alpha(alpha.clone());
                     }
-                    self.balance.note_wait(held.as_mut().unwrap().take_waited());
+                    let waited = held.as_mut().unwrap().take_waited();
+                    if let Some(lane) = &self.balance {
+                        lane.note_wait(waited);
+                    }
                     frame
                 }
                 _ => {
@@ -1456,8 +1587,14 @@ impl telescope_core::media::CardPicture for CardFrame {
                         self.failed.store(true, Ordering::SeqCst);
                     }
                     match (self.fallback, before) {
-                        (LandingFailure::LastGood, Some(before)) => before.materialise(),
-                        _ => Frame::dark(self.shape.0, self.shape.1, self.shape.2),
+                        (LandingFailure::LastGood, Some(before)) => {
+                            let _ = self.stood_in.set(telescope_core::media::StandIn::Unprocessed);
+                            before.materialise()
+                        }
+                        _ => {
+                            let _ = self.stood_in.set(telescope_core::media::StandIn::Dark);
+                            Frame::dark(self.shape.0, self.shape.1, self.shape.2)
+                        }
                     }
                 }
             }
@@ -1470,6 +1607,54 @@ impl telescope_core::media::CardPicture for CardFrame {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn fits_on_card(&self, width: u32, height: u32) -> bool {
+        let (w, h, format) = self.shape;
+        // A cut-out goes over the camera's background before the fit, which the card doesn't do; a picture that failed to land is its stand-in now
+        format == PixelFormat::I420 && (w, h) != (width, height) && !self.cut_out && self.stood_in.get().is_none() && !self.gpu.fit_refused.load(Ordering::Relaxed)
+    }
+
+    fn stood_in(&self) -> Option<telescope_core::media::StandIn> {
+        self.stood_in.get().copied()
+    }
+
+    fn land_fitted(&self, width: u32, height: u32, cancel: &dyn Fn() -> bool) -> Option<Frame> {
+        // A picture in memory is fitted from there: reading it back from the card again would be a second readback
+        if !self.fits_on_card(width, height) || self.landed.get().is_some() {
+            return None;
+        }
+        let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+        // A landing that held the lock before this one is through: its picture is the one to use
+        if self.landed.get().is_some() {
+            return None;
+        }
+        let held = held.as_mut()?;
+        let began = monotonic_ns();
+        let out = catch_unwind(AssertUnwindSafe(|| self.gpu.land_fitted(held, width, height, cancel)));
+        span("readback", began);
+        match out {
+            Ok(Ok(frame)) => {
+                transfers::landed();
+                let waited = held.take_waited();
+                if let Some(lane) = &self.balance {
+                    lane.note_wait(waited);
+                }
+                Some(frame)
+            }
+            // The whole picture lands instead; a card that can't fit pictures isn't asked again
+            Ok(Err(why)) if !cancel() => {
+                if !self.gpu.fit_refused.swap(true, Ordering::Relaxed) {
+                    log::warn!("Couldn't fit a picture to the camera on the graphics card ({why}); the processor fits them from now on");
+                }
+                None
+            }
+            Err(_) => {
+                self.gpu.fit_refused.store(true, Ordering::Relaxed);
+                None
+            }
+            Ok(Err(_)) => None,
+        }
     }
 }
 

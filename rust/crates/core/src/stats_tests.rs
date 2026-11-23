@@ -391,3 +391,71 @@ fn the_delivered_total_is_the_bound_streams_own() {
     stats.delivered();
     assert_eq!(delivered_total(), Some(2));
 }
+
+#[test]
+fn the_rate_is_there_without_the_lock() {
+    let (_hub, stats, _) = running();
+    assert_eq!(stats.target_fps(), 0);
+    stats.set_target_fps(60);
+    assert_eq!(stats.target_fps(), 60);
+}
+
+#[test]
+fn each_stream_says_where_its_own_steps_run() {
+    let hub = Hub::new();
+    let (a, b) = (hub.register("a", 0), hub.register("b", 1));
+    a.set_steps_on_card(false);
+    b.set_steps_on_card(true);
+    let snap = hub.snapshot_at(crate::time::monotonic_ns() + SECOND, None, None);
+    let on = |id: &str| snap.sources.iter().find(|s| s.source_id == id).unwrap().steps_on_card;
+    assert_eq!((on("a"), on("b")), (Some(false), Some(true)));
+    assert_eq!(hub.register("c", 2).steps_on.load(Ordering::Relaxed), STEPS_UNKNOWN, "nothing said yet");
+}
+
+fn power_hub() -> (Hub, Arc<Effort>) {
+    let effort = Arc::new(Effort::free());
+    (Hub::with_parts(Arc::new(Balance::free()), effort.clone()), effort)
+}
+
+#[test]
+fn the_effects_follow_the_computers_power_saving_only_when_asked_to_and_only_on_a_clear_yes() {
+    let (hub, effort) = power_hub();
+    hub.note_power(Some(true));
+    assert_eq!(effort.level(), 0, "nothing follows it until a plugin switches that on");
+    hub.set_power_aware(true);
+    hub.note_power(Some(true));
+    assert_eq!((effort.level(), effort.snapshot().machine_floor), (1, 1));
+    hub.note_power(None);
+    assert_eq!(effort.level(), 0, "can't tell is no saving");
+    hub.note_power(Some(true));
+    hub.note_power(Some(false));
+    assert_eq!(effort.level(), 0);
+    // Switching it off lets go at once, whatever the computer says
+    hub.note_power(Some(true));
+    hub.set_power_aware(false);
+    assert_eq!(effort.level(), 0);
+    hub.note_power(Some(true));
+    assert_eq!(effort.level(), 0);
+}
+
+#[test]
+fn the_computer_is_asked_at_once_when_a_stream_starts_and_then_every_few_ticks_and_never_without_one() {
+    let (hub, effort) = power_hub();
+    hub.set_power_aware(true);
+    let asked = std::cell::Cell::new(0);
+    let tick = |streaming: bool, saving: bool| hub.follow_power(streaming, || { asked.set(asked.get() + 1); Some(saving) });
+    tick(false, true);
+    assert_eq!((asked.get(), effort.level()), (0, 0), "no stream, no asking");
+    tick(true, true);
+    assert_eq!((asked.get(), effort.level()), (1, 1), "the first tick of a stream asks");
+    for _ in 0..4 {
+        tick(true, false);
+    }
+    assert_eq!((asked.get(), effort.level()), (1, 1), "the next few ticks don't");
+    tick(true, false);
+    assert_eq!((asked.get(), effort.level()), (2, 0), "and then it does, and the change shows");
+    // A stream that stops and starts again is asked straight away
+    tick(false, false);
+    tick(true, true);
+    assert_eq!((asked.get(), effort.level()), (3, 1));
+}

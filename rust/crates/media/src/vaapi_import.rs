@@ -550,8 +550,8 @@ mod tests {
                 // A CPU step comes on and goes, then the balance moves work off a busy card
                 12 => pipeline.set_steps(vec![StagedStep { owner: "cpu".into(), stage: FrameStage::Effects, step: FrameStep::Cpu(Box::new(Untouched)) }]),
                 24 => pipeline.set_steps(Vec::new()),
-                36 => while balance.place() == Place::Card {
-                    balance.note_wait(1_000_000_000);
+                36 => while pipeline.lane().place() == Place::Card {
+                    pipeline.lane().note_wait(1_000_000_000);
                 },
                 _ => {}
             }

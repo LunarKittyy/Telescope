@@ -521,6 +521,11 @@ impl HostVision for Ctx<'_> {
         }
         self.state.sync_idle();
     }
+    fn want_heads(&mut self, owner: &str, on: bool) {
+        if let Some(vision) = &self.state.vision {
+            vision.want_heads(owner, on);
+        }
+    }
     fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32) {
         let Some(vision) = &self.state.vision else { return (Vec::new(), 0) };
         let id = source_id.map(str::to_string).or_else(|| self.focused_source_id()).unwrap_or_default();
@@ -854,8 +859,14 @@ impl Host for Ctx<'_> {
     fn set_effects_step_down(&mut self, on: bool) {
         telescope_core::effort::Effort::shared().set_auto(on);
     }
+    fn set_effects_follow_power(&mut self, on: bool) {
+        telescope_core::stats::Hub::shared().set_power_aware(on);
+    }
     fn hold_effects_full(&mut self, on: bool) {
         telescope_core::effort::Effort::shared().hold_full(on);
+    }
+    fn allow_heads(&mut self, on: bool) {
+        telescope_core::effort::Effort::shared().allow_heads(on);
     }
     fn keep_steps_on_card(&mut self, on: bool) {
         telescope_core::balance::Balance::shared().keep_on_card(on);

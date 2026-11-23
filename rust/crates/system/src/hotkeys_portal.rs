@@ -29,6 +29,8 @@ const SESSION: &str = "org.freedesktop.portal.Session";
 // Plasma's shortcut store, which the portal binds into on Plasma
 const KGLOBALACCEL: &str = "org.kde.kglobalaccel";
 const WAIT_STEP: Duration = Duration::from_millis(500);
+/// How long a rebind waits after the portal comes back, so its shortcut backend is up too.
+const REBIND_DELAY: Duration = Duration::from_millis(500);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -67,6 +69,8 @@ impl Shared {
 enum Cmd {
     Bind(Vec<Hotkey>),
     Configure,
+    /// The portal lost the session (it closed it, or restarted): bind the last shortcuts again.
+    Rebind,
     Stop,
 }
 
@@ -95,7 +99,7 @@ impl PortalHotkeys {
             stopping: AtomicBool::new(false),
             signals,
         });
-        let worker = Worker { app_id: app_id.into(), shared: shared.clone(), connect, prepare, cmds: rx };
+        let worker = Worker { app_id: app_id.into(), shared: shared.clone(), connect, prepare, cmds: rx, retry: tx.clone(), last: Vec::new() };
         let thread = std::thread::Builder::new().name("portal-shortcuts".into()).spawn(move || worker.run()).ok();
         PortalHotkeys { cmds: tx, shared, thread }
     }
@@ -212,6 +216,10 @@ struct Worker {
     connect: Connect,
     prepare: Option<Box<dyn FnOnce() + Send>>,
     cmds: Receiver<Cmd>,
+    /// Lets the portal's own signals ask for a Rebind.
+    retry: Sender<Cmd>,
+    /// What was bound last, for a Rebind.
+    last: Vec<Hotkey>,
 }
 
 impl Worker {
@@ -255,11 +263,15 @@ impl Worker {
         conn.call_method(Some(dest), path, Some(iface), method, body)
     }
 
-    fn serve(&mut self, conn: &Connection, first: Vec<Hotkey>) -> Result<(), Stopped> {
-        // First of all, or the portal can't tell which app's shortcuts these are
+    /// First of all, or the portal can't tell which app's shortcuts these are.
+    fn register(&self, conn: &Connection) {
         if let Err(e) = self.call(conn, BUS_NAME, PORTAL_PATH, REGISTRY, "Register", &(self.app_id.as_str(), HashMap::<&str, Value>::new())) {
             log::info!("Couldn't register with the desktop portal as {}: {e}", self.app_id);
         }
+    }
+
+    fn serve(&mut self, conn: &Connection, first: Vec<Hotkey>) -> Result<(), Stopped> {
+        self.register(conn);
         let version = self.call(conn, BUS_NAME, PORTAL_PATH, "org.freedesktop.DBus.Properties", "Get", &(SHORTCUTS, "version"))
             .and_then(|reply| reply.body().deserialize::<OwnedValue>())
             .ok()
@@ -271,8 +283,9 @@ impl Worker {
         };
         self.shared.inner.lock().unwrap().version = version;
         self.listen(conn);
+        self.watch_portal(conn);
         self.shared.set_state(State::Ready, "");
-        self.bind(conn, first)?;
+        self.bind_now(conn, first)?;
         loop {
             let mut cmds = match self.cmds.recv() {
                 Ok(cmd) => vec![cmd],
@@ -284,7 +297,9 @@ impl Worker {
             }
             // Only the latest bindings matter
             if let Some(hotkeys) = cmds.iter().rev().find_map(|c| if let Cmd::Bind(h) = c { Some(h.clone()) } else { None }) {
-                self.bind(conn, hotkeys)?;
+                self.bind_now(conn, hotkeys)?;
+            } else if cmds.iter().any(|c| matches!(c, Cmd::Rebind)) {
+                self.rebind(conn)?;
             }
             let session = self.shared.inner.lock().unwrap().session.clone();
             if let (true, Some(session)) = (cmds.iter().any(|c| matches!(c, Cmd::Configure)), session) {
@@ -294,6 +309,28 @@ impl Worker {
                 }
             }
         }
+    }
+
+    fn bind_now(&mut self, conn: &Connection, hotkeys: Vec<Hotkey>) -> Result<(), Stopped> {
+        self.last.clone_from(&hotkeys);
+        self.bind(conn, hotkeys)
+    }
+
+    /// The portal lost the session: register and bind the last shortcuts again, once it has had a moment to start up.
+    fn rebind(&mut self, conn: &Connection) -> Result<(), Stopped> {
+        let end = std::time::Instant::now() + REBIND_DELAY;
+        while let Some(left) = end.checked_duration_since(std::time::Instant::now()) {
+            match self.cmds.recv_timeout(left) {
+                Ok(Cmd::Stop) | Err(RecvTimeoutError::Disconnected) => return Err(Stopped),
+                Ok(Cmd::Bind(h)) => self.last = h,
+                Ok(_) => {}
+                Err(RecvTimeoutError::Timeout) => break,
+            }
+        }
+        self.shared.inner.lock().unwrap().session = None;
+        self.register(conn);
+        let hotkeys = self.last.clone();
+        self.bind(conn, hotkeys)
     }
 
     /// Presses, releases and changed keys for this session, on a thread of their own.
@@ -336,6 +373,38 @@ impl Worker {
                 }
             }
         });
+    }
+
+    /// Tells the worker when the portal closes our session or a new portal takes over the bus name (a restart forgets every session).
+    fn watch_portal(&self, conn: &Connection) {
+        let closed = MatchRule::builder().msg_type(zbus::message::Type::Signal).interface(SESSION).and_then(|r| r.member("Closed")).map(|r| r.build());
+        let moved = MatchRule::builder().msg_type(zbus::message::Type::Signal).sender("org.freedesktop.DBus")
+            .and_then(|r| r.interface("org.freedesktop.DBus")).and_then(|r| r.member("NameOwnerChanged")).and_then(|r| r.arg(0, BUS_NAME)).map(|r| r.build());
+        for rule in [closed, moved].into_iter().flatten() {
+            let Ok(incoming) = MessageIterator::for_match_rule(rule, conn, Some(16)) else { continue };
+            let (shared, retry) = (self.shared.clone(), self.retry.clone());
+            let _ = std::thread::Builder::new().name("portal-lifecycle".into()).spawn(move || {
+                for msg in incoming {
+                    if shared.stopping.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    let Ok(msg) = msg else { return };
+                    let header = msg.header();
+                    let lost = match header.member().map(|m| m.as_str()) {
+                        Some("Closed") => {
+                            let session = shared.inner.lock().unwrap().session.clone();
+                            session.is_some() && header.path().map(|p| p.as_str()) == session.as_deref()
+                        }
+                        Some("NameOwnerChanged") => msg.body().deserialize::<(String, String, String)>().is_ok_and(|(_, _, new)| !new.is_empty()),
+                        _ => false,
+                    };
+                    if lost {
+                        log::info!("The desktop portal lost the shortcuts session; binding again");
+                        let _ = retry.send(Cmd::Rebind);
+                    }
+                }
+            });
+        }
     }
 
     fn bind(&self, conn: &Connection, hotkeys: Vec<Hotkey>) -> Result<(), Stopped> {
@@ -531,6 +600,16 @@ mod tests {
             let session = self.state.lock().unwrap().session.clone();
             let path = ObjectPath::try_from(session.as_str()).unwrap();
             self.conn.emit_signal(None::<BusName>, PORTAL_PATH, SHORTCUTS, member, &(path, id, 0u64, HashMap::<&str, Value>::new())).unwrap();
+        }
+
+        /// The portal ending the session by itself.
+        fn close_session(&self) {
+            let session = self.state.lock().unwrap().session.clone();
+            self.conn.emit_signal(None::<BusName>, session.as_str(), SESSION, "Closed", &(HashMap::<&str, Value>::new(),)).unwrap();
+        }
+
+        fn count(&self, member: &str) -> usize {
+            self.calls().iter().filter(|c| *c == member).count()
         }
 
         fn change(&self, id: &str, trigger: &str) {
@@ -755,6 +834,45 @@ mod tests {
         s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
         assert!(wait_for(|| working(&s.backend, "b1")));
         assert!(!s.backend.can_rebind());
+        s.backend.stop();
+    }
+
+    #[test]
+    fn binds_again_when_the_portal_closes_the_session() {
+        let Some(mut s) = setup(Some(2), true, true, &[]) else { return };
+        s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
+        assert!(wait_for(|| working(&s.backend, "b1")));
+        let old = s.portal.state.lock().unwrap().session.clone();
+        s.portal.close_session();
+        assert!(wait_for(|| s.portal.count("CreateSession") == 2 && working(&s.backend, "b1")));
+        assert_ne!(s.portal.state.lock().unwrap().session, old);
+        assert_eq!(s.portal.count("Register"), 2);
+        s.portal.emit("Activated", "b1");
+        assert!(wait_for(|| s.posted.lock().unwrap().iter().any(|(_, d)| d["kind"] == "pressed")));
+        s.backend.stop();
+    }
+
+    #[test]
+    fn binds_again_when_a_new_portal_takes_over() {
+        let Some(mut s) = setup(Some(2), true, true, &[]) else { return };
+        s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
+        assert!(wait_for(|| working(&s.backend, "b1")));
+        // A restart: the name is let go and taken again
+        s.portal.conn.release_name(BUS_NAME).unwrap();
+        s.portal.conn.request_name(BUS_NAME).unwrap();
+        assert!(wait_for(|| s.portal.count("CreateSession") == 2 && working(&s.backend, "b1")));
+        s.backend.stop();
+    }
+
+    #[test]
+    fn a_session_closed_by_the_app_itself_is_not_rebound() {
+        let Some(mut s) = setup(Some(2), true, true, &[]) else { return };
+        s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
+        assert!(wait_for(|| working(&s.backend, "b1")));
+        s.backend.apply(&[hk("b2", "Ctrl+T", "Torch")]);
+        assert!(wait_for(|| working(&s.backend, "b2")));
+        std::thread::sleep(Duration::from_millis(1200));
+        assert_eq!(s.portal.count("CreateSession"), 2);
         s.backend.stop();
     }
 }

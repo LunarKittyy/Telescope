@@ -181,7 +181,14 @@ fn finish_windows(directory: &Path, staging: &Path, skipped: &mut Vec<String>, m
     if new_exe.exists() {
         if current.exists() {
             remove(&old)?;
-            mv(&current, &old)?; // allowed while it runs; overwriting isn't
+            // The running exe's second name first, then the new one replaces it in a single rename: the exe's path is never empty
+            // (no cut-short update can leave nothing to start). Windows 10 and later allow that rename over a running exe.
+            if keep_as_old(&current, &old, mv).is_ok() && mv(&new_exe, &current).is_ok() {
+                return finish_files(directory, staging, skipped, mv, true);
+            }
+            // An older Windows won't replace a running exe: it moves aside (allowed while it runs; overwriting isn't), then the new one goes in
+            remove(&old)?;
+            mv(&current, &old)?;
         }
         if let Err(e) = mv(&new_exe, &current) {
             if old.exists() && !current.exists() {
@@ -192,6 +199,16 @@ fn finish_windows(directory: &Path, staging: &Path, skipped: &mut Vec<String>, m
         }
         swapped = true;
     }
+    finish_files(directory, staging, skipped, mv, swapped)
+}
+
+/// current under its second name, whole or not at all: a link where the file system has them, else a copy made under another name first.
+fn keep_as_old(current: &Path, old: &Path, mv: Mover) -> io::Result<()> {
+    std::fs::hard_link(current, old).or_else(|_| backup_file(current, old, mv))
+}
+
+/// The rest of what the staging folder holds goes in place beside the exe.
+fn finish_files(directory: &Path, staging: &Path, skipped: &mut Vec<String>, mv: Mover, swapped: bool) -> io::Result<bool> {
     let previous = directory.join(PREVIOUS_DIR);
     let mut files = Vec::new();
     files_under(staging, &mut files);
@@ -905,7 +922,8 @@ mod tests {
             let app = windows_app(&dir);
             let archive = windows_zip(&dir);
             let _ = catch_unwind(AssertUnwindSafe(|| install_windows(&archive, &app, 131, &mut killed_at(k))));
-            // Only the instant between the exe's two renames leaves nothing to start (the test runs the guard anyway)
+            // Wherever it stopped, the shortcut still has an exe to start, which is what runs the guard
+            assert!(app.join(EXE_NAME).exists(), "k={k}: no exe to start");
             let exe_was_new = read(&app.join(EXE_NAME)) == "exe 131";
             if read_journal(&app).is_none() {
                 // Cut short before the journal was written: the update never began, and the old version is intact
@@ -1193,6 +1211,31 @@ mod tests {
         install_windows(&archive, &app, 131, &mut scanned).unwrap();
         assert_eq!((busy, gaps), (0, 0), "the old exe stays in place through every retry");
         assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_windows_that_will_not_replace_a_running_exe_still_gets_the_update() {
+        let base = root("exe-no-replace");
+        let app = windows_app(&base);
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131")]);
+        let target = app.join(EXE_NAME);
+        // Only a rename onto an exe that is there fails, as on a Windows before 10
+        let mut old_windows = |s: &Path, d: &Path| if d == target && d.exists() { Err(io::Error::from_raw_os_error(5)) } else { rename(s, d) };
+        install_windows(&archive, &app, 131, &mut old_windows).unwrap();
+        assert_eq!(read(&target), "exe 131");
+        assert_eq!(read(&app.join(OLD_EXE_NAME)), "exe 130");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn the_old_exe_is_kept_whole_beside_the_new_one() {
+        let base = root("exe-old");
+        let app = windows_app(&base);
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131")]);
+        install_windows(&archive, &app, 131, &mut rename).unwrap();
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        assert_eq!(read(&app.join(OLD_EXE_NAME)), "exe 130");
         std::fs::remove_dir_all(&base).unwrap();
     }
 

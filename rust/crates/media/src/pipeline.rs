@@ -9,7 +9,7 @@ use crate::transfers;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
-use telescope_core::balance::{Balance, Place};
+use telescope_core::balance::{Balance, Lane, Place};
 use telescope_core::image::SparePool;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, Touch};
 use telescope_core::media::{FramePipeline, PipelineFrame, StagedStep};
@@ -131,6 +131,13 @@ impl Entry {
         }
     }
 
+    /// Whether this step, run on the card, still has the picture brought into memory first for the pictures its shader samples
+    /// (card_textures), so a decoder's copy off the card is paid whichever way it runs.
+    fn textures_from_memory(&self) -> bool {
+        let Kind::Either(_, cpu) = &self.kind else { return false };
+        !self.no_textures && (self.has_textures || catch_unwind(AssertUnwindSafe(|| cpu.card_textures_offered())).ok().flatten() == Some(true))
+    }
+
     /// Whether this step puts a picture of its own over the whole frame, so what runs before it on this frame is thrown away.
     fn covers(&self) -> bool {
         !self.skipped() && match &self.kind {
@@ -177,10 +184,12 @@ struct Chain {
     downs: u32,
     /// The person mask this frame asked for and the size it was asked at: a second shader using it needn't bring the picture down.
     mask: Option<(u32, u32, Option<(u32, u32, Arc<Vec<u8>>)>)>,
-    /// What it has waited for the card so far.
+    /// What it has waited for the card so far, on the landings of work that could move off it, and how many of those there were.
     waited_ns: u64,
-    /// Whether the steps are being timed, so the readbacks are too.
-    timing: bool,
+    waits: u32,
+    /// Work that could move off the card (a step with two ways, a plain stream's conversion) is on held, not landed yet: only a wait
+    /// for that says where those steps should run, not one a step that only runs on the card makes on its own.
+    movable: bool,
     /// How long the readbacks took, which isn't the cost of the step that happened to trigger one.
     down_ns: u64,
     /// The frame in hand was replaced by a dark one to hide the picture, so a step that could bring the picture back from its own history is left out.
@@ -264,7 +273,10 @@ pub struct Pipeline {
     tally: Tally,
     /// What the last frame cost: (up, down).
     last_transfers: (u32, u32),
-    balance: Arc<Balance>,
+    /// This stream's way in to the balance.
+    balance: Lane,
+    /// The size of the last picture through the steps.
+    size: (u32, u32),
     /// The card failed a frame: steps that can run on the CPU stay there until the next stream, whatever the balance says.
     card_lost: bool,
     deferred_failed: Arc<AtomicBool>,
@@ -273,7 +285,7 @@ pub struct Pipeline {
     pool: SparePool,
     /// Whether this pipeline is counted in ON_THE_CARD.
     on_card: bool,
-    /// How long the last frame spent bringing pictures down from the card (measured while the steps are timed).
+    /// How long the last frame spent bringing pictures down from the card.
     last_readback_ns: u64,
     /// The steps that hide as they are now, and as the frame last through the steps had them (a frame sent again is only missing the difference).
     hiding: Arc<Vec<Applied>>,
@@ -322,7 +334,7 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
+        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance: balance.lane(), size: (0, 0), card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
         // Asked before the first picture, which sizes the decoder's pool: a stream with no steps yet takes them in on the card
         pipeline.note_surface_wish();
         pipeline
@@ -332,6 +344,11 @@ impl Pipeline {
     #[cfg(all(test, target_os = "linux", ffmpeg))]
     pub(crate) fn use_card(&mut self, gpu: Arc<Gpu>) {
         self.gpu = Some(Some(gpu));
+    }
+
+    /// This stream's way in to the balance, which decides where its steps that can run either way run.
+    pub fn lane(&self) -> &Lane {
+        &self.balance
     }
 
     /// How many times the newest frame went up to the card and came down, for this pipeline alone.
@@ -348,8 +365,25 @@ impl Pipeline {
         }
         self.card_decoder |= Gpu::importable(&frame);
         // A decoder's picture still on the card is only for a first step that runs there: any other gets the picture in memory, as it always did
+        // What the CPU does this frame that the card would have done, for the balance: the decoder's copy off the card (noted on the frame
+        // when the card's way would have spared it) and making a surface's picture ready in memory, when the first step would have taken
+        // the picture on the card
+        let card_takes_it = self.steps.iter().find(|e| !e.skipped()).is_none_or(|e| matches!(e.kind, Kind::Either(..)) && !e.textures_from_memory());
+        let mut cpu_ns = frame.copied_off_card().filter(|_| card_takes_it).unwrap_or(0);
+        // A picture of another size costs the CPU something else
+        if (frame.width, frame.height) != self.size {
+            self.size = (frame.width, frame.height);
+            self.balance.work_changed();
+        }
         if frame.surface().is_some() && !self.starts_on_card() {
+            let began = monotonic_ns();
             frame = frame.materialise();
+            if card_takes_it {
+                cpu_ns += monotonic_ns().saturating_sub(began);
+            }
+        }
+        if let Some(fps) = self.stats.as_ref().map(|s| s.target_fps()).filter(|fps| *fps > 0) {
+            self.balance.set_interval(1_000_000_000 / fps as u64);
         }
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
         let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
@@ -362,10 +396,12 @@ impl Pipeline {
         let mut chain = Chain::default();
         // Asked once, so a frame doesn't change its mind halfway
         let on_card = self.balance.place() == Place::Card;
+        if let Some(stats) = &self.stats {
+            stats.set_steps_on_card(on_card);
+        }
         let mut off_card = false;
         // Asked once a frame: a step is only timed while the stats panel wants every plugin's time
         let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
-        chain.timing = timing;
         // A step that covers the whole picture makes what pixel-only steps before it did on this frame pointless; the cover itself always runs
         let covered_by = self.steps.iter().position(Entry::covers);
         for i in 0..self.steps.len() {
@@ -399,9 +435,13 @@ impl Pipeline {
             let either = matches!(self.steps[i].kind, Kind::Either(..)) && !self.steps[i].no_shader && !self.card_lost;
             if either && !(on_card && self.gpu().is_some()) {
                 self.ready_on_card(i);
+                let began = monotonic_ns();
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
+                // Bringing down what a step that only runs on the card made is the card's, whichever way this one runs
+                cpu_ns += monotonic_ns().saturating_sub(began).saturating_sub(chain.down_ns - down_before);
                 off_card = true;
             } else if either || matches!(self.steps[i].kind, Kind::Shader(_)) {
+                chain.movable |= either;
                 self.run_shader(i, &mut frame, &mut chain, ctx, time);
             } else {
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
@@ -437,20 +477,24 @@ impl Pipeline {
         // No step took the decoder's picture: it is converted on the card into the camera's format, and only that comes down
         if chain.held.is_none() && !chain.withheld && !ctx.stopped() && Gpu::importable(&frame) && self.plain_on_card() {
             self.lift_plain(&frame, &mut chain);
+            chain.movable |= chain.plain;
         }
         let mut picture = None;
         if matches!(finish, Finish::Card) && chain.pending() && !ctx.stopped() {
             let gpu = self.gpu.clone().flatten().unwrap();
             match gpu.submit_held(chain.held.as_mut().unwrap(), &mut self.pacing, &|| ctx.stopped()) {
                 Ok(()) => {
-                    self.balance.note_wait(chain.held.as_mut().unwrap().take_waited());
+                    let waited = chain.held.as_mut().unwrap().take_waited();
+                    if chain.movable {
+                        self.balance.note_wait(waited);
+                    }
                     let hides = chain.ahead.iter().any(|&i| self.steps[i].hides());
                     let fallback = if hides { gpu::LandingFailure::Dark } else { gpu::LandingFailure::LastGood };
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
                     }
                     chain.plain = false;
-                    picture = Some(Arc::new(gpu::CardFrame::new(gpu, chain.held.take().unwrap(), frame.clone(), fallback, self.deferred_failed.clone(), self.balance.clone())) as Arc<dyn telescope_core::media::CardPicture>);
+                    picture = Some(Arc::new(gpu::CardFrame::new(gpu, chain.held.take().unwrap(), frame.clone(), fallback, self.deferred_failed.clone(), chain.movable.then(|| self.balance.clone()))) as Arc<dyn telescope_core::media::CardPicture>);
                 }
                 Err(why) => self.card_failed(&why, &mut chain, &mut frame, ctx, &gpu),
             }
@@ -461,12 +505,13 @@ impl Pipeline {
         frame.number = number;
         frame.capture_ns = capture_ns;
         self.last_readback_ns = chain.down_ns;
-        if chain.downs > 0 {
+        if chain.waits > 0 {
             self.balance.note_wait(chain.waited_ns);
         }
         // A plain stream that would convert on the card but was moved off it tries the card again like a step with both ways
         off_card |= !on_card && self.card_decoder && !self.card_lost && plain_allowed() && self.no_steps_run();
         if off_card {
+            self.balance.note_cpu(cpu_ns);
             if !self.was_off_card && ON_THE_CARD.load(Ordering::SeqCst) <= 1 {
                 if let Some(gpu) = self.gpu.clone().flatten() {
                     gpu.release_idle();
@@ -510,15 +555,13 @@ impl Pipeline {
         if let (Some(held), true) = (chain.held.as_mut(), pending) {
             chain.downs += 1;
             let cap = SPARE_POOL_FRAMES * held.size().0 as usize * held.size().1 as usize * 3;
-            let down_began = chain.timing.then(monotonic_ns);
+            let down_began = monotonic_ns();
             // The card gives back a new frame, so the cut-out the one in hand carries goes onto it
             let alpha = frame.alpha().cloned();
             let geometry = frame.geometry.clone();
             let mask_space = frame.mask_space;
             let landed = self.pool.scope(cap, || gpu.land_until(held, &|| ctx.stopped()).map(|out| std::mem::replace(frame, out).recycle()));
-            if let Some(began) = down_began {
-                chain.down_ns += monotonic_ns().saturating_sub(began);
-            }
+            chain.down_ns += monotonic_ns().saturating_sub(down_began);
             match landed {
                 Ok(()) => {
                     frame.geometry = geometry;
@@ -526,21 +569,17 @@ impl Pipeline {
                     if let Some(alpha) = alpha {
                         frame.set_alpha(alpha);
                     }
-                    chain.waited_ns += held.take_waited();
+                    let waited = held.take_waited();
+                    if std::mem::take(&mut chain.movable) {
+                        chain.waited_ns += waited;
+                        chain.waits += 1;
+                    }
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
                     }
                     chain.plain = false;
                 }
-                Err(_) if ctx.stopped() => {
-                    // Stop is waiting on this frame: it isn't worth the CPU's work, the card isn't to blame, and what it was missing mustn't go out as it is
-                    chain.ahead.clear();
-                    chain.plain = false;
-                    gpu.put_down(chain.held.take().unwrap());
-                    *frame = neutral((frame.width, frame.height), frame.format, frame);
-                    chain.withheld = true;
-                }
-                Err(why) => self.card_failed(&why, chain, frame, ctx, &gpu),
+                Err(why) => self.read_failed(&why, chain, frame, ctx, &gpu),
             }
         }
         if !keep {
@@ -550,6 +589,22 @@ impl Pipeline {
         }
         if frame.surface().is_some() {
             *frame = frame.materialise();
+        }
+    }
+
+    /// A readback of the card's picture failed: the stop that was waiting on it is let through dark, anything else is the card failing this frame.
+    fn read_failed(&mut self, why: &str, chain: &mut Chain, frame: &mut Frame, ctx: &dyn FrameContext, gpu: &Gpu) {
+        if ctx.stopped() {
+            // Stop is waiting on this frame: it isn't worth the CPU's work, the card isn't to blame, and what it was missing mustn't go out as it is
+            chain.ahead.clear();
+            chain.plain = false;
+            if let Some(held) = chain.held.take() {
+                gpu.put_down(held);
+            }
+            *frame = neutral((frame.width, frame.height), frame.format, frame);
+            chain.withheld = true;
+        } else {
+            self.card_failed(why, chain, frame, ctx, gpu);
         }
     }
 
@@ -675,6 +730,7 @@ impl Pipeline {
     }
 
     fn steps_changed(&mut self) {
+        self.balance.work_changed();
         self.note_surface_wish();
         let mut now = self.hiding_now();
         let mut applied = (*self.applied).clone();
@@ -899,7 +955,7 @@ impl Pipeline {
         if !matches!(self.steps[i].kind, Kind::Either(..)) || self.steps[i].no_textures {
             return None;
         }
-        let ask = |entry: &mut Entry, frame: &Frame| -> Result<Option<Vec<(String, Frame)>>, ()> {
+        let ask = |entry: &mut Entry, frame: &Frame, ctx: &dyn FrameContext| -> Result<Option<Vec<(String, Frame)>>, ()> {
             let Kind::Either(_, cpu) = &mut entry.kind else { return Ok(None) };
             catch_unwind(AssertUnwindSafe(|| cpu.card_textures(frame, ctx))).map_err(|_| ())
         };
@@ -913,13 +969,29 @@ impl Pipeline {
             return None;
         }
         if offered.is_none() && !self.steps[i].has_textures && !chain.ahead.is_empty() {
-            if let Ok(None) = ask(&mut self.steps[i], frame) {
+            if let Ok(None) = ask(&mut self.steps[i], frame, ctx) {
                 self.steps[i].no_textures = true;
                 return None;
             }
         }
-        self.bring_down(chain, frame, ctx, true);
-        let asked = ask(&mut self.steps[i], frame);
+        // A step that only needs the person mask gets it from a small copy the card makes, and the picture stays up there
+        let mask_only = matches!(&self.steps[i].kind, Kind::Either(_, cpu) if catch_unwind(AssertUnwindSafe(|| cpu.card_textures_from_mask())).unwrap_or(false));
+        let small = if mask_only { self.small_for_vision(frame, chain, ctx) } else { Small::Whole };
+        // The card failed the small picture: this frame goes on the CPU from here, as for a failed readback, with no second wait on the card
+        let small = match small {
+            Small::Failed => return None,
+            Small::Made(small) => Some(small),
+            Small::Whole => None,
+        };
+        let vision = small.as_ref().map(|small| SmallVision { inner: ctx, small });
+        let ctx: &dyn FrameContext = match &vision {
+            Some(vision) => vision,
+            None => {
+                self.bring_down(chain, frame, ctx, true);
+                ctx
+            }
+        };
+        let asked = ask(&mut self.steps[i], frame, ctx);
         // The shader makes no cut-out, so the CPU half gives it now and it comes back with the picture
         if asked.is_ok() {
             if let Kind::Either(_, cpu) = &mut self.steps[i].kind {
@@ -941,6 +1013,47 @@ impl Pipeline {
         }
     }
 
+    /// The picture as it is now, shrunk on the card to the size the vision models take and read back, so the whole one needn't come down. Whole (the caller brings it down as before) when the card doesn't hold it and can't take it in where it is. When the card fails the readback, what it held for this frame is gone with it (the recorded steps went with the refused or stalled submission), so the frame goes on the CPU as for any failed readback.
+    fn small_for_vision(&mut self, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) -> Small {
+        if !vision_on_card() || self.card_lost {
+            return Small::Whole;
+        }
+        let Some(gpu) = self.gpu().filter(|gpu| !gpu.is_lost() && (!gpu.is_software() || small_on_software())) else { return Small::Whole };
+        let Some(size) = vision_size(frame.width, frame.height) else { return Small::Whole };
+        if chain.held.is_none() {
+            // Only a decoder's picture the card takes in where it is: one in memory has its pixels at hand already
+            if !Gpu::importable(frame) {
+                return Small::Whole;
+            }
+            let block_chroma = self.steps.iter().any(|e| matches!(&e.kind, Kind::Either(_, cpu) if cpu.card_block_chroma()));
+            match gpu.lift_with(frame, block_chroma) {
+                Ok(held) if held.was_imported() => chain.held = Some(held),
+                Ok(held) => {
+                    gpu.put_down(held);
+                    return Small::Whole;
+                }
+                Err(_) => return Small::Whole,
+            }
+        }
+        let Some(held) = chain.held.as_mut() else { return Small::Whole };
+        let began = monotonic_ns();
+        let small = gpu.land_small(held, size, &|| ctx.stopped());
+        span("vision_small", began);
+        match small {
+            Ok(None) => Small::Whole,
+            Ok(Some(mut small)) => {
+                small.geometry = frame.geometry.clone();
+                small.mask_space = frame.mask_space;
+                small.number = frame.number;
+                Small::Made(small)
+            }
+            Err(why) => {
+                self.read_failed(&why, chain, frame, ctx, &gpu);
+                Small::Failed
+            }
+        }
+    }
+
     /// Keeps a step that's off the card ready for coming back, so that doesn't cost a frame later.
     fn ready_on_card(&mut self, i: usize) {
         if let Some(gpu) = self.gpu().filter(|gpu| !gpu.is_lost()) {
@@ -954,18 +1067,16 @@ impl Pipeline {
     /// While frames stay off the card, sends one of them there now and then to see what it would have waited.
     fn try_card(&mut self, frame: &Frame) {
         let Some(gpu) = self.gpu() else { return };
-        if !self.balance.trial_due() {
-            return;
-        }
+        let Some(ticket) = self.balance.trial_due() else { return };
         let frame = frame.clone();
         let stop = Arc::new(AtomicBool::new(false));
-        let done = Trial(self.balance.clone(), None, stop.clone());
+        let done = Trial(self.balance.clone(), ticket, None, stop.clone());
         let called_off = stop.clone();
         let trial = move || {
             // Taken whole here: a closure would only capture the field it writes, and the rest would drop now
             let mut done = done;
             match gpu.trial(&frame, &|| called_off.load(Ordering::SeqCst)) {
-                Ok(waited) => done.1 = Some(waited),
+                Ok(waited) => done.2 = Some(waited),
                 Err(why) if called_off.load(Ordering::SeqCst) => log::debug!("The graphics card trial was called off: {why}"),
                 Err(why) => log::warn!("Couldn't try the graphics card: {why}"),
             }
@@ -1029,19 +1140,96 @@ impl Pipeline {
 
 
 /// A trial out on the card, however it ends: a panic or a thread that wouldn't start still lets the next one go. The flag is set when the pipeline is going away.
-struct Trial(Arc<Balance>, Option<u64>, Arc<AtomicBool>);
+struct Trial(Lane, u64, Option<u64>, Arc<AtomicBool>);
 
 impl Drop for Trial {
     fn drop(&mut self) {
-        match self.1 {
-            None if self.2.load(Ordering::SeqCst) => self.0.trial_called_off(),
-            wait => self.0.trial_done(wait),
+        match self.2 {
+            None if self.3.load(Ordering::SeqCst) => self.0.trial_called_off(self.1),
+            wait => self.0.trial_done(self.1, wait),
         }
     }
 }
 
 /// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
 /// The width a person mask goes up to the card at.
+/// Whether a step that only needs the person mask has the card make the small picture the models take (TELESCOPE_VISION_ON_CARD=0 turns it off).
+fn vision_on_card() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("TELESCOPE_VISION_ON_CARD").is_none_or(|v| v != "0"))
+}
+
+/// Whether the small picture is made on a card that is the processor drawing in software, which only tests have a reason for.
+fn small_on_software() -> bool {
+    #[cfg(test)]
+    return tests::SMALL_ON_SOFTWARE.with(std::cell::Cell::get);
+    #[cfg(not(test))]
+    false
+}
+
+/// The pixels the biggest vision model takes (the high quality cutout's 640 x 360).
+const VISION_PIXELS: u64 = 640 * 360;
+
+/// The size of the small picture: exactly what the high quality cutout gets of the whole frame, so a stream that moves between the card and the processor doesn't change the model's input size (which starts its memory over). None for a frame no bigger than twice the model's pixels, which comes down whole as before.
+fn vision_size(w: u32, h: u32) -> Option<(u32, u32)> {
+    if (w as u64) * (h as u64) <= 2 * VISION_PIXELS {
+        return None;
+    }
+    telescope_core::vision::cutout_input_size(w, h)
+}
+
+/// What the card gave for a step that only needs the person mask.
+enum Small {
+    /// The small picture.
+    Made(Frame),
+    /// None was made and nothing was lost: the picture comes down whole.
+    Whole,
+    /// The card failed and the frame has been dealt with as for a failed readback.
+    Failed,
+}
+
+/// The frame step's context with the person mask asked for on the small picture the card made, which has the frame's number, crop and view.
+struct SmallVision<'a> {
+    inner: &'a dyn FrameContext,
+    small: &'a Frame,
+}
+
+impl FrameContext for SmallVision<'_> {
+    fn source_id(&self) -> &str {
+        self.inner.source_id()
+    }
+    fn entry_epoch(&self) -> Option<u64> {
+        self.inner.entry_epoch()
+    }
+    fn stopped(&self) -> bool {
+        self.inner.stopped()
+    }
+    fn hurried(&self) -> bool {
+        self.inner.hurried()
+    }
+    fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_at(self.small, frame.width as usize, frame.height as usize)
+    }
+    fn person_mask_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_at(self.small, w, h)
+    }
+    fn person_mask_hq(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_hq_at(self.small, frame.width as usize, frame.height as usize)
+    }
+    fn person_mask_hq_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.inner.person_mask_hq_at(self.small, w, h)
+    }
+    fn background_mask_at(&self, _frame: &Frame, w: usize, h: usize, high_quality: bool) -> Option<Arc<Vec<u8>>> {
+        self.inner.background_mask_at(self.small, w, h, high_quality)
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        self.inner.colour_preview(frame)
+    }
+    fn effort(&self) -> u8 {
+        self.inner.effort()
+    }
+}
+
 const MASK_UP_WIDTH: u32 = 640;
 
 /// The size a shader's person mask is asked at for a frame of w x h: the frame's own when it is no wider than MASK_UP_WIDTH, else that wide in the frame's shape.
@@ -1198,6 +1386,8 @@ impl FramePipeline for Pipeline {
 
     fn forget_history(&mut self) {
         self.forget_due = true;
+        // A gap in the frames is one in what the balance hears too
+        self.balance.resumed();
         // What the last frame carried can't be vouched for after a gap or a discarded replay, so every hiding step counts as new until a frame goes through them
         self.applied = Arc::default();
     }
@@ -1818,6 +2008,129 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_card_picture_fitted_to_the_camera_on_the_card_is_its_whole_landing_fitted_and_only_that_comes_down() {
+        use crate::transfers::measurement::measure;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let mut pipeline = card_pipeline(Arc::new(gpu));
+        pipeline.set_steps(vec![shader(INVERT)]);
+        let mut source = grey(64, 36, 100);
+        Arc::make_mut(&mut source.data).iter_mut().enumerate().for_each(|(i, v)| *v = (i * 7 % 200 + 20) as u8);
+        source.number = 9;
+        let picture = pipeline.process_picture(source.clone(), &NoContext);
+        let (fitted, costs) = measure(|| picture.land_fitted_until(40, 40, &|| false).unwrap());
+        assert_eq!(costs.down, 1);
+        assert!(picture.landed().is_none(), "the whole picture stayed on the card");
+        assert_eq!((fitted.width, fitted.height, fitted.number), (40, 40, 9));
+        assert_eq!(fitted.data.as_slice(), gpu::cpu_fit(&picture.land(), 40, 40).as_slice());
+        // At the camera's own size there's nothing to fit, and a cut-out goes over the camera's background first, which the card doesn't do
+        assert!(picture.land_fitted_until(64, 36, &|| false).is_none());
+        let mut keep = shader(INVERT);
+        if let FrameStep::Shader(ref mut shader) = keep.step {
+            shader.keeps_geometry = true;
+        }
+        pipeline.set_steps(vec![keep]);
+        source.set_alpha(Arc::new(Alpha::new(64, 36, vec![128; 64 * 36], false)));
+        let cut_out = pipeline.process_picture(source, &NoContext);
+        assert!(cut_out.picture().is_some());
+        assert!(cut_out.land_fitted_until(40, 40, &|| false).is_none());
+    }
+
+    #[test]
+    fn a_hiding_picture_the_card_cant_fit_is_left_to_land_whole_and_comes_out_dark() {
+        use telescope_core::media::StandIn;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let mut pipeline = card_pipeline(gpu.clone());
+        let mut hiding = shader(INVERT);
+        hiding.stage = FrameStage::Privacy;
+        pipeline.set_steps(vec![hiding]);
+        let picture = pipeline.process_picture(grey(32, 18, 200), &NoContext);
+        assert!(picture.fits_on_card(16, 16) && picture.stood_in().is_none());
+        gpu.inject(gpu::Fault::Lost);
+        assert!(picture.land_fitted_until(16, 16, &|| false).is_none());
+        // Showing the room would be worse than a dark frame, so that is what a picture that hides things stands in with
+        assert!(picture.land().data[..32 * 18].iter().all(|&p| p == 16));
+        assert_eq!(picture.stood_in(), Some(StandIn::Dark));
+        assert!(!picture.fits_on_card(16, 16));
+    }
+
+    #[test]
+    fn a_picture_the_card_fails_to_land_says_it_stands_in_for_one_and_the_camera_is_told_not_to_send_it() {
+        use telescope_core::media::StandIn;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let mut pipeline = card_pipeline(gpu.clone());
+        let source = grey(32, 18, 200);
+        // Landing fails after the fit did (a device lost between the two), and the other way round
+        let picture = pipeline.process_picture(source.clone(), &NoContext);
+        assert!(picture.stood_in().is_none());
+        gpu.inject(gpu::Fault::Lost);
+        let landed = picture.land();
+        assert_eq!(picture.stood_in(), Some(StandIn::Unprocessed));
+        assert_eq!(landed.data.as_slice(), source.data.as_slice(), "what the steps began from, uncropped and unshaded");
+        // The same again: every landing of it is the one stand-in, and it is no more a picture to fit on the card
+        assert_eq!(picture.land().data.as_slice(), landed.data.as_slice());
+        assert!(picture.land_fitted_until(16, 16, &|| false).is_none());
+        // A picture that landed fine says nothing of the kind
+        let mut again = card_pipeline(Arc::new(Gpu::open().unwrap()));
+        let fine = again.process_picture(source, &NoContext);
+        fine.land();
+        assert!(fine.stood_in().is_none());
+    }
+
+    #[test]
+    fn a_crop_the_card_fails_to_land_leaves_the_uncropped_picture_marked_as_a_stand_in() {
+        use telescope_core::host::View;
+        use telescope_core::media::StandIn;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        pipeline.gpu = Some(Some(gpu.clone()));
+        pipeline.set_steps(view_staged(&View { zoom: 2.0, pan_x: 0.3, ..View::default() }));
+        let picture = pipeline.process_picture(pattern(64, 36, PixelFormat::I420), &NoContext);
+        assert!(picture.picture().is_some(), "the crop ran on the card");
+        gpu.inject(gpu::Fault::Lost);
+        picture.land();
+        assert_eq!(picture.stood_in(), Some(StandIn::Unprocessed), "the camera is told this isn't the cropped picture");
+    }
+
+    #[test]
+    fn a_picture_the_preview_is_landing_is_never_fitted_on_the_card_as_a_cut_out_would_be_without_its_alpha() {
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let mut pipeline = card_pipeline(Arc::new(gpu));
+        let mut keep = shader(INVERT);
+        if let FrameStep::Shader(ref mut shader) = keep.step {
+            shader.keeps_geometry = true;
+        }
+        pipeline.set_steps(vec![keep]);
+        let mut source = grey(64, 36, 100);
+        source.set_alpha(Arc::new(Alpha::new(64, 36, vec![128; 64 * 36], false)));
+        let cut_out = pipeline.process_picture(source, &NoContext);
+        assert!(!cut_out.fits_on_card(40, 40));
+        // Another thread's landing has begun: what it began from is its own now, and the picture hasn't landed yet
+        let card = cut_out.picture().unwrap().as_any().downcast_ref::<gpu::CardFrame>().unwrap();
+        card.begin_landing_for_test();
+        assert!(cut_out.landed().is_none());
+        assert!(!cut_out.fits_on_card(40, 40), "the camera could fit it without its alpha in that gap");
+        assert!(cut_out.land_fitted_until(40, 40, &|| false).is_none());
+    }
+
+    #[test]
+    fn a_picture_already_in_memory_is_not_read_back_again_to_be_fitted() {
+        use crate::transfers::measurement::measure;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let mut pipeline = card_pipeline(Arc::new(gpu));
+        let picture = pipeline.process_picture(grey(64, 36, 100), &NoContext);
+        let (fitted, costs) = measure(|| {
+            picture.land();
+            picture.land_fitted_until(40, 40, &|| false)
+        });
+        assert!(fitted.is_none(), "the camera fits it from memory");
+        assert_eq!(costs.down, 1, "a second readback was made for the fit");
+        assert!(picture.fits_on_card(40, 40), "it is still one the card could fit");
+    }
+
+    #[test]
     fn the_preview_draws_a_card_picture_repeatedly_without_landing() {
         use crate::transfers::measurement::measure;
         let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
@@ -2157,7 +2470,7 @@ pub(crate) mod tests {
             // The card gets busy for a while in the middle and the steps move to the CPU, as a game starting would do
             if n == 40 {
                 balance.keep_on_card(false);
-                (0..8).for_each(|_| balance.note_wait(50_000_000));
+                (0..8).for_each(|_| p.lane().note_wait(50_000_000));
             }
             // Framing on at the start, a slow pan as Auto framing makes, a zoom change, and off again at the end
             let view = if !(5..115).contains(&n) { View::default() } else { View { zoom: if n < 80 { 2.0 } else { 2.0 + (n - 80) as f32 * 0.01 }, pan_x: -0.8 + n as f32 * 0.012, ..View::default() } };
@@ -2165,7 +2478,7 @@ pub(crate) mod tests {
             cpu.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
             let out = p.process(frame.clone(), &NoContext);
             gaps.push(gap(&out, &cpu.process(frame.clone(), &NoContext)));
-            places.push(balance.place());
+            places.push(p.lane().place());
             let row = (h / 2 * w) as usize;
             lefts.push(out.data[row] as i32);
             means.push(out.data[..(w * h) as usize].iter().map(|&v| v as f64).sum::<f64>() / (w * h) as f64);
@@ -2197,7 +2510,7 @@ pub(crate) mod tests {
         let (mut lefts, mut ups) = (Vec::new(), Vec::new());
         for n in 0..90 {
             // Every seventh frame the card gets busy or has room again, the first time with the shader not built yet
-            p.balance = if (n / 7) % 2 == 0 { on_card.clone() } else { on_cpu.clone() };
+            p.balance = if (n / 7) % 2 == 0 { on_card.lane() } else { on_cpu.lane() };
             let view = View { zoom: 2.0, pan_x: -0.8 + n as f32 * 0.015, ..View::default() };
             p.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
             cpu.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
@@ -2447,13 +2760,109 @@ pub(crate) mod tests {
         }
         let balance = Arc::new(Balance::free());
         let (mut p, _) = either(Place::Card);
-        p.balance = balance.clone();
+        p.balance = balance.lane();
         p.process(grey(8, 8, 100), &NoContext);
         assert_eq!(p.last_transfers, (1, 1));
-        (0..8).for_each(|_| balance.note_wait(50_000_000));
-        assert_eq!(balance.place(), Place::Cpu);
+        (0..8).for_each(|_| p.balance.note_wait(50_000_000));
+        assert_eq!(p.balance.place(), Place::Cpu);
         p.process(grey(8, 8, 100), &NoContext);
         assert_eq!(p.last_transfers, (0, 0));
+    }
+
+    #[test]
+    fn a_step_off_the_card_tells_the_balance_what_it_cost_the_cpu_and_the_stream_s_rate_sets_the_late_line() {
+        let balance = Arc::new(Balance::free());
+        let (mut p, _) = either(Place::Card);
+        p.balance = balance.lane();
+        let hub = telescope_core::stats::Hub::new();
+        let stats = hub.register("cost", 1);
+        stats.set_target_fps(60);
+        p.set_stats(stats);
+        (0..8).for_each(|_| p.balance.note_wait(50_000_000));
+        assert_eq!((p.balance.place(), p.balance.cpu_cost()), (Place::Cpu, None));
+        for _ in 0..10 {
+            p.process(grey(64, 64, 100), &NoContext);
+        }
+        assert!(p.balance.cpu_cost().is_some(), "ten frames on the CPU were heard");
+        assert_eq!(p.balance.late_ns() / 1000, 12_499, "three quarters of a 60 fps frame");
+        let other = Balance::lane(&balance);
+        assert_eq!((other.cpu_cost(), other.late_ns() / 1000), (None, 24_999), "another stream's rate and cost are its own");
+    }
+
+    #[test]
+    fn the_decoder_s_copy_counts_for_the_cpu_only_when_the_card_s_way_would_have_spared_it() {
+        let (mut p, _) = either(Place::Card);
+        p.balance = Arc::new(Balance::free()).lane();
+        (0..8).for_each(|_| p.balance.note_wait(50_000_000));
+        // A decoder that couldn't have left the picture on the card notes nothing: every way pays for its copy
+        for _ in 0..8 {
+            p.process(grey(8, 8, 100), &NoContext);
+        }
+        assert!(p.balance.cpu_cost().unwrap() < 40_000_000, "{:?}", p.balance.cpu_cost());
+        // One that could have notes the copy on the very frame it made
+        p.balance.work_changed();
+        for _ in 0..8 {
+            p.process(grey(8, 8, 100).with_copied_off_card(40_000_000), &NoContext);
+        }
+        assert!(p.balance.cpu_cost().unwrap() >= 40_000_000, "{:?}", p.balance.cpu_cost());
+        // A step whose shader samples pictures made in memory has the decoder's picture brought there on the card too
+        struct Masked;
+        impl CpuStep for Masked {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+            fn card_textures_offered(&self) -> Option<bool> {
+                Some(true)
+            }
+        }
+        let step = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "masked".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(Masked)) }]);
+        for _ in 0..8 {
+            p.process(grey(8, 8, 100).with_copied_off_card(40_000_000), &NoContext);
+        }
+        assert!(p.balance.cpu_cost().unwrap() < 40_000_000, "paid either way: {:?}", p.balance.cpu_cost());
+    }
+
+    #[test]
+    fn a_picture_of_another_size_is_measured_again_and_waits_of_steps_that_cant_move_are_not_heard() {
+        let (mut p, _) = either(Place::Card);
+        p.balance = Arc::new(Balance::free()).lane();
+        (0..8).for_each(|_| p.balance.note_wait(50_000_000));
+        for _ in 0..8 {
+            p.process(grey(64, 64, 100), &NoContext);
+        }
+        assert!(p.balance.cpu_cost().is_some());
+        p.process(grey(32, 32, 100), &NoContext);
+        assert_eq!(p.balance.cpu_cost(), None, "another size costs something else");
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        // A shader that only runs on the card waits for it on every frame, but moving nothing can't help that
+        let balance = Arc::new(Balance::free());
+        let mut p = Pipeline::with_balance(balance.clone());
+        p.set_steps(vec![shader(INVERT)]);
+        p.process(grey(64, 64, 100), &NoContext);
+        assert_eq!(balance.last_wait(), 0, "no wait heard");
+    }
+
+    #[test]
+    fn a_step_off_the_card_isn_t_charged_for_bringing_a_card_step_s_picture_down() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let balance = Arc::new(Balance::free());
+        let mut p = Pipeline::with_balance(balance.clone());
+        let own = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let either = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(either, Box::new(Slow(own.clone()))) }]);
+        (0..8).for_each(|_| p.balance.note_wait(50_000_000));
+        let mut readback_ns = 0;
+        for _ in 0..8 {
+            p.process(grey(1920, 1080, 126), &NoContext);
+            readback_ns += p.last_readback_ns;
+        }
+        assert!(readback_ns > 0, "the shader's picture came down");
+        let (own_ms, readback_ms) = (own.load(Ordering::SeqCst) as f64 / 8e6, readback_ns as f64 / 8e6);
+        let cost_ms = p.balance.cpu_cost().unwrap() as f64 / 1e6;
+        assert!(cost_ms <= own_ms + 0.3, "the CPU's cost was {cost_ms:.2} ms for a step that took {own_ms:.2} ms, with a readback of {readback_ms:.2} ms in front of it");
     }
 
     #[test]
@@ -2684,6 +3093,126 @@ pub(crate) mod tests {
         let seen = seen.lock().unwrap();
         assert_eq!(seen.len(), 1);
         assert!((seen[0] as i32 - 151).abs() <= 2, "the mask was asked for on the picture from before the card's work ({})", seen[0]);
+    }
+
+    /// Says it needs nothing of the frame but its person mask, which it asks for at a quarter of the frame's size.
+    struct MaskOnly;
+
+    impl CpuStep for MaskOnly {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn card_textures_offered(&self) -> Option<bool> {
+            Some(true)
+        }
+        fn card_textures_from_mask(&self) -> bool {
+            true
+        }
+        fn card_textures(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
+            let _ = ctx.background_mask_at(frame, frame.width as usize / 4, frame.height as usize / 4, false);
+            Some(Vec::new())
+        }
+    }
+
+    /// Notes the size, number and luma of each picture a mask is asked for on, and the size it is asked at.
+    struct SeesPicture(std::sync::Mutex<Vec<((u32, u32), u64, u8, (usize, usize))>>);
+
+    impl FrameContext for SeesPicture {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            self.person_mask_at(frame, frame.width as usize, frame.height as usize)
+        }
+        fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push(((frame.width, frame.height), frame.number, frame.data[frame.data.len() / 3], (w, h)));
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    fn a_step_that_only_needs_the_mask_gets_a_small_picture_of_the_cards_work_and_the_picture_comes_down_once() {
+        assert_eq!([vision_size(3840, 2160), vision_size(1920, 1080), vision_size(1080, 1920), vision_size(1280, 720), vision_size(640, 360)], [Some((640, 360)), Some((640, 360)), Some((360, 640)), Some((640, 360)), None]);
+        // A card the processor draws in software gains nothing from it, so there the picture comes down as before
+        if Gpu::shared().is_none_or(|gpu| gpu.is_software()) {
+            return eprintln!("no graphics card in hardware; skipped");
+        }
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let step = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(MaskOnly)) }]);
+        let ctx = SeesPicture(Default::default());
+        let mut frame = grey(1920, 1080, 100);
+        frame.number = 7;
+        p.process(frame, &ctx);
+        let seen = ctx.0.lock().unwrap().clone();
+        assert_eq!(seen.len(), 1);
+        let (size, number, luma, asked) = seen[0];
+        assert_eq!((size, number, asked), ((640, 360), 7, (480, 270)), "the small picture, numbered as the frame, and the mask at the size the step asked");
+        assert!((luma as i32 - 151).abs() <= 2, "the picture after the card's work ({luma})");
+        assert_eq!(p.last_transfers, (1, 1), "up once, and down only at the end");
+    }
+
+    #[test]
+    fn the_small_picture_has_the_size_the_cutout_model_takes_of_the_whole_frame() {
+        // Another size (554 x 416 for the 555 x 416 the whole frame gets) would start the model's memory over each time a stream moved between the card and the processor
+        assert_eq!([vision_size(1440, 1080), vision_size(1920, 1200), vision_size(2560, 1080), vision_size(1440, 1081)], [Some((555, 416)), Some((607, 379)), Some((740, 312)), Some((554, 416))]);
+    }
+
+    thread_local! {
+        /// Lets the small picture be made on a software card for this test's thread, so the card's failures can be tried where there is no real one.
+        pub(super) static SMALL_ON_SOFTWARE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
+    /// A step before Background that works on the card and, like the crop, has the same on the CPU, then one that only needs the person mask.
+    fn crop_then_mask_only(gpu: Arc<Gpu>) -> Pipeline {
+        struct Invert;
+        impl CpuStep for Invert {
+            fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+                frame.data_mut().iter_mut().for_each(|v| *v = 251 - *v + 16);
+            }
+        }
+        SMALL_ON_SOFTWARE.with(|on| on.set(true));
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.gpu = Some(Some(gpu));
+        let invert = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let dim = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![
+            StagedStep { owner: "crop".into(), stage: FrameStage::Effects, step: FrameStep::Either(invert, Box::new(Invert)) },
+            StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(dim, Box::new(MaskOnly)) },
+        ]);
+        p
+    }
+
+    /// The pictures a mask was asked on after the crop worked, and the frame that went out, when the card fails the small readback this way.
+    fn a_small_readback_that_fails(fault: crate::gpu::Fault) -> (Vec<u8>, Frame, u32, bool) {
+        let gpu = Arc::new(Gpu::open().unwrap());
+        let mut p = crop_then_mask_only(gpu.clone());
+        gpu.inject(fault);
+        let ctx = SeesPicture(Default::default());
+        let out = p.process(grey(1920, 1080, 100), &ctx);
+        let seen = ctx.0.lock().unwrap().iter().map(|seen| seen.2).collect();
+        (seen, out, gpu.stalls(), p.card_lost)
+    }
+
+    #[test]
+    fn a_refused_small_picture_never_lets_the_mask_or_the_camera_see_what_the_crop_never_made() {
+        let Ok(_) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let (seen, out, _, lost) = a_small_readback_that_fails(crate::gpu::Fault::RefusedSubmit);
+        // The CPU's picture of this frame (the crop's own steps, done there)
+        assert_eq!(out.data[0], 167, "the camera got the CPU's cropped picture of this frame");
+        assert!(out.data.iter().step_by(4099).all(|&v| v == 167), "the whole picture is the CPU's");
+        assert!(seen.iter().all(|&luma| (luma as i32 - 167).abs() <= 2), "the mask was asked on a picture the crop didn't make: {seen:?}");
+        assert!(lost, "the stream goes on the CPU after the card failed");
+    }
+
+    #[test]
+    fn a_stalled_small_picture_costs_one_wait_on_the_card_and_the_frame_is_the_cpus() {
+        let Ok(_) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let (_, out, stalls, lost) = a_small_readback_that_fails(crate::gpu::Fault::Stalled);
+        assert_eq!(stalls, 1, "the whole picture was waited for on a card that had just not answered");
+        assert_eq!(out.data[0], 167);
+        assert!(lost);
     }
 
     /// The card goes wrong on a readback (see Fault): the frame the CPU makes goes out, never what was left in the kept buffer, and the stream stays on the CPU unless the card is fine.

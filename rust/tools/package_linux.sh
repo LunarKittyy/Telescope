@@ -25,13 +25,17 @@ done
 [ -n "$ffmpeg" ] || { echo "Pass --ffmpeg, a build from build_ffmpeg.sh" >&2; exit 2; }
 case $channel in stable|nightly|dev) ;; *) echo "The channel is stable, nightly or dev" >&2; exit 2 ;; esac
 
+# Only a stable release waits for the slowest, most optimised build (Cargo.toml's nightly profile)
+profile=nightly
+[ "$channel" = stable ] && profile=release
+
 cd "$rust"
-FFMPEG_DIR=$ffmpeg TELESCOPE_BUILD=$build TELESCOPE_CHANNEL=$channel TELESCOPE_COMMIT=$commit cargo build --release --locked -p telescope-app
+FFMPEG_DIR=$ffmpeg TELESCOPE_BUILD=$build TELESCOPE_CHANNEL=$channel TELESCOPE_COMMIT=$commit cargo build --profile "$profile" --locked -p telescope-app
 target=${CARGO_TARGET_DIR:-target}
 
 rm -rf "$out"
 mkdir -p "$out/lib/fallback" "$out/telescope"
-cp "$target/release/telescope-rs" "$out/"
+cp "$target/$profile/telescope-rs" "$out/"
 cp tools/start.sh "$out/start.sh"
 cp tools/main_stub.py "$out/main.py"
 chmod +x "$out/start.sh" "$out/telescope-rs"

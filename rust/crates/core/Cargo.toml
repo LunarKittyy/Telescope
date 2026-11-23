@@ -34,6 +34,10 @@ libc.workspace = true
 [target.'cfg(all(unix, not(target_vendor = "apple")))'.dependencies]
 yeslogic-fontconfig-sys = "6"
 
+# Whether power-profiles-daemon is on its power-saver profile
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus.workspace = true
+
 [target.'cfg(not(all(unix, not(target_vendor = "apple"))))'.dependencies]
 fontique = "0.11"
 

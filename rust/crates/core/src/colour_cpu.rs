@@ -186,6 +186,11 @@ fn cube_row(cube: &Cube, r: &mut [u8], g: &mut [u8], b: &mut [u8]) {
         // SAFETY: the processor was just asked whether it has AVX2
         return unsafe { cube_row_wide(cube, r, g, b) };
     }
+    #[cfg(target_arch = "x86_64")]
+    if crate::image::sse41_wanted() {
+        // SAFETY: the processor was just asked whether it has SSE4.1
+        return unsafe { cube_row_narrow(cube, r, g, b) };
+    }
     cube_row_plain(cube, r, g, b);
 }
 
@@ -235,6 +240,32 @@ fn cube_row_wide(cube: &Cube, r: &mut [u8], g: &mut [u8], b: &mut [u8]) {
     }
 }
 
+/// cube_row_wide on 128 bit lanes, for a processor with SSE4.1 but no AVX2: the same arithmetic, so the same bytes.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+fn cube_row_narrow(cube: &Cube, r: &mut [u8], g: &mut [u8], b: &mut [u8]) {
+    use std::arch::x86_64::*;
+    let n = cube.size;
+    let (dg, db) = (n, n * n);
+    let last = cube.points.len() - (db + dg + 2);
+    for (r, (g, b)) in r.iter_mut().zip(g.iter_mut().zip(b.iter_mut())) {
+        let (sr, sg, sb) = (cube.spots[*r as usize], cube.spots[*g as usize], cube.spots[*b as usize]);
+        let at = (sb.low as usize * db + sg.low as usize * dg + sr.low as usize).min(last);
+        // SAFETY: at is at most last, so each load's two points are inside points
+        let pair = |i: usize| unsafe { _mm_loadu_si128(cube.points.as_ptr().add(i).cast()) };
+        let weight = _mm_set1_epi16(sr.weight);
+        let along_red = |v: __m128i| {
+            let (from, to) = (_mm_unpacklo_epi64(v, v), _mm_unpackhi_epi64(v, v));
+            _mm_add_epi16(from, _mm_mulhrs_epi16(_mm_sub_epi16(to, from), weight))
+        };
+        let lerp = |from: __m128i, to: __m128i, weight: i16| _mm_add_epi16(from, _mm_mulhrs_epi16(_mm_sub_epi16(to, from), _mm_set1_epi16(weight)));
+        let near = lerp(along_red(pair(at)), along_red(pair(at + dg)), sg.weight);
+        let high = lerp(along_red(pair(at + db)), along_red(pair(at + db + dg)), sg.weight);
+        let out = _mm_cvtsi128_si64(lerp(near, high, sb.weight)) as u64;
+        (*r, *g, *b) = (down((out & 0xffff) as i32), down((out >> 16 & 0xffff) as i32), down((out >> 32 & 0xffff) as i32));
+    }
+}
+
 /// Two chroma rows as one value a luma pixel, sixteen times the size: 3:1 from the nearer row, 3:1 from the nearer sample, what a
 /// linear sampler gives at the middle of a luma pixel. `side` is room for the row between.
 fn spread(near: &[u8], far: &[u8], side: &mut [u16], out: &mut [u16]) {
@@ -270,6 +301,13 @@ fn interleave(side: &[u16], out: &mut [u16], count: usize) -> usize {
         unsafe { interleave_wide(side, out, blocks) };
         return blocks * 16;
     }
+    #[cfg(target_arch = "x86_64")]
+    if crate::image::sse41_wanted() {
+        let blocks = count.min(out.len() / 2) / 16;
+        // SAFETY: the processor was just asked whether it has SSE4.1, and the blocks read and write what interleave_wide's do
+        unsafe { interleave_narrow(side, out, blocks) };
+        return blocks * 16;
+    }
     let _ = (side, out, count);
     0
 }
@@ -289,6 +327,24 @@ fn interleave_wide(side: &[u16], out: &mut [u16], blocks: usize) {
             let (first, second) = (_mm256_unpacklo_epi16(low, high), _mm256_unpackhi_epi16(low, high));
             _mm256_storeu_si256(out.as_mut_ptr().add(i * 2).cast(), _mm256_permute2x128_si256::<0x20>(first, second));
             _mm256_storeu_si256(out.as_mut_ptr().add(i * 2 + 16).cast(), _mm256_permute2x128_si256::<0x31>(first, second));
+        }
+    }
+}
+
+/// interleave_wide in halves of 8 neighbours, for a processor with SSE4.1 but no AVX2.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+fn interleave_narrow(side: &[u16], out: &mut [u16], blocks: usize) {
+    use std::arch::x86_64::*;
+    let three = _mm_set1_epi16(3);
+    for k in 0..blocks * 2 {
+        let i = k * 8;
+        // SAFETY: the caller keeps 17 values from i (per 16) inside side and 32 from i * 2 inside out
+        unsafe {
+            let (a, b) = (_mm_loadu_si128(side.as_ptr().add(i).cast()), _mm_loadu_si128(side.as_ptr().add(i + 1).cast()));
+            let (low, high) = (_mm_add_epi16(_mm_mullo_epi16(a, three), b), _mm_add_epi16(_mm_mullo_epi16(b, three), a));
+            _mm_storeu_si128(out.as_mut_ptr().add(i * 2).cast(), _mm_unpacklo_epi16(low, high));
+            _mm_storeu_si128(out.as_mut_ptr().add(i * 2 + 8).cast(), _mm_unpackhi_epi16(low, high));
         }
     }
 }
@@ -456,6 +512,33 @@ mod tests {
         for (a, b) in r.iter().chain(&g).chain(&b).zip(r2.iter().chain(&g2).chain(&b2)) {
             assert!((*a as i32 - *b as i32).abs() <= 1);
         }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn the_sse41_way_through_the_cube_gives_the_avx2_bytes() {
+        if !std::arch::is_x86_feature_detected!("avx2") {
+            return;
+        }
+        let graded = Graded::new(&cube(|v| v.sqrt(), false));
+        let Tables::Cube(tables) = &*graded.tables else { panic!("a cube") };
+        let px = noise(30_000);
+        let (mut r, mut g, mut b) = (px[..10_000].to_vec(), px[10_000..20_000].to_vec(), px[20_000..].to_vec());
+        let (mut r2, mut g2, mut b2) = (r.clone(), g.clone(), b.clone());
+        // SAFETY: AVX2 was asked above, which brings SSE4.1
+        unsafe {
+            cube_row_wide(tables, &mut r, &mut g, &mut b);
+            cube_row_narrow(tables, &mut r2, &mut g2, &mut b2);
+        }
+        assert!(r == r2 && g == g2 && b == b2);
+        let side: Vec<u16> = (0..100u16).map(|i| i * 37 % 1021).collect();
+        let (mut wide, mut narrow) = (vec![0u16; 200], vec![0u16; 200]);
+        // SAFETY: as above, and 80 neighbours (5 blocks) read side[..81] and write 160 values
+        unsafe {
+            interleave_wide(&side, &mut wide, 5);
+            interleave_narrow(&side, &mut narrow, 5);
+        }
+        assert!(wide == narrow);
     }
 
     #[test]

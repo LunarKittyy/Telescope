@@ -632,7 +632,7 @@ class MainActivity : LookActivity() {
             setText(if (action == SetupSteps.Action.SETTINGS) R.string.open_settings else R.string.allow)
             setOnClickListener {
                 when {
-                    perm == null -> startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    perm == null -> openSettings(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
                         .apply { data = Uri.parse("package:$packageName") })
                     action == SetupSteps.Action.SETTINGS -> openAppSettings()
                     else -> ask(perm)
@@ -650,7 +650,7 @@ class MainActivity : LookActivity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun openAppSettings() {
-        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        openSettings(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             .apply { data = Uri.parse("package:$packageName") })
     }
 
@@ -658,7 +658,10 @@ class MainActivity : LookActivity() {
         requestCode: Int, permissions: Array<String>, grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == RC_PERMS) checkPermissions()
+        if (requestCode != RC_PERMS) return
+        checkPermissions()
+        // Android's question leaves the app on screen, so onStart doesn't run: waiting picks up the camera or mic now
+        syncWaitForComputer()
     }
 
     // The computer starts streams; the phone can only stop one, or cancel one that's starting.

@@ -95,16 +95,22 @@ pub fn find_by_label(label: &str) -> Option<String> {
     find_by_label_in(SYSFS, label)
 }
 
+/// Whether the usual node's name says it is another app's loopback (an unreadable name doesn't count against it).
+fn usual_node_is_foreign(sysfs: &str) -> bool {
+    let Some(node) = std::path::Path::new(PHONE_DEV).file_name() else { return false };
+    match std::fs::read_to_string(format!("{sysfs}/{}/name", node.to_string_lossy())) {
+        Ok(name) => !crate::linux_setup::slot_labels(0).iter().any(|l| *l == name.trim()),
+        Err(_) => false,
+    }
+}
+
 /// The usual node of the main camera unless it's missing or another app's loopback holds it (an unreadable name doesn't count against).
 pub fn phone_dev_in(sysfs: &str) -> Option<String> {
     let node = std::path::Path::new(PHONE_DEV).file_name()?.to_string_lossy().to_string();
-    if !std::path::Path::new(&format!("{sysfs}/{node}")).exists() {
+    if !std::path::Path::new(&format!("{sysfs}/{node}")).exists() || usual_node_is_foreign(sysfs) {
         return None;
     }
-    match std::fs::read_to_string(format!("{sysfs}/{node}/name")) {
-        Ok(name) if !crate::linux_setup::slot_labels(0).iter().any(|l| *l == name.trim()) => None,
-        _ => Some(PHONE_DEV.into()),
-    }
+    Some(PHONE_DEV.into())
 }
 
 /// slot's /dev/video node, or None if it isn't set up (vcam.slot_device). The extra ones took whatever number was
@@ -121,9 +127,9 @@ pub fn slot_ready_in(sysfs: &str, slot: u32) -> bool {
     slot == 0 || slot_device_in(sysfs, slot).is_some()
 }
 
-/// Whether the main camera is there: at the usual node (usual_node_exists), or hand-made under another number and found by its label.
+/// Whether the main camera is there: at the usual node (usual_node_exists) unless that is another app's loopback, or hand-made under another number and found by its label.
 pub fn main_camera_ready_in(sysfs: &str, usual_node_exists: bool) -> bool {
-    usual_node_exists || slot_device_in(sysfs, 0).is_some()
+    (usual_node_exists && !usual_node_is_foreign(sysfs)) || slot_device_in(sysfs, 0).is_some()
 }
 
 /// The size device is held at while a reader still has buffers ("YU12:1280x720@30" in sysfs), else None.
@@ -269,6 +275,16 @@ mod tests {
         let none = sysfs(&[("video30", "Other", "")]);
         assert!(!main_camera_ready_in(&none.to_string_lossy(), false));
         assert!(main_camera_ready_in(&none.to_string_lossy(), true));
+    }
+
+    #[test]
+    fn another_apps_loopback_at_the_usual_node_is_not_the_main_camera() {
+        let foreign = sysfs(&[("video11", "Elgato Virtual Camera", "")]);
+        assert!(!main_camera_ready_in(&foreign.to_string_lossy(), true));
+        let both = sysfs(&[("video11", "Other", ""), ("video30", "Telescope", "")]);
+        assert!(main_camera_ready_in(&both.to_string_lossy(), true));
+        let unreadable = sysfs(&[]);
+        assert!(main_camera_ready_in(&unreadable.to_string_lossy(), true), "no name to read: the usual node counts");
     }
 
     #[test]

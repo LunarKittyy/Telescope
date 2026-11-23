@@ -23,6 +23,22 @@ pub const MISSING: &str = "missing";
 /// MediaPipe didn't load; VisionService::diagnostics says why.
 pub const FAILED: &str = "failed";
 
+/// The pixels the high quality cutout model takes of a frame (vision's matting::INPUT_PIXELS, which a test there keeps equal).
+const CUTOUT_PIXELS: f64 = 640.0 * 360.0;
+
+/// The size the high quality cutout model gets a w x h frame at, as vision works it out for the whole frame (matting::input_size, then ops::model_input_size); None when the frame is no bigger than that.
+/// A smaller copy of the frame made first must have exactly this size, or the model sees a different size than for the whole frame and starts its temporal state over.
+pub fn cutout_input_size(w: u32, h: u32) -> Option<(u32, u32)> {
+    let (w, h) = (w as f64, h as f64);
+    let scale = (CUTOUT_PIXELS / (w * h).max(1.0)).sqrt();
+    let wanted = ((w * scale).round().max(2.0), (h * scale).round().max(2.0));
+    let cover = (wanted.0 / w).max(wanted.1 / h);
+    if cover >= 1.0 {
+        return None;
+    }
+    Some(((w * cover).round_ties_even().max(1.0) as u32, (h * cover).round_ties_even().max(1.0) as u32))
+}
+
 /// The view's flips and turn (degrees clockwise), the part of it that moves people around the picture.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Turn {
@@ -208,6 +224,8 @@ pub trait VisionService: Send + Sync {
     }
     /// While any owner wants people, fed frames are looked at and people_seen and people_tracked follow.
     fn want_people(&self, owner: &str, on: bool);
+    /// The owner's people are enough as faces with shoulders (see HostVision::want_heads). The default ignores it, so people stay whole.
+    fn want_heads(&self, _owner: &str, _on: bool) {}
     fn wants_people(&self) -> bool;
     /// Whether feed_raw would look at this stream's next frame now: a caller that has to make the frame's pixels first (off a card) only does when this is true. The default always looks.
     fn people_due(&self, _source_id: &str) -> bool {
