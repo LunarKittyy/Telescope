@@ -656,7 +656,7 @@ struct GphotoState {
 }
 
 /// A look at the USB bus costs a few files; asking libgphoto2 loads every camera driver and builds a list of over a thousand models.
-/// So it only asks again when this changes, or after `RELOOK` as a safety net.
+/// So it only asks again when this changes, or after `RELOOK`.
 const RELOOK: std::time::Duration = std::time::Duration::from_secs(600);
 
 /// The USB devices that are plugged in (bus, address, vendor and product ids), or None where the system doesn't say.
