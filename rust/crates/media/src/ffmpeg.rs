@@ -1385,6 +1385,33 @@ pub(crate) mod decode_bench {
         }
     }
 
+    /// Where a VA-API card's decoding time shows up: in the decode call, or in the copy that waits for the picture (the second copy has nothing to wait for).
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture where_a_cards_decoding_time_shows_up
+    #[test]
+    #[ignore = "a measurement, needs the clips and a VA-API card"]
+    fn where_a_cards_decoding_time_shows_up() {
+        for name in ["p1080.h264", "p4k.h264"] {
+            let Some(packets) = packets(name) else { continue };
+            let mut codec = Codec::h264(Some(Hw::Vaapi)).expect("VA-API");
+            codec.copy_ns = Some(Vec::new());
+            let mut decode_ms = Vec::new();
+            for p in &packets {
+                let began = Instant::now();
+                let mut count = 0;
+                codec.parse(p, |c, unit| count += c.decode_newest(unit).unwrap());
+                if count > 0 {
+                    decode_ms.push(began.elapsed().as_secs_f64() * 1000.0);
+                    codec.take_newest().unwrap();
+                }
+            }
+            let copies = codec.copy_ns.take().unwrap();
+            let first: Vec<f64> = copies[30..].iter().map(|t| t.0 as f64 / 1e6).collect();
+            let again: Vec<f64> = copies[30..].iter().map(|t| t.1 as f64 / 1e6).collect();
+            println!("{name:11}: decode call {:.2} ms, first copy {:.2} ms, same copy again {:.2} ms (medians over {} pictures)",
+                     pct(&decode_ms[30..], 0.5), pct(&first, 0.5), pct(&again, 0.5), first.len());
+        }
+    }
+
     /// cargo test --release -p telescope-media --lib -- --ignored --nocapture software_thread_counts
     #[test]
     #[ignore = "a measurement, needs the clips"]

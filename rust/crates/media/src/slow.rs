@@ -1,4 +1,5 @@
-//! Whether a decoder keeps up with the stream: how long each picture takes to decode, judged over a few seconds. Only the decoding is timed, not the copy of a picture off the card or the steps that follow.
+//! Whether a decoder keeps up with the stream: how long each picture takes to decode and be handed over (on a card, until it is copied off or
+//! kept there), judged over a few seconds. A card that looks too slow hands over to software only if software turns out quicker.
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -68,6 +69,16 @@ pub fn stall(hiccups_ms: &[f64]) -> Option<f64> {
     let worst = hiccups_ms.iter().copied().fold(0.0, f64::max);
     let heavy = hiccups_ms.iter().filter(|ms| **ms >= HICCUP_MS).count();
     (worst >= STALL_MS || heavy >= 2).then_some(worst)
+}
+
+/// Software must take less than this share of the card's time a picture to be called quicker: a tie goes to the card, which costs the processor less.
+pub const CLEARLY_QUICKER: f64 = 0.8;
+/// How long software gets to show its speed after a card looked too slow, before the card is taken back anyway.
+pub const TRIAL_LIMIT: Duration = Duration::from_secs(10);
+
+/// Whether software, at software_ms a picture, is clearly quicker than a card at card_ms.
+pub fn software_quicker(card_ms: f64, software_ms: f64) -> bool {
+    software_ms < card_ms * CLEARLY_QUICKER
 }
 
 /// How long software decodes after the card was too slow, the first time.
@@ -166,6 +177,14 @@ impl Timings {
     /// The worst picture time (milliseconds) when the decoder stalled lately, else None.
     pub fn stalled(&self) -> Option<f64> {
         stall(&self.hiccups.iter().map(|(_, ms)| *ms).collect::<Vec<_>>())
+    }
+
+    /// The median picture of the last window once a whole window was timed (endless when the window had none); None before a whole window.
+    pub fn per_picture(&self, now: Instant) -> Option<f64> {
+        if now.duration_since(self.since?) < WINDOW {
+            return None;
+        }
+        Some(self.recent().map_or(f64::INFINITY, |s| s.median_ms))
     }
 
     fn times(&self) -> Vec<f64> {
@@ -307,5 +326,28 @@ mod tests {
         }
         assert!(t.slow(start + Duration::from_millis(9000), 33.3).is_none());
         assert_eq!(t.recent().unwrap().max_ms, 5.0);
+    }
+
+    #[test]
+    fn per_picture_waits_for_a_whole_window() {
+        let start = Instant::now();
+        let mut t = Timings::default();
+        for i in 0..60 {
+            t.record(start + Duration::from_millis(i * 33), 20.0);
+        }
+        assert!(t.per_picture(start + Duration::from_secs(2)).is_none());
+        assert_eq!(t.per_picture(start + Duration::from_secs(3)), Some(20.0));
+        // Nothing for a whole window since: no picture is endlessly slow
+        t.record(start + Duration::from_secs(9), 20.0);
+        t.recent.clear();
+        assert_eq!(t.per_picture(start + Duration::from_secs(9)), Some(f64::INFINITY));
+    }
+
+    #[test]
+    fn software_has_to_be_clearly_quicker_than_the_card() {
+        assert!(software_quicker(45.0, 20.0));
+        assert!(!software_quicker(30.0, 26.0));
+        assert!(!software_quicker(30.0, 75.0));
+        assert!(!software_quicker(30.0, f64::INFINITY));
     }
 }
