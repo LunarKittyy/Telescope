@@ -114,6 +114,7 @@ private:
     std::condition_variable m_wake;
     std::thread m_worker;
     bool m_stopWorker = false;
+    std::mutex m_halt;  // one Halt at a time, so the channel closes only after the worker is joined
     bool m_shutdown = false;
     int m_slot = 0;
     MF_STREAM_STATE m_state = MF_STREAM_STATE_STOPPED;

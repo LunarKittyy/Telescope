@@ -207,6 +207,7 @@ HRESULT MediaStream::Run(IMFMediaType* type) {
 }
 
 void MediaStream::Halt() {
+    std::lock_guard<std::mutex> halting(m_halt);
     std::thread worker;
     {
         std::lock_guard<std::mutex> lock(m_lock);
@@ -292,6 +293,7 @@ void MediaStream::Deliver() {
         // Paused, requests wait in the queue until it runs again
         m_wake.wait(lock, [this] { return m_stopWorker || (!m_tokens.empty() && m_state == MF_STREAM_STATE_RUNNING); });
         if (m_stopWorker) break;
+        bool heard = false;  // whether this frame's signal has come
         bool live = seen && clock::now() - fresh_at < kLive;
         if (!sleep_until(lock, live ? std::min(floor, next) : next)) break;
         while (live && !m_tokens.empty() && m_state == MF_STREAM_STATE_RUNNING && !m_channel.HasNew(m_width, m_height)
@@ -300,6 +302,7 @@ void MediaStream::Deliver() {
                 // Telescope sets the event as each frame lands, so this sleeps through the wait instead of polling for it
                 bool by_event = false;
                 if (!wait_signal(lock, next, &by_event)) break;
+                heard = heard || by_event;
                 if (!by_event && m_channel.HasNew(m_width, m_height) && !take_signal()) {
                     signalled = false;  // a frame came and no signal did, so poll again until one does
                 }
@@ -325,7 +328,11 @@ void MediaStream::Deliver() {
             if (m_queue) m_queue->QueueEventParamVar(MEError, GUID_NULL, hr, nullptr);
             break;
         }
-        if (signalled) take_signal();  // the signal of a frame that's been taken, so it doesn't wake the next wait
+        if (signalled) {
+            // The signal of a frame that's been taken, so it doesn't wake the next wait
+            heard = take_signal() || heard;
+            if (fresh && !heard) signalled = false;  // a frame with no signal at all: poll until they come back
+        }
         auto now = clock::now();
         if (fresh) {
             fresh_at = now;

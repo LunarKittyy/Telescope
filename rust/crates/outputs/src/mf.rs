@@ -245,8 +245,9 @@ pub fn open_shared(slot: u32) -> Option<SharedView> {
     struct Win {
         view: crate::win::View,
         slot: u32,
-        /// Opened on the first frame: None until then, and Some(None) when this camera has no event.
-        event: Option<Option<crate::win::Owned>>,
+        event: Option<crate::win::Owned>,
+        /// When the event was last looked for, so a camera without one is asked again about once a second.
+        tried: Option<std::time::Instant>,
     }
     impl Mapping for Win {
         fn with(&mut self, f: &mut dyn FnMut(&mut [u8])) {
@@ -254,17 +255,18 @@ pub fn open_shared(slot: u32) -> Option<SharedView> {
         }
         fn signal(&mut self) {
             let slot = self.slot;
-            let event = self.event.get_or_insert_with(|| {
-                crate::win::open_event(&format!("{FRAME_EVENT_NAME}{slot}"), crate::win::EVENT_MODIFY_STATE)
-            });
-            if let Some(event) = event {
+            if self.event.is_none() && self.tried.is_none_or(|t| t.elapsed() >= std::time::Duration::from_secs(1)) {
+                self.tried = Some(std::time::Instant::now());
+                self.event = crate::win::open_event(&format!("{FRAME_EVENT_NAME}{slot}"), crate::win::EVENT_MODIFY_STATE);
+            }
+            if let Some(event) = &self.event {
                 crate::win::set_event(event);
             }
         }
     }
     let access = crate::win::FILE_MAP_READ | crate::win::FILE_MAP_WRITE;
     let view = crate::win::View::open(&format!("{SHARED_NAME}{slot}"), access)?;
-    let mut shared = SharedView::new(Box::new(Win { view, slot, event: None }));
+    let mut shared = SharedView::new(Box::new(Win { view, slot, event: None, tried: None }));
     shared.valid().then_some(shared)
 }
 
