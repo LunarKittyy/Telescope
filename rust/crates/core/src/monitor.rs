@@ -127,6 +127,12 @@ impl Monitor {
         Monitor { reader: os::Reader::new(), last: None }
     }
 
+    /// Whether a reading was taken before, so the next one has rates.
+    #[cfg(test)]
+    pub(crate) fn has_history(&self) -> bool {
+        self.last.is_some()
+    }
+
     /// A reading now. Rates (the CPU's and each program's) are None or empty on the first call.
     pub fn read(&mut self) -> SystemReading {
         let now = self.reader.sample();
