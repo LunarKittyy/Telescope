@@ -481,6 +481,8 @@ pub struct State {
     unsaved_profiles: Vec<PluginSection>,
     /// Phones whose settings were copied to a new id: the old entries go once a save has written the new pairing.
     forget_after_save: Vec<String>,
+    /// Copies (old id, new id) that the file doesn't hold yet: each save retries them before it lets the old entries go.
+    unsaved_copies: Vec<(String, String)>,
     /// Posts from plugins' threads (host.poster), delivered to their owner after the bus's events.
     pub posts: Arc<Posts>,
     /// Built-in plugins that are off this run (not the optional ones never switched on), by name.
@@ -618,6 +620,7 @@ impl State {
             reset_pending: None,
             unsaved_profiles: Vec::new(),
             forget_after_save: Vec::new(),
+            unsaved_copies: Vec::new(),
             posts: Arc::default(),
             off: Vec::new(),
             builtins: Vec::new(),
@@ -1664,6 +1667,10 @@ impl State {
                 let name = self.slots[i].info.name.clone();
                 self.config_of(i, global.get(&name)).map(|config| PluginSection { plugin: name, device: None, config })
             }).collect();
+        // A copy that didn't land with the move goes in first, so the old entries never go without it
+        for (old, new) in &self.unsaved_copies {
+            profiles::copy_device(&mut cfg, old, new);
+        }
         sections.extend(self.unsaved_profiles.iter().cloned());
         sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
         let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect(), bar_pins: Some(self.bar.persisted()), card_layout: self.saved_layout.clone() };
@@ -1672,6 +1679,7 @@ impl State {
         if self.file.save(&mut cfg) {
             self.save_failure_notified = false;
             self.unsaved_profiles.clear();
+            self.unsaved_copies.clear();
             for old in std::mem::take(&mut self.forget_after_save) {
                 self.forget_device_settings(&old);
             }
@@ -1750,6 +1758,7 @@ impl State {
     pub fn forget_device_settings(&mut self, id: &str) {
         self.slot_memory.borrow_mut().remove(id);
         self.unsaved_profiles.retain(|s| s.device.as_deref() != Some(id));
+        self.unsaved_copies.retain(|(_, new)| new != id);
         if let Ok(mut cfg) = self.file.load_strict() {
             if profiles::forget_device(&mut cfg, id) {
                 self.file.save(&mut cfg);
@@ -1772,9 +1781,12 @@ impl State {
         let copies: Vec<_> = self.unsaved_profiles.iter().filter(|s| s.device.as_deref() == Some(old)).cloned()
             .map(|mut s| { s.device = Some(new.to_string()); s }).collect();
         self.unsaved_profiles.extend(copies);
-        if let Ok(mut cfg) = self.file.load_strict() {
+        let copied = self.file.load_strict().is_ok_and(|mut cfg| {
             profiles::copy_device(&mut cfg, old, new);
-            self.file.save(&mut cfg);
+            self.file.save(&mut cfg)
+        });
+        if !copied {
+            self.unsaved_copies.push((old.to_string(), new.to_string()));
         }
     }
 
@@ -2585,6 +2597,47 @@ mod tests {
     }
 
     #[test]
+    fn a_copy_that_could_not_be_saved_is_written_with_the_new_pairing_before_the_old_settings_go() {
+        let mut s = state();
+        s.register(stub("connection", json!({"phones": [{"id": "old"}]}), false).0).unwrap();
+        s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
+        s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"id": "old"}]}},
+                                "devices": {"old": {"plugin_configs": {"transforms": {"zoom": 4}}}}, "output_slots": {"old": 2}}));
+        s.apply_saved_config();
+        // A folder where the temporary file goes makes the copy's save fail
+        let blocker = s.file.path().with_file_name("telescope_config.json.tmp");
+        std::fs::create_dir(&blocker).unwrap();
+        s.move_device_settings("old", "new");
+        assert!(s.file.load()["devices"].get("new").is_none(), "the copy didn't land");
+        std::fs::remove_dir(&blocker).unwrap();
+        s.with_plugin(0, |p| p.set_config(&json!({"phones": [{"id": "new"}]})).unwrap());
+        assert!(s.save_now());
+        let saved = s.file.load();
+        assert_eq!(saved["devices"]["new"]["plugin_configs"]["transforms"]["zoom"], 4, "{saved}");
+        assert_eq!(saved["output_slots"], json!({"new": 2}));
+        assert!(saved["devices"].get("old").is_none());
+    }
+
+    #[test]
+    fn old_settings_stay_when_neither_the_copy_nor_the_pairing_could_be_saved() {
+        let mut s = state();
+        s.register(stub("connection", json!({"phones": [{"id": "old"}]}), false).0).unwrap();
+        s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
+        s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"id": "old"}]}},
+                                "devices": {"old": {"plugin_configs": {"transforms": {"zoom": 4}}}}}));
+        s.apply_saved_config();
+        let blocker = s.file.path().with_file_name("telescope_config.json.tmp");
+        std::fs::create_dir(&blocker).unwrap();
+        s.move_device_settings("old", "new");
+        s.with_plugin(0, |p| p.set_config(&json!({"phones": [{"id": "new"}]})).unwrap());
+        assert!(!s.save_now());
+        assert_eq!(s.file.load()["devices"]["old"]["plugin_configs"]["transforms"]["zoom"], 4);
+        std::fs::remove_dir(&blocker).unwrap();
+        assert!(s.save_now());
+        assert_eq!(s.file.load()["devices"]["new"]["plugin_configs"]["transforms"]["zoom"], 4);
+    }
+
+    #[test]
     fn a_reset_connection_section_does_not_cost_the_phones_their_settings_at_the_next_start() {
         let mut s = state();
         s.register(stub("connection", json!({"phones": []}), false).0).unwrap();
@@ -2609,7 +2662,7 @@ mod tests {
         s.register(stub("connection", json!({"phones": []}), false).0).unwrap();
         s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
         let zoom = |n: u32| json!({"plugin_configs": {"transforms": {"zoom": n}}});
-        s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"id": "kept"}]}},
+        s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"id": "kept", "name": "Phone", "token": "tok"}]}},
                                 "devices": {"kept": zoom(2), "gone": zoom(3), "browser:x": zoom(4), "webcam:y": zoom(5)},
                                 "output_slots": {"kept": 1, "gone": 2, "webcam:y": 3}}));
         s.apply_saved_config();
