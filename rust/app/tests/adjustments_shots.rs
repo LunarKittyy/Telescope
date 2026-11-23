@@ -232,7 +232,9 @@ fn the_chip_comes_and_goes_without_moving_what_is_beside_it() {
         for step in 0..40 {
             r.skip(16);
             r.w.process();
-            assert_eq!((start_right(&r), x_of(&r, "Settings")), (start, gear), "{items} items, step {step}");
+            // Under half a pixel: layout sums can land a hair off the same spot
+            let now = (start_right(&r), x_of(&r, "Settings"));
+            assert!((now.0 - start).abs() < 0.5 && (now.1 - gear).abs() < 0.5, "{items} items, step {step}: {now:?} vs {:?}", (start, gear));
         }
     }
 }
