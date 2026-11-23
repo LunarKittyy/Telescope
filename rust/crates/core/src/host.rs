@@ -430,7 +430,7 @@ pub trait HostSettings {
     fn has_device_settings(&self, name: &str) -> bool;
     fn switch_device(&mut self, prev_name: Option<&str>, new_name: Option<&str>);
     fn forget_device_settings(&mut self, name: &str);
-    /// Store a device's settings (presets included) and its virtual camera under a new id.
+    /// Store a device's settings (presets included) and its virtual camera under a new id too. The old id's stay until forget_device_settings.
     fn move_device_settings(&mut self, old: &str, new: &str);
     /// The running plugins that declare settings a tool outside the window may change (Plugin::settings), in registration order.
     fn plugin_settings(&self) -> Vec<PluginSettings> {

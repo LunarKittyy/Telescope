@@ -6672,6 +6672,19 @@ msgstr "Komputer ini"
 msgid "This computer couldn't set up the video connection."
 msgstr "Komputer ini tidak dapat menyiapkan koneksi video."
 
+msgid "This computer has no network"
+msgstr ""
+
+msgid "This computer isn't connected to a network."
+msgstr ""
+
+#, python-brace-format
+msgid "This computer isn't connected to a network. Connect it to the same network as {phone}, or plug the phone in with a USB cable."
+msgstr ""
+
+msgid "This computer isn't connected to a network. Reconnect it, or plug the phone in with a USB cable."
+msgstr ""
+
 msgid "This computer isn't on a network right now. Pair over USB."
 msgstr "Komputer ini tidak berada di jaringan saat ini. Sandingkan via USB."
 

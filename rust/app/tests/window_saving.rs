@@ -97,6 +97,11 @@ fn a_phone_back_with_a_new_id_takes_its_settings_and_virtual_camera() {
     asks(&r, |host| host.move_device_settings("old", "new"));
     let cfg = r.w.state.borrow().file.load();
     assert_eq!(cfg["devices"]["new"]["plugin_configs"], presets);
+    assert_eq!(cfg["devices"]["old"]["plugin_configs"], presets, "the old entry waits for the save that writes the new pairing");
+    assert_eq!(cfg["output_slots"], json!({"old": 2, "new": 2}));
+    assert_eq!(cfg["selected_device"], "new");
+    assert!(r.w.state.borrow_mut().save_now());
+    let cfg = r.w.state.borrow().file.load();
     assert!(cfg["devices"].get("old").is_none());
     assert_eq!(cfg["output_slots"], json!({"new": 2}));
     assert_eq!(cfg["selected_device"], "new");

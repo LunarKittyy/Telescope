@@ -2182,10 +2182,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
             crate::parent::selector().backend_name("winit".into()).renderer_name("software".into()).select().map_err(|e| format!("The window can't be drawn without a graphics card: {e}"))?;
             log::info!("The window is drawn by the processor, every graphics card was skipped");
         }
-        #[cfg(not(windows))]
-        let _ = software;
-        // Without the graphics card's backend the default one is chosen here, so Windows can make a side window owned by the main one
-        #[cfg(windows)]
+        // Without the graphics card's backend the default one is chosen here: Windows can then make a side window owned by the main one, and
+        // the app id below can be set (it needs a backend, and without one the window on Wayland gets a generic icon)
         if gpu_painter.is_none() && !software {
             if let Err(e) = crate::parent::selector().select() {
                 log::warn!("The window backend couldn't be chosen: {e}");
@@ -2213,6 +2211,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let timed = std::cell::Cell::new(false);
     // The start is only confirmed once pictures have gone out, and until then a failure still ends in the start-up message
     let start_confirmed = || {
+        telescope_core::gpu_marker::confirmed();
         telescope_core::gpu_marker::clear();
         telescope_core::diagnostics::set_starting(false);
         // Hands back what the first frame's shader, font and picture work left free

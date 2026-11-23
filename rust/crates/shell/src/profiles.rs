@@ -102,11 +102,33 @@ pub fn forget_device(cfg: &mut Value, id: &str) -> bool {
     a || b
 }
 
-/// move_device_settings: a phone back with a new id (Telescope reinstalled on it) takes its settings and camera along.
-pub fn move_device(cfg: &mut Value, old: &str, new: &str) {
+/// A source id that is a phone's own: browsers and webcams carry a prefix (`browser:..`, `webcam:..`), a phone's id has none.
+fn is_phone_id(id: &str) -> bool {
+    id != "browser" && !id.contains(':')
+}
+
+/// drop_unpaired_phones: settings and virtual cameras left behind by a phone that was removed on an earlier run go. Only entries
+/// that are phone ids go, and only when Connection's list is there to say who is paired. True if anything did.
+pub fn drop_unpaired_phones(cfg: &mut Value) -> bool {
+    let Some(phones) = cfg.pointer("/plugin_configs/connection/phones").and_then(Value::as_array) else { return false };
+    let paired: Vec<String> = phones.iter().filter_map(|p| p.get("id").and_then(Value::as_str)).map(str::to_string).collect();
+    let mut changed = false;
     for key in ["devices", "output_slots"] {
         if let Some(map) = cfg.get_mut(key).and_then(Value::as_object_mut) {
-            if let Some(v) = map.remove(old) {
+            let before = map.len();
+            map.retain(|id, _| !is_phone_id(id) || paired.contains(id));
+            changed |= map.len() != before;
+        }
+    }
+    changed
+}
+
+/// move_device_settings: a phone back with a new id (Telescope reinstalled on it) gets its settings and camera under it too. The old
+/// entries stay until forget_device_settings, so a file written at any point in between still holds them under a phone it lists.
+pub fn copy_device(cfg: &mut Value, old: &str, new: &str) {
+    for key in ["devices", "output_slots"] {
+        if let Some(map) = cfg.get_mut(key).and_then(Value::as_object_mut) {
+            if let Some(v) = map.get(old).cloned() {
                 map.insert(new.to_string(), v);
             }
         }
@@ -171,11 +193,13 @@ mod tests {
         let presets = json!({"presets": {"items": [{"name": "Desk"}]}});
         let mut cfg = json!({"devices": {"old": {"plugin_configs": presets}, "other": {"plugin_configs": {}}},
                              "output_slots": {"old": 2}, "selected_device": "old"});
-        move_device(&mut cfg, "old", "new");
+        copy_device(&mut cfg, "old", "new");
         assert_eq!(cfg["devices"]["new"]["plugin_configs"], presets);
-        assert!(cfg["devices"].get("old").is_none());
-        assert_eq!(cfg["output_slots"], json!({"new": 2}));
+        assert_eq!(cfg["devices"]["old"]["plugin_configs"], presets, "the old entry waits for the new pairing to be saved");
+        assert_eq!(cfg["output_slots"], json!({"old": 2, "new": 2}));
         assert_eq!(cfg["selected_device"], "new");
+        forget_device(&mut cfg, "old");
+        assert_eq!(cfg["output_slots"], json!({"new": 2}));
     }
 
     #[test]
@@ -184,6 +208,32 @@ mod tests {
         assert!(forget_device(&mut cfg, "a"));
         assert!(!forget_device(&mut cfg, "a"));
         assert_eq!(cfg, json!({"devices": {}, "output_slots": {}}));
+    }
+
+    #[test]
+    fn settings_of_phones_that_are_no_longer_paired_go_but_browsers_and_webcams_stay() {
+        let mut cfg = json!({
+            "plugin_configs": {"connection": {"phones": [{"id": "kept"}]}},
+            "devices": {"kept": {}, "gone": {}, "browser": {}, "browser:abc": {}, "webcam:cam1": {}},
+            "output_slots": {"kept": 1, "gone": 2, "browser:abc": 3, "webcam:cam1": 4},
+        });
+        assert!(drop_unpaired_phones(&mut cfg));
+        assert_eq!(cfg["devices"], json!({"kept": {}, "browser": {}, "browser:abc": {}, "webcam:cam1": {}}));
+        assert_eq!(cfg["output_slots"], json!({"kept": 1, "browser:abc": 3, "webcam:cam1": 4}));
+        assert!(!drop_unpaired_phones(&mut cfg));
+    }
+
+    #[test]
+    fn nothing_is_dropped_without_a_list_of_paired_phones_to_go_by() {
+        let mut cfg = json!({"plugin_configs": {}, "devices": {"a": {}}, "output_slots": {"a": 1}});
+        let before = cfg.clone();
+        assert!(!drop_unpaired_phones(&mut cfg));
+        cfg["plugin_configs"]["connection"] = json!({"phones": "damaged"});
+        assert!(!drop_unpaired_phones(&mut cfg));
+        assert_eq!(cfg["devices"], before["devices"]);
+        cfg["plugin_configs"]["connection"] = json!({"phones": []});
+        assert!(drop_unpaired_phones(&mut cfg));
+        assert_eq!(cfg["devices"], json!({}));
     }
 
     #[test]

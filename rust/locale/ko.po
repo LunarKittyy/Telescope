@@ -6672,6 +6672,19 @@ msgstr "이 컴퓨터"
 msgid "This computer couldn't set up the video connection."
 msgstr "이 컴퓨터에서 비디오 연결을 설정하지 못했어요."
 
+msgid "This computer has no network"
+msgstr ""
+
+msgid "This computer isn't connected to a network."
+msgstr ""
+
+#, python-brace-format
+msgid "This computer isn't connected to a network. Connect it to the same network as {phone}, or plug the phone in with a USB cable."
+msgstr ""
+
+msgid "This computer isn't connected to a network. Reconnect it, or plug the phone in with a USB cable."
+msgstr ""
+
 msgid "This computer isn't on a network right now. Pair over USB."
 msgstr "이 컴퓨터가 현재 네트워크에 연결되어 있지 않아요. USB로 페어링하세요."
 

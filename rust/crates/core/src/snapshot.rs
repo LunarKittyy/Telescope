@@ -105,6 +105,8 @@ mod tests {
                     "plugin_configs" | "devices" => {}
                     // Connection picks a phone when the saved choice was unusable
                     "selected_device" if got[key].is_null() && !value.is_null() => assert_eq!(name, "damaged-sections", "{name}: selected_device"),
+                    // The app also drops a camera slot of a phone that isn't paired (profiles::drop_unpaired_phones), which this snapshot doesn't do
+                    "output_slots" => assert!(value.as_object().unwrap().iter().all(|(k, v)| got[key].get(k) == Some(v)), "{name}: {key}"),
                     _ => assert_eq!(&got[key], value, "{name}: {key}"),
                 }
             }
