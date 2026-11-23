@@ -74,6 +74,20 @@
             "zoom": 1.0
           }
         }
+      },
+      "00000000-0000-4000-8000-000000000002": {
+        "plugin_configs": {
+          "stream_output": {
+            "fps": 999
+          }
+        }
+      },
+      "x": {
+        "plugin_configs": {
+          "stream_output": {
+            "fps": 999
+          }
+        }
       }
     },
     "output_slots": {
