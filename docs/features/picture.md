@@ -39,7 +39,7 @@ It reacts only to the people MediaPipe finds. It can miss someone (a person turn
 
 With several cameras streaming it watches the one shown in the panels. Whenever it blurs or covers that one the others get blurred all over too until it stops. A camera you clicked away from while it was blurred is still blurred.
 
-Background and Auto framing work less while no part of the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
+Background and Auto framing work less while no part of the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery. A big move, like standing up or waving across the picture, still gets a fresh cutout straight away.
 
 ## Chroma key
 

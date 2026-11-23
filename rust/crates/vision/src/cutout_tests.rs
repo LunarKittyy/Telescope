@@ -1,6 +1,6 @@
 //! The high quality cutout's side of the service, against a fake model that counts how often its memory is cleared.
 
-use super::tests::{ready, wait, Ready};
+use super::tests::{feed, mask, ready, wait, with_arm, Ready};
 use super::*;
 use std::sync::atomic::AtomicU32;
 use std::time::{Duration, Instant};
@@ -396,4 +396,54 @@ fn a_cutout_over_a_still_picture_runs_a_few_times_a_second_and_never_looks_behin
     cutout_stream(v).mask.lock().unwrap().at -= CUTOUT_STILL_EVERY_S + 0.02;
     ask_snapshot(v, 6, &moved);
     assert_eq!(runs(), before + 2);
+}
+
+/// The same half minute of picture at each level: how many times the mask, the cutout and people's looks ran.
+fn runs_at(level: u8) -> [usize; 3] {
+    let r = rig_taking(Duration::ZERO);
+    let v = &r.normal.v;
+    v.wait_for_masks();
+    ask(v, 1);
+    wait(|| v.cutout_state() == READY);
+    v.inner.effort.set_floor(level);
+    v.want_people("x", true);
+    v.inner.hold_people.store(true, Ordering::SeqCst);
+    v.fake_clock();
+    let still = Rgb::filled(160, 90, 80);
+    // Seven small moves (an arm of 3% of the picture in seven places) and seven big ones (the whole picture changing), in turns that no level's gap divides evenly, so a frame is never the one a level compares with
+    let small: Vec<Rgb> = (0..7).map(|i| with_arm(&still, (22 * i, 22 * i + 21), (0, 21), 200)).collect();
+    let big: Vec<Rgb> = (0..7).map(|i| Rgb::filled(160, 90, 80 + 25 * i as u8)).collect();
+    let (mut people, runs0) = (0, r.normal.backend.log.lock().unwrap().segmented.len());
+    let cutout0 = r.counts.runs.load(Ordering::SeqCst) as usize;
+    // 30 fps for 8 s: still, small moves, big moves, still, small and big moves taking turns, big moves
+    for seq in 0..240usize {
+        v.advance_fake_clock(1.0 / 30.0);
+        let frame = match seq / 30 {
+            0 | 3 => &still,
+            1 => &small[seq % 7],
+            2 | 7 => &big[seq % 7],
+            _ if (seq / 10) % 2 == 0 => &small[seq % 7],
+            _ => &big[seq % 7],
+        };
+        mask(v, "a", seq as u64 + 10, frame);
+        let f = frame.clone();
+        v.newest_cutout_snapshot("a", seq as u64 + 10, f.w, f.h, Box::new(move || Some(f)), v.view_epoch(), MaskView::default());
+        feed(v, "a", frame);
+        people += usize::from(v.stream("a").people.lock().unwrap().frame.take().is_some());
+    }
+    let masked = r.normal.backend.log.lock().unwrap().segmented.len() - runs0;
+    [masked, r.counts.runs.load(Ordering::SeqCst) as usize - cutout0, people]
+}
+
+#[test]
+fn a_higher_effort_level_never_runs_the_mask_the_cutout_or_people_more_often_than_a_lower_one() {
+    let runs: Vec<[usize; 3]> = (0..=MOST).map(runs_at).collect();
+    for level in 1..=MOST as usize {
+        for (i, what) in ["mask", "cutout", "people"].into_iter().enumerate() {
+            assert!(runs[level][i] <= runs[level - 1][i], "{what} runs at level {level} {} against {} one level down: {runs:?}", runs[level][i], runs[level - 1][i]);
+        }
+    }
+    // The script is busy enough for the levels to differ, and the lightest level has no cutout at all
+    assert!(runs[0][0] > runs[MOST as usize][0] && runs[0][2] > runs[MOST as usize][2], "{runs:?}");
+    assert_eq!(runs[MOST as usize][1], 0);
 }
