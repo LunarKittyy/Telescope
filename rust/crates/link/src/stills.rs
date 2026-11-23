@@ -57,7 +57,7 @@ pub fn reason_text(code: &str, english: &str) -> String {
         "not_ready" => "The phone isn't ready for photos yet. Try again in a moment.",
         "busy" => "The phone is already taking a photo.",
         "camera_off" => "The phone's camera is off.",
-        "interrupted" => "The photo was interrupted by a change to the camera.",
+        "interrupted" => "The photo was stopped before it finished.",
         "timeout" => "The phone took too long to take the photo.",
         "failed" => "The phone couldn't take the photo.",
         "lost" => "Lost the phone while it was taking the photo.",
@@ -243,14 +243,69 @@ pub fn reserve_path(folder: &Path, name: &str) -> std::io::Result<PathBuf> {
     Err(std::io::Error::other(format!("no free name for {name}")))
 }
 
-/// A file name from the phone, kept to plain characters and no folders.
+/// The most characters a file name from the phone keeps, extension included.
+const MAX_NAME: usize = 120;
+/// The longest extension kept when a long name is cut: a longer one isn't one.
+const MAX_EXT: usize = 16;
+
+/// Names Windows won't make a file of, with or without an extension.
+fn is_device_name(stem: &str) -> bool {
+    let up = stem.to_ascii_uppercase();
+    matches!(up.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || ["COM", "LPT"].iter().any(|p| up.strip_prefix(p).is_some_and(|n| matches!(n.as_bytes(), [b'1'..=b'9'])))
+}
+
+/// A free name for file `name` of a photo whose files are `listed`, taken by creating it empty. A RAW and its JPEG share a name before the
+/// extension, so one that has to be numbered because the folder has the other kind already takes the number for both (`chosen` has what
+/// the files of this photo settled on).
+fn reserve_for_photo(folder: &Path, name: &str, listed: &[String], chosen: &mut HashMap<String, String>) -> std::io::Result<PathBuf> {
+    let (stem, ext) = split_ext(name);
+    let ext = ext.unwrap_or("");
+    let exts: Vec<&str> = listed.iter().map(|n| split_ext(n)).filter(|(s, _)| *s == stem).map(|(_, e)| e.unwrap_or("")).chain([ext]).collect();
+    for _ in 0..1000 {
+        let using = chosen.get(stem).cloned().unwrap_or_else(|| telescope_core::names::free_stem(folder, stem, &exts));
+        let path = folder.join(telescope_core::names::with_ext(&using, ext));
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(_) => {
+                chosen.insert(stem.to_string(), using);
+                return Ok(path);
+            }
+            // Taken since: look for a name again, with the whole photo in mind
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                chosen.remove(stem);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    reserve_path(folder, name)
+}
+
+/// A file name from the phone, kept to plain characters and no folders, to a length every drive takes (the extension is kept) and never a
+/// name Windows keeps for a device.
 pub fn safe_name(name: &str, index: usize) -> String {
     let base = name.rsplit('/').next().unwrap_or(name);
-    let cleaned: String = base.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || "_.()-".contains(c) { c } else { '_' })
-        .take(120).collect();
-    let cleaned = cleaned.trim_start_matches('.');
-    if cleaned.is_empty() { format!("photo_{}.jpg", index + 1) } else { cleaned.to_string() }
+    let cleaned: String = base.chars().map(|c| if c.is_ascii_alphanumeric() || "_.()-".contains(c) { c } else { '_' }).collect();
+    let cleaned = cleaned.trim_matches('.');
+    if cleaned.is_empty() {
+        return format!("photo_{}.jpg", index + 1);
+    }
+    let mut name = cleaned.to_string();
+    if name.len() > MAX_NAME {
+        let (stem, ext) = split_ext(cleaned);
+        let ext = ext.filter(|e| e.len() < MAX_EXT).map(|e| format!(".{e}")).unwrap_or_default();
+        name = format!("{}{ext}", cleaned_stem(stem, MAX_NAME - ext.len()));
+    }
+    // A device name is the part before the first dot, whatever follows
+    let (first, rest) = name.split_once('.').map_or((name.as_str(), ""), |(first, _)| (first, &name[first.len()..]));
+    if is_device_name(first) {
+        name = format!("{first}_{rest}");
+    }
+    name
+}
+
+/// `stem` cut to `len` characters, with no dot left at its end.
+fn cleaned_stem(stem: &str, len: usize) -> &str {
+    stem[..stem.len().min(len)].trim_end_matches('.')
 }
 
 /// The exposure as a Duration; a value that can't be one (NaN, negative, absurdly long) is clamped rather than panicking.
@@ -509,6 +564,8 @@ impl Runner<'_> {
             }
         };
         let mut saved: Vec<String> = Vec::new();
+        // The name each file name of this photo is saved under, so a RAW and its JPEG share one
+        let mut names: HashMap<String, String> = HashMap::new();
         let mut fetched = 0usize;
         let (begun, mut heard, mut moved) = (Instant::now(), Instant::now(), Instant::now());
         let mut last: Option<Value> = None;
@@ -568,7 +625,7 @@ impl Runner<'_> {
             while fetched < files.len() && !self.stopped() {
                 let actual_lens_ratio = files[fetched].get("lens_ratio").and_then(Value::as_f64).unwrap_or(lens_ratio);
                 let photo_transform = transform.as_ref().map(|t| t.for_lens(actual_lens_ratio));
-                let path = match self.fetch(&sid, fetched, &files[fetched], folder, &alive_now, longest, hidden, photo_transform.as_ref()) {
+                let path = match self.fetch(&sid, fetched, &files, &mut names, folder, &alive_now, longest, hidden, photo_transform.as_ref()) {
                     Fetch::Saved(path) => path,
                     Fetch::Hidden => {
                         self.forget(&sid);
@@ -609,8 +666,9 @@ impl Runner<'_> {
 
     /// File n of the photo into folder under the phone's name (made free). A picture that is hidden before the file is saved is left unsaved.
     #[allow(clippy::too_many_arguments)]
-    fn fetch(&self, sid: &str, n: usize, info: &Map<String, Value>, folder: &Path, alive: &(dyn Fn() -> bool + Sync), patience: Duration,
-             hidden: Option<&AtomicBool>, transform: Option<&telescope_core::photo::PhotoTransform>) -> Fetch {
+    fn fetch(&self, sid: &str, n: usize, listed: &[Map<String, Value>], names: &mut HashMap<String, String>, folder: &Path, alive: &(dyn Fn() -> bool + Sync),
+             patience: Duration, hidden: Option<&AtomicBool>, transform: Option<&telescope_core::photo::PhotoTransform>) -> Fetch {
+        let info = &listed[n];
         let is_hidden = || hidden.is_some_and(|h| h.load(Ordering::SeqCst));
         if is_hidden() {
             return Fetch::Hidden;
@@ -619,8 +677,10 @@ impl Runner<'_> {
         if hook.is_some_and(|h| !h()) {
             return Fetch::Failed;
         }
-        let name = safe_name(&info.get("name").filter(|v| truthy(v)).map(py_str).unwrap_or_default(), n);
-        let path = match reserve_path(folder, &name) {
+        let name_of = |i: usize, info: &Map<String, Value>| safe_name(&info.get("name").filter(|v| truthy(v)).map(py_str).unwrap_or_default(), i);
+        let name = name_of(n, info);
+        let all: Vec<String> = listed.iter().enumerate().map(|(i, f)| name_of(i, f)).collect();
+        let path = match reserve_for_photo(folder, &name, &all, names) {
             Ok(path) => path,
             Err(e) => {
                 log::warn!("Couldn't save photo {name}: {e}");
@@ -921,10 +981,56 @@ mod tests {
     }
 
     #[test]
+    fn names_windows_wont_make_a_file_of_are_changed() {
+        for reserved in ["CON.jpg", "nul.dng", "Com1.jpg", "LPT9.jpg", "aux", "PRN.tar.gz"] {
+            let name = safe_name(reserved, 0);
+            assert!(name != reserved && name.ends_with(&reserved[reserved.find('.').unwrap_or(reserved.len())..]), "{reserved} became {name}");
+        }
+        assert_eq!(safe_name("CON.jpg", 0), "CON_.jpg");
+        assert_eq!(safe_name("CONSOLE.jpg", 0), "CONSOLE.jpg");
+        assert_eq!(safe_name("COM10.jpg", 0), "COM10.jpg");
+        assert_eq!(safe_name("IMG_1.", 0), "IMG_1");
+    }
+
+    #[test]
+    fn a_long_name_is_cut_before_its_extension_not_through_it() {
+        let name = safe_name(&format!("{}.dng", "a".repeat(300)), 0);
+        assert!(name.len() <= 120 && name.ends_with(".dng"), "{name}");
+        assert!(name.starts_with("aaaa"));
+        let no_ext = safe_name(&"b".repeat(300), 0);
+        assert_eq!(no_ext.len(), 120);
+    }
+
+    #[test]
+    fn a_raw_and_its_jpeg_share_a_name_when_the_name_of_one_is_taken() {
+        for taken in ["IMG_1.jpg", "IMG_1.dng"] {
+            let dir = telescope_core::testing::scratch_dir("stills-pair").join("Photos");
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join(taken), b"old").unwrap();
+            let phone = Phone { files: vec![("IMG_1.jpg".into(), b"jpeg".repeat(10)), ("IMG_1.dng".into(), b"dng!".repeat(10))], ..Phone::default() };
+            let (r, _, _) = take(phone, &dir);
+            assert!(r.ok, "{r:?}");
+            assert_eq!(names(&r.files), ["IMG_1 (2).jpg", "IMG_1 (2).dng"], "with {taken} there already");
+            assert_eq!(std::fs::read(dir.join(taken)).unwrap(), b"old");
+        }
+    }
+
+    #[test]
+    fn photos_that_share_a_name_with_nothing_else_keep_their_own() {
+        let dir = telescope_core::testing::scratch_dir("stills-unpaired").join("Photos");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("IMG_1.jpg"), b"old").unwrap();
+        let phone = Phone { files: vec![("IMG_1.jpg".into(), b"jpeg".repeat(10)), ("IMG_2.jpg".into(), b"jpeg".repeat(10))], ..Phone::default() };
+        let (r, _, _) = take(phone, &dir);
+        assert_eq!(names(&r.files), ["IMG_1 (2).jpg", "IMG_2.jpg"]);
+    }
+
+    #[test]
     fn reasons_are_worded_here_and_unknown_ones_keep_the_phones_english() {
         assert_eq!(reason_text("busy", "whatever"), "The phone is already taking a photo.");
         assert_eq!(reason_text("new_code", "Something new"), "Something new");
         assert_eq!(reason_text("new_code", ""), "The phone couldn't take the photo.");
+        assert_eq!(reason_text("interrupted", "The lens changed during the photo"), "The photo was stopped before it finished.");
     }
 
     #[test]
@@ -1524,7 +1630,7 @@ mod tests {
         // The old stream's server went with it
         state.lock().unwrap().unreachable = true;
         let r = rx.recv_timeout(Duration::from_secs(5)).unwrap();
-        assert!(r.code == "interrupted" && r.error.contains("interrupted"));
+        assert!(r.code == "interrupted" && r.error.contains("stopped"));
     }
 
     #[test]

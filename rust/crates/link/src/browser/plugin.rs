@@ -748,6 +748,8 @@ impl BrowserCameraPlugin {
         for (bid, feed) in self.hub.feeds() {
             let known = self.browsers.iter().position(|(id, _)| *id == bid);
             if !feed.connected() && known.is_none() {
+                // Came and went before it was looked at: it holds no place, and a feed left behind would let it back in with none free
+                self.hub.drop_feed(&bid);
                 continue;
             }
             // kept across a reconnect

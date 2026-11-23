@@ -335,7 +335,16 @@ impl Server {
                 if quit.load(Ordering::SeqCst) {
                     return;
                 }
-                let Ok(conn) = conn else { continue };
+                let conn = match conn {
+                    Ok(conn) => conn,
+                    Err(e) => {
+                        // Out of file handles fails at once every time: a pause keeps the loop from spinning a core until one frees up
+                        if !matches!(e.kind(), std::io::ErrorKind::ConnectionAborted | std::io::ErrorKind::Interrupted) {
+                            std::thread::sleep(Duration::from_millis(50));
+                        }
+                        continue;
+                    }
+                };
                 let Some(place) = conn.peer_addr().ok().and_then(|a| open.enter(a.ip())) else {
                     let _ = conn.shutdown(Shutdown::Both);
                     continue;
@@ -667,7 +676,11 @@ fn serve_one<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn P
     }
     let reply = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler.handle(&request, stats)));
     Ok(match reply {
-        Ok(reply) => answer(stream.get_mut(), head, reply, false) && keep,
+        Ok(reply) => {
+            // An older client that asked to keep the connection waits to be told it is kept, and one that asked to close, to be told it will be
+            let said = if !keep { Some("close") } else if (major, minor) < (1, 1) { Some("keep-alive") } else { None };
+            answer(stream.get_mut(), head, reply, said) && keep
+        }
         Err(_) => {
             log::error!("A page handler failed");
             refuse(stream.get_mut(), 500, "Something went wrong")
@@ -677,18 +690,18 @@ fn serve_one<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn P
 
 /// An error that ends the connection (send_error); always false, so a caller can return it.
 fn refuse(out: &mut impl Write, status: u16, text: &str) -> bool {
-    answer(out, false, Reply::text(status, text), true);
+    answer(out, false, Reply::text(status, text), Some("close"));
     false
 }
 
-/// Writes an answer with the headers every page gets; false when the other end is gone. `close` says so in the answer.
-fn answer(out: &mut impl Write, head: bool, reply: Reply, close: bool) -> bool {
+/// Writes an answer with the headers every page gets; false when the other end is gone. `connection` is what the answer says about the connection, if anything.
+fn answer(out: &mut impl Write, head: bool, reply: Reply, connection: Option<&str>) -> bool {
     let mut text = format!(
         "HTTP/1.1 {} {}\r\nServer: Telescope\r\nDate: {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-store\r\n\
          X-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: {CONTENT_SECURITY_POLICY}\r\n",
         reply.status, reason(reply.status), http_date(unix_now()), reply.content_type, reply.body.len());
-    if close {
-        text.push_str("Connection: close\r\n");
+    if let Some(connection) = connection {
+        text.push_str(&format!("Connection: {connection}\r\n"));
     }
     text.push_str("\r\n");
     let mut bytes = text.into_bytes();

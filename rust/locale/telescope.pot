@@ -6369,9 +6369,6 @@ msgstr ""
 msgid "The photo was interrupted because the camera stopped."
 msgstr ""
 
-msgid "The photo was interrupted by a change to the camera."
-msgstr ""
-
 msgid "The photo was interrupted."
 msgstr ""
 

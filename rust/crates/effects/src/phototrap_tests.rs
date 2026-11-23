@@ -814,6 +814,42 @@ fn the_camera_choice_clears_a_shot_override_without_the_phones_capabilities() {
     assert!(p.get_config().get("shot").is_none());
 }
 
+#[test]
+fn the_card_shows_the_phone_on_screen_not_the_one_the_trap_is_armed_on() {
+    let (mut p, mut h, _) = armed();
+    moved(&mut p, &mut h);
+    let on_its_phone = card(&h);
+    assert_eq!((on_its_phone["armed"].clone(), on_its_phone["status-kind"].clone()), (json!(true), json!("status_ok")));
+    assert!(on_its_phone["tally"].as_str().unwrap().starts_with("Triggers: 1"));
+    // The panels show another phone, which nothing is armed on
+    h.focused = Some("other".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    let on_another = card(&h);
+    assert_eq!(on_another["armed"], json!(false), "its Armed switch is off");
+    assert_eq!((on_another["status"].as_str(), on_another["status-kind"].as_str()), (Some("Not armed"), Some("status_dim")));
+    assert_eq!(on_another["tally"], json!(""), "the bursts belong to the other phone");
+    // Back on the phone it watches, the card says so again
+    h.focused = Some("phone".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "phone".into() });
+    let back = card(&h);
+    assert_eq!((back["armed"].clone(), back["status-kind"].clone()), (json!(true), json!("status_ok")));
+    assert!(back["tally"].as_str().unwrap().starts_with("Triggers: 1"));
+}
+
+#[test]
+fn a_problem_the_trap_ran_into_is_not_shown_on_another_phone() {
+    let (mut p, mut h, _) = armed();
+    moved(&mut p, &mut h);
+    finished(&mut p, &mut h, 1, false, json!({"ok": false, "files": [], "code": "failed", "error": "The phone couldn't take the photos"}));
+    assert_eq!(card(&h)["status-kind"], json!("status_err"));
+    h.focused = Some("other".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    assert_eq!(card(&h)["status-kind"], json!("status_dim"));
+    h.focused = Some("phone".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "phone".into() });
+    assert_eq!(card(&h)["status-kind"], json!("status_err"), "it is still there on its own phone");
+}
+
 /// The settings another phone brings along while the trap is armed on this one.
 fn other_phones_settings() -> Value {
     json!({"zones": [[0.0, 0.0, 0.2, 0.2], [0.5, 0.5, 0.9, 0.9], [0.1, 0.6, 0.3, 0.8]], "sensitivity": 9, "count": 7, "pause": 60, "night": true})

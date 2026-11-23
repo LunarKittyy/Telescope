@@ -6386,9 +6386,6 @@ msgstr ""
 msgid "The photo was interrupted because the camera stopped."
 msgstr "カメラが停止したため、写真の撮影が中断されました。"
 
-msgid "The photo was interrupted by a change to the camera."
-msgstr "カメラ設定の変更により写真撮影が中断されました。"
-
 msgid "The photo was interrupted."
 msgstr ""
 
@@ -10506,6 +10503,9 @@ msgstr ""
 
 #~ msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 #~ msgstr "WindowsではスマートフォンのマイクにVB-Audio Virtual Cableが必要です。"
+
+#~ msgid "The photo was interrupted by a change to the camera."
+#~ msgstr "カメラ設定の変更により写真撮影が中断されました。"
 
 #~ msgid "The picture apps see on the virtual camera while nothing is streaming."
 #~ msgstr "ストリーミングが行われていない間に仮想カメラでアプリに表示される画像です。"

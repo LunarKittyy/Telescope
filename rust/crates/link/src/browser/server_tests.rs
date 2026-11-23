@@ -20,8 +20,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use telescope_core::audio::AudioFeed;
 use telescope_core::media::{Codec, VideoFeed};
-use telescope_core::testing::scratch_dir;
-use telescope_core::web::{Certificate, Step};
+use telescope_core::testing::{scratch_dir, FakeWeb};
+use telescope_core::web::{Certificate, Request, Socket, Step};
 
 fn cert() -> Certificate {
     static CERT: OnceLock<Certificate> = OnceLock::new();
@@ -619,6 +619,67 @@ fn a_new_link_drops_the_browser_and_the_old_token() {
     assert!(wait(|| !feed.connected(), FIVE));
     assert_eq!(b.next_close(), CLOSE_NEW_LINK); // ended by its own thread, with the code that tells the page to stop
     assert_eq!(Browser::connect(run.server.port(), &old, "").status, 403);
+}
+
+/// A connection the server writes to and never hears from, that hangs up after a second.
+struct Mute {
+    wrote: Arc<Mutex<Vec<u8>>>,
+    born: Instant,
+    wait: Option<Duration>,
+}
+
+impl Read for Mute {
+    fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+        std::thread::sleep(self.wait.unwrap_or(Duration::from_millis(50)).min(Duration::from_millis(50)));
+        if self.born.elapsed() > Duration::from_secs(1) { Ok(0) } else { Err(std::io::ErrorKind::TimedOut.into()) }
+    }
+}
+
+impl Write for Mute {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.wrote.lock().unwrap().extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Socket for Mute {
+    fn set_read_timeout(&mut self, timeout: Option<Duration>) -> std::io::Result<()> {
+        self.wait = timeout;
+        Ok(())
+    }
+}
+
+#[test]
+fn a_new_link_that_lands_while_a_browser_is_still_joining_cuts_it_off_too() {
+    let web = Arc::new(FakeWeb::default());
+    let (maker, _) = fake_rtc(false);
+    let server = BrowserServer::new(Arc::new(BrowserHub::single(Arc::new(BrowserFeed::new()))), web.clone(), cert(), || {}, 0, "127.0.0.1", maker);
+    server.set_timings(Duration::from_millis(50), Duration::from_secs(5));
+    server.start().unwrap();
+    let (handler, stats) = {
+        let served = web.served.lock().unwrap();
+        (served[0].handler.clone(), served[0].stats.clone())
+    };
+    let request = Request {
+        method: "GET".into(),
+        target: format!("/ws?token={}", server.token()),
+        headers: vec![("Upgrade".into(), "websocket".into()), ("Sec-WebSocket-Key".into(), "dGhlIHNhbXBsZSBub25jZQ==".into()),
+                      ("Sec-WebSocket-Version".into(), "13".into())],
+    };
+    // The token passed, and the link is renewed before the connection is registered
+    let upgrade = handler.upgrade(&request, &stats).expect("the token was good");
+    server.new_token();
+    let wrote: Arc<Mutex<Vec<u8>>> = Arc::default();
+    let sock = Mute { wrote: wrote.clone(), born: Instant::now(), wait: None };
+    let run = upgrade.run;
+    std::thread::spawn(move || run(Box::new(sock)));
+    let said = ws::close_frame(CLOSE_NEW_LINK, "");
+    assert!(wait(|| wrote.lock().unwrap().windows(said.len()).any(|w| w == said.as_slice()), Duration::from_millis(900)),
+            "the old link's browser was told to stop");
 }
 
 #[test]

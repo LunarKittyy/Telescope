@@ -288,6 +288,21 @@ fn a_connection_stays_for_the_next_request_unless_asked_to_close() {
 }
 
 #[test]
+fn an_old_client_that_asks_to_keep_the_connection_is_told_it_is_kept() {
+    let run = start(0);
+    let mut old = Client::connect(&run);
+    old.send("GET /hello HTTP/1.0\r\nConnection: keep-alive\r\n\r\n");
+    assert_eq!(old.read(false).unwrap().header("Connection"), Some("keep-alive"));
+    old.send("GET /hello HTTP/1.0\r\nConnection: keep-alive\r\n\r\n");
+    assert_eq!(old.read(false).unwrap().status, 200);
+    let mut closing = Client::connect(&run);
+    closing.send("GET /hello HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
+    assert_eq!(closing.read(false).unwrap().header("Connection"), Some("close"));
+    let mut plain = Client::connect(&run);
+    assert_eq!(plain.get("/hello").header("Connection"), None);
+}
+
+#[test]
 fn only_get_and_head_are_answered() {
     let run = start(0);
     let mut client = Client::connect(&run);
@@ -541,4 +556,39 @@ fn a_certificate_that_isnt_there_is_why_it_wont_start() {
     let pages = Arc::new(Pages { seen: Mutex::default(), go: Mutex::default() });
     let serve = Serve { port: 0, host: "127.0.0.1".into(), label: "Test".into() };
     assert!(SystemWeb.serve(&missing, &serve, pages).is_err());
+}
+
+/// CPU seconds this process has used so far.
+#[cfg(target_os = "linux")]
+fn cpu_seconds(file: &std::fs::File) -> f64 {
+    use std::os::unix::fs::FileExt;
+    let mut buf = [0u8; 1024];
+    let n = file.read_at(&mut buf, 0).unwrap();
+    let stat = String::from_utf8_lossy(&buf[..n]).into_owned();
+    let after = stat.rsplit_once(')').unwrap().1.split_whitespace().collect::<Vec<_>>();
+    let ticks: f64 = after[11].parse::<f64>().unwrap() + after[12].parse::<f64>().unwrap();
+    ticks / 100.0
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn running_out_of_file_handles_doesnt_spin_the_accept_loop() {
+    let run = start(0);
+    let port = run.server.port();
+    let stat = std::fs::File::open("/proc/self/stat").unwrap(); // opened now: none will be left to open it with
+    let open = std::fs::read_dir("/proc/self/fd").unwrap().count() as u64;
+    let limit = libc::rlimit { rlim_cur: open + 8, rlim_max: open + 8 };
+    // SAFETY: a plain call with a valid struct; nextest runs each test in a process of its own
+    assert_eq!(unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &limit) }, 0);
+    let mut held = Vec::new();
+    for _ in 0..40 {
+        if let Ok(tcp) = TcpStream::connect(("127.0.0.1", port)) {
+            held.push(tcp);
+        }
+    }
+    let before = cpu_seconds(&stat);
+    std::thread::sleep(Duration::from_millis(1000));
+    let used = cpu_seconds(&stat) - before;
+    drop(held);
+    assert!(used < 0.3, "the accept loop used {used:.2} s of CPU in one second while it couldn't accept");
 }
