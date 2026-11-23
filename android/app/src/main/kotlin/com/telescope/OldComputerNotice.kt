@@ -2,7 +2,7 @@ package com.telescope
 
 // A computer with an older Telescope knocked on one of the old ports. It can't use this phone until it's updated, so the main
 // screen says so for as long as it keeps trying (an older desktop checks every few seconds).
-class OldComputerNotice(private val clock: () -> Long = PhoneStats::monotonicMs) {
+class OldComputerNotice(private val clock: () -> Long = IntervalClock::nowMs) {
     @Volatile private var name: String = ""
     @Volatile private var at: Long? = null
 

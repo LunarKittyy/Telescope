@@ -639,7 +639,7 @@ class UdpVideoClient(
             }
             UdpWire.REPORT -> UdpReport.parse(plain)?.let { link.report(it, nowMs()) }
             UdpWire.KEYFRAME -> {
-                val now = PhoneStats.monotonicMs()
+                val now = IntervalClock.nowMs()
                 if (now - lastKeyAskMs >= KEY_ASK_GAP_MS) { lastKeyAskMs = now; requestKeyFrame() }
             }
         }

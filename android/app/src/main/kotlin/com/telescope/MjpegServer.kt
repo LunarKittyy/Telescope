@@ -54,7 +54,7 @@ class MjpegServer(
     // A file download that makes no progress for this long is cut off
     private val fileTimeoutMs: Int = FILE_TIMEOUT_MS,
     // Every interval here runs on a monotonic clock, so a wall-clock step (network time, a manual change) can't stretch or cut one
-    private val clock: () -> Long = PhoneStats::monotonicMs,
+    private val clock: () -> Long = IntervalClock::nowMs,
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
