@@ -276,4 +276,19 @@ class H264StreamTest {
         assertNull(log.take(10, 0), "the oldest go once it's full")
         assertTrue(log.take(50, 0) != null)
     }
+
+    @Test
+    fun `the crop log stops waiting after misses in a row and starts again on a hit`() {
+        val log = CropLog()
+        val crop = floatArrayOf(1f, 1f, 0.5f, 0.5f)
+        repeat(CropLog.MAX_MISSES) { assertNull(log.take(1, 1)) }
+        val start = System.nanoTime()
+        assertNull(log.take(2, 2_000))
+        assertTrue(System.nanoTime() - start < 1_000_000_000L, "no wait once it keeps missing")
+        log.put(3, crop)
+        assertArrayEquals(crop, log.take(3, 0))
+        val again = System.nanoTime()
+        assertNull(log.take(4, 50))
+        assertTrue(System.nanoTime() - again >= 40_000_000L, "a hit brings the wait back")
+    }
 }

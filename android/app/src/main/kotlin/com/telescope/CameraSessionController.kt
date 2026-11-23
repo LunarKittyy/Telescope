@@ -809,6 +809,19 @@ class CameraSessionController(
         } catch (_: Exception) { null }
     }
 
+    // An encoder timestamp (us) on the clock the camera's results use, which differ by the time asleep when one is realtime
+    private fun sensorClockUs(ptsUs: Long): Long {
+        val source = PhoneStats.shared.realtimeStamps ?: return ptsUs
+        val mono = System.nanoTime()
+        val realtime = SystemClock.elapsedRealtimeNanos()
+        val clock = PhoneStats.stampClock(ptsUs, mono, realtime, source) ?: return ptsUs
+        return when {
+            clock == source -> ptsUs
+            source -> ptsUs + (realtime - mono) / 1000
+            else -> ptsUs - (realtime - mono) / 1000
+        }
+    }
+
     // The camera's stream output at the current size: the JPEG reader, or the H.264 encoder's
     // Surface. An encoder that won't start falls back to JPEG and reports it.
     private fun buildOutputs() {
@@ -832,6 +845,7 @@ class CameraSessionController(
                         if (!keep && previewRecovery.requestKeyframe(SystemClock.uptimeMillis())) built.requestKeyFrame()
                         keep
                     },
+                    cropFor = { ptsUs, waitMs -> CropLog.shared.take(sensorClockUs(ptsUs), waitMs) },
                     onPacket = onH264, onError = { e -> post { if (encoder === built) encoderFailed(e) } },
                     onReorder = { post { if (encoder === built && codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
                 encoder = built

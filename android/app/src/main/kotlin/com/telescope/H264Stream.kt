@@ -206,6 +206,7 @@ class CropLog(private val capacity: Int = 64) {
     private val lock = ReentrantLock()
     private val arrived = lock.newCondition()
     private val shares = LinkedHashMap<Long, FloatArray>()
+    private var misses = 0  // lookups in a row that found nothing; at [MAX_MISSES] the wait stops until one hits
 
     fun put(timeUs: Long, share: FloatArray) = lock.withLock {
         shares[timeUs] = share
@@ -213,20 +214,26 @@ class CropLog(private val capacity: Int = 64) {
         arrived.signalAll()
     }
 
-    /** The crop of the frame taken at [timeUs], waiting up to [waitMs] for it; null when none came. */
+    /**
+     * The crop of the frame taken at [timeUs], waiting up to [waitMs] for it; null when none came. After [MAX_MISSES]
+     * misses in a row (times that never match, say) it stops waiting, so the caller is never held for every frame.
+     */
     fun take(timeUs: Long, waitMs: Long): FloatArray? = lock.withLock {
-        var waitNs = TimeUnit.MILLISECONDS.toNanos(waitMs)
+        var waitNs = if (misses >= MAX_MISSES) 0L else TimeUnit.MILLISECONDS.toNanos(waitMs)
         var share = shares.remove(timeUs)
         while (share == null && waitNs > 0) {
             waitNs = arrived.awaitNanos(waitNs)
             share = shares.remove(timeUs)
         }
+        misses = if (share == null) minOf(misses + 1, MAX_MISSES) else 0
         share
     }
 
-    fun clear() = lock.withLock { shares.clear() }
+    fun clear() = lock.withLock { shares.clear(); misses = 0 }
 
     companion object {
+        const val MAX_MISSES = 3
+
         // One camera streams H.264 at a time: its session writes here and its encoder reads
         val shared = CropLog()
     }

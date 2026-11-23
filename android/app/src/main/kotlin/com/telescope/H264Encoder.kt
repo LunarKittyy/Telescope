@@ -23,6 +23,8 @@ class H264Encoder(
     // The encoder put frames out of order despite being asked not to: High is off for this run, rebuild the encoder
     private val onReorder: () -> Unit = {},
     private val onFrameAllowed: (timestampNs: Long, key: Boolean) -> Boolean = { _, _ -> true },
+    // The crop the camera used for the frame with this encoder timestamp (us), looked up on the camera's own clock
+    private val cropFor: (timestampUs: Long, waitMs: Long) -> FloatArray? = { _, _ -> null },
 ) {
     // Optional settings. Some encoders refuse one of them outright (an Exynos S10+ threw IllegalArgumentException
     // at 1080p), so a refused setup is retried with a fresh encoder and fewer of them.
@@ -221,7 +223,7 @@ class H264Encoder(
         if (!config && !onFrameAllowed(info.presentationTimeUs * 1000, key)) return null
         return if (config) ByteArray(info.size).also { buf.get(it) }
         else H264Stream.packet(buf, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000,
-                               CropLog.shared.take(info.presentationTimeUs, CROP_WAIT_MS))
+                               cropFor(info.presentationTimeUs, CROP_WAIT_MS))
     }
 
     private fun checkOrder(ptsUs: Long) {
