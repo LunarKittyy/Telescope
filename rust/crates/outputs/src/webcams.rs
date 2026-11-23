@@ -653,6 +653,8 @@ struct GphotoState {
     missing: bool,
     /// The USB devices (and when) the last good look saw: with the same ones plugged in there is nothing new to find.
     looked: Option<(String, std::time::Instant)>,
+    /// The devices of a look made after a change: a camera just plugged in may not have been ready, so the same ones get one more look.
+    probation: Option<String>,
 }
 
 /// A look at the USB bus costs a few files; asking libgphoto2 loads every camera driver and builds a list of over a thousand models.
@@ -752,7 +754,13 @@ impl GphotoScanner {
                     match out {
                         Ok(text) => {
                             st.missing = false;
-                            st.looked = devices.map(|d| (d, std::time::Instant::now()));
+                            let settled = st.looked.as_ref().is_none_or(|(seen, _)| Some(seen) == devices.as_ref()) || (devices.is_some() && st.probation == devices);
+                            if settled {
+                                st.looked = devices.map(|d| (d, std::time::Instant::now()));
+                                st.probation = None;
+                            } else {
+                                st.probation = devices;
+                            }
                             st.found = text.into_iter().map(|(model, port)| {
                                 let identity = identity_of(&port);
                                 Detected { model, port, identity }
@@ -761,6 +769,7 @@ impl GphotoScanner {
                         Err(true) => {
                             st.missing = true;
                             st.looked = None;
+                            st.probation = None;
                             st.found.clear();
                         }
                         // Stuck or failed once: keep what was found
