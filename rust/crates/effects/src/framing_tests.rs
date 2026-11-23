@@ -1676,3 +1676,86 @@ fn reset_puts_the_settings_back_and_keeps_the_switch() {
 fn the_declared_settings_round_trip() {
     telescope_core::testing::settings_round_trip(&mut FramingPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
+
+impl Rig {
+    /// What the vision service last heard about whether faces are enough, None before anything.
+    fn heads(&self) -> Option<bool> {
+        self.host.calls.iter().rev().find_map(|c| c.strip_prefix("want_heads Auto framing ")).map(|on| on == "true")
+    }
+}
+
+#[test]
+fn faces_are_enough_at_head_and_chest_without_show_hands() {
+    let mut r = Rig::new();
+    assert_eq!(r.heads(), None, "nothing while it's off");
+    r.switch(true);
+    assert_eq!(r.heads(), Some(true), "Chest is the default");
+    r.ui("framing-moved", json!(0));
+    assert_eq!(r.heads(), Some(true));
+    r.ui("framing-moved", json!(11));
+    assert_eq!(r.heads(), Some(false), "past Chest the hips count");
+    r.ui("framing-moved", json!(10));
+    assert_eq!(r.heads(), Some(true));
+    r.ui("hand-toggled", json!(true));
+    assert_eq!(r.heads(), Some(false), "a face doesn't show where the hands are");
+    r.ui("hand-toggled", json!(false));
+    assert_eq!(r.heads(), Some(true));
+    let calls = r.host.calls.iter().filter(|c| c.starts_with("want_heads")).count();
+    r.ui("speed-moved", json!(7));
+    r.run(0.5, Some(&[at(0.5)]));
+    assert_eq!(r.host.calls.iter().filter(|c| c.starts_with("want_heads")).count(), calls, "said only when it changes");
+}
+
+#[test]
+fn one_person_picked_is_followed_by_their_whole_body() {
+    let (left, right) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[left.clone(), right.clone()]));
+    click_on(&mut r, &right);
+    assert_eq!(r.heads(), Some(false));
+    r.ui("follow-all-clicked", Value::Null);
+    assert_eq!(r.heads(), Some(true));
+}
+
+#[test]
+fn faces_are_said_again_each_time_people_are_asked_for() {
+    let mut r = Rig::new();
+    r.switch(true);
+    r.switch(false);
+    let n = r.host.calls.iter().filter(|c| c.starts_with("want_heads")).count();
+    r.switch(true);
+    assert_eq!(r.host.calls.iter().filter(|c| c.starts_with("want_heads")).count(), n + 1);
+    assert_eq!(r.heads(), Some(true));
+    // A preset at Waist while it runs
+    r.plugin.apply_preset(&mut r.host, &json!({"on": true, "framing": 2.0})).unwrap();
+    assert_eq!(r.heads(), Some(false));
+}
+
+#[test]
+fn people_from_faces_frame_a_talking_head_like_people_from_the_pose_model() {
+    // Shoulders where heads::Heads puts them by default, under the pose model's own face points
+    let pose = at(0.5);
+    let face_w = 0.07;
+    let eyes = 0.26;
+    let (half, sy) = (1.7 * face_w * ASPECT / 2.0 / ASPECT, eyes + 1.3 * face_w * ASPECT);
+    let face = Person::new([("nose", 0.5, 0.28, 0.9), ("left_eye", 0.51, eyes, 0.9), ("right_eye", 0.49, eyes, 0.9), ("left_shoulder", 0.5 + half, sy, 0.9), ("right_shoulder", 0.5 - half, sy, 0.9)]);
+    for framing in [0.0, 1.0] {
+        let (a, b) = (fit(target_box(std::slice::from_ref(&pose), ASPECT, framing, &[]).unwrap(), MAX_ZOOM), fit(target_box(std::slice::from_ref(&face), ASPECT, framing, &[]).unwrap(), MAX_ZOOM));
+        assert!(close(a.x, b.x, 0.02), "framing {framing}: {a:?} {b:?}");
+        assert!((a.zoom / b.zoom).ln().abs() < 0.35, "framing {framing}: {a:?} {b:?}");
+    }
+}
+
+#[test]
+fn whole_bodies_are_asked_for_while_a_person_is_being_picked_so_the_click_lands_on_a_body() {
+    let mut r = Rig::new();
+    r.switch(true);
+    assert_eq!(r.heads(), Some(true));
+    r.ui("pick-clicked", Value::Null);
+    r.event(Event::PreviewPickChanged { owner: NAME.into() });
+    assert_eq!(r.heads(), Some(false), "the click is made on bodies, not on faces with guessed shoulders");
+    // Esc: nobody picks, faces are enough again
+    r.event(Event::PreviewPickChanged { owner: String::new() });
+    assert_eq!(r.heads(), Some(true));
+}

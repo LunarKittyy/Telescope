@@ -99,7 +99,8 @@
       "adjustments": {
         "balance": true,
         "dynamic": true,
-        "effects": true
+        "effects": true,
+        "heads": true
       },
       "browser_camera": {
         "address": "192.168.1.10",
