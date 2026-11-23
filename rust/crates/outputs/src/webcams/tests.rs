@@ -635,7 +635,7 @@ mod gphoto_scanning {
         std::fs::create_dir_all(root.join("1-2:1.0")).unwrap();
         let p = program("counted", &format!("echo look >> {}\ncat <<'EOF'\n{DETECTED}EOF\n", counter.display()));
         let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
-        scanner.usb_root = Some(root.clone());
+        scanner.usb = Some(folder_look(root.clone()));
         scan_until(&mut scanner, |d| !d.is_empty());
         scan_for_a_while(&mut scanner);
         assert_eq!(looks(&counter), 1, "the same devices were looked through again");
@@ -658,7 +658,7 @@ mod gphoto_scanning {
         // Lists nothing until the first look after the plug-in is over
         let p = program("late", &format!("echo look >> {c}\nif [ -e {c}.plugged ] && [ $(wc -l < {c}) -lt 3 ]; then exit 0; fi\nif [ -e {c}.plugged ]; then cat <<'EOF'\n{DETECTED}EOF\nfi\n", c = counter.display()));
         let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
-        scanner.usb_root = Some(root.clone());
+        scanner.usb = Some(folder_look(root.clone()));
         scan_until_looks(&mut scanner, &counter, 1);
         scan_for_a_while(&mut scanner);
         assert!(scanner.scan().is_empty());
@@ -677,7 +677,7 @@ mod gphoto_scanning {
         plug(&root, "1-2", "1", "2");
         let p = program("failing", &format!("echo look >> {}\nexit 1\n", counter.display()));
         let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
-        scanner.usb_root = Some(root);
+        scanner.usb = Some(folder_look(root));
         let until = Instant::now() + Duration::from_secs(5);
         while looks(&counter) < 3 && Instant::now() < until {
             scanner.scan();
@@ -720,4 +720,17 @@ fn a_node_taken_by_another_webcam_is_not_the_scanned_one() {
     usb(&tmp, &root, "video0", "1-3", "BBB");
     assert!(!node_is_still(&root, &devices, &a), "another camera answers on the old node");
     assert!(node_is_still(&root, &devices, &dev("Vendor_Cam", "Cam", "/dev/video0")), "only USB keys can be checked");
+}
+
+#[cfg(any(target_os = "linux", windows))]
+#[test]
+fn the_system_scanner_only_looks_for_cameras_when_the_usb_devices_change() {
+    assert!(GphotoScanner::system().usb.is_some(), "this system's scanner looks every few seconds whatever is plugged in");
+}
+
+#[cfg(windows)]
+#[test]
+fn the_device_manager_lists_the_usb_devices_the_same_way_twice() {
+    let first = windows_usb_devices().expect("the device manager lists USB devices");
+    assert_eq!(windows_usb_devices().as_deref(), Some(first.as_str()));
 }
