@@ -18,6 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use telescope_core::bus::BusSender;
+use telescope_core::effort::Effort;
 use telescope_core::event::Event;
 use telescope_core::frame::{Frame, MaskSpace, PixelFormat};
 use telescope_core::image::{frame_rgb, small_grey, small_rgb};
@@ -161,28 +162,47 @@ fn chroma_grid(plane: &[u8], w: usize, h: usize, step: usize, offset: usize) -> 
     out
 }
 
+/// Whether a folder with its marker still holds the pack: None when a file can't be read right now (security software scanning it), which proves nothing.
+fn whole(folder: &Path, info: &PackInfo) -> Option<bool> {
+    match pack::tree_hash(folder) {
+        Ok(hash) => Some(Some(&hash) == info.id.as_ref()),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Some(false),
+        Err(_) => None,
+    }
+}
+
+/// A pack whose files no longer match was damaged after it was checked (security software took a library, say). Its marker goes, so it counts as
+/// not installed and its card offers the download again; left as it was, it would say "installed" and fail to load until the folder was removed by hand.
+fn damaged(folder: &Path, what: &str) -> LoadError {
+    log::warn!("The {what} in {} no longer matches what was checked; it needs to be downloaded again", folder.display());
+    let _ = std::fs::remove_file(folder.join(pack::DONE));
+    LoadError::Missing(format!("the {what} in {} was damaged", folder.display()))
+}
+
 /// The pack's backend from `load`: the marker only says the files matched once, and the library is native code that runs as the user.
 fn find_pack(dir: &Path, info: &PackInfo, load: &dyn Fn(&Path) -> Result<Arc<dyn Backend>, LoadError>) -> Result<Arc<dyn Backend>, LoadError> {
     let folder = info.folder(dir);
     if !info.installed(dir) {
         return Err(LoadError::Missing(format!("no vision pack in {}", folder.display())));
     }
-    if pack::tree_hash(&folder).ok() != info.id {
-        return Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack has changed since it was checked, so it wasn't loaded")));
+    match whole(&folder, info) {
+        Some(true) => load(&folder),
+        Some(false) => Err(damaged(&folder, "vision pack")),
+        None => Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack couldn't be checked, so it wasn't loaded"))),
     }
-    load(&folder)
 }
 
 /// The matting download's backend, after its files are hashed again: the marker only says they matched once, and the library is native code that runs as the user.
 fn find_matting(dir: &Path, info: &PackInfo) -> Result<Arc<dyn Backend>, LoadError> {
-    if !info.installed(dir) {
-        return Err(LoadError::Missing(format!("no matting download in {}", info.folder(dir).display())));
-    }
     let folder = info.folder(dir);
-    if pack::tree_hash(&folder).ok() != info.id {
-        return Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the matting download has changed since it was checked, so it wasn't loaded")));
+    if !info.installed(dir) {
+        return Err(LoadError::Missing(format!("no matting download in {}", folder.display())));
     }
-    matting::load(&folder)
+    match whole(&folder, info) {
+        Some(true) => matting::load(&folder),
+        Some(false) => Err(damaged(&folder, "matting download")),
+        None => Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the matting download couldn't be checked, so it wasn't loaded"))),
+    }
 }
 
 impl VisionHost {
@@ -211,10 +231,16 @@ impl VisionHost {
 
     /// The parts given: find makes the backend, there says whether a pack is there without loading it.
     pub fn with(find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>, dir: PathBuf, info: PackInfo, opener: WebOpener) -> VisionHost {
+        VisionHost::with_effort(Effort::shared(), find, there, dir, info, opener)
+    }
+
+    /// The same, reading how hard to work from effort instead of the app's own.
+    pub fn with_effort(effort: Arc<Effort>, find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>, dir: PathBuf, info: PackInfo, opener: WebOpener) -> VisionHost {
         let bus: Arc<Mutex<Option<BusSender>>> = Arc::new(Mutex::new(None));
         let tracking = Arc::new(Mutex::new(PeopleTracking::new()));
         let (people_bus, people_tracking, state_bus) = (bus.clone(), tracking.clone(), bus.clone());
-        let vision = Vision::new(
+        let vision = Vision::with_effort(
+            effort,
             Box::new(move |key, people| {
                 emit(&people_bus, Event::PeopleSeen { source_id: key.to_string(), people: people.iter().map(|p| p.to_value()).collect() });
                 let (tracks, count) = people_tracking.lock().unwrap().update(key, &people, service::monotonic());

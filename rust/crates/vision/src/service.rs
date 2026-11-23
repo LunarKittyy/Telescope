@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::thread::JoinHandle;
+use telescope_core::effort::{Effort, MOST};
 use telescope_core::pose::Person;
 use telescope_core::frame::MaskSpace;
 use telescope_core::view::{shown_to_view, view_to_shown, Geometry};
@@ -31,15 +32,53 @@ pub const MASK_CARRY_STILL: f64 = 0.5;
 pub const MASK_STILL_EVERY_S: f64 = 1.0 / 15.0;
 /// The high quality cutout costs about ten times the normal model a run, so while nothing moves it is worked out this often.
 pub const CUTOUT_STILL_EVERY_S: f64 = 0.25;
-/// Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often.
-pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
-pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
-/// And the mask this often, or sooner on a big move (ops::BIG_MOVE_SHARE), so standing up or waving doesn't leave the room sharp around you.
-pub const SAVING_MASK_EVERY_S: f64 = 0.1;
-/// Frames arrive a few ms off their beat, so 3 frames at 30 fps (exactly 0.1 s) count as due instead of waiting for a 4th.
+
+/// Frames arrive a few ms off their beat, so 3 frames at 30 fps (exactly 0.1 s) count as due instead of waiting for a 4th. Every gap in CADENCE past level 0 is this much shorter than it says.
 pub const SAVING_MASK_JITTER_S: f64 = 0.008;
-/// A big move brings the mask sooner but not sooner than this, so 60 fps or a flickering picture doesn't make it every frame.
-pub const SAVING_MASK_BIG_MOVE_EVERY_S: f64 = 0.025;
+
+/// The least time between two runs of a model, while something moves and while nothing does.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Gaps {
+    pub moving: f64,
+    pub still: f64,
+}
+
+/// How often the models run at one effort level.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Cadence {
+    pub mask: Gaps,
+    /// A big move (ops::BIG_MOVE_SHARE) runs the mask after this long instead, so standing up or waving doesn't leave the room sharp around you; None: it waits like any other move.
+    pub big_move: Option<f64>,
+    /// The high quality cutout; None: it doesn't run, and the normal mask stands in.
+    pub cutout: Option<Gaps>,
+    pub people: Gaps,
+}
+
+const fn gaps(moving: f64, still: f64) -> Gaps {
+    Gaps { moving, still }
+}
+
+/// A gap as the clock sees it, a jitter early (see SAVING_MASK_JITTER_S).
+const fn early(gap: f64) -> f64 {
+    gap - SAVING_MASK_JITTER_S
+}
+
+/// The cadence of each effort level (core::effort), which only says when the models run and changes nothing about what they work out.
+pub const CADENCE: [Cadence; MOST as usize + 1] = [
+    // 0: full, a mask for every frame that moves, people about 12 times a second
+    Cadence { mask: gaps(0.0, MASK_STILL_EVERY_S), big_move: Some(0.0), cutout: Some(gaps(0.0, CUTOUT_STILL_EVERY_S)), people: gaps(PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S) },
+    // 1: what power-saving effects does, the mask 10 times a second (a big move sooner, not within 25 ms of the last), the cutout 4, people 6
+    Cadence { mask: gaps(early(0.1), early(0.1)), big_move: Some(0.025), cutout: Some(gaps(CUTOUT_STILL_EVERY_S, CUTOUT_STILL_EVERY_S)), people: gaps(0.16, 0.5) },
+    // 2: the mask 6 times a second (a big move not within 0.1 s of the last), the cutout 2, people 4
+    Cadence { mask: gaps(early(0.15), early(0.15)), big_move: Some(early(0.1)), cutout: Some(gaps(0.5, 0.5)), people: gaps(0.25, 0.66) },
+    // 3: the mask 5 times a second whatever moves, no cutout, people 3
+    Cadence { mask: gaps(early(0.2), early(0.2)), big_move: None, cutout: None, people: gaps(0.33, 1.0) },
+];
+
+/// The cadence for a level, which a level past the lightest has as the lightest.
+pub fn cadence(level: u8) -> Cadence {
+    CADENCE[(level as usize).min(CADENCE.len() - 1)]
+}
 /// How long a frame waits for its mask when there's none it can use, so the picture doesn't go out without one when a stream starts.
 pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 /// A mask of a frame further back than this is of a picture that's gone: frame steps hear there's none, not an old silhouette.
@@ -406,7 +445,8 @@ pub(crate) struct Inner {
     tidier: Mutex<Option<Sender<()>>>,
     closed: AtomicBool,
     callback_lock: Mutex<()>,
-    pub(crate) saving: AtomicBool,
+    /// How hard the models work; power-saving effects is its floor.
+    pub(crate) effort: Arc<Effort>,
     pub(crate) give_back: Mutex<Box<dyn Fn() + Send + Sync>>,
     /// Tests: frames for people wait in the slot instead of going to a thread.
     pub(crate) hold_people: AtomicBool,
@@ -444,6 +484,11 @@ impl Vision {
     /// on_people: (stream, people) from a people thread; on_state: state() changed, from whichever thread changed it.
     /// there: whether a pack is there without loading anything (state() says MISSING before load() when it isn't).
     pub fn new(on_people: OnPeople, on_state: OnState, find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>) -> Vision {
+        Vision::with_effort(Effort::shared(), on_people, on_state, find, there)
+    }
+
+    /// The same, reading how hard to work from effort instead of the app's own.
+    pub fn with_effort(effort: Arc<Effort>, on_people: OnPeople, on_state: OnState, find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>) -> Vision {
         Vision { inner: Arc::new(Inner {
             on_people, on_state, find,
             there: there.unwrap_or_else(|| Box::new(|| true)),
@@ -458,7 +503,7 @@ impl Vision {
             tidier: Mutex::new(None),
             closed: AtomicBool::new(false),
             callback_lock: Mutex::new(()),
-            saving: AtomicBool::new(false),
+            effort,
             give_back: Mutex::new(Box::new(give_back_memory)),
             hold_people: AtomicBool::new(false),
             masks_wait: AtomicBool::new(false),
@@ -516,8 +561,9 @@ impl Vision {
         }
     }
 
+    /// Power-saving effects: level 1 at least, whatever the automatic part says.
     pub fn set_power_saving(&self, on: bool) {
-        self.inner.saving.store(on, Ordering::SeqCst);
+        self.inner.effort.set_floor(u8::from(on));
     }
 
     /// Seconds on the clock the service goes by: the monotonic one, or the faked one tests move by hand.
@@ -541,7 +587,12 @@ impl Vision {
     }
 
     pub fn power_saving(&self) -> bool {
-        self.inner.saving.load(Ordering::SeqCst)
+        self.inner.effort.floor() >= 1
+    }
+
+    /// How the models are scheduled at the level the effects run at now.
+    fn cadence(&self) -> Cadence {
+        cadence(self.inner.effort.level())
     }
 
     fn ready(&self) -> Option<Arc<dyn Backend>> {
@@ -712,6 +763,8 @@ impl Vision {
 
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn newest_cutout_snapshot_with_look(&self, key: &str, seq: u64, w: usize, h: usize, look: Option<Look>, picture: Picture, epoch: u64, view: MaskView) -> Option<MaskSnapshot> {
+        // At the lightest level the cutout rests, so the normal mask stands in for it
+        self.cadence().cutout?;
         let Some(backend) = self.cutout_ready() else {
             self.load_cutout();
             return None;
@@ -844,21 +897,18 @@ impl Vision {
             }
         }
         let now = self.now();
-        let saving = self.power_saving();
-        let still_every = match which {
-            Which::Cutout => CUTOUT_STILL_EVERY_S,
-            _ if saving => SAVING_MASK_EVERY_S - SAVING_MASK_JITTER_S,
-            _ => MASK_STILL_EVERY_S,
-        };
-        let overdue = m.small.is_none() || now - m.at >= still_every;
-        // Power-saving still runs the normal model soon on a big move; the cutout costs too much for that
-        let may_jump = saving && which != Which::Cutout && now - m.at >= SAVING_MASK_BIG_MOVE_EVERY_S;
+        let cadence = self.cadence();
+        let gaps = if which == Which::Cutout { cadence.cutout.unwrap_or(cadence.mask) } else { cadence.mask };
+        let overdue = m.small.is_none() || now - m.at >= gaps.still;
+        let may_run = now - m.at >= gaps.moving;
+        // A big move runs the normal model sooner at the levels that allow it; the cutout costs too much for that
+        let may_jump = which != Which::Cutout && cadence.big_move.is_some_and(|gap| now - m.at >= gap);
         let jumped = |motion: &Motion| may_jump && motion.big();
         // With a grey look at hand the colour picture is only made when the model is about to run
         let run = if let Some(look) = look {
             let grey = look()?;
             let moved = m.motion.moved_grey(grey);
-            if (moved && !saving) || jumped(&m.motion) || overdue {
+            if (moved && may_run) || jumped(&m.motion) || overdue {
                 let frame = picture()?;
                 let small = m.segment.as_ref().and_then(|s| s.input(&frame)).unwrap_or(frame);
                 Some((small, moved))
@@ -874,7 +924,7 @@ impl Vision {
             let small = m.segment.as_ref().and_then(|s| s.input(&frame)).unwrap_or(frame);
             // Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
             let moved = m.motion.moved(&small);
-            if (moved && !saving) || jumped(&m.motion) || overdue {
+            if (moved && may_run) || jumped(&m.motion) || overdue {
                 Some((small, moved))
             } else {
                 if !moved {
@@ -960,7 +1010,7 @@ impl Vision {
         }
         let sv = self.stream(key);
         let p = sv.people.lock().unwrap();
-        let every = if self.power_saving() { SAVING_PEOPLE_EVERY_S } else { PEOPLE_EVERY_S };
+        let every = self.cadence().people.moving;
         let now = self.now();
         now - p.at >= every && now - p.probed >= every
     }
@@ -981,7 +1031,7 @@ impl Vision {
         let now = self.now();
         let mut p = sv.people.lock().unwrap();
         p.fed = now;
-        let (every, still_every) = if self.power_saving() { (SAVING_PEOPLE_EVERY_S, SAVING_PEOPLE_STILL_EVERY_S) } else { (PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S) };
+        let Gaps { moving: every, still: still_every } = self.cadence().people;
         if now - p.at < every || now - p.probed < every {
             return;
         }
@@ -1140,6 +1190,10 @@ impl Vision {
         }
         if self.power_saving() {
             line += ", power saving";
+        }
+        let level = self.inner.effort.level();
+        if level > self.inner.effort.floor() {
+            line += &format!(", effects stepped down to level {level}");
         }
         let mut lines = vec![("Vision".into(), line)];
         if let Some(cutout) = self.cutout_slot().filter(|_| self.cutout_state() != OFF) {
