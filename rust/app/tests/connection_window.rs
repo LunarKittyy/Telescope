@@ -278,3 +278,24 @@ fn saying_it_is_not_the_same_phone_leaves_the_old_entry_and_its_settings_alone()
     let (again, _) = restarted(r, "reinstalled-no-restart");
     assert!(again.w.state.borrow().file.load()["devices"].get("id-old").is_some());
 }
+
+#[test]
+fn a_phone_whose_pairing_entry_was_damaged_keeps_its_settings_on_later_starts() {
+    let (r, link, _) = window("damaged-entry");
+    pair(&r, &link, "id-a", "A", "tok-a");
+    pair(&r, &link, "id-b", "B", "tok-b");
+    set_iso(&r, 400);
+    assert!(r.w.state.borrow_mut().save_now());
+    // B's entry loses its id, as a hand edit or a bad disk can leave it; A's stays whole
+    let mut cfg = r.w.state.borrow().file.load();
+    cfg["plugin_configs"]["connection"]["phones"][1].as_object_mut().unwrap().remove("id");
+    r.w.state.borrow().file.save(&mut cfg);
+    let (again, _) = restarted(r, "damaged-entry-first");
+    // Connection dropped the entry it couldn't read; the next save lists A alone
+    assert!(again.w.state.borrow_mut().save_now());
+    assert_eq!(listed(&again), ["id-a"]);
+    let (third, _) = restarted(again, "damaged-entry-second");
+    let kept = third.w.state.borrow().file.load();
+    assert!(kept["devices"].get("id-b").is_some(), "{kept}");
+    assert!(kept["devices"].get("id-a").is_some(), "{kept}");
+}
