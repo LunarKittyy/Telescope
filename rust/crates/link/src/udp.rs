@@ -1278,6 +1278,20 @@ mod tests {
     }
 
     #[test]
+    fn a_feed_opened_after_the_failure_has_expired_tries_udp_again() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let phone = fake_phone(vec![], Behaviour { silent: true, ..Default::default() });
+        let open = || UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(1), StopHandle::default()).unwrap();
+        mark_failed("127.0.0.1");
+        assert!(open().fell_back, "a recent failure goes straight to TCP");
+        let Some(long_ago) = Instant::now().checked_sub(FAILED_FOR + Duration::from_secs(1)) else { return };
+        mark_failed_at("127.0.0.1", long_ago);
+        assert!(!open().fell_back, "an old one is forgotten and UDP is tried again");
+        forget_failures();
+    }
+
+    #[test]
     fn datagrams_that_arrive_but_take_a_while_to_make_a_frame_stay_on_udp() {
         let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         forget_failures();
