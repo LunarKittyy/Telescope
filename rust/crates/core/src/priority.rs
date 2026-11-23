@@ -162,7 +162,7 @@ mod tests {
     fn a_thread_that_lowers_itself_leaves_the_rest_alone() {
         let nice = |tid: libc::pid_t| unsafe { libc::getpriority(libc::PRIO_PROCESS, tid as libc::id_t) };
         let before = nice(0);
-        let lowered = std::thread::spawn(|| {
+        let lowered = std::thread::spawn(move || {
             apply(Mode::Nice(7));
             nice(0)
         })
