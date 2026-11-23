@@ -90,9 +90,6 @@ msgstr "पुरानी फ़ाइल की एक कॉपी {path} प
 msgid "A frame step failed"
 msgstr "एक फ़्रेम चरण विफल रहा"
 
-msgid "A hot phone lowers its frame rate to protect itself. There is no switch for that."
-msgstr ""
-
 msgid "A layout you saved in the editor."
 msgstr "एडिटर में सेव किया गया लेआउट."
 
@@ -1412,9 +1409,6 @@ msgstr "डीकोडर: आउटपुट का इंतज़ार"
 msgid "Decoding"
 msgstr "डीकोडिंग"
 
-msgid "Decoding fallback"
-msgstr ""
-
 msgid "Decoding on the processor"
 msgstr ""
 
@@ -1658,9 +1652,6 @@ msgstr ""
 msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
 msgstr ""
 
-msgid "Dynamic no longer lowers the bitrate or frame rate. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "EV"
 msgstr ""
 
@@ -1699,22 +1690,10 @@ msgstr "{shortcut} एडिट करें"
 msgid "Effect"
 msgstr "इफ़ेक्ट"
 
-msgid "Effects no longer get lighter while frames run late. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "Effects off a busy graphics card"
 msgstr ""
 
 msgid "Effects on the processor"
-msgstr ""
-
-msgid "Effects run at full quality until you close Telescope, even while frames run late."
-msgstr ""
-
-msgid "Effects run on the graphics card even while it is busy. Turn it on again under Video in Settings."
-msgstr ""
-
-msgid "Effects run on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
@@ -1739,9 +1718,6 @@ msgid "Even out two different phones with the same shutter, similar brightness a
 msgstr "दो अलग-अलग फ़ोनों को समान शटर, मिलती-जुलती ब्राइटनेस और एक ऐसे कलर कर्व से संतुलित करें जो दाईं तस्वीर को बाईं तस्वीर जैसा दिखाए."
 
 msgid "Every"
-msgstr ""
-
-msgid "Every change Telescope makes for a smoother stream has its own switch here."
 msgstr ""
 
 msgid "Every plugin is switched on."
@@ -2999,6 +2975,9 @@ msgstr "पन्ने पर लिखे अक्षरों को सा�
 msgid "Make the writing stand out"
 msgstr "लिखावट को साफ़ दिखाएं"
 
+msgid "Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic."
+msgstr ""
+
 msgid "Manual"
 msgstr "मैनुअल"
 
@@ -3854,9 +3833,6 @@ msgstr "फ़ोन कैमरा: बंद"
 msgid "Phone camera: on"
 msgstr "फ़ोन कैमरा: चालू"
 
-msgid "Phone cooling"
-msgstr ""
-
 msgid "Phone mic"
 msgstr "फ़ोन का माइक"
 
@@ -4551,6 +4527,12 @@ msgid "Roundness"
 msgstr "राउंडनेस"
 
 msgid "Run"
+msgstr ""
+
+msgid "Runs effects at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Runs effects on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Same as the system"
@@ -5590,6 +5572,15 @@ msgstr ""
 msgid "Stops"
 msgstr "स्टॉप्स"
 
+msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops every stream you have running."
 msgstr ""
 
@@ -5742,6 +5733,9 @@ msgstr ""
 
 msgid "Switch off"
 msgstr "बंद करें"
+
+msgid "Switch off any of the automatic changes Telescope makes for a smoother stream."
+msgstr ""
 
 #, python-brace-format
 msgid "Switch off {plugin}?"
@@ -6515,9 +6509,6 @@ msgstr "फ़ोन ने माइक्रोफ़ोन रिक्वे
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "फ़ोन ने स्ट्रीमिंग शुरू करने के अनुरोध को अस्वीकार कर दिया ({error})."
 
-msgid "The phone sends at a steady bitrate until you close Telescope, in place of Dynamic."
-msgstr ""
-
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "फ़ोन ने ऐसा डेटा भेजा जिसे यह वर्शन नहीं पढ़ सकता. दोनों ऐप्स को एक ही वर्शन पर अपडेट करें."
 
@@ -6638,9 +6629,6 @@ msgstr "शॉर्टकट जिस प्रीसेट का इस्�
 
 msgid "The processor"
 msgstr "प्रोसेसर"
-
-msgid "The processor decodes for a while when the graphics card is too slow. Hardware acceleration, above, decides whether the card is used at all."
-msgstr ""
 
 msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
 msgstr ""
@@ -7164,6 +7152,9 @@ msgstr ""
 
 msgid "Turn the tools off and set the guides and scope back to default."
 msgstr "टूल्स बंद करें और गाइड्स व स्कोप को वापस डिफ़ॉल्ट पर सेट करें."
+
+msgid "Turn this off"
+msgstr ""
 
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "दो फ़ोनों को एक 3D तस्वीर में बदलें, हेडसेट के लिए साइड बाई साइड या चश्मे के लिए लाल और सियान."
@@ -8002,7 +7993,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "ऑटो शुरू बंद कैमरा ऐप खुलता है डिस्कॉर्ड ओबीएस ज़ूम मीट टीम्स फ़ोन डिवाइस तैयार खाली हैंड्स फ़्री auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate hot throttle fallback"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
 msgstr ""
 
 msgctxt "search"
@@ -8154,10 +8145,6 @@ msgstr ""
 
 msgid "green"
 msgstr "हरा"
-
-msgctxt "search"
-msgid "hardware decoding fallback processor graphics card slow"
-msgstr ""
 
 msgid "held there on purpose"
 msgstr "जानबूझकर वहीं रखा गया"
@@ -8333,10 +8320,6 @@ msgstr "रुका हुआ"
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "फ़ोन ऐप इंस्टॉल फिर से इंस्टॉल नया वर्शन केबल phone app install usb android reinstall newer version sideload cable"
-
-msgctxt "search"
-msgid "phone hot heat thermal throttle temperature frame rate"
-msgstr ""
 
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "फ़ोन प्लग इन है लेकिन उस पर Telescope नहीं खुला है"

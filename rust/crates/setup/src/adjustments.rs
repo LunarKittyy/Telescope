@@ -31,6 +31,35 @@ const COSTS_SHOWN: usize = 2;
 /// How many seconds of frames the banner clears on, once they keep up.
 const KEPT_UP_SECONDS: usize = 3;
 const KEPT_UP_SHARE: f32 = 0.02;
+/// A dismissed banner comes back when this much more of the frames are shed than when it was closed.
+const WORSE_BY: f32 = 0.15;
+/// A dismissed banner is forgotten after this long without falling behind, so the next episode shows it again.
+const QUIET_NS: u64 = 120_000_000_000;
+
+/// What a closed banner remembers: the cause it was about and how bad it was, so only something clearly worse brings it back.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Dismissal {
+    pub cause: String,
+    pub shed: f32,
+}
+
+/// Names a cause for comparing, so another program or another kind of cause counts as a different one.
+pub fn cause_key(cause: Option<&Cause>) -> String {
+    match cause {
+        Some(Cause::OtherApp { name, .. }) => format!("app:{name}"),
+        Some(Cause::GpuBusy { name }) => format!("gpu:{}", name.as_deref().unwrap_or("")),
+        Some(Cause::BatterySaver) => "battery-saver".into(),
+        Some(Cause::OnBattery) => "on-battery".into(),
+        Some(Cause::LowMemory) => "memory".into(),
+        Some(Cause::TelescopeItself) => "self".into(),
+        None => "unknown".into(),
+    }
+}
+
+/// Whether a closed banner stays closed: the cause is the same and it isn't clearly worse.
+pub fn stays_dismissed(was: &Dismissal, cause: &str, shed: f32) -> bool {
+    was.cause == cause && shed < was.shed + WORSE_BY
+}
 
 /// Which automatic system an adjustment belongs to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -223,7 +252,7 @@ pub fn behind_issue(cause: Option<&Cause>, dearest_effect: Option<&str>) -> Issu
             (cause_text, help)
         }
     };
-    Issue { title: tr("Telescope is falling behind"), text: format!("{cause_text} {help}"), actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false }
+    Issue { title: tr("Telescope is falling behind"), text: format!("{cause_text} {help}"), actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: true }
 }
 
 // ── What the texts say ──────────────────────────────────────────────────────
@@ -266,14 +295,14 @@ fn row_tip_of(kind: Kind) -> String {
 /// A button's (icon, name, tooltip sentence).
 fn override_text(kind: Kind, o: Override) -> (&'static str, String, String) {
     match o {
-        Override::KeepFull => ("sparkle", tr("Use full quality"), tr("Effects run at full quality until you close Telescope, even while frames run late.")),
-        Override::KeepOnCard => ("chip", tr("Use graphics card"), tr("Effects run on the graphics card until you close Telescope, even while it is busy.")),
-        Override::FixedBitrate => ("lock", tr("Use a fixed bitrate"), tr("The phone sends at a steady bitrate until you close Telescope, in place of Dynamic.")),
+        Override::KeepFull => ("sparkle", tr("Use full quality"), tr("Runs effects at full quality until you close Telescope, even while frames run late.")),
+        Override::KeepOnCard => ("chip", tr("Use graphics card"), tr("Runs effects on the graphics card until you close Telescope, even while it is busy.")),
+        Override::FixedBitrate => ("lock", tr("Use a fixed bitrate"), tr("Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic.")),
         Override::OpenVideoSettings => ("sliders", tr("Open Video settings"), tr("Hardware acceleration is set there.")),
-        Override::TurnOff => ("power", tr("Turn off"), match kind {
-            Kind::Effects => tr("Effects no longer get lighter while frames run late. Turn it on again under Video in Settings."),
-            Kind::Balance => tr("Effects run on the graphics card even while it is busy. Turn it on again under Video in Settings."),
-            _ => tr("Dynamic no longer lowers the bitrate or frame rate. Turn it on again under Video in Settings."),
+        Override::TurnOff => ("power", tr("Turn this off"), match kind {
+            Kind::Effects => tr("Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."),
+            Kind::Balance => tr("Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."),
+            _ => tr("Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."),
         }),
     }
 }
@@ -308,7 +337,15 @@ pub struct AdjustmentsPlugin {
     told_fixed: bool,
     phone: Phone,
     rows: Vec<Item>,
+    /// The computer is falling behind now, shown or not.
+    behind: bool,
     showing_banner: bool,
+    /// The banner the person closed, kept while the same trouble goes on.
+    dismissed: Option<Dismissal>,
+    /// When frames last stopped falling behind, while a dismissal is remembered.
+    quiet_since: Option<u64>,
+    /// The share of frames shed at the last reading while behind.
+    last_shed: f32,
     list_open: bool,
     asking: bool,
     /// The banner's cause and dearest effect, as of the last reading.
@@ -319,7 +356,7 @@ impl AdjustmentsPlugin {
     pub fn new(media: Arc<dyn Media>) -> AdjustmentsPlugin {
         AdjustmentsPlugin {
             media, switches: Switches::default(), held_full: false, held_card: false, held_fixed: false, told_fixed: false, phone: Phone::default(), rows: Vec::new(),
-            showing_banner: false, list_open: false, asking: false, last_cause: None,
+            behind: false, showing_banner: false, dismissed: None, quiet_since: None, last_shed: 0.0, list_open: false, asking: false, last_cause: None,
         }
     }
 
@@ -385,6 +422,10 @@ impl AdjustmentsPlugin {
     }
 
     fn on_stats(&mut self, host: &mut dyn Host, snapshot: &Snapshot) {
+        self.on_stats_at(host, snapshot, telescope_core::time::monotonic_ns());
+    }
+
+    fn on_stats_at(&mut self, host: &mut dyn Host, snapshot: &Snapshot, now: u64) {
         let source = self.shown_source(host, snapshot);
         let system: Option<&SystemReading> = snapshot.app.system.as_ref();
         let seen = Seen {
@@ -396,20 +437,40 @@ impl AdjustmentsPlugin {
             decoding_slow: self.media.decoding_status().hardware_slow,
         };
         self.rows = if source.is_some() { items(&seen) } else { Vec::new() };
-        let behind = falling_behind(self.showing_banner, source, &seen.effort);
+        let behind = falling_behind(self.behind, source, &seen.effort);
         let looks = host.plugin_looks();
         let costs = source.map(|s| costs(s, &snapshot.app.models, &looks)).unwrap_or_default();
         if behind {
+            self.quiet_since = None;
             let cause = system.and_then(likely_cause);
-            if cause.is_some() || system.is_some() || !self.showing_banner {
+            if cause.is_some() || system.is_some() || !self.behind {
                 self.last_cause = cause;
             }
-            host.show_issue(BANNER, behind_issue(self.last_cause.as_ref(), costs.first().map(|c| c.name.as_str())));
-        } else if self.showing_banner {
-            host.clear_issue(Some(BANNER), None);
+            let shed = source.and_then(|s| s.shed_share(KEPT_UP_SECONDS)).unwrap_or(0.0);
+            self.last_shed = shed;
+            let key = cause_key(self.last_cause.as_ref());
+            if self.dismissed.as_ref().is_some_and(|was| !stays_dismissed(was, &key, shed)) {
+                self.dismissed = None;
+            }
+            if self.dismissed.is_none() {
+                host.show_issue(BANNER, behind_issue(self.last_cause.as_ref(), costs.first().map(|c| c.name.as_str())));
+                self.showing_banner = true;
+            }
+        } else {
+            if self.showing_banner {
+                host.clear_issue(Some(BANNER), None);
+            }
+            self.showing_banner = false;
             self.last_cause = None;
+            if self.dismissed.is_some() {
+                let since = *self.quiet_since.get_or_insert(now);
+                if now.saturating_sub(since) >= QUIET_NS {
+                    self.dismissed = None;
+                    self.quiet_since = None;
+                }
+            }
         }
-        self.showing_banner = behind;
+        self.behind = behind;
         self.sync_wants(host);
         let status = source.map(status_line);
         host.set_ui_props("header", &self.header_props(status, &costs));
@@ -417,7 +478,7 @@ impl AdjustmentsPlugin {
 
     /// The monitor and the per-step times are only read while the banner shows or the list is open.
     fn sync_wants(&mut self, host: &mut dyn Host) {
-        let want = self.showing_banner || self.list_open;
+        let want = self.behind || self.list_open;
         if want != self.asking {
             self.asking = want;
             host.want_system(NAME, want);
@@ -459,7 +520,10 @@ impl AdjustmentsPlugin {
         if self.showing_banner {
             host.clear_issue(Some(BANNER), None);
         }
+        self.behind = false;
         self.showing_banner = false;
+        self.dismissed = None;
+        self.quiet_since = None;
         self.last_cause = None;
         self.sync_wants(host);
         host.set_ui_props("header", &self.header_props(None, &[]));
@@ -524,6 +588,15 @@ impl Plugin for AdjustmentsPlugin {
 
     fn on_phone_state(&mut self, _host: &mut dyn Host, state: &Value) {
         self.phone = Phone::from_state(state, self.phone);
+    }
+
+    fn on_issue_action(&mut self, host: &mut dyn Host, key: &str, id: &str) {
+        if key == BANNER && id == "dismiss" {
+            let shed = self.last_shed;
+            self.dismissed = Some(Dismissal { cause: cause_key(self.last_cause.as_ref()), shed });
+            self.showing_banner = false;
+            host.clear_issue(Some(BANNER), None);
+        }
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {

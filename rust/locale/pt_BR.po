@@ -90,9 +90,6 @@ msgstr "Uma cópia do arquivo antigo está em {path}."
 msgid "A frame step failed"
 msgstr "Uma etapa do quadro falhou"
 
-msgid "A hot phone lowers its frame rate to protect itself. There is no switch for that."
-msgstr ""
-
 msgid "A layout you saved in the editor."
 msgstr "Um layout que você salvou no editor."
 
@@ -1412,9 +1409,6 @@ msgstr "Decodificador: aguardando saída"
 msgid "Decoding"
 msgstr "Decodificação"
 
-msgid "Decoding fallback"
-msgstr ""
-
 msgid "Decoding on the processor"
 msgstr ""
 
@@ -1658,9 +1652,6 @@ msgstr ""
 msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
 msgstr ""
 
-msgid "Dynamic no longer lowers the bitrate or frame rate. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "EV"
 msgstr ""
 
@@ -1699,22 +1690,10 @@ msgstr "Editar {shortcut}"
 msgid "Effect"
 msgstr "Efeito"
 
-msgid "Effects no longer get lighter while frames run late. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "Effects off a busy graphics card"
 msgstr ""
 
 msgid "Effects on the processor"
-msgstr ""
-
-msgid "Effects run at full quality until you close Telescope, even while frames run late."
-msgstr ""
-
-msgid "Effects run on the graphics card even while it is busy. Turn it on again under Video in Settings."
-msgstr ""
-
-msgid "Effects run on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
@@ -1739,9 +1718,6 @@ msgid "Even out two different phones with the same shutter, similar brightness a
 msgstr "Uniformize dois celulares diferentes com o mesmo obturador, brilho semelhante e uma curva de cores que faz a imagem da direita ficar parecida com a da esquerda."
 
 msgid "Every"
-msgstr ""
-
-msgid "Every change Telescope makes for a smoother stream has its own switch here."
 msgstr ""
 
 msgid "Every plugin is switched on."
@@ -2999,6 +2975,9 @@ msgstr "Destaca a escrita na folha."
 msgid "Make the writing stand out"
 msgstr "Destacar o texto"
 
+msgid "Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic."
+msgstr ""
+
 msgid "Manual"
 msgstr "Manual"
 
@@ -3854,9 +3833,6 @@ msgstr "Câmera do celular: desligada"
 msgid "Phone camera: on"
 msgstr "Câmera do celular: ligada"
 
-msgid "Phone cooling"
-msgstr ""
-
 msgid "Phone mic"
 msgstr "Microfone do celular"
 
@@ -4551,6 +4527,12 @@ msgid "Roundness"
 msgstr "Arredondamento"
 
 msgid "Run"
+msgstr ""
+
+msgid "Runs effects at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Runs effects on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Same as the system"
@@ -5590,6 +5572,15 @@ msgstr ""
 msgid "Stops"
 msgstr "Pontos"
 
+msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops every stream you have running."
 msgstr ""
 
@@ -5742,6 +5733,9 @@ msgstr ""
 
 msgid "Switch off"
 msgstr "Desligar"
+
+msgid "Switch off any of the automatic changes Telescope makes for a smoother stream."
+msgstr ""
 
 #, python-brace-format
 msgid "Switch off {plugin}?"
@@ -6515,9 +6509,6 @@ msgstr "O celular rejeitou a solicitação de microfone (HTTP {code})."
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "O celular rejeitou a solicitação para iniciar a transmissão ({error})."
 
-msgid "The phone sends at a steady bitrate until you close Telescope, in place of Dynamic."
-msgstr ""
-
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "O celular enviou dados que esta versão não consegue ler. Atualize ambos os apps para a mesma versão."
 
@@ -6638,9 +6629,6 @@ msgstr "A predefinição que o atalho aplica"
 
 msgid "The processor"
 msgstr "O processador"
-
-msgid "The processor decodes for a while when the graphics card is too slow. Hardware acceleration, above, decides whether the card is used at all."
-msgstr ""
 
 msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
 msgstr ""
@@ -7164,6 +7152,9 @@ msgstr ""
 
 msgid "Turn the tools off and set the guides and scope back to default."
 msgstr "Desligue as ferramentas e redefina as guias e o scope para o padrão."
+
+msgid "Turn this off"
+msgstr ""
 
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "Transforme dois celulares em uma única imagem 3D, lado a lado para um headset ou vermelho e ciano para óculos."
@@ -8002,7 +7993,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "iniciar parar automático câmera app abre discord obs zoom meet teams celular dispositivo pronto ocioso mãos livres auto start stop camera opens phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate hot throttle fallback"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
 msgstr ""
 
 msgctxt "search"
@@ -8154,10 +8145,6 @@ msgstr ""
 
 msgid "green"
 msgstr "verde"
-
-msgctxt "search"
-msgid "hardware decoding fallback processor graphics card slow"
-msgstr ""
 
 msgid "held there on purpose"
 msgstr "fixado ali de propósito"
@@ -8333,10 +8320,6 @@ msgstr "pausado"
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "app do celular instalar reinstalar versao mais recente cabo phone app install usb android reinstall newer version sideload cable"
-
-msgctxt "search"
-msgid "phone hot heat thermal throttle temperature frame rate"
-msgstr ""
 
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "celular conectado, mas o Telescope não está aberto nele"

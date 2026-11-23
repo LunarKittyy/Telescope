@@ -301,3 +301,76 @@ fn a_stopped_stream_empties_the_list_and_takes_the_banner_down() {
     assert!(host.issues.is_empty() && p.rows.is_empty());
     assert!(host.calls.contains(&"want_system adjustments false".to_string()));
 }
+
+fn lightest() -> EffortSnapshot {
+    EffortSnapshot { level: MOST, auto_level: MOST, auto: true, ..Default::default() }
+}
+
+fn behind_with(p: &mut AdjustmentsPlugin, host: &mut FakeHost, shed: u64, app: Option<&str>, now: u64) {
+    let mut snap = stream(shed);
+    snap.app.effort = lightest();
+    if let Some(name) = app {
+        snap.app.system = Some(SystemReading { cpu_percent: Some(95.0), cores: 4, own_cpu_percent: Some(5.0), busiest: vec![ProcessUse { name: name.into(), percent: 70.0 }], ..Default::default() });
+    }
+    p.on_stats_at(host, &snap, now);
+}
+
+fn dismiss(p: &mut AdjustmentsPlugin, host: &mut FakeHost) {
+    host.clear_issue(Some(BANNER), None);
+    p.on_issue_action(host, BANNER, "dismiss");
+}
+
+#[test]
+fn a_closed_banner_stays_closed_while_the_cause_stays_the_same() {
+    let (mut p, mut host) = plugin();
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 0);
+    assert_eq!(host.issues.len(), 1);
+    dismiss(&mut p, &mut host);
+    for second in 1..30 {
+        behind_with(&mut p, &mut host, 6, Some("Renderer"), second * SECOND);
+        assert!(host.issues.is_empty(), "still closed at {second} s");
+    }
+    assert!(p.asking, "the computer is still read to tell whether it gets worse");
+}
+
+#[test]
+fn a_closed_banner_comes_back_for_a_different_cause_or_clearly_worse_frames() {
+    let (mut p, mut host) = plugin();
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 0);
+    dismiss(&mut p, &mut host);
+    behind_with(&mut p, &mut host, 6, Some("Other thing"), SECOND);
+    assert_eq!(host.issues.len(), 1, "another program is a new cause");
+    dismiss(&mut p, &mut host);
+    behind_with(&mut p, &mut host, 6, Some("Other thing"), 2 * SECOND);
+    assert!(host.issues.is_empty());
+    behind_with(&mut p, &mut host, 20, Some("Other thing"), 3 * SECOND);
+    assert_eq!(host.issues.len(), 1, "far more frames shed is clearly worse");
+}
+
+#[test]
+fn a_closed_banner_is_forgotten_after_a_long_quiet_spell() {
+    let (mut p, mut host) = plugin();
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 0);
+    dismiss(&mut p, &mut host);
+    let mut calm = stream(0);
+    calm.app.effort = lightest();
+    p.on_stats_at(&mut host, &calm, SECOND);
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 10 * SECOND);
+    assert!(host.issues.is_empty(), "a short break is the same episode");
+    p.on_stats_at(&mut host, &calm, 11 * SECOND);
+    p.on_stats_at(&mut host, &calm, 11 * SECOND + QUIET_NS);
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 12 * SECOND + QUIET_NS);
+    assert_eq!(host.issues.len(), 1, "a new episode shows it again");
+}
+
+#[test]
+fn the_banner_asks_to_hear_about_its_dismissal() {
+    assert!(behind_issue(None, None).tell_dismiss);
+}
+
+#[test]
+fn every_switch_in_settings_is_one_the_plugin_has() {
+    let ui = include_str!("../ui/adjustments.slint");
+    assert_eq!(ui.matches("SwitchRow {").count(), 3);
+    assert!(!ui.contains("enabled: false"));
+}

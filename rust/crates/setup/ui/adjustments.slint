@@ -129,13 +129,13 @@ export component AdjustmentsSettings inherits Card {
     callback dynamic-toggled(bool);
 
     title: @tr("Automatic adjustments");
-    tip: @tr("Every change Telescope makes for a smoother stream has its own switch here.");
+    tip: @tr("Switch off any of the automatic changes Telescope makes for a smoother stream.");
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
     reset-detail: @tr("Switch every automatic adjustment back on.");
     reset => { root.reset-clicked(); }
-    keywords: @tr("search" => "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate hot throttle fallback");
+    keywords: @tr("search" => "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate");
     icon: Icons.sliders;
     hue: Theme.plugin-hue("streaming");
 
@@ -168,25 +168,5 @@ export component AdjustmentsSettings inherits Card {
         hue: root.hue;
         checked <=> root.dynamic;
         toggled(on) => { root.dynamic-toggled(on); }
-    }
-    SwitchRow {
-        icon: Icons.memory;
-        label: @tr("Decoding fallback");
-        tip: @tr("Decoding fallback");
-        tip-detail: @tr("The processor decodes for a while when the graphics card is too slow. Hardware acceleration, above, decides whether the card is used at all.");
-        keywords: @tr("search" => "hardware decoding fallback processor graphics card slow");
-        hue: root.hue;
-        enabled: false;
-        checked: true;
-    }
-    SwitchRow {
-        icon: Icons.thermometer;
-        label: @tr("Phone cooling");
-        tip: @tr("Phone cooling");
-        tip-detail: @tr("A hot phone lowers its frame rate to protect itself. There is no switch for that.");
-        keywords: @tr("search" => "phone hot heat thermal throttle temperature frame rate");
-        hue: root.hue;
-        enabled: false;
-        checked: true;
     }
 }

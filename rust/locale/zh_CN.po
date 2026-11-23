@@ -90,9 +90,6 @@ msgstr "旧文件的副本位于 {path}。"
 msgid "A frame step failed"
 msgstr "帧处理步骤失败"
 
-msgid "A hot phone lowers its frame rate to protect itself. There is no switch for that."
-msgstr ""
-
 msgid "A layout you saved in the editor."
 msgstr "你在编辑器中保存的布局。"
 
@@ -1409,9 +1406,6 @@ msgstr "解码器：等待输出"
 msgid "Decoding"
 msgstr "解码"
 
-msgid "Decoding fallback"
-msgstr ""
-
 msgid "Decoding on the processor"
 msgstr ""
 
@@ -1655,9 +1649,6 @@ msgstr ""
 msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
 msgstr ""
 
-msgid "Dynamic no longer lowers the bitrate or frame rate. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "EV"
 msgstr ""
 
@@ -1696,22 +1687,10 @@ msgstr "编辑 {shortcut}"
 msgid "Effect"
 msgstr "特效"
 
-msgid "Effects no longer get lighter while frames run late. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "Effects off a busy graphics card"
 msgstr ""
 
 msgid "Effects on the processor"
-msgstr ""
-
-msgid "Effects run at full quality until you close Telescope, even while frames run late."
-msgstr ""
-
-msgid "Effects run on the graphics card even while it is busy. Turn it on again under Video in Settings."
-msgstr ""
-
-msgid "Effects run on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
@@ -1736,9 +1715,6 @@ msgid "Even out two different phones with the same shutter, similar brightness a
 msgstr "通过相同的快门、相近的亮度和让右侧画面贴合左侧色彩的曲线，均衡两台不同手机的表现。"
 
 msgid "Every"
-msgstr ""
-
-msgid "Every change Telescope makes for a smoother stream has its own switch here."
 msgstr ""
 
 msgid "Every plugin is switched on."
@@ -2993,6 +2969,9 @@ msgstr "让纸面上的字迹更清晰醒目。"
 msgid "Make the writing stand out"
 msgstr "让字迹更醒目"
 
+msgid "Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic."
+msgstr ""
+
 msgid "Manual"
 msgstr "手动"
 
@@ -3845,9 +3824,6 @@ msgstr "手机相机：关"
 msgid "Phone camera: on"
 msgstr "手机相机：开"
 
-msgid "Phone cooling"
-msgstr ""
-
 msgid "Phone mic"
 msgstr "手机麦克风"
 
@@ -4541,6 +4517,12 @@ msgid "Roundness"
 msgstr "圆度"
 
 msgid "Run"
+msgstr ""
+
+msgid "Runs effects at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Runs effects on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Same as the system"
@@ -5575,6 +5557,15 @@ msgstr ""
 msgid "Stops"
 msgstr "档"
 
+msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops every stream you have running."
 msgstr ""
 
@@ -5727,6 +5718,9 @@ msgstr ""
 
 msgid "Switch off"
 msgstr "关闭"
+
+msgid "Switch off any of the automatic changes Telescope makes for a smoother stream."
+msgstr ""
 
 #, python-brace-format
 msgid "Switch off {plugin}?"
@@ -6498,9 +6492,6 @@ msgstr "手机拒绝了麦克风请求（HTTP {code}）。"
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "手机拒绝了开始串流的请求（{error}）。"
 
-msgid "The phone sends at a steady bitrate until you close Telescope, in place of Dynamic."
-msgstr ""
-
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "手机发送了此版本无法读取的数据。请将两端的应用更新到同一版本。"
 
@@ -6621,9 +6612,6 @@ msgstr "快捷键应用的预设"
 
 msgid "The processor"
 msgstr "处理器"
-
-msgid "The processor decodes for a while when the graphics card is too slow. Hardware acceleration, above, decides whether the card is used at all."
-msgstr ""
 
 msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
 msgstr ""
@@ -7147,6 +7135,9 @@ msgstr ""
 
 msgid "Turn the tools off and set the guides and scope back to default."
 msgstr "关闭工具并将辅助线和示波器恢复为默认值。"
+
+msgid "Turn this off"
+msgstr ""
 
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "将两台手机合成为单个 3D 画面，左右并排适用于头显，红青适用于 3D 眼镜。"
@@ -7984,7 +7975,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "自动 开始 停止 相机 摄像头 应用 打开 手机 设备 就绪 空闲 免动手 auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate hot throttle fallback"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
 msgstr ""
 
 msgctxt "search"
@@ -8136,10 +8127,6 @@ msgstr ""
 
 msgid "green"
 msgstr "绿色"
-
-msgctxt "search"
-msgid "hardware decoding fallback processor graphics card slow"
-msgstr ""
 
 msgid "held there on purpose"
 msgstr "已固定在此运行"
@@ -8315,10 +8302,6 @@ msgstr "已暂停"
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "手机应用 安装 安卓 重新安装 新版本 侧载 数据线 phone app install usb android reinstall newer version sideload cable"
-
-msgctxt "search"
-msgid "phone hot heat thermal throttle temperature frame rate"
-msgstr ""
 
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "手机已连接，但未在手机上打开 Telescope"

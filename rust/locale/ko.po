@@ -90,9 +90,6 @@ msgstr "이전 파일의 사본이 {path}에 있어요."
 msgid "A frame step failed"
 msgstr "프레임 단계 실패"
 
-msgid "A hot phone lowers its frame rate to protect itself. There is no switch for that."
-msgstr ""
-
 msgid "A layout you saved in the editor."
 msgstr "편집기에서 저장한 레이아웃이에요."
 
@@ -1409,9 +1406,6 @@ msgstr "디코더: 출력 대기 중"
 msgid "Decoding"
 msgstr "디코딩"
 
-msgid "Decoding fallback"
-msgstr ""
-
 msgid "Decoding on the processor"
 msgstr ""
 
@@ -1655,9 +1649,6 @@ msgstr ""
 msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
 msgstr ""
 
-msgid "Dynamic no longer lowers the bitrate or frame rate. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "EV"
 msgstr ""
 
@@ -1696,22 +1687,10 @@ msgstr "{shortcut} 편집"
 msgid "Effect"
 msgstr "효과"
 
-msgid "Effects no longer get lighter while frames run late. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "Effects off a busy graphics card"
 msgstr ""
 
 msgid "Effects on the processor"
-msgstr ""
-
-msgid "Effects run at full quality until you close Telescope, even while frames run late."
-msgstr ""
-
-msgid "Effects run on the graphics card even while it is busy. Turn it on again under Video in Settings."
-msgstr ""
-
-msgid "Effects run on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
@@ -1736,9 +1715,6 @@ msgid "Even out two different phones with the same shutter, similar brightness a
 msgstr "동일한 셔터 속도, 유사한 밝기 및 오른쪽 화면을 왼쪽 화면처럼 보이게 하는 색상 커브를 적용하여 서로 다른 두 휴대폰의 차이를 균일하게 맞추세요."
 
 msgid "Every"
-msgstr ""
-
-msgid "Every change Telescope makes for a smoother stream has its own switch here."
 msgstr ""
 
 msgid "Every plugin is switched on."
@@ -2993,6 +2969,9 @@ msgstr "용지의 글씨가 눈에 잘 띄게 해요."
 msgid "Make the writing stand out"
 msgstr "글씨 또렷하게 보정"
 
+msgid "Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic."
+msgstr ""
+
 msgid "Manual"
 msgstr "수동"
 
@@ -3845,9 +3824,6 @@ msgstr "휴대폰 카메라: 끔"
 msgid "Phone camera: on"
 msgstr "휴대폰 카메라: 켬"
 
-msgid "Phone cooling"
-msgstr ""
-
 msgid "Phone mic"
 msgstr "휴대폰 마이크"
 
@@ -4541,6 +4517,12 @@ msgid "Roundness"
 msgstr "원형율"
 
 msgid "Run"
+msgstr ""
+
+msgid "Runs effects at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Runs effects on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Same as the system"
@@ -5575,6 +5557,15 @@ msgstr ""
 msgid "Stops"
 msgstr "스톱"
 
+msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops every stream you have running."
 msgstr ""
 
@@ -5727,6 +5718,9 @@ msgstr ""
 
 msgid "Switch off"
 msgstr "끄기"
+
+msgid "Switch off any of the automatic changes Telescope makes for a smoother stream."
+msgstr ""
 
 #, python-brace-format
 msgid "Switch off {plugin}?"
@@ -6498,9 +6492,6 @@ msgstr "휴대폰이 마이크 요청을 거부했어요(HTTP {code})."
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "휴대폰이 스트리밍 시작 요청을 거부했어요({error})."
 
-msgid "The phone sends at a steady bitrate until you close Telescope, in place of Dynamic."
-msgstr ""
-
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "휴대폰에서 이 버전이 읽을 수 없는 데이터를 보냈어요. 두 앱을 모두 동일한 버전으로 업데이트하세요."
 
@@ -6621,9 +6612,6 @@ msgstr "단축키로 적용할 프리셋"
 
 msgid "The processor"
 msgstr "프로세서"
-
-msgid "The processor decodes for a while when the graphics card is too slow. Hardware acceleration, above, decides whether the card is used at all."
-msgstr ""
 
 msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
 msgstr ""
@@ -7147,6 +7135,9 @@ msgstr ""
 
 msgid "Turn the tools off and set the guides and scope back to default."
 msgstr "도구를 끄고 가이드와 스코프를 기본값으로 되돌려요."
+
+msgid "Turn this off"
+msgstr ""
 
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "두 대의 휴대폰을 하나의 3D 화면으로 변환해요. 헤드셋용 나란히 보기 또는 3D 안경용 적청 방식을 지원해요."
@@ -7984,7 +7975,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "자동 시작 중지 카메라 앱 열림 디스코드 obs 줌 미트 팀즈 휴대폰 기기 준비 대기 핸즈프리 auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate hot throttle fallback"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
 msgstr ""
 
 msgctxt "search"
@@ -8136,10 +8127,6 @@ msgstr ""
 
 msgid "green"
 msgstr "초록색"
-
-msgctxt "search"
-msgid "hardware decoding fallback processor graphics card slow"
-msgstr ""
 
 msgid "held there on purpose"
 msgstr "수동으로 고정됨"
@@ -8315,10 +8302,6 @@ msgstr "일시 정지됨"
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "휴대폰 앱 설치 usb 안드로이드 재설치 최신 버전 사이드로딩 케이블 phone app install usb android reinstall newer version sideload cable"
-
-msgctxt "search"
-msgid "phone hot heat thermal throttle temperature frame rate"
-msgstr ""
 
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "휴대폰이 연결되었지만 Telescope가 열려 있지 않음"

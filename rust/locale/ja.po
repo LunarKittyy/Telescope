@@ -90,9 +90,6 @@ msgstr "古いファイルのコピーが{path}にあります。"
 msgid "A frame step failed"
 msgstr "フレーム処理の失敗"
 
-msgid "A hot phone lowers its frame rate to protect itself. There is no switch for that."
-msgstr ""
-
 msgid "A layout you saved in the editor."
 msgstr "エディターで保存したレイアウトです。"
 
@@ -1409,9 +1406,6 @@ msgstr "デコーダー: 出力待機"
 msgid "Decoding"
 msgstr "デコード"
 
-msgid "Decoding fallback"
-msgstr ""
-
 msgid "Decoding on the processor"
 msgstr ""
 
@@ -1655,9 +1649,6 @@ msgstr ""
 msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
 msgstr ""
 
-msgid "Dynamic no longer lowers the bitrate or frame rate. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "EV"
 msgstr ""
 
@@ -1696,22 +1687,10 @@ msgstr "{shortcut}を編集"
 msgid "Effect"
 msgstr "エフェクト"
 
-msgid "Effects no longer get lighter while frames run late. Turn it on again under Video in Settings."
-msgstr ""
-
 msgid "Effects off a busy graphics card"
 msgstr ""
 
 msgid "Effects on the processor"
-msgstr ""
-
-msgid "Effects run at full quality until you close Telescope, even while frames run late."
-msgstr ""
-
-msgid "Effects run on the graphics card even while it is busy. Turn it on again under Video in Settings."
-msgstr ""
-
-msgid "Effects run on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
@@ -1736,9 +1715,6 @@ msgid "Even out two different phones with the same shutter, similar brightness a
 msgstr "同じシャッター速度、同等の明るさ、そして右側の映像を左側に合わせるカラー カーブによって、2台の異なるスマートフォンの差異を整えます。"
 
 msgid "Every"
-msgstr ""
-
-msgid "Every change Telescope makes for a smoother stream has its own switch here."
 msgstr ""
 
 msgid "Every plugin is switched on."
@@ -2993,6 +2969,9 @@ msgstr "用紙の文字を読みやすくくっきりさせます。"
 msgid "Make the writing stand out"
 msgstr "文字をくっきり強調"
 
+msgid "Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic."
+msgstr ""
+
 msgid "Manual"
 msgstr "手動"
 
@@ -3845,9 +3824,6 @@ msgstr "スマートフォン カメラ: オフ"
 msgid "Phone camera: on"
 msgstr "スマートフォン カメラ: オン"
 
-msgid "Phone cooling"
-msgstr ""
-
 msgid "Phone mic"
 msgstr "スマートフォン マイク"
 
@@ -4541,6 +4517,12 @@ msgid "Roundness"
 msgstr "丸み"
 
 msgid "Run"
+msgstr ""
+
+msgid "Runs effects at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Runs effects on the graphics card until you close Telescope, even while it is busy."
 msgstr ""
 
 msgid "Same as the system"
@@ -5575,6 +5557,15 @@ msgstr ""
 msgid "Stops"
 msgstr "段"
 
+msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops every stream you have running."
 msgstr ""
 
@@ -5727,6 +5718,9 @@ msgstr ""
 
 msgid "Switch off"
 msgstr "オフにする"
+
+msgid "Switch off any of the automatic changes Telescope makes for a smoother stream."
+msgstr ""
 
 #, python-brace-format
 msgid "Switch off {plugin}?"
@@ -6498,9 +6492,6 @@ msgstr "スマートフォンがマイクのリクエストを拒否しました
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "スマートフォンがストリーミング開始のリクエストを拒否しました（{error}）。"
 
-msgid "The phone sends at a steady bitrate until you close Telescope, in place of Dynamic."
-msgstr ""
-
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "スマートフォンからこのバージョンで読み取れないデータが送信されました。両方のアプリを同じバージョンにアップデートしてください。"
 
@@ -6621,9 +6612,6 @@ msgstr "ショートカットが適用するプリセット"
 
 msgid "The processor"
 msgstr "プロセッサー"
-
-msgid "The processor decodes for a while when the graphics card is too slow. Hardware acceleration, above, decides whether the card is used at all."
-msgstr ""
 
 msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
 msgstr ""
@@ -7147,6 +7135,9 @@ msgstr ""
 
 msgid "Turn the tools off and set the guides and scope back to default."
 msgstr "ツールをオフにし、ガイドとスコープをデフォルトに戻します。"
+
+msgid "Turn this off"
+msgstr ""
 
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "2台のスマートフォンを1つの3D映像に変換します（ヘッドセット用のサイド バイ サイド、またはメガネ用の赤/シアン）。"
@@ -7984,7 +7975,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "自動 開始 停止 カメラ アプリ 起動 スマートフォン スマホ デバイス 準備完了 アイドル ハンズフリー auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate hot throttle fallback"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
 msgstr ""
 
 msgctxt "search"
@@ -8136,10 +8127,6 @@ msgstr ""
 
 msgid "green"
 msgstr "緑"
-
-msgctxt "search"
-msgid "hardware decoding fallback processor graphics card slow"
-msgstr ""
 
 msgid "held there on purpose"
 msgstr "意図的に固定中"
@@ -8315,10 +8302,6 @@ msgstr "一時停止中"
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "スマホ アプリ インストール usb android 再インストール 最新版 サイドロード ケーブル phone app install usb android reinstall newer version sideload cable"
-
-msgctxt "search"
-msgid "phone hot heat thermal throttle temperature frame rate"
-msgstr ""
 
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "スマートフォンは接続されていますが、Telescopeが開かれていません"
