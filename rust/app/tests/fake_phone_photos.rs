@@ -3,7 +3,7 @@
 
 use serde_json::{json, Map, Value};
 use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, ChildStdout, Command, Stdio};
 use std::sync::mpsc;
 use std::time::Duration;
 use telescope_core::stack::{StackMode, Stacker};
@@ -18,6 +18,8 @@ const LONG: Duration = Duration::from_secs(120);
 /// The fake phone on free local ports; the process ends with this.
 struct FakePhone {
     child: Child,
+    /// Held open: the phone's second status line fails on a closed pipe and takes the whole process down with it
+    _stdout: BufReader<ChildStdout>,
     session: u16,
     stream: u16,
     auth: PhoneAuth,
@@ -44,10 +46,11 @@ fn start() -> FakePhone {
         .args(["--host", "127.0.0.1", "--token", "test-token", "--legacy-presence", "--session-port", &session.to_string(), "--stream-port", &stream.to_string()])
         .stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn().expect("python3 runs");
     let mut first = String::new();
-    BufReader::new(child.stdout.take().unwrap()).read_line(&mut first).unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    stdout.read_line(&mut first).unwrap();
     let entry: Value = serde_json::from_str(&first).expect("the fake phone's entry");
     let pin = entry["cert_sha256"].as_str().unwrap();
-    FakePhone { child, session, stream, auth: PhoneAuth::new("test-token", pin) }
+    FakePhone { child, _stdout: stdout, session, stream, auth: PhoneAuth::new("test-token", pin) }
 }
 
 fn post(phone: &FakePhone, port: u16, path: &str, body: Value) -> Value {

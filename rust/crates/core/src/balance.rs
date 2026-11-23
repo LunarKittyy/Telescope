@@ -204,6 +204,11 @@ impl Balance {
         self.note_wait(wait_ns.unwrap_or(TRIAL_FAILED));
     }
 
+    /// A trial that was stopped before it saw anything: the next one may go, and the card isn't blamed.
+    pub fn trial_called_off(&self) {
+        self.watch.lock().unwrap().trial_out = false;
+    }
+
     /// The newest wait heard, in ns.
     pub fn last_wait(&self) -> u64 {
         self.last_wait.load(Ordering::Relaxed)
@@ -350,6 +355,22 @@ mod tests {
         assert!(b.trial_due());
         b.trial_done(None);
         assert_eq!(b.watch.lock().unwrap().clear_since, None);
+        b.watch.lock().unwrap().next_trial = 0;
+        assert!(b.trial_due());
+    }
+
+    #[test]
+    fn a_trial_called_off_lets_the_next_one_go_without_blaming_the_card() {
+        let b = Balance::free();
+        (0..4).for_each(|_| b.note_wait(25 * MS));
+        b.watch.lock().unwrap().next_trial = 0;
+        assert!(b.trial_due());
+        b.trial_done(Some(2 * MS));
+        let clear = b.watch.lock().unwrap().clear_since;
+        b.watch.lock().unwrap().next_trial = 0;
+        assert!(b.trial_due());
+        b.trial_called_off();
+        assert_eq!(b.watch.lock().unwrap().clear_since, clear);
         b.watch.lock().unwrap().next_trial = 0;
         assert!(b.trial_due());
     }

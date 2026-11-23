@@ -856,7 +856,9 @@ def main():
         print(json.dumps(entry), flush=True)
         hosts.append(host)
     extras = (" heavy" if jpegs else "") + (" audio" if audio else "")
-    print(f"{len(phone.units)} frames at {args.fps:g} fps{extras} on {', '.join(f'{h}:{args.session_port}/:{args.stream_port}' for h in hosts)}", flush=True)
+    # A reader that took the entry line and left is no reason to stop serving
+    with contextlib.suppress(BrokenPipeError):
+        print(f"{len(phone.units)} frames at {args.fps:g} fps{extras} on {', '.join(f'{h}:{args.session_port}/:{args.stream_port}' for h in hosts)}", flush=True)
     threading.Event().wait()
 
 

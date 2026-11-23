@@ -373,7 +373,9 @@ fn hub_replying(replies: Vec<Vec<u8>>) -> (u16, Arc<Mutex<Vec<String>>>) {
             }
             let _ = reader.read_exact(&mut vec![0; length]);
             log.lock().unwrap().push(first);
-            let _ = conn.write_all(&reply);
+            // Closing after one reply, so it says so: a client that pools the connection would send the next request into a closed one
+            let reply = String::from_utf8_lossy(&reply).replacen("\r\n", "\r\nConnection: close\r\n", 1);
+            let _ = conn.write_all(reply.as_bytes());
             let _ = conn.shutdown(std::net::Shutdown::Both);
         }
     });
