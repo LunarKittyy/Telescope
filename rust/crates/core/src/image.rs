@@ -5,7 +5,7 @@ use crate::frame::{Frame, PixelFormat};
 use crate::workers::each_part;
 use std::cell::RefCell;
 
-/// A function whose plain row loops are built twice, the second time for AVX2, and picked by what the processor has.
+/// A function whose plain row loops are built three times, for AVX2, for SSE4.1 and as they are, and picked by what the processor has.
 #[macro_export]
 macro_rules! avx2_too {
     ($(#[$doc:meta])* $vis:vis fn $name:ident($($arg:ident: $ty:ty),* $(,)?) $(-> $ret:ty)? $body:block) => {
@@ -19,9 +19,19 @@ macro_rules! avx2_too {
                 plain($($arg),*)
             }
             #[cfg(target_arch = "x86_64")]
+            #[target_feature(enable = "sse4.1")]
+            fn mid($($arg: $ty),*) $(-> $ret)? {
+                plain($($arg),*)
+            }
+            #[cfg(target_arch = "x86_64")]
             if $crate::image::avx2_wanted() {
                 // SAFETY: the processor was just asked whether it has AVX2
                 return unsafe { wide($($arg),*) };
+            }
+            #[cfg(target_arch = "x86_64")]
+            if $crate::image::sse41_wanted() {
+                // SAFETY: the processor was just asked whether it has SSE4.1
+                return unsafe { mid($($arg),*) };
             }
             plain($($arg),*)
         }
@@ -38,6 +48,18 @@ pub fn avx2_wanted() -> bool {
         return false;
     }
     std::arch::is_x86_feature_detected!("avx2")
+}
+
+/// Whether the SSE4.1 build of a function should run, when AVX2 isn't there: the processor has it, and a test hasn't asked for the plain loops.
+#[cfg(target_arch = "x86_64")]
+#[doc(hidden)]
+#[inline(always)]
+pub fn sse41_wanted() -> bool {
+    #[cfg(any(test, feature = "scalar-switch"))]
+    if scalar_switch::PLAIN.load(std::sync::atomic::Ordering::Relaxed) {
+        return false;
+    }
+    std::arch::is_x86_feature_detected!("sse4.1")
 }
 
 /// Lets a test run code on the plain loops of every avx2_too function, to compare them with the AVX2 ones.
