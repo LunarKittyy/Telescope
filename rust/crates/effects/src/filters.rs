@@ -220,6 +220,31 @@ type Run = Box<dyn FnMut(&mut Rgb, &mut Meta, Option<&Gray>) + Send>;
 
 /// What a CPU twin may take for one frame before it steps aside: a step that holds up the stream is worse than a picture without the filter.
 pub const CPU_BUDGET_MS: u64 = 20;
+/// The budget a step is held to: CPU_BUDGET_MS, except in a test that checks the picture and not the clock.
+fn budget_ms() -> u64 {
+    #[cfg(test)]
+    if tests_ignore_the_clock::get() {
+        return u64::MAX;
+    }
+    CPU_BUDGET_MS
+}
+
+/// A test that checks what a step does to a picture must not fail because a busy machine took longer than the budget.
+#[cfg(test)]
+pub(crate) mod tests_ignore_the_clock {
+    use std::cell::Cell;
+
+    thread_local!(static IGNORE: Cell<bool> = const { Cell::new(false) });
+
+    pub fn get() -> bool {
+        IGNORE.with(Cell::get)
+    }
+
+    pub fn set(on: bool) {
+        IGNORE.with(|i| i.set(on));
+    }
+}
+
 /// How many frames it then lets pass untouched before it tries again, doubling each time the try is too slow again (up to CPU_REST_MOST).
 pub const CPU_REST_FRAMES: u32 = 60;
 pub const CPU_REST_MOST: u32 = 960;
@@ -325,7 +350,7 @@ impl CpuStep for Pixels {
 impl Pixels {
     /// Notes how long a frame took, and steps aside for a while when it was too long.
     fn timed(&mut self, began: std::time::Instant, frame: &mut Frame, before: Option<Arc<Vec<u8>>>) {
-        if began.elapsed().as_millis() as u64 > CPU_BUDGET_MS {
+        if began.elapsed().as_millis() as u64 > budget_ms() {
             if let Some(before) = before {
                 frame.replace_data(before.to_vec());
             }

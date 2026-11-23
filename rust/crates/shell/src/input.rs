@@ -130,6 +130,32 @@ pub(crate) fn button_down(window: &slint::Window) -> Option<bool> {
     }).flatten()
 }
 
+thread_local! {
+    /// When a window was last touched (a pointer, a key, a focus or size change).
+    static TOUCHED: Cell<Option<std::time::Instant>> = const { Cell::new(None) };
+    /// Whether the main window's timer is on its slow idle pace, so the first touch can speed it up at once.
+    static LAZY: Cell<bool> = const { Cell::new(false) };
+}
+
+/// How long after a touch the window's timer stays quick, for what a touch sets going (a pop-out opening, a pick).
+const AFTER_TOUCH: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// A window was touched: its timer goes to the quick pace now if it was on the slow one.
+pub fn touch() {
+    TOUCHED.set(Some(std::time::Instant::now()));
+    if LAZY.replace(false) {
+        let _ = slint::invoke_from_event_loop(|| crate::window::with_window(|w| w.sync_preview_visibility()));
+    }
+}
+
+pub(crate) fn touched_lately() -> bool {
+    TOUCHED.get().is_some_and(|at| at.elapsed() < AFTER_TOUCH)
+}
+
+pub(crate) fn set_lazy(lazy: bool) {
+    LAZY.set(lazy);
+}
+
 /// Watches a window's input, then gives each event to `then` (a window has one winit filter, so the others hang off this).
 pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &WindowEvent) -> EventResult + 'static) {
     set_room(ui, ui.window().size().to_logical(ui.window().scale_factor()));
@@ -137,6 +163,10 @@ pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &Windo
     let press = Press::default();
     let cursor = Cell::new(LogicalPosition::default());
     ui.window().on_winit_window_event(move |window, event| {
+        if matches!(event, WindowEvent::MouseInput { .. } | WindowEvent::CursorMoved { .. } | WindowEvent::CursorEntered { .. } | WindowEvent::MouseWheel { .. }
+            | WindowEvent::KeyboardInput { .. } | WindowEvent::Touch(_) | WindowEvent::Focused(_) | WindowEvent::Resized(_)) {
+            touch();
+        }
         let pointer = match event {
             WindowEvent::MouseInput { state: ElementState::Pressed, .. } => {
                 if let Some(ui) = weak.upgrade() {
@@ -167,7 +197,11 @@ pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &Windo
                 }
                 None
             }
-            WindowEvent::Focused(false) => Some(Pointer::Unfocused),
+            WindowEvent::Focused(false) => {
+                // The window's own timer is what notices that none of Telescope's windows is in front
+                visibility_changed();
+                Some(Pointer::Unfocused)
+            }
             WindowEvent::Focused(true) => {
                 visibility_changed();
                 None
