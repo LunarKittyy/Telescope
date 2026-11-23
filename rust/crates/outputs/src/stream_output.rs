@@ -208,6 +208,12 @@ pub struct StreamOutputPlugin {
     quality: i64,
     bitrate: i64,
     stop_for: Option<Option<String>>,
+    /// Adjustments asked for a fixed bitrate in place of Dynamic, for now.
+    fixed_bitrate: bool,
+    /// The shown stream's frame steps or decoder are shedding frames, so the slowdown isn't the network's.
+    computer_slow: bool,
+    /// The stream that is behind while the banner is held back or showing.
+    behind: Option<String>,
 }
 
 impl StreamOutputPlugin {
@@ -218,7 +224,7 @@ impl StreamOutputPlugin {
             had_saved_resolution: false, saved_resolution_text: None, format: FORMAT_H264, phone_codecs: Vec::new(),
             phone_dynamic: None, h264_profile: None, intra_refresh: false, wifi: (None, None, None), over_usb: false,
             phone_picked: true, phones: 0, h264_sizes: None, good_size: None, wanted_fps: DEFAULT_FPS, camera_max_fps: 0,
-            fps_current: 3, quality: DEFAULT_QUALITY, bitrate: 0, stop_for: None,
+            fps_current: 3, quality: DEFAULT_QUALITY, bitrate: 0, stop_for: None, fixed_bitrate: false, computer_slow: false, behind: None,
         };
         p.show_fps();
         p
@@ -238,7 +244,7 @@ impl StreamOutputPlugin {
     }
 
     fn bitrate_bps(&self) -> i64 {
-        if self.dynamic() { DYNAMIC } else { self.bitrate * 1_000_000 }
+        if self.dynamic() && !self.fixed_bitrate { DYNAMIC } else if self.dynamic() { 0 } else { self.bitrate * 1_000_000 }
     }
 
     /// Until the phone has reported, assume it can: nearly every phone has an encoder, and one without falls back.
@@ -518,10 +524,24 @@ impl StreamOutputPlugin {
             return;
         }
         if !behind {
+            self.behind = None;
             host.clear_issue(Some("behind"), None); // only one the panels showed can have been behind
             return;
         }
         if sid != host.focused_source_id().unwrap_or_default() {
+            return;
+        }
+        self.behind = Some(sid.to_string());
+        self.show_behind(host);
+    }
+
+    /// The banner for a stream that is behind, unless the computer is the slow part: Adjustments says that, and its advice isn't about the network.
+    fn show_behind(&mut self, host: &mut dyn Host) {
+        if self.behind.is_none() {
+            return;
+        }
+        if self.computer_slow {
+            host.clear_issue(Some("behind"), None);
             return;
         }
         let on_light = self.stream_format() == FORMAT_H264;
@@ -541,6 +561,16 @@ impl StreamOutputPlugin {
         }
         host.show_issue("behind", Issue { title: tr("Can't keep up"), text, actions: action.into_iter().collect(), kind: "warn".into(),
                                           details: String::new(), tell_dismiss: false });
+    }
+
+    /// The shown stream's own numbers: whether the computer is the one falling behind, which turns the network advice off and back on.
+    fn on_stats(&mut self, host: &mut dyn Host, snapshot: &telescope_core::stats::Snapshot) {
+        let shown = host.focused_source_id().unwrap_or_default();
+        let slow = snapshot.sources.iter().find(|s| s.source_id == shown).is_some_and(|s| s.computer_is_slow());
+        if slow != self.computer_slow {
+            self.computer_slow = slow;
+            self.show_behind(host);
+        }
     }
 
     fn on_phone_state_inner(&mut self, host: &mut dyn Host, state: &Value) {
@@ -1100,6 +1130,13 @@ impl StreamOutputPlugin {
                 self.render(host);
             }
             Event::StreamBehind { source_id, behind } => self.on_stream_behind(host, source_id, *behind),
+            Event::StatsUpdated { snapshot } => self.on_stats(host, snapshot),
+            Event::FixedBitrateRequested { on } => {
+                if *on != self.fixed_bitrate {
+                    self.fixed_bitrate = *on;
+                    self.send(host, json!({"action": "bitrate", "value": self.bitrate_bps()}));
+                }
+            }
             Event::SourceSelected { source_id } => {
                 self.phone_picked = source_id.is_empty();
                 self.render(host);

@@ -7,7 +7,7 @@
 use crate::time::monotonic_ns;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 
 const MS: u64 = 1_000_000;
@@ -142,9 +142,15 @@ impl Watch {
 /// See the top of this file.
 pub struct Balance {
     watch: Mutex<Watch>,
+    /// What TELESCOPE_FRAME_STEPS says, which always wins.
     pin: Pin,
+    /// What a setting asks for while the environment doesn't pin: RUNTIME_FREE or RUNTIME_CARD.
+    runtime: AtomicU8,
     last_wait: AtomicU64,
 }
+
+const RUNTIME_FREE: u8 = 0;
+const RUNTIME_CARD: u8 = 1;
 
 static SHARED: LazyLock<Arc<Balance>> = LazyLock::new(|| {
     let pin = match std::env::var("TELESCOPE_FRAME_STEPS").as_deref() {
@@ -157,7 +163,7 @@ static SHARED: LazyLock<Arc<Balance>> = LazyLock::new(|| {
 
 impl Balance {
     fn pinned(pin: Pin) -> Balance {
-        Balance { watch: Mutex::new(Watch::new()), pin, last_wait: AtomicU64::new(0) }
+        Balance { watch: Mutex::new(Watch::new()), pin, runtime: AtomicU8::new(RUNTIME_FREE), last_wait: AtomicU64::new(0) }
     }
 
     /// The app's one.
@@ -174,9 +180,35 @@ impl Balance {
         Balance::pinned(Pin::To(place))
     }
 
+    /// The pin in force: the environment's, else a setting's.
+    fn pin_now(&self) -> Pin {
+        match self.pin {
+            Pin::Free if self.runtime.load(Ordering::Relaxed) == RUNTIME_CARD => Pin::To(Place::Card),
+            pin => pin,
+        }
+    }
+
+    /// Keeps frame steps on the graphics card (a setting, or for this run of the app), or lets them move again. TELESCOPE_FRAME_STEPS still wins.
+    pub fn keep_on_card(&self, on: bool) {
+        let before = self.runtime.swap(if on { RUNTIME_CARD } else { RUNTIME_FREE }, Ordering::Relaxed);
+        if on && before != RUNTIME_CARD {
+            // Whatever it had seen about the card is stale once it is held there, and letting go starts from the card
+            let mut watch = self.watch.lock().unwrap();
+            watch.place = Place::Card;
+            watch.recent = [false; LOOKED_AT];
+            watch.clear_since = None;
+            watch.trial_out = false;
+        }
+    }
+
+    /// Whether a setting keeps frame steps on the card.
+    pub fn is_kept_on_card(&self) -> bool {
+        self.pin == Pin::Free && self.runtime.load(Ordering::Relaxed) == RUNTIME_CARD
+    }
+
     /// Where frame steps that can run either way should run this frame.
     pub fn place(&self) -> Place {
-        match self.pin {
+        match self.pin_now() {
             Pin::To(place) => place,
             Pin::Free => self.watch.lock().unwrap().place,
         }
@@ -185,7 +217,7 @@ impl Balance {
     /// What a frame or a trial just waited for the card.
     pub fn note_wait(&self, wait_ns: u64) {
         self.last_wait.store(wait_ns, Ordering::Relaxed);
-        if self.pin != Pin::Free {
+        if self.pin_now() != Pin::Free {
             return;
         }
         if let Some(place) = self.watch.lock().unwrap().note(wait_ns, monotonic_ns()) {
@@ -195,7 +227,7 @@ impl Balance {
 
     /// True once for each trial that should run now, which has to end with trial_done. Only one is out at a time.
     pub fn trial_due(&self) -> bool {
-        self.pin == Pin::Free && self.watch.lock().unwrap().trial_due(monotonic_ns())
+        self.pin_now() == Pin::Free && self.watch.lock().unwrap().trial_due(monotonic_ns())
     }
 
     /// A trial came back: what it waited, or None when it failed.
@@ -383,5 +415,30 @@ mod tests {
         assert!(!b.trial_due());
         assert_eq!(Balance::pinned_to(Place::Cpu).place(), Place::Cpu);
         assert_eq!(b.last_wait(), 90 * MS);
+    }
+
+    #[test]
+    fn a_setting_keeps_frames_on_the_card_and_letting_go_starts_from_the_card() {
+        let b = Balance::free();
+        {
+            let mut w = b.watch.lock().unwrap();
+            frames(&mut w, 0, 100, 40 * MS);
+            assert_eq!(w.place, Place::Cpu);
+        }
+        assert_eq!(b.place(), Place::Cpu);
+        b.keep_on_card(true);
+        assert_eq!((b.place(), b.is_kept_on_card(), b.is_pinned()), (Place::Card, true, false));
+        b.note_wait(100 * MS);
+        assert_eq!(b.place(), Place::Card, "nothing moves it while it is held");
+        assert!(!b.trial_due());
+        b.keep_on_card(false);
+        assert_eq!((b.place(), b.is_kept_on_card()), (Place::Card, false));
+    }
+
+    #[test]
+    fn the_environment_pin_wins_over_a_setting() {
+        let b = Balance::pinned_to(Place::Cpu);
+        b.keep_on_card(true);
+        assert_eq!((b.place(), b.is_kept_on_card()), (Place::Cpu, false));
     }
 }

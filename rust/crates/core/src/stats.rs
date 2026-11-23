@@ -476,6 +476,29 @@ pub struct SourceSeries {
     pub drop_totals: Vec<Drops>,
 }
 
+/// A stream sheds more than this share of its frames when the computer is the slow part.
+pub const SHED_BEHIND: f32 = 0.10;
+
+impl SourceSnapshot {
+    /// The share of the last `seconds` seconds' frames that were thinned out because the next stage hadn't taken the one before (the frame steps or the
+    /// decoder are the slow part), 0 to 1. None until that many seconds have been counted or while hardly any frames came.
+    pub fn shed_share(&self, seconds: usize) -> Option<f32> {
+        let totals = &self.series.drop_totals;
+        let received = &self.series.received_fps;
+        if seconds == 0 || totals.len() <= seconds || received.len() < seconds {
+            return None;
+        }
+        let paced = totals[totals.len() - 1].paced.saturating_sub(totals[totals.len() - 1 - seconds].paced) as f32;
+        let frames: f32 = received[received.len() - seconds..].iter().sum();
+        (frames >= 5.0 * seconds as f32).then(|| (paced / frames.max(paced)).min(1.0))
+    }
+
+    /// Whether the computer is the slow part: it has been shedding more than `SHED_BEHIND` of the frames for a few seconds.
+    pub fn computer_is_slow(&self) -> bool {
+        self.shed_share(4).is_some_and(|share| share > SHED_BEHIND)
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SourceSnapshot {
     pub source_id: String,

@@ -90,6 +90,9 @@ msgstr "이전 파일의 사본이 {path}에 있어요."
 msgid "A frame step failed"
 msgstr "프레임 단계 실패"
 
+msgid "A hot phone lowers its frame rate to protect itself. There is no switch for that."
+msgstr ""
+
 msgid "A layout you saved in the editor."
 msgstr "편집기에서 저장한 레이아웃이에요."
 
@@ -211,6 +214,13 @@ msgstr "주소"
 msgid "Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."
 msgstr ""
 
+#, python-brace-format
+msgid "Adjusting · {n}"
+msgstr ""
+
+msgid "Adjustments"
+msgstr ""
+
 msgid "Advanced settings"
 msgstr "고급 설정"
 
@@ -238,6 +248,9 @@ msgstr "맨 오른쪽은 연결 상태에 맞춰 조절되는 동적 모드예�
 
 msgid "Allow USB debugging on the phone."
 msgstr "휴대폰에서 USB 디버깅을 허용하세요."
+
+msgid "Allow heavy effects such as Background and Auto framing to work less often while frames run late. Full quality returns once there is room."
+msgstr ""
 
 msgid "Allow the microphone in Telescope on the phone"
 msgstr "휴대폰의 Telescope에서 마이크를 허용하세요"
@@ -324,6 +337,9 @@ msgstr "다른 앱에서 웹캠을 사용 중일 수 있어요. 해당 앱에서
 
 msgid "Another app on the phone is using the camera"
 msgstr "휴대폰의 다른 앱에서 카메라를 사용 중임"
+
+msgid "Another program is keeping the graphics card busy."
+msgstr ""
 
 msgid "Anti-flicker"
 msgstr "깜빡임 방지"
@@ -416,6 +432,9 @@ msgstr "자동 레벨"
 msgid "Automatic"
 msgstr "자동"
 
+msgid "Automatic adjustments"
+msgstr ""
+
 msgid "Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart."
 msgstr ""
 
@@ -458,8 +477,15 @@ msgstr "밸런서 전환 횟수"
 msgid "Bar"
 msgstr "바"
 
+msgid "Battery saver is slowing the computer down."
+msgstr ""
+
 msgid "Battery under"
 msgstr "배터리 기준"
+
+#, python-brace-format
+msgid "Behind at {n} fps"
+msgstr ""
 
 msgid "Behind you"
 msgstr "배경"
@@ -942,6 +968,12 @@ msgstr "설정 가이드 닫기"
 msgid "Closed on the phone"
 msgstr "휴대폰에서 닫힘"
 
+msgid "Closing it will help the most."
+msgstr ""
+
+msgid "Closing other programs will help."
+msgstr ""
+
 msgid "Cloudy"
 msgstr ""
 
@@ -1329,6 +1361,9 @@ msgstr ""
 msgid "Cut-in"
 msgstr "경계 축소"
 
+msgid "Cutout"
+msgstr ""
+
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "위험해요! 플러그인의 저장소를 관리하는 사람이 릴리스를 게시할 때마다 이 컴퓨터에서 새 코드를 실행할 수 있게 돼요."
 
@@ -1373,6 +1408,12 @@ msgstr "디코더: 출력 대기 중"
 
 msgid "Decoding"
 msgstr "디코딩"
+
+msgid "Decoding fallback"
+msgstr ""
+
+msgid "Decoding on the processor"
+msgstr ""
 
 msgid "Decrease by"
 msgstr "다음만큼 감소"
@@ -1597,9 +1638,25 @@ msgstr "드롭된 프레임"
 msgid "Dynamic"
 msgstr "동적"
 
+msgid "Dynamic bitrate"
+msgstr ""
+
+#, python-brace-format
+msgid "Dynamic is following the connection: {n} Mbps"
+msgstr ""
+
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "'동적' 모드가 느린 연결에 맞춰 프레임 레이트를 {fps} fps로 낮췄어요."
+
+msgid "Dynamic lowers how much video the phone sends when the connection can't carry more."
+msgstr ""
+
+msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
+msgstr ""
+
+msgid "Dynamic no longer lowers the bitrate or frame rate. Turn it on again under Video in Settings."
+msgstr ""
 
 msgid "EV"
 msgstr ""
@@ -1639,6 +1696,27 @@ msgstr "{shortcut} 편집"
 msgid "Effect"
 msgstr "효과"
 
+msgid "Effects no longer get lighter while frames run late. Turn it on again under Video in Settings."
+msgstr ""
+
+msgid "Effects off a busy graphics card"
+msgstr ""
+
+msgid "Effects on the processor"
+msgstr ""
+
+msgid "Effects run at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Effects run on the graphics card even while it is busy. Turn it on again under Video in Settings."
+msgstr ""
+
+msgid "Effects run on the graphics card until you close Telescope, even while it is busy."
+msgstr ""
+
+msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
+msgstr ""
+
 msgid "Emergency"
 msgstr "비상"
 
@@ -1658,6 +1736,9 @@ msgid "Even out two different phones with the same shutter, similar brightness a
 msgstr "동일한 셔터 속도, 유사한 밝기 및 오른쪽 화면을 왼쪽 화면처럼 보이게 하는 색상 커브를 적용하여 서로 다른 두 휴대폰의 차이를 균일하게 맞추세요."
 
 msgid "Every"
+msgstr ""
+
+msgid "Every change Telescope makes for a smoother stream has its own switch here."
 msgstr ""
 
 msgid "Every plugin is switched on."
@@ -1939,6 +2020,9 @@ msgstr "휴대폰 촬영과 가상 카메라 모두에 적용되는 초당 프�
 msgid "Frames to collect"
 msgstr ""
 
+msgid "Frames were running late"
+msgstr ""
+
 msgid "Framing"
 msgstr "프레이밍"
 
@@ -2114,6 +2198,9 @@ msgstr "HEIC"
 msgid "Hardware acceleration"
 msgstr "하드웨어 가속"
 
+msgid "Hardware acceleration is set there."
+msgstr ""
+
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr "하드웨어 가속, 절전, 줌 범위 및 가상 카메라 크기예요."
 
@@ -2129,6 +2216,9 @@ msgstr ""
 
 msgid "Heavy"
 msgstr "무겁게"
+
+msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
+msgstr ""
 
 msgid "Height"
 msgstr "높이"
@@ -2594,11 +2684,17 @@ msgstr "렌즈 전환"
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "범위가 좁을수록 더 세밀하게 조절할 수 있어요. 범위가 넓으면 소리가 작은 휴대폰에 도움이 돼요."
 
+msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. It only does anything while Bitrate is set to Dynamic."
+msgstr ""
+
 msgid "Let an AI app read and change Telescope's settings."
 msgstr "AI 앱이 Telescope의 설정을 읽고 변경할 수 있게 허용해요."
 
 msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
 msgstr "네트워크 포트를 열지 않는 명령을 통해 Claude Desktop과 같은 AI 앱이 Telescope의 설정을 읽고 변경할 수 있도록 허용해요."
+
+msgid "Let effects that can run on either the graphics card or the processor use the processor while the card is busy, for example during a game."
+msgstr ""
 
 msgid "Let the camera decide."
 msgstr "카메라가 결정하도록 해요."
@@ -2669,6 +2765,9 @@ msgstr "라이트 페인팅"
 msgid "Lighter"
 msgstr ""
 
+msgid "Lighter effects"
+msgstr ""
+
 msgid "Like the camera"
 msgstr ""
 
@@ -2704,6 +2803,9 @@ msgstr "동작 목록 조회함"
 #, python-brace-format
 msgid "Listed the {plugin} settings"
 msgstr "{plugin} 설정 목록 조회함"
+
+msgid "Lists the changes Telescope makes for a smoother stream, with a button to undo each one."
+msgstr ""
 
 msgid "Live"
 msgstr "라이브"
@@ -2799,8 +2901,14 @@ msgstr "사진을 촬영하는 동안 휴대폰과의 연결이 끊어졌어요.
 msgid "Low light"
 msgstr "저조도"
 
+msgid "Lower bitrate"
+msgstr ""
+
 msgid "Lower by"
 msgstr "다음만큼 내리기"
+
+msgid "Lower frame rate"
+msgstr ""
 
 msgid "Lower numbers open the lens wider and let in more light."
 msgstr "숫자가 낮을수록 렌즈가 더 넓게 열려 빛이 더 많이 들어와요."
@@ -3534,6 +3642,9 @@ msgstr "로그인할 때 Telescope를 열고 자동 스트리밍을 설정해요
 msgid "Open Telescope when you sign in."
 msgstr "로그인할 때 Telescope를 열어요."
 
+msgid "Open Video settings"
+msgstr ""
+
 msgid "Open download page"
 msgstr "다운로드 페이지 열기"
 
@@ -3577,6 +3688,9 @@ msgid "Open the link in a browser on any device on the same network and tap the 
 msgstr "동일한 네트워크에 있는 모든 기기의 브라우저에서 링크를 열고 페이지를 탭하여 전체 화면으로 만드세요. 링크는 Telescope를 다시 시작한 후에도 동일해요."
 
 msgid "Open the link in the headset's browser on the same Wi-Fi and accept the certificate warning once, then press Enter VR."
+msgstr ""
+
+msgid "Open the list to see what Telescope has adjusted for a smoother stream and to undo any of it."
 msgstr ""
 
 msgid "Open the preview in a separate window."
@@ -3695,6 +3809,12 @@ msgstr "인물"
 msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
 msgstr ""
 
+msgid "People tracking"
+msgstr ""
+
+msgid "Person mask"
+msgstr ""
+
 msgid "Phone"
 msgstr "휴대폰"
 
@@ -3724,6 +3844,9 @@ msgstr "휴대폰 카메라: 끔"
 
 msgid "Phone camera: on"
 msgstr "휴대폰 카메라: 켬"
+
+msgid "Phone cooling"
+msgstr ""
 
 msgid "Phone mic"
 msgstr "휴대폰 마이크"
@@ -3872,6 +3995,9 @@ msgstr "재생"
 msgid "Plug it in, or pick another camera."
 msgstr "케이블을 연결하거나 다른 카메라를 선택하세요."
 
+msgid "Plugging it in will help."
+msgstr ""
+
 msgid "Plugins"
 msgstr "플러그인"
 
@@ -3902,6 +4028,9 @@ msgstr "위치 및 스타일"
 
 msgid "Power-saving effects"
 msgstr "절전 효과"
+
+msgid "Power-saving effects is on"
+msgstr ""
 
 msgid "Preset"
 msgstr "프리셋"
@@ -5100,6 +5229,10 @@ msgstr "번짐"
 msgid "Smooth"
 msgstr "부드럽게"
 
+#, python-brace-format
+msgid "Smooth at {n} fps"
+msgstr ""
+
 msgid "Smooth out grain in the picture."
 msgstr "화면의 노이즈를 부드럽게 줄여요."
 
@@ -5589,6 +5722,9 @@ msgstr ""
 msgid "Swaps position and size with the stream you pick."
 msgstr ""
 
+msgid "Switch every automatic adjustment back on."
+msgstr ""
+
 msgid "Switch off"
 msgstr "끄기"
 
@@ -5652,6 +5788,9 @@ msgid_plural "Switches are back as they were. {n} other changes still need a res
 msgstr[0] "스위치가 원래대로 돌아갔어요. 다른 변경 사항 {n}개를 적용하려면 여전히 다시 시작해야 해요"
 
 msgid "Switches the lens outlines and skeleton off and stops smoothing."
+msgstr ""
+
+msgid "Switching it off removes the Adjusting list, the Automatic adjustments settings and the falling behind banner. Telescope still lowers effects, frame rate and bitrate as before."
 msgstr ""
 
 msgid "Switching needs a restart."
@@ -5872,6 +6011,9 @@ msgstr "이 컴퓨터의 다른 사용자 계정에서 Telescope가 이미 실�
 msgid "Telescope is evening out the two phones' brightness and colour, which takes a few seconds."
 msgstr "Telescope가 두 휴대폰의 밝기와 색상을 균일하게 맞추고 있어요. 몇 초 정도 걸려요."
 
+msgid "Telescope is falling behind"
+msgstr ""
+
 msgid "Telescope is still running"
 msgstr "Telescope가 계속 실행 중이에요"
 
@@ -5941,6 +6083,9 @@ msgstr "Telescope {version}을(를) 사용할 수 있어요."
 
 msgid "Telescope's mic is live"
 msgstr "Telescope 마이크 켜짐"
+
+msgid "Telescope's own effects are using most of the computer."
+msgstr ""
 
 msgid "Telescope: hidden"
 msgstr "Telescope: 숨김"
@@ -6127,9 +6272,22 @@ msgstr "미리보기에서 선택한 색상이에요. 다시 선택하려면 클
 msgid "The colour that marks the sharp parts of the picture"
 msgstr "화면에서 선명한 부분을 표시하는 색상"
 
+msgid "The computer is low on memory."
+msgstr ""
+
+msgid "The computer is running on battery."
+msgstr ""
+
+msgid "The computer is too slow for the effects in use."
+msgstr ""
+
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "연결이 USB 전용으로 설정되어 있어요: {why}. Wi-Fi를 대신 사용하려면 '자동'으로 전환하세요."
+
+#, python-brace-format
+msgid "The connection is slow: {n} fps"
+msgstr ""
 
 msgid "The decoder failed"
 msgstr "디코더 실패"
@@ -6195,6 +6353,12 @@ msgstr "사진이 저장되는 폴더 경로예요."
 
 msgid "The graphics card"
 msgstr "그래픽 카드"
+
+msgid "The graphics card is busy"
+msgstr ""
+
+msgid "The graphics card was too slow"
+msgstr ""
 
 msgid "The height of the stream's box in pixels."
 msgstr ""
@@ -6292,6 +6456,10 @@ msgstr ""
 "\n"
 "잠시 후 다시 시도해 보세요."
 
+#, python-brace-format
+msgid "The phone is hot: {n} fps"
+msgstr ""
+
 msgid "The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most."
 msgstr "휴대폰이 더 느리고 혼잡하기 쉬운 2.4 GHz Wi-Fi에 연결되어 있어요. 5 GHz 네트워크나 케이블을 사용하는 것이 가장 효과적이에요."
 
@@ -6316,6 +6484,9 @@ msgstr "휴대폰이 매우 뜨거움"
 msgid "The phone isn't ready for photos yet. Try again in a moment."
 msgstr "휴대폰이 아직 사진을 촬영할 준비가 되지 않았어요. 잠시 후 다시 시도하세요."
 
+msgid "The phone lowers its frame rate when it gets hot to protect itself. There is no way to override that."
+msgstr ""
+
 msgid "The phone meters on the point you picked by hand."
 msgstr "휴대폰이 직접 지정한 위치를 기준으로 측광하고 있어요."
 
@@ -6326,6 +6497,9 @@ msgstr "휴대폰이 마이크 요청을 거부했어요(HTTP {code})."
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "휴대폰이 스트리밍 시작 요청을 거부했어요({error})."
+
+msgid "The phone sends at a steady bitrate until you close Telescope, in place of Dynamic."
+msgstr ""
 
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "휴대폰에서 이 버전이 읽을 수 없는 데이터를 보냈어요. 두 앱을 모두 동일한 버전으로 업데이트하세요."
@@ -6447,6 +6621,12 @@ msgstr "단축키로 적용할 프리셋"
 
 msgid "The processor"
 msgstr "프로세서"
+
+msgid "The processor decodes for a while when the graphics card is too slow. Hardware acceleration, above, decides whether the card is used at all."
+msgstr ""
+
+msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
+msgstr ""
 
 msgid "The result may drift with the camera set to auto."
 msgstr "카메라가 자동으로 설정되어 있으면 결과가 달라질 수 있어요."
@@ -6974,6 +7154,16 @@ msgstr "두 대의 휴대폰을 하나의 3D 화면으로 변환해요. 헤드�
 msgid "Turn two running streams into one 3D picture."
 msgstr "실행 중인 두 개의 스트림을 하나의 3D 화면으로 변환해요."
 
+msgid "Turning it off will help."
+msgstr ""
+
+msgid "Turning off an effect or lowering the frame rate will help."
+msgstr ""
+
+#, python-brace-format
+msgid "Turning off {name} will help the most."
+msgstr ""
+
 msgid "Turning the phone's camera on…"
 msgstr "휴대폰 카메라를 켜는 중…"
 
@@ -7150,6 +7340,9 @@ msgstr "상하 반전"
 msgid "Use USB or Wi-Fi, or let Telescope pick."
 msgstr "USB나 Wi-Fi를 사용하거나 Telescope가 선택하게 해요."
 
+msgid "Use a fixed bitrate"
+msgstr ""
+
 msgid "Use default"
 msgstr "기본값 사용"
 
@@ -7157,6 +7350,12 @@ msgid "Use extra noise reduction and sharpening on the photo only, not the video
 msgstr "비디오가 아닌 사진에만 추가 노이즈 감소와 선명도를 적용해요. 사진 촬영 시간이 조금 더 걸려요."
 
 msgid "Use full colours with brighter text and lines."
+msgstr ""
+
+msgid "Use full quality"
+msgstr ""
+
+msgid "Use graphics card"
 msgstr ""
 
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
@@ -7379,6 +7578,10 @@ msgstr "추가할 항목"
 
 msgid "What your phones call it"
 msgstr "휴대폰에 표시되는 이름"
+
+#, python-brace-format
+msgid "What {name} adds to every frame"
+msgstr ""
 
 msgid "What's new"
 msgstr "새로운 기능"
@@ -7781,6 +7984,10 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "자동 시작 중지 카메라 앱 열림 디스코드 obs 줌 미트 팀즈 휴대폰 기기 준비 대기 핸즈프리 auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
+msgid "automatic adjustments lag slow computer old pc frames late step down effects dynamic bitrate frame rate hot throttle fallback"
+msgstr ""
+
+msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "자동 업데이트 자동 확인 매일 백그라운드 automatic updates auto check every day background"
 
@@ -7870,8 +8077,16 @@ msgid "down"
 msgstr "아래"
 
 msgctxt "search"
+msgid "dynamic bitrate frame rate fps connection wifi slow lower"
+msgstr ""
+
+msgctxt "search"
 msgid "edge"
 msgstr "가장자리 선명도 윤곽 edge"
+
+msgctxt "search"
+msgid "effects step down quality lag late frames background auto framing"
+msgstr ""
 
 msgctxt "search"
 msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
@@ -7912,11 +8127,19 @@ msgid "global system wide hotkeys background other apps"
 msgstr "전역 시스템 전체 단축키 백그라운드 다른 앱 global system wide hotkeys background other apps"
 
 msgctxt "search"
+msgid "gpu graphics card busy game balance processor cpu move effects"
+msgstr ""
+
+msgctxt "search"
 msgid "gpu graphics card nvidia amd intel integrated discrete laptop hybrid switch choose select"
 msgstr ""
 
 msgid "green"
 msgstr "초록색"
+
+msgctxt "search"
+msgid "hardware decoding fallback processor graphics card slow"
+msgstr ""
 
 msgid "held there on purpose"
 msgstr "수동으로 고정됨"
@@ -8092,6 +8315,10 @@ msgstr "일시 정지됨"
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "휴대폰 앱 설치 usb 안드로이드 재설치 최신 버전 사이드로딩 케이블 phone app install usb android reinstall newer version sideload cable"
+
+msgctxt "search"
+msgid "phone hot heat thermal throttle temperature frame rate"
+msgstr ""
 
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "휴대폰이 연결되었지만 Telescope가 열려 있지 않음"
@@ -8462,6 +8689,18 @@ msgid "{name} has to be a number, not {value}."
 msgstr "{name} 값은 {value}이(가) 아니라 숫자여야 해요."
 
 #, python-brace-format
+msgid "{name} is keeping the graphics card busy."
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is using most of the processor."
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is using the graphics card"
+msgstr ""
+
+#, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name}이(가) 연결되어 있지 않음"
 
@@ -8480,6 +8719,10 @@ msgstr "{name}이(가) 새 휴대폰으로 페어링되었어요. 휴대폰에 T
 #, python-brace-format
 msgid "{name} to {value}"
 msgstr "{name} → {value}"
+
+#, python-brace-format
+msgid "{name} {ms} ms"
+msgstr ""
 
 #, python-brace-format
 msgid "{near} m-∞"

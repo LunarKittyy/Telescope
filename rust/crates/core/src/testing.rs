@@ -893,6 +893,15 @@ impl Host for FakeHost {
     fn want_system(&mut self, owner: &str, on: bool) {
         self.note(format!("want_system {owner} {on}"));
     }
+    fn set_effects_step_down(&mut self, on: bool) {
+        self.note(format!("set_effects_step_down {on}"));
+    }
+    fn hold_effects_full(&mut self, on: bool) {
+        self.note(format!("hold_effects_full {on}"));
+    }
+    fn keep_steps_on_card(&mut self, on: bool) {
+        self.note(format!("keep_steps_on_card {on}"));
+    }
 }
 
 impl FakeHost {

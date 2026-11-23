@@ -90,6 +90,9 @@ msgstr "古いファイルのコピーが{path}にあります。"
 msgid "A frame step failed"
 msgstr "フレーム処理の失敗"
 
+msgid "A hot phone lowers its frame rate to protect itself. There is no switch for that."
+msgstr ""
+
 msgid "A layout you saved in the editor."
 msgstr "エディターで保存したレイアウトです。"
 
@@ -211,6 +214,13 @@ msgstr "アドレス"
 msgid "Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."
 msgstr ""
 
+#, python-brace-format
+msgid "Adjusting · {n}"
+msgstr ""
+
+msgid "Adjustments"
+msgstr ""
+
 msgid "Advanced settings"
 msgstr "詳細設定"
 
@@ -238,6 +248,9 @@ msgstr "右端は「ダイナミック」で、接続状況に合わせて自動
 
 msgid "Allow USB debugging on the phone."
 msgstr "スマートフォンでUSBデバッグを許可してください。"
+
+msgid "Allow heavy effects such as Background and Auto framing to work less often while frames run late. Full quality returns once there is room."
+msgstr ""
 
 msgid "Allow the microphone in Telescope on the phone"
 msgstr "スマートフォンのTelescopeでマイクを許可してください"
@@ -324,6 +337,9 @@ msgstr "別のアプリがウェブカメラを使用している可能性があ
 
 msgid "Another app on the phone is using the camera"
 msgstr "スマートフォンの別のアプリがカメラを使用しています"
+
+msgid "Another program is keeping the graphics card busy."
+msgstr ""
 
 msgid "Anti-flicker"
 msgstr "ちらつき防止"
@@ -416,6 +432,9 @@ msgstr "自動レベル調整"
 msgid "Automatic"
 msgstr "自動"
 
+msgid "Automatic adjustments"
+msgstr ""
+
 msgid "Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart."
 msgstr ""
 
@@ -458,8 +477,15 @@ msgstr "バランサーの切り替え"
 msgid "Bar"
 msgstr "バー"
 
+msgid "Battery saver is slowing the computer down."
+msgstr ""
+
 msgid "Battery under"
 msgstr "次のバッテリー残量以下:"
+
+#, python-brace-format
+msgid "Behind at {n} fps"
+msgstr ""
 
 msgid "Behind you"
 msgstr "背景"
@@ -942,6 +968,12 @@ msgstr "セットアップ ガイドを閉じる"
 msgid "Closed on the phone"
 msgstr "スマートフォンで閉じられました"
 
+msgid "Closing it will help the most."
+msgstr ""
+
+msgid "Closing other programs will help."
+msgstr ""
+
 msgid "Cloudy"
 msgstr ""
 
@@ -1329,6 +1361,9 @@ msgstr ""
 msgid "Cut-in"
 msgstr "カットイン"
 
+msgid "Cutout"
+msgstr ""
+
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "危険！プラグインのリポジトリを管理している人物がリリースを公開するたびに、このコンピューター上で新しいコードを実行できるようになります。"
 
@@ -1373,6 +1408,12 @@ msgstr "デコーダー: 出力待機"
 
 msgid "Decoding"
 msgstr "デコード"
+
+msgid "Decoding fallback"
+msgstr ""
+
+msgid "Decoding on the processor"
+msgstr ""
 
 msgid "Decrease by"
 msgstr "減少量"
@@ -1597,9 +1638,25 @@ msgstr "ドロップしたフレーム"
 msgid "Dynamic"
 msgstr "ダイナミック"
 
+msgid "Dynamic bitrate"
+msgstr ""
+
+#, python-brace-format
+msgid "Dynamic is following the connection: {n} Mbps"
+msgstr ""
+
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "接続が遅いため、「ダイナミック」がフレームレートを{fps} fpsに下げました。"
+
+msgid "Dynamic lowers how much video the phone sends when the connection can't carry more."
+msgstr ""
+
+msgid "Dynamic lowers the frame rate when the connection is too slow for the one asked for."
+msgstr ""
+
+msgid "Dynamic no longer lowers the bitrate or frame rate. Turn it on again under Video in Settings."
+msgstr ""
 
 msgid "EV"
 msgstr ""
@@ -1639,6 +1696,27 @@ msgstr "{shortcut}を編集"
 msgid "Effect"
 msgstr "エフェクト"
 
+msgid "Effects no longer get lighter while frames run late. Turn it on again under Video in Settings."
+msgstr ""
+
+msgid "Effects off a busy graphics card"
+msgstr ""
+
+msgid "Effects on the processor"
+msgstr ""
+
+msgid "Effects run at full quality until you close Telescope, even while frames run late."
+msgstr ""
+
+msgid "Effects run on the graphics card even while it is busy. Turn it on again under Video in Settings."
+msgstr ""
+
+msgid "Effects run on the graphics card until you close Telescope, even while it is busy."
+msgstr ""
+
+msgid "Effects that can run on either the graphics card or the processor moved to the processor because the card is busy. They move back when it has room."
+msgstr ""
+
 msgid "Emergency"
 msgstr "緊急"
 
@@ -1658,6 +1736,9 @@ msgid "Even out two different phones with the same shutter, similar brightness a
 msgstr "同じシャッター速度、同等の明るさ、そして右側の映像を左側に合わせるカラー カーブによって、2台の異なるスマートフォンの差異を整えます。"
 
 msgid "Every"
+msgstr ""
+
+msgid "Every change Telescope makes for a smoother stream has its own switch here."
 msgstr ""
 
 msgid "Every plugin is switched on."
@@ -1939,6 +2020,9 @@ msgstr "スマートフォンの撮影と仮想カメラの両方の秒間フレ
 msgid "Frames to collect"
 msgstr ""
 
+msgid "Frames were running late"
+msgstr ""
+
 msgid "Framing"
 msgstr "フレーミング"
 
@@ -2114,6 +2198,9 @@ msgstr "HEIC"
 msgid "Hardware acceleration"
 msgstr "ハードウェア アクセラレーション"
 
+msgid "Hardware acceleration is set there."
+msgstr ""
+
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr "ハードウェア アクセラレーション、省電力、ズーム範囲、仮想カメラのサイズを設定します。"
 
@@ -2129,6 +2216,9 @@ msgstr ""
 
 msgid "Heavy"
 msgstr "高品質"
+
+msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
+msgstr ""
 
 msgid "Height"
 msgstr "高さ"
@@ -2594,11 +2684,17 @@ msgstr "レンズ切り替え"
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "範囲を狭くするとステップが細かくなります。範囲を広くすると音量が小さいスマートフォンで役立ちます。"
 
+msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. It only does anything while Bitrate is set to Dynamic."
+msgstr ""
+
 msgid "Let an AI app read and change Telescope's settings."
 msgstr "AIアプリによるTelescopeの設定の読み取りと変更を許可します。"
 
 msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
 msgstr "ネットワーク ポートを開かないコマンド経由で、Claude DesktopなどのAIアプリがTelescopeの設定を読み取ったり変更したりできるようにします。"
+
+msgid "Let effects that can run on either the graphics card or the processor use the processor while the card is busy, for example during a game."
+msgstr ""
 
 msgid "Let the camera decide."
 msgstr "カメラの設定に従います。"
@@ -2669,6 +2765,9 @@ msgstr "ライトペインティング"
 msgid "Lighter"
 msgstr ""
 
+msgid "Lighter effects"
+msgstr ""
+
 msgid "Like the camera"
 msgstr ""
 
@@ -2704,6 +2803,9 @@ msgstr "アクションを一覧表示"
 #, python-brace-format
 msgid "Listed the {plugin} settings"
 msgstr "{plugin}の設定を一覧表示"
+
+msgid "Lists the changes Telescope makes for a smoother stream, with a button to undo each one."
+msgstr ""
 
 msgid "Live"
 msgstr "ライブ"
@@ -2799,8 +2901,14 @@ msgstr "写真の撮影中にスマートフォンとの通信が切断されま
 msgid "Low light"
 msgstr "低照度"
 
+msgid "Lower bitrate"
+msgstr ""
+
 msgid "Lower by"
 msgstr "下げる量"
+
+msgid "Lower frame rate"
+msgstr ""
 
 msgid "Lower numbers open the lens wider and let in more light."
 msgstr "数値が小さいほど絞りが開き、より多くの光を取り込みます。"
@@ -3534,6 +3642,9 @@ msgstr "サインイン時にTelescopeを開き、自動ストリーミングを
 msgid "Open Telescope when you sign in."
 msgstr "サインイン時にTelescopeを開きます。"
 
+msgid "Open Video settings"
+msgstr ""
+
 msgid "Open download page"
 msgstr "ダウンロード ページを開く"
 
@@ -3577,6 +3688,9 @@ msgid "Open the link in a browser on any device on the same network and tap the 
 msgstr "同じネットワーク上の任意のデバイスのブラウザーでリンクを開き、ページをタップして全画面表示にします。Telescopeの再起動後もリンクは変わりません。"
 
 msgid "Open the link in the headset's browser on the same Wi-Fi and accept the certificate warning once, then press Enter VR."
+msgstr ""
+
+msgid "Open the list to see what Telescope has adjusted for a smoother stream and to undo any of it."
 msgstr ""
 
 msgid "Open the preview in a separate window."
@@ -3695,6 +3809,12 @@ msgstr "人物"
 msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
 msgstr ""
 
+msgid "People tracking"
+msgstr ""
+
+msgid "Person mask"
+msgstr ""
+
 msgid "Phone"
 msgstr "スマートフォン"
 
@@ -3724,6 +3844,9 @@ msgstr "スマートフォン カメラ: オフ"
 
 msgid "Phone camera: on"
 msgstr "スマートフォン カメラ: オン"
+
+msgid "Phone cooling"
+msgstr ""
 
 msgid "Phone mic"
 msgstr "スマートフォン マイク"
@@ -3872,6 +3995,9 @@ msgstr "再生"
 msgid "Plug it in, or pick another camera."
 msgstr "接続するか、別のカメラを選択してください。"
 
+msgid "Plugging it in will help."
+msgstr ""
+
 msgid "Plugins"
 msgstr "プラグイン"
 
@@ -3902,6 +4028,9 @@ msgstr "位置とスタイル"
 
 msgid "Power-saving effects"
 msgstr "省電力エフェクト"
+
+msgid "Power-saving effects is on"
+msgstr ""
 
 msgid "Preset"
 msgstr "プリセット"
@@ -5100,6 +5229,10 @@ msgstr "残像"
 msgid "Smooth"
 msgstr "スムーズ"
 
+#, python-brace-format
+msgid "Smooth at {n} fps"
+msgstr ""
+
 msgid "Smooth out grain in the picture."
 msgstr "画像のざらつきをなめらかにします。"
 
@@ -5589,6 +5722,9 @@ msgstr ""
 msgid "Swaps position and size with the stream you pick."
 msgstr ""
 
+msgid "Switch every automatic adjustment back on."
+msgstr ""
+
 msgid "Switch off"
 msgstr "オフにする"
 
@@ -5652,6 +5788,9 @@ msgid_plural "Switches are back as they were. {n} other changes still need a res
 msgstr[0] "スイッチは元の状態に戻りました。他に{n}件の変更を適用するには再起動が必要です"
 
 msgid "Switches the lens outlines and skeleton off and stops smoothing."
+msgstr ""
+
+msgid "Switching it off removes the Adjusting list, the Automatic adjustments settings and the falling behind banner. Telescope still lowers effects, frame rate and bitrate as before."
 msgstr ""
 
 msgid "Switching needs a restart."
@@ -5872,6 +6011,9 @@ msgstr "このコンピューター上の別のユーザーでTelescopeが既に
 msgid "Telescope is evening out the two phones' brightness and colour, which takes a few seconds."
 msgstr "Telescopeが2台のスマートフォンの明るさと色を均一に調整しています。これには数秒かかります。"
 
+msgid "Telescope is falling behind"
+msgstr ""
+
 msgid "Telescope is still running"
 msgstr "Telescopeは実行中です"
 
@@ -5941,6 +6083,9 @@ msgstr "Telescope {version}が利用可能です。"
 
 msgid "Telescope's mic is live"
 msgstr "Telescopeのマイクがオン"
+
+msgid "Telescope's own effects are using most of the computer."
+msgstr ""
 
 msgid "Telescope: hidden"
 msgstr "Telescope: 非表示"
@@ -6127,9 +6272,22 @@ msgstr "プレビューから取得した色です。クリックすると再度
 msgid "The colour that marks the sharp parts of the picture"
 msgstr "映像内のピントが合っているシャープな部分を示す色"
 
+msgid "The computer is low on memory."
+msgstr ""
+
+msgid "The computer is running on battery."
+msgstr ""
+
+msgid "The computer is too slow for the effects in use."
+msgstr ""
+
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "接続が「USBのみ」に設定されています: {why}。Wi-Fiを使用するには「自動」に切り替えてください。"
+
+#, python-brace-format
+msgid "The connection is slow: {n} fps"
+msgstr ""
 
 msgid "The decoder failed"
 msgstr "デコーダーの失敗"
@@ -6195,6 +6353,12 @@ msgstr "写真を保存するフォルダーのパスです。"
 
 msgid "The graphics card"
 msgstr "グラフィックス カード"
+
+msgid "The graphics card is busy"
+msgstr ""
+
+msgid "The graphics card was too slow"
+msgstr ""
 
 msgid "The height of the stream's box in pixels."
 msgstr ""
@@ -6292,6 +6456,10 @@ msgstr ""
 "\n"
 "しばらくしてから再試行してください。"
 
+#, python-brace-format
+msgid "The phone is hot: {n} fps"
+msgstr ""
+
 msgid "The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most."
 msgstr "スマートフォンが低速で混雑しやすい2.4 GHzのWi-Fiに接続されています。5 GHzネットワークにするかケーブルで接続すると最も効果的です。"
 
@@ -6316,6 +6484,9 @@ msgstr "スマートフォンの温度が非常に高くなっています"
 msgid "The phone isn't ready for photos yet. Try again in a moment."
 msgstr "スマートフォンの写真撮影の準備がまだできていません。しばらくしてから再試行してください。"
 
+msgid "The phone lowers its frame rate when it gets hot to protect itself. There is no way to override that."
+msgstr ""
+
 msgid "The phone meters on the point you picked by hand."
 msgstr "スマートフォンは手動で選択したポイントで測光しています。"
 
@@ -6326,6 +6497,9 @@ msgstr "スマートフォンがマイクのリクエストを拒否しました
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "スマートフォンがストリーミング開始のリクエストを拒否しました（{error}）。"
+
+msgid "The phone sends at a steady bitrate until you close Telescope, in place of Dynamic."
+msgstr ""
 
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "スマートフォンからこのバージョンで読み取れないデータが送信されました。両方のアプリを同じバージョンにアップデートしてください。"
@@ -6447,6 +6621,12 @@ msgstr "ショートカットが適用するプリセット"
 
 msgid "The processor"
 msgstr "プロセッサー"
+
+msgid "The processor decodes for a while when the graphics card is too slow. Hardware acceleration, above, decides whether the card is used at all."
+msgstr ""
+
+msgid "The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."
+msgstr ""
 
 msgid "The result may drift with the camera set to auto."
 msgstr "カメラが自動に設定されていると、結果が変動する可能性があります。"
@@ -6974,6 +7154,16 @@ msgstr "2台のスマートフォンを1つの3D映像に変換します（ヘ�
 msgid "Turn two running streams into one 3D picture."
 msgstr "実行中の2つのストリームを1つの3D映像に変換します。"
 
+msgid "Turning it off will help."
+msgstr ""
+
+msgid "Turning off an effect or lowering the frame rate will help."
+msgstr ""
+
+#, python-brace-format
+msgid "Turning off {name} will help the most."
+msgstr ""
+
 msgid "Turning the phone's camera on…"
 msgstr "スマートフォンのカメラをオンにしています…"
 
@@ -7150,6 +7340,9 @@ msgstr "上下逆"
 msgid "Use USB or Wi-Fi, or let Telescope pick."
 msgstr "USBまたはWi-Fiを使用するか、Telescopeに自動選択させます。"
 
+msgid "Use a fixed bitrate"
+msgstr ""
+
 msgid "Use default"
 msgstr "デフォルトを使用"
 
@@ -7157,6 +7350,12 @@ msgid "Use extra noise reduction and sharpening on the photo only, not the video
 msgstr "ビデオではなく写真にのみ、追加のノイズ低減とシャープ化を適用します。撮影に少し時間がかかります。"
 
 msgid "Use full colours with brighter text and lines."
+msgstr ""
+
+msgid "Use full quality"
+msgstr ""
+
+msgid "Use graphics card"
 msgstr ""
 
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
@@ -7379,6 +7578,10 @@ msgstr "追加する項目"
 
 msgid "What your phones call it"
 msgstr "スマートフォンに表示される名称"
+
+#, python-brace-format
+msgid "What {name} adds to every frame"
+msgstr ""
 
 msgid "What's new"
 msgstr "新機能"
@@ -7781,6 +7984,10 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "自動 開始 停止 カメラ アプリ 起動 スマートフォン スマホ デバイス 準備完了 アイドル ハンズフリー auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
+msgid "automatic adjustments lag slow computer old pc frames late step down effects dynamic bitrate frame rate hot throttle fallback"
+msgstr ""
+
+msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "自動アップデート 自動確認 毎日 バックグラウンド automatic updates auto check every day background"
 
@@ -7870,8 +8077,16 @@ msgid "down"
 msgstr "下"
 
 msgctxt "search"
+msgid "dynamic bitrate frame rate fps connection wifi slow lower"
+msgstr ""
+
+msgctxt "search"
 msgid "edge"
 msgstr "エッジ 輪郭 シャープ edge"
+
+msgctxt "search"
+msgid "effects step down quality lag late frames background auto framing"
+msgstr ""
 
 msgctxt "search"
 msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
@@ -7912,11 +8127,19 @@ msgid "global system wide hotkeys background other apps"
 msgstr "グローバル システム全体 ホットキー バックグラウンド 他のアプリ global system wide hotkeys background other apps"
 
 msgctxt "search"
+msgid "gpu graphics card busy game balance processor cpu move effects"
+msgstr ""
+
+msgctxt "search"
 msgid "gpu graphics card nvidia amd intel integrated discrete laptop hybrid switch choose select"
 msgstr ""
 
 msgid "green"
 msgstr "緑"
+
+msgctxt "search"
+msgid "hardware decoding fallback processor graphics card slow"
+msgstr ""
 
 msgid "held there on purpose"
 msgstr "意図的に固定中"
@@ -8092,6 +8315,10 @@ msgstr "一時停止中"
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "スマホ アプリ インストール usb android 再インストール 最新版 サイドロード ケーブル phone app install usb android reinstall newer version sideload cable"
+
+msgctxt "search"
+msgid "phone hot heat thermal throttle temperature frame rate"
+msgstr ""
 
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "スマートフォンは接続されていますが、Telescopeが開かれていません"
@@ -8462,6 +8689,18 @@ msgid "{name} has to be a number, not {value}."
 msgstr "{name}は{value}ではなく、数値である必要があります。"
 
 #, python-brace-format
+msgid "{name} is keeping the graphics card busy."
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is using most of the processor."
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is using the graphics card"
+msgstr ""
+
+#, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name}が接続されていません"
 
@@ -8480,6 +8719,10 @@ msgstr "{name}が新しいスマートフォンとしてペアリングされま
 #, python-brace-format
 msgid "{name} to {value}"
 msgstr "{name}を{value}に"
+
+#, python-brace-format
+msgid "{name} {ms} ms"
+msgstr ""
 
 #, python-brace-format
 msgid "{near} m-∞"

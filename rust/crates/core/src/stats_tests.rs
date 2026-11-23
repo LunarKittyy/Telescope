@@ -353,3 +353,25 @@ fn what_the_computer_is_doing_never_reaches_a_plugin_as_json() {
     let back: Snapshot = serde_json::from_str(&text).unwrap();
     assert!(back.app.system.is_none());
 }
+
+#[test]
+fn the_computer_is_slow_when_a_tenth_of_the_frames_are_shed_for_a_few_seconds() {
+    use crate::stats::DropReason;
+    let (hub, stats, began) = running();
+    let shed_per_second = |hub: &Hub, from: u64, seconds: u64, shed: u64| {
+        let mut last = None;
+        for i in 0..seconds {
+            stats.received(30, 250_000);
+            stats.dropped(DropReason::Paced, shed);
+            last = Some(hub.snapshot_at(began + (from + i) * SECOND, None, None));
+        }
+        last.unwrap().sources.remove(0)
+    };
+    let steady = shed_per_second(&hub, 1, 8, 0);
+    assert_eq!((steady.shed_share(4), steady.computer_is_slow()), (Some(0.0), false));
+    let two_a_second = shed_per_second(&hub, 9, 8, 2);
+    assert!(!two_a_second.computer_is_slow(), "2 of 30 is under a tenth: {:?}", two_a_second.shed_share(4));
+    let four_a_second = shed_per_second(&hub, 17, 8, 4);
+    assert!(four_a_second.computer_is_slow(), "{:?}", four_a_second.shed_share(4));
+    assert_eq!(four_a_second.shed_share(100), None, "not that many seconds counted yet");
+}

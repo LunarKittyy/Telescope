@@ -1,4 +1,5 @@
 use super::*;
+use crate::titles::plugin_label;
 use telescope_core::balance::{Balance, Place};
 use std::sync::Arc;
 use telescope_core::stats::{DropReason, Hub};
