@@ -972,6 +972,7 @@ const FOUR_SIZES: [(u32, u32); 3] = [(3840, 2160), (1920, 1080), (1280, 720)];
 /// A phone at 4K on a 16:9 lens whose virtual camera fits frames to `fit`, with the computer shedding frames or not.
 fn at_4k(slow: bool, fit: (u32, u32)) -> (StreamOutputPlugin, FakeHost) {
     let (mut p, mut host) = phone_a();
+    p.set_config(&json!({"resolution": "3840 x 2160"})).unwrap();
     start(&mut p, &mut host, "url");
     p.on_phone_state(&mut host, &on_lens(&FOUR_SIZES, 3840, 2160));
     p.on_event(&mut host, &Event::CameraFit { source_id: "phone-a".into(), width: fit.0, height: fit.1 });
@@ -1009,6 +1010,7 @@ fn nothing_changes_while_frames_keep_up_or_the_camera_is_as_big() {
 fn a_crop_a_photo_or_a_hold_keep_the_whole_picture() {
     let zoom = |z: f64| Event::ViewStatus { status: json!({"desktop_zoom": z}) };
     let (mut p, mut host) = phone_a();
+    p.set_config(&json!({"resolution": "3840 x 2160"})).unwrap();
     start(&mut p, &mut host, "url");
     p.on_phone_state(&mut host, &on_lens(&FOUR_SIZES, 3840, 2160));
     p.on_event(&mut host, &zoom(1.5));
@@ -1016,11 +1018,11 @@ fn a_crop_a_photo_or_a_hold_keep_the_whole_picture() {
     p.computer_slow = true;
     p.reconsider_size(&mut host);
     assert!(resolutions(&host).is_empty(), "a crop wants the detail");
-    p.on_event(&mut host, &zoom(1.0));
     p.on_event(&mut host, &Event::ViewTaken { owner: "framing".into() });
+    p.on_event(&mut host, &zoom(1.0));
     assert!(resolutions(&host).is_empty(), "Auto framing moves the crop");
-    p.on_event(&mut host, &Event::ViewTaken { owner: String::new() });
     p.on_event(&mut host, &Event::StillBusyChanged { source_id: "phone-a".into(), busy: true });
+    p.on_event(&mut host, &Event::ViewTaken { owner: String::new() });
     assert!(resolutions(&host).is_empty(), "a photo or a stack belongs to one size");
     p.on_event(&mut host, &Event::StreamSizeHeld { on: true });
     p.on_event(&mut host, &Event::StillBusyChanged { source_id: "phone-a".into(), busy: false });
