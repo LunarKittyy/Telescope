@@ -618,6 +618,7 @@ impl Plugin for PhototrapPlugin {
             optional: true,
             lab: true,
             in_presets: true,
+            device_local: true,
             ..Default::default()
         }
     }

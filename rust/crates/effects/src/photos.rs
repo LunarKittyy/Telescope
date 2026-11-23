@@ -833,6 +833,7 @@ impl Plugin for PhotosPlugin {
             icon: "photo".into(),
             optional: true,
             in_presets: true,
+            device_local: true,
             ..Default::default()
         }
     }

@@ -275,7 +275,7 @@ fn phone_state() -> Value {
 
 #[test]
 fn a_photo_is_taken_through_the_shell_and_every_plugin_hears_what_became_of_it() {
-    let (mut state, file) = state_with(json!({"plugin_configs": {"photos": {"folder": "/tmp/shots", "format": "raw+jpeg", "quality": 80}}}));
+    let (mut state, file) = state_with(json!({"selected_device": "p1", "devices": {"p1": {"plugin_configs": {"photos": {"folder": "/tmp/shots", "format": "raw+jpeg", "quality": 80}}}}}));
     let stills = Arc::new(Stills::new());
     state.link = Some(Arc::new(StillsLink(stills.clone())));
     state.register(Box::new(PhotosPlugin::new())).unwrap();
@@ -320,7 +320,7 @@ fn a_photo_is_taken_through_the_shell_and_every_plugin_hears_what_became_of_it()
 
     // What the card keeps is saved as the file has always had it
     assert!(state.save_now());
-    let saved = file.load()["plugin_configs"]["photos"].clone();
+    let saved = file.load()["devices"]["p1"]["plugin_configs"]["photos"].clone();
     assert_eq!((&saved["folder"], &saved["format"], &saved["quality"]), (&json!("/tmp/shots"), &json!("raw+jpeg"), &json!(80)));
 }
 
