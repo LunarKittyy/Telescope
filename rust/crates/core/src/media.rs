@@ -158,6 +158,11 @@ pub trait Decoder: Send {
     fn set_surface_wish(&mut self, wish: std::sync::Arc<std::sync::atomic::AtomicBool>) {
         let _ = wish;
     }
+    /// decode, while nobody looks at the stream's pictures: the packet still goes into the decoder, so the picture after the pause needs no keyframe,
+    /// but no picture comes out, and a decoder that can skips copying it off the card and converting it. Only count is set.
+    fn decode_unseen(&mut self, packet: &Packet) -> Decoded {
+        Decoded { newest: None, count: self.decode(packet).count }
+    }
 }
 
 /// What a Decoder's timing_probe gives: callable from another thread while the decoder runs.
@@ -241,9 +246,21 @@ pub struct ReadFrame {
     pub count: u32,
 }
 
+/// What arrived off a feed while nobody looked at its pictures (FrameReader::read_unseen): the wire bytes and how many frames.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Arrived {
+    pub bytes: u64,
+    pub count: u32,
+}
+
 /// Frames from one feed, read on the stream's thread.
 pub trait FrameReader: Send {
     fn read(&mut self) -> Result<ReadFrame, FeedEnd>;
+    /// read, while nobody looks at the stream's pictures (the frame steps paused): the feed is read and decoded as usual, so the next read
+    /// needs no keyframe, but what was made is only counted, and a reader that can leaves out the work of handing the picture over.
+    fn read_unseen(&mut self) -> Result<Arrived, FeedEnd> {
+        self.read().map(|f| Arrived { bytes: f.bytes, count: f.count })
+    }
     fn stopper(&self) -> Box<dyn FeedStopper>;
     /// Whether its decoder runs on the graphics card.
     fn hardware(&self) -> bool;
