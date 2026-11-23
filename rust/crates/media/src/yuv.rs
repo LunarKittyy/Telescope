@@ -130,6 +130,7 @@ impl Offsets {
     }
 
     /// What the samples of these U and V rows add.
+    #[inline(always)]
     fn fill(&mut self, m: &Matrix, us: &[u8], vs: &[u8]) {
         for (((r, g), b), (&u, &v)) in self.red.iter_mut().zip(&mut self.green).zip(&mut self.blue).zip(us.iter().zip(vs)) {
             let (u, v) = (u as i32 - 128, v as i32 - 128);
@@ -141,10 +142,11 @@ impl Offsets {
     }
 
     /// Spread over the pixels: each sample's offsets for both of the pair it colours (an odd width's last sample has one pixel).
+    #[inline(always)]
     fn spread(&self, to: &mut Offsets) {
         for (from, to) in [(&self.red, &mut to.red), (&self.green, &mut to.green), (&self.blue, &mut to.blue)] {
             for (pair, &a) in to.as_chunks_mut::<2>().0.iter_mut().zip(from) {
-                pair.fill(a);
+                *pair = [a, a];
             }
         }
     }
@@ -160,17 +162,35 @@ struct Scratch {
 /// A pixel's red, green and blue (8-bit, clamped as the BGR would be) from its luma and its chroma sample's offsets. Sixteen
 /// bit lanes, so a vector holds sixteen pixels.
 #[inline(always)]
-fn colour(gain: i16, black: i16, y: u8, offsets: [i16; 3]) -> [i16; 3] {
+fn colour(gain: i16, black: i16, y: u8, [r, g, b]: [i16; 3]) -> [i16; 3] {
+    // No array::map: a build without link-time optimisation leaves it a call, and the rows 30 times slower
     // 5 fractional bits
     let base = ((((y as i16 - black) << 7) as i32 * gain as i32) >> 16) as i16;
-    offsets.map(|off| ((base + off) >> 5).clamp(0, 255))
+    [level(base, r), level(base, g), level(base, b)]
+}
+
+/// One of a pixel's red, green or blue from its luma's part and its chroma's.
+#[inline(always)]
+fn level(base: i16, offset: i16) -> i16 {
+    ((base + offset) >> 5).clamp(0, 255)
 }
 
 /// Weighs colours as OpenCV's BT.601 does: a bias with 6 fractional bits, then each of R, G, B at 15 fractional bits.
 #[inline(always)]
 fn weigh(bias: i16, rgb: [i16; 3], weights: [i16; 3]) -> i16 {
-    let sum = rgb.iter().zip(weights).fold(bias, |a, (&c, w)| a + (((c << 7) as i32 * w as i32) >> 16) as i16);
+    // An indexed loop, for the same reason as in colour: a fold over a zip stays calls too, and writing the three out ran slower
+    let mut sum = bias;
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..3 {
+        sum += part(rgb[i], weights[i]);
+    }
     (sum + 32) >> 6
+}
+
+/// A colour times its weight, as OpenCV's fixed point takes it.
+#[inline(always)]
+fn part(c: i16, w: i16) -> i16 {
+    (((c << 7) as i32 * w as i32) >> 16) as i16
 }
 
 /// OpenCV's BT.601 weights of R, G, B for luma, U and V, at 15 fractional bits.
@@ -441,6 +461,57 @@ mod tests {
         a.iter().zip(b).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap_or(0)
     }
 
+    /// The per-pixel maths in its plain form (array maps and a fold), which the rows must match to the byte.
+    #[test]
+    fn the_rows_give_the_bytes_of_the_plain_per_pixel_maths() {
+        fn colour(gain: i16, black: i16, y: u8, offsets: [i16; 3]) -> [i16; 3] {
+            let base = ((((y as i16 - black) << 7) as i32 * gain as i32) >> 16) as i16;
+            offsets.map(|off| ((base + off) >> 5).clamp(0, 255))
+        }
+        fn weigh(bias: i16, rgb: [i16; 3], weights: [i16; 3]) -> i16 {
+            let sum = rgb.iter().zip(weights).fold(bias, |a, (&c, w)| a + (((c << 7) as i32 * w as i32) >> 16) as i16);
+            (sum + 32) >> 6
+        }
+        let mut seed = 99u64;
+        let mut random = |n: usize| -> Vec<u8> {
+            (0..n).map(|_| { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 33) as u8 }).collect()
+        };
+        for (w, h) in [(1usize, 2usize), (2, 2), (3, 2), (15, 4), (16, 4), (17, 4), (31, 8), (33, 8), (64, 18), (65, 18), (130, 6)] {
+            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+            let source = random(w * h + 2 * cw * ch);
+            for matrix in [1, 4, 7, 9] {
+                for full_range in [false, true] {
+                    let enc = Encoding { matrix, full_range };
+                    let m = Matrix::new(enc);
+                    let (gain, black) = ((m.luma >> 2) as i16, m.black as i16);
+                    let q5 = |x: i32| (x >> 11) as i16;
+                    let offsets = |x: usize, y: usize| {
+                        let (u, v) = (source[w * h + y * cw + x] as i32 - 128, source[w * h + cw * ch + y * cw + x] as i32 - 128);
+                        [q5(m.crv * v), q5(-(m.cgu * u + m.cgv * v)), q5(m.cbu * u)]
+                    };
+                    let mut want = vec![0u8; source.len()];
+                    for y in 0..h {
+                        for x in 0..w {
+                            want[y * w + x] = weigh(16 << 6, colour(gain, black, source[y * w + x], offsets(x / 2, y / 2)), LUMA) as u8;
+                        }
+                    }
+                    for y in 0..ch {
+                        for x in 0..cw {
+                            let rgb = colour(gain, black, source[2 * y * w + 2 * x], offsets(x, y));
+                            want[w * h + y * cw + x] = weigh(128 << 6, rgb, BLUE_DIFF) as u8;
+                            want[w * h + cw * ch + y * cw + x] = weigh(128 << 6, rgb, RED_DIFF) as u8;
+                        }
+                    }
+                    let name = format!("{w}x{h} matrix {matrix} full {full_range}");
+                    assert!(Converter::default().standard(source.clone(), w, h, enc).0 == want, "{name}: the converter differs");
+                    let mut plain = vec![0u8; source.len()];
+                    matrix_rows(&m, &source, &mut plain, &mut Scratch::default(), w, h);
+                    assert!(plain == want, "{name}: the plain rows differ");
+                }
+            }
+        }
+    }
+
     /// A picture the way a camera makes one: soft gradients, a little noise, and edges whose chroma is spread over a few samples.
     fn a_natural_picture(w: usize, h: usize) -> Vec<u8> {
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
@@ -615,7 +686,7 @@ mod tests {
         }
     }
 
-    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_conversion_costs
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_conversion_costs (CARGO_PROFILE_RELEASE_LTO=off for a build without link-time optimisation)
     #[test]
     #[ignore = "a measurement"]
     #[cfg(target_arch = "x86_64")]
