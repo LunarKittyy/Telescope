@@ -70,6 +70,7 @@ pub enum Kind {
     FrameRate,
     Heat,
     Decoding,
+    StreamSize,
 }
 
 /// What a person can do about one.
@@ -82,6 +83,8 @@ pub enum Override {
     /// The saved switch.
     TurnOff,
     OpenVideoSettings,
+    /// For this run of the app.
+    KeepPickedSize,
 }
 
 /// Why it is in effect, with what the text needs.
@@ -94,6 +97,8 @@ pub enum Reason {
     SlowConnection { fps: i64 },
     PhoneHot { fps: i64 },
     CardTooSlow,
+    /// Frames ran late and the camera fits them to less than the size picked: the size sent and the one picked.
+    SizeNotUsed { sent: (u32, u32), picked: (u32, u32) },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -109,11 +114,12 @@ pub struct Switches {
     pub effects: bool,
     pub balance: bool,
     pub dynamic: bool,
+    pub stream_size: bool,
 }
 
 impl Default for Switches {
     fn default() -> Self {
-        Switches { effects: true, balance: true, dynamic: true }
+        Switches { effects: true, balance: true, dynamic: true, stream_size: true }
     }
 }
 
@@ -146,6 +152,8 @@ pub struct Seen {
     /// Stream output is set to Dynamic, and nothing has asked for a fixed bitrate.
     pub dynamic_in_use: bool,
     pub decoding_slow: bool,
+    /// Stream output sends a smaller size than the one picked: (sent, picked).
+    pub trimmed: Option<((u32, u32), (u32, u32))>,
 }
 
 /// The adjustments in effect now, in the order they are listed.
@@ -180,6 +188,9 @@ pub fn items(seen: &Seen) -> Vec<Item> {
     }
     if seen.decoding_slow {
         out.push(Item { kind: Kind::Decoding, reason: Reason::CardTooSlow, overrides: vec![Override::OpenVideoSettings] });
+    }
+    if let Some((sent, picked)) = seen.trimmed {
+        out.push(Item { kind: Kind::StreamSize, reason: Reason::SizeNotUsed { sent, picked }, overrides: vec![Override::KeepPickedSize, Override::TurnOff] });
     }
     out
 }
@@ -264,6 +275,7 @@ fn name_of(kind: Kind) -> String {
         Kind::Bitrate => tr("Lower bitrate"),
         Kind::FrameRate | Kind::Heat => tr("Lower frame rate"),
         Kind::Decoding => tr("Decoding on the processor"),
+        Kind::StreamSize => tr("Smaller stream size"),
     }
 }
 
@@ -277,6 +289,8 @@ fn why_of(reason: &Reason) -> String {
         Reason::SlowConnection { fps } => tr("The connection is slow: {n} fps").field("n", *fps),
         Reason::PhoneHot { fps } => tr("The phone is hot: {n} fps").field("n", *fps),
         Reason::CardTooSlow => tr("The graphics card was too slow"),
+        Reason::SizeNotUsed { sent, picked } => tr("Frames ran late and the camera can't use more than {sent}, picked {picked}")
+            .field("sent", format!("{} × {}", sent.0, sent.1)).field("picked", format!("{} × {}", picked.0, picked.1)),
     }
 }
 
@@ -289,6 +303,7 @@ fn row_tip_of(kind: Kind) -> String {
         Kind::FrameRate => tr("Dynamic lowers the frame rate when the connection is too slow for the one asked for."),
         Kind::Heat => tr("The phone lowers its frame rate when it gets hot to protect itself. There is no way to override that."),
         Kind::Decoding => tr("The processor is decoding for a while because the graphics card was too slow. The card gets another turn afterwards."),
+        Kind::StreamSize => tr("The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It goes back up when you zoom in, use Auto framing or take a photo."),
     }
 }
 
@@ -299,9 +314,11 @@ fn override_text(kind: Kind, o: Override) -> (&'static str, String, String) {
         Override::KeepOnCard => ("chip", tr("Use graphics card"), tr("Runs effects on the graphics card until you close Telescope, even while it is busy.")),
         Override::FixedBitrate => ("lock", tr("Use a fixed bitrate"), tr("Makes the phone send at a steady bitrate until you close Telescope, in place of Dynamic.")),
         Override::OpenVideoSettings => ("sliders", tr("Open Video settings"), tr("Hardware acceleration is set there.")),
+        Override::KeepPickedSize => ("lock", tr("Use the size I picked"), tr("Sends the size you picked until you close Telescope, even while frames run late.")),
         Override::TurnOff => ("power", tr("Turn this off"), match kind {
             Kind::Effects => tr("Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."),
             Kind::Balance => tr("Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."),
+            Kind::StreamSize => tr("Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."),
             _ => tr("Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."),
         }),
     }
@@ -333,8 +350,12 @@ pub struct AdjustmentsPlugin {
     held_full: bool,
     held_card: bool,
     held_fixed: bool,
+    held_size: bool,
     /// What was last handed to the host, so a repeat says nothing.
     told_fixed: bool,
+    told_size: bool,
+    /// Stream output's smaller size and the one picked, while it sends one.
+    trimmed: Option<((u32, u32), (u32, u32))>,
     phone: Phone,
     rows: Vec<Item>,
     /// The computer is falling behind now, shown or not.
@@ -355,7 +376,7 @@ pub struct AdjustmentsPlugin {
 impl AdjustmentsPlugin {
     pub fn new(media: Arc<dyn Media>) -> AdjustmentsPlugin {
         AdjustmentsPlugin {
-            media, switches: Switches::default(), held_full: false, held_card: false, held_fixed: false, told_fixed: false, phone: Phone::default(), rows: Vec::new(),
+            media, switches: Switches::default(), held_full: false, held_card: false, held_fixed: false, held_size: false, told_fixed: false, told_size: false, trimmed: None, phone: Phone::default(), rows: Vec::new(),
             behind: false, showing_banner: false, dismissed: None, quiet_since: None, last_shed: 0.0, list_open: false, asking: false, last_cause: None,
         }
     }
@@ -367,6 +388,15 @@ impl AdjustmentsPlugin {
         host.hold_effects_full(self.held_full);
         self.apply_card(host);
         self.apply_fixed(host);
+        self.apply_size(host);
+    }
+
+    fn apply_size(&mut self, host: &mut dyn Host) {
+        let on = self.held_size || !self.switches.stream_size;
+        if on != self.told_size {
+            self.told_size = on;
+            host.emit(Event::StreamSizeHeld { on });
+        }
     }
 
     fn apply_card(&self, host: &mut dyn Host) {
@@ -395,11 +425,16 @@ impl AdjustmentsPlugin {
                 self.held_fixed = true;
                 self.apply_fixed(host);
             }
+            Override::KeepPickedSize => {
+                self.held_size = true;
+                self.apply_size(host);
+            }
             Override::OpenVideoSettings => host.open_settings("video"),
             Override::TurnOff => {
                 match kind {
                     Kind::Effects => self.switches.effects = false,
                     Kind::Balance => self.switches.balance = false,
+                    Kind::StreamSize => self.switches.stream_size = false,
                     _ => self.switches.dynamic = false,
                 }
                 self.apply_all(host);
@@ -435,6 +470,7 @@ impl AdjustmentsPlugin {
             phone: self.phone,
             dynamic_in_use: self.dynamic_in_use(host),
             decoding_slow: self.media.decoding_status().hardware_slow,
+            trimmed: self.trimmed,
         };
         self.rows = if source.is_some() { items(&seen) } else { Vec::new() };
         let behind = falling_behind(self.behind, source, &seen.effort);
@@ -506,16 +542,18 @@ impl AdjustmentsPlugin {
         json!({
             "reset-shown": off_default(&self.get_config(), &AdjustmentsPlugin::defaults(), &[]),
             "effects": self.switches.effects, "balance": self.switches.balance, "dynamic": self.switches.dynamic,
+            "stream-size": self.switches.stream_size,
         })
     }
 
     fn defaults() -> Value {
-        json!({"effects": true, "balance": true, "dynamic": true})
+        json!({"effects": true, "balance": true, "dynamic": true, "stream_size": true})
     }
 
     /// Nothing is running any more: the list empties, the banner goes and nothing is asked for.
     fn stopped(&mut self, host: &mut dyn Host) {
         self.phone = Phone::default();
+        self.trimmed = None;
         self.rows.clear();
         if self.showing_banner {
             host.clear_issue(Some(BANNER), None);
@@ -576,11 +614,18 @@ impl Plugin for AdjustmentsPlugin {
             self.told_fixed = false;
             host.emit(Event::FixedBitrateRequested { on: false });
         }
+        if self.told_size {
+            self.told_size = false;
+            host.emit(Event::StreamSizeHeld { on: false });
+        }
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         match event {
             Event::StatsUpdated { snapshot } => self.on_stats(host, snapshot),
+            Event::StreamSizeTrimmed { trimmed, width, height, picked_width, picked_height } => {
+                self.trimmed = trimmed.then_some(((*width, *height), (*picked_width, *picked_height)));
+            }
             Event::StreamStopped | Event::DeviceChanged { .. } => self.stopped(host),
             _ => {}
         }
@@ -618,10 +663,11 @@ impl Plugin for AdjustmentsPlugin {
                     }
                 }
             }
-            (SECTION, "effects-toggled") | (SECTION, "balance-toggled") | (SECTION, "dynamic-toggled") => {
+            (SECTION, "effects-toggled") | (SECTION, "balance-toggled") | (SECTION, "dynamic-toggled") | (SECTION, "stream-size-toggled") => {
                 match event.callback.as_str() {
                     "effects-toggled" => self.switches.effects = flag(0),
                     "balance-toggled" => self.switches.balance = flag(0),
+                    "stream-size-toggled" => self.switches.stream_size = flag(0),
                     _ => self.switches.dynamic = flag(0),
                 }
                 self.apply_all(host);
@@ -639,12 +685,12 @@ impl Plugin for AdjustmentsPlugin {
     }
 
     fn get_config(&self) -> Value {
-        json!({"effects": self.switches.effects, "balance": self.switches.balance, "dynamic": self.switches.dynamic})
+        json!({"effects": self.switches.effects, "balance": self.switches.balance, "dynamic": self.switches.dynamic, "stream_size": self.switches.stream_size})
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         let on = |key: &str| cfg.get(key).and_then(Value::as_bool).unwrap_or(true);
-        self.switches = Switches { effects: on("effects"), balance: on("balance"), dynamic: on("dynamic") };
+        self.switches = Switches { effects: on("effects"), balance: on("balance"), dynamic: on("dynamic"), stream_size: on("stream_size") };
         Ok(())
     }
 }

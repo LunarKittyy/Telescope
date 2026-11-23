@@ -1993,6 +1993,10 @@ msgstr "Khung hình ra"
 msgid "Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."
 msgstr "Số khung hình mỗi giây cho cả quá trình thu hình trên điện thoại và camera ảo. Giảm xuống giúp tiết kiệm dữ liệu và pin."
 
+#, python-brace-format
+msgid "Frames ran late and the camera can't use more than {sent}, picked {picked}"
+msgstr ""
+
 msgid "Frames to collect"
 msgstr ""
 
@@ -2665,6 +2669,9 @@ msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Phạm vi nhỏ hơn giúp các bước chỉnh chi tiết hơn. Phạm vi lớn hơn sẽ hỗ trợ điện thoại có âm lượng nhỏ."
 
 msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
+msgstr ""
+
+msgid "Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked."
 msgstr ""
 
 msgid "Let an AI app read and change Telescope's settings."
@@ -4748,6 +4755,9 @@ msgstr "Nguồn gửi không chạy"
 msgid "Sending…"
 msgstr "Đang gửi…"
 
+msgid "Sends the size you picked until you close Telescope, even while frames run late."
+msgstr ""
+
 msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
 msgstr ""
 
@@ -5213,6 +5223,9 @@ msgstr "Tốc độ màn trập chậm hơn giúp ảnh sáng hơn nhưng làm n
 msgid "Small"
 msgstr "Nhỏ"
 
+msgid "Smaller stream size"
+msgstr ""
+
 msgid "Smear"
 msgstr "Vệt nhòe"
 
@@ -5566,6 +5579,9 @@ msgid "Stops"
 msgstr "Bước sáng"
 
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
@@ -6500,6 +6516,9 @@ msgstr "Điện thoại đã từ chối yêu cầu micrô (HTTP {code})."
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "Điện thoại đã từ chối yêu cầu bắt đầu truyền phát ({error})."
 
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It goes back up when you zoom in, use Auto framing or take a photo."
+msgstr ""
+
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Điện thoại đã gửi dữ liệu mà phiên bản này không thể đọc. Hãy cập nhật cả hai ứng dụng lên cùng một phiên bản."
 
@@ -7389,6 +7408,9 @@ msgstr "Sử dụng micrô của điện thoại trên máy tính này khi đang
 msgid "Use the phone's microphone on this computer."
 msgstr "Dùng micrô của điện thoại trên máy tính này."
 
+msgid "Use the size I picked"
+msgstr ""
+
 msgid "Use zoom"
 msgstr ""
 
@@ -7980,7 +8002,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "tự động bắt đầu dừng camera ứng dụng mở điện thoại thiết bị sẵn sàng chờ rảnh tay auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k"
 msgstr ""
 
 msgctxt "search"
@@ -8398,6 +8420,10 @@ msgstr "xanh lục xuân"
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "ổn định nightly beta bản phát hành kênh bản dựng kiểm thử stable nightly beta release track builds testing"
+
+msgctxt "search"
+msgid "stream size resolution 4k 1080p 720p smaller lower decode slow late frames"
+msgstr ""
 
 msgctxt "search"
 msgid "stretch squish aspect tall"

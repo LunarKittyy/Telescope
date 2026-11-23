@@ -214,6 +214,20 @@ pub struct StreamOutputPlugin {
     computer_slow: bool,
     /// The stream that is behind while the banner is held back or showing.
     behind: Option<String>,
+    /// A smaller size is sent than the one picked, while frames run late (trim.rs).
+    trim: Option<trim::Trim>,
+    /// Adjustments asked to keep the picked size, for now.
+    trim_held: bool,
+    /// What the shown stream's camera fits frames to.
+    fit: Option<(u32, u32)>,
+    /// This computer crops the picture beyond what the phone does for a zoom, which wants the whole picture.
+    zoomed: bool,
+    /// Something (Auto framing) moves the view, so how much is cropped changes without a word.
+    view_taken: bool,
+    /// A photo or a stack of video frames is under way, which belongs to one size.
+    still_busy: bool,
+    /// When Telescope last changed the size itself (monotonic ns).
+    trim_at: Option<u64>,
 }
 
 impl StreamOutputPlugin {
@@ -225,6 +239,7 @@ impl StreamOutputPlugin {
             phone_dynamic: None, h264_profile: None, intra_refresh: false, wifi: (None, None, None), over_usb: false,
             phone_picked: true, phones: 0, h264_sizes: None, good_size: None, wanted_fps: DEFAULT_FPS, camera_max_fps: 0,
             fps_current: 3, quality: DEFAULT_QUALITY, bitrate: 0, stop_for: None, fixed_bitrate: false, computer_slow: false, behind: None,
+            trim: None, trim_held: false, fit: None, zoomed: false, view_taken: false, still_busy: false, trim_at: None,
         };
         p.show_fps();
         p
@@ -427,6 +442,7 @@ impl StreamOutputPlugin {
     }
 
     fn on_resolution(&mut self, host: &mut dyn Host) {
+        self.end_trim(host); // a size picked now is the new pick
         let Some((w, h)) = self.sizes.current() else { return };
         if self.stream.is_none() {
             // Picked while stopped: the next start opens at it
@@ -438,6 +454,58 @@ impl StreamOutputPlugin {
         self.send(host, &json!({"action": "resolution", "width": w, "height": h}));
         host.emit(Event::ResolutionChangeRequested { width: w, height: h });
         host.schedule_save();
+    }
+
+    // ── Sending less than was picked ──────────────────────────────────────
+
+    /// The size picked, which isn't what the card shows while a smaller one is sent.
+    fn picked_text(&self) -> String {
+        self.trim.map_or_else(|| self.sizes.current_text(), |t| size_label(t.picked.0, t.picked.1))
+    }
+
+    fn end_trim(&mut self, host: &mut dyn Host) {
+        if let Some(t) = self.trim.take() {
+            host.emit(Event::StreamSizeTrimmed { trimmed: false, width: t.picked.0, height: t.picked.1, picked_width: t.picked.0, picked_height: t.picked.1 });
+        }
+    }
+
+    /// Frames run late and the camera can't use all of the picture: ask the phone for the smallest size that still fills it. Goes back up
+    /// when the camera, a crop or a photo wants the pick. Never goes down twice in a run, so it can't flap.
+    fn reconsider_size(&mut self, host: &mut dyn Host) {
+        let (Some(_), Some(live), Some(fit)) = (&self.stream, self.sizes.current(), self.fit) else { return };
+        let now = telescope_core::time::monotonic_ns();
+        if !self.phone_picked || self.trim_at.is_some_and(|at| now.saturating_sub(at) < trim::SETTLE_NS) {
+            return;
+        }
+        let whole = self.zoomed || self.view_taken || self.trim_held || self.still_busy;
+        let area = |s: (u32, u32)| s.0 as u64 * s.1 as u64;
+        match self.trim {
+            None => {
+                if self.computer_slow && !whole {
+                    if let Some(to) = trim::smallest_enough(&self.sizes.res, live, fit) {
+                        self.trim = Some(trim::Trim { picked: live });
+                        self.send_trimmed(host, to, live, now);
+                    }
+                }
+            }
+            Some(t) => {
+                let want = if whole { t.picked } else { trim::smallest_enough(&self.sizes.res, t.picked, fit).unwrap_or(t.picked) };
+                if area(want) > area(live) {
+                    self.send_trimmed(host, want, t.picked, now);
+                }
+            }
+        }
+    }
+
+    fn send_trimmed(&mut self, host: &mut dyn Host, to: (u32, u32), picked: (u32, u32), now: u64) {
+        self.sizes.select(Some(to));
+        self.send(host, &json!({"action": "resolution", "width": to.0, "height": to.1}));
+        host.emit(Event::ResolutionChangeRequested { width: to.0, height: to.1 });
+        self.trim_at = Some(now);
+        if to == picked {
+            self.trim = None;
+        }
+        host.emit(Event::StreamSizeTrimmed { trimmed: to != picked, width: to.0, height: to.1, picked_width: picked.0, picked_height: picked.1 });
     }
 
     fn back_to_good_size(&mut self, host: &mut dyn Host, state: &Value) -> Option<String> {
@@ -571,6 +639,7 @@ impl StreamOutputPlugin {
             self.computer_slow = slow;
             self.show_behind(host);
         }
+        self.reconsider_size(host);
     }
 
     fn on_phone_state_inner(&mut self, host: &mut dyn Host, state: &Value) {
@@ -788,11 +857,17 @@ impl Plugin for StreamOutputPlugin {
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
         host.cancel_schedule(T_INITIAL);
         if self.sizes.current().is_some() {
-            self.saved_resolution_text = Some(self.sizes.current_text());
+            self.saved_resolution_text = Some(self.picked_text());
             // The lens's sizes stay up, so a size can be picked before starting again; the next start opens at it
             self.pending_resolution_text = self.saved_resolution_text.clone();
         }
+        if let Some(t) = self.trim {
+            self.sizes.select(Some(t.picked)); // the next start opens at the pick, whatever the last one was sent at
+        }
+        self.end_trim(host);
         self.stream = None;
+        self.fit = None;
+        self.trim_at = None;
         self.current_camera_id = None;
     }
 
@@ -855,7 +930,7 @@ impl Plugin for StreamOutputPlugin {
         });
         let mut saved = self.saved_resolution_text.clone();
         if self.stream.is_some() && self.sizes.current().is_some() {
-            saved = Some(self.sizes.current_text()); // stopped, a pick or preset already set it
+            saved = Some(self.picked_text()); // stopped, a pick or preset already set it
         }
         if let Some(text) = saved.filter(|t| !t.is_empty()) {
             cfg["resolution"] = json!(text.replace(" × ", " x ")); // saved the way older versions read it
@@ -1141,6 +1216,27 @@ impl StreamOutputPlugin {
                     }
                 }
             }
+            Event::StreamSizeHeld { on } => {
+                self.trim_held = *on;
+                self.reconsider_size(host);
+            }
+            Event::CameraFit { source_id, width, height } if self.stream.as_deref() == Some(source_id.as_str()) => {
+                self.fit = Some((*width, *height));
+                self.reconsider_size(host);
+            }
+            Event::ViewStatus { status } => {
+                let zoom = status.get("desktop_zoom").and_then(Value::as_f64).unwrap_or(1.0);
+                self.zoomed = zoom > trim::CROP_ABOVE;
+                self.reconsider_size(host);
+            }
+            Event::ViewTaken { owner } => {
+                self.view_taken = !owner.is_empty();
+                self.reconsider_size(host);
+            }
+            Event::StillBusyChanged { busy, .. } => {
+                self.still_busy = *busy;
+                self.reconsider_size(host);
+            }
             Event::SourceSelected { source_id } => {
                 self.phone_picked = source_id.is_empty();
                 self.render(host);
@@ -1197,5 +1293,6 @@ impl StreamOutputPlugin {
     }
 }
 
+mod trim;
 #[cfg(test)]
 mod tests;

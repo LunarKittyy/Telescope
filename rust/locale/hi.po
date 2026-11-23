@@ -1996,6 +1996,10 @@ msgstr "जाने वाले फ़्रेम"
 msgid "Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."
 msgstr "फ़ोन के कैप्चर और वर्चुअल कैमरा दोनों के लिए फ़्रेम प्रति सेकंड. कम रखने से डेटा और बैटरी बचती है."
 
+#, python-brace-format
+msgid "Frames ran late and the camera can't use more than {sent}, picked {picked}"
+msgstr ""
+
 msgid "Frames to collect"
 msgstr ""
 
@@ -2671,6 +2675,9 @@ msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "कम रेंज बारीक़ स्टेप्स देती है. ज़्यादा रेंज धीमे फ़ोन में मदद करती है."
 
 msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
+msgstr ""
+
+msgid "Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked."
 msgstr ""
 
 msgid "Let an AI app read and change Telescope's settings."
@@ -4760,6 +4767,9 @@ msgstr "सेंडर नहीं चल रहा है"
 msgid "Sending…"
 msgstr "भेजा जा रहा है…"
 
+msgid "Sends the size you picked until you close Telescope, even while frames run late."
+msgstr ""
+
 msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
 msgstr ""
 
@@ -5225,6 +5235,9 @@ msgstr "धीमी शटर स्पीड से तस्वीर चम�
 msgid "Small"
 msgstr "छोटा"
 
+msgid "Smaller stream size"
+msgstr ""
+
 msgid "Smear"
 msgstr "स्मियर"
 
@@ -5581,6 +5594,9 @@ msgid "Stops"
 msgstr "स्टॉप्स"
 
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
@@ -6517,6 +6533,9 @@ msgstr "फ़ोन ने माइक्रोफ़ोन रिक्वे
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "फ़ोन ने स्ट्रीमिंग शुरू करने के अनुरोध को अस्वीकार कर दिया ({error})."
 
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It goes back up when you zoom in, use Auto framing or take a photo."
+msgstr ""
+
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "फ़ोन ने ऐसा डेटा भेजा जिसे यह वर्शन नहीं पढ़ सकता. दोनों ऐप्स को एक ही वर्शन पर अपडेट करें."
 
@@ -7406,6 +7425,9 @@ msgstr "स्ट्रीमिंग के दौरान इस कंप�
 msgid "Use the phone's microphone on this computer."
 msgstr "इस कंप्यूटर पर फ़ोन का माइक इस्तेमाल करें."
 
+msgid "Use the size I picked"
+msgstr ""
+
 msgid "Use zoom"
 msgstr ""
 
@@ -7998,7 +8020,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "ऑटो शुरू बंद कैमरा ऐप खुलता है डिस्कॉर्ड ओबीएस ज़ूम मीट टीम्स फ़ोन डिवाइस तैयार खाली हैंड्स फ़्री auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k"
 msgstr ""
 
 msgctxt "search"
@@ -8416,6 +8438,10 @@ msgstr "चमकीला हरा"
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "स्टेबल नाइटली बीटा रिलीज़ ट्रैक बिल्ड टेस्टिंग stable nightly beta release track builds testing"
+
+msgctxt "search"
+msgid "stream size resolution 4k 1080p 720p smaller lower decode slow late frames"
+msgstr ""
 
 msgctxt "search"
 msgid "stretch squish aspect tall"
