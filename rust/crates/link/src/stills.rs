@@ -479,6 +479,11 @@ impl Runner<'_> {
         if is_hidden() {
             return StillResult::failed("hidden", "", &[]);
         }
+        // Before the phone is asked: a photo it takes (a long exposure, a burst) for a folder that can't be made would only be thrown away
+        if let Err(e) = std::fs::create_dir_all(folder) {
+            log::warn!("Can't make the photo folder {}: {e}", folder.display());
+            return StillResult::failed("save", "", &[]);
+        }
         let t = self.timings();
         let exposure = exposure_duration(exposure_seconds(&Value::Object(options.clone())));
         let mut body = options;
@@ -506,10 +511,6 @@ impl Runner<'_> {
         let (begun, mut heard, mut moved) = (Instant::now(), Instant::now(), Instant::now());
         let mut last: Option<Value> = None;
         let (stall_after, longest) = (t.stall + exposure, t.longest + exposure);
-        if let Err(e) = std::fs::create_dir_all(folder) {
-            log::warn!("Can't make the photo folder {}: {e}", folder.display());
-            return StillResult::failed("save", "", &[]);
-        }
         // Behind a lock so a download's watcher thread can ask it too
         let alive = Mutex::new(alive);
         let alive_now = || alive.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_none_or(|a| a());
@@ -1236,8 +1237,10 @@ mod tests {
     fn a_folder_that_cant_be_made_fails_cleanly() {
         let dir = telescope_core::testing::scratch_dir("stills-blocked");
         std::fs::write(dir.join("file"), "not a folder").unwrap();
-        let (r, _, _) = take(Phone::default(), &dir.join("file").join("Photos"));
+        let (r, _, p) = take(Phone::default(), &dir.join("file").join("Photos"));
         assert!(!r.ok && r.code == "save");
+        // The phone is never asked for a photo that has nowhere to go
+        assert!(p.posts.is_empty() && p.forgotten.is_empty(), "{:?}", p.posts);
     }
 
     #[test]
