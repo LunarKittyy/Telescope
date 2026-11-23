@@ -118,14 +118,25 @@ impl VirtualCameras {
 /// slot's /dev/video node given the main camera's configured one (VirtualCameras::node, which a watch repeats later on its own).
 #[cfg(target_os = "linux")]
 fn node_for(preset: Option<&str>, slot: u32) -> Option<String> {
+    node_in(v4l2::SYSFS, preset, slot)
+}
+
+#[cfg(target_os = "linux")]
+fn node_in(sysfs: &str, preset: Option<&str>, slot: u32) -> Option<String> {
     if slot == 0 {
         if let Some(d) = preset {
             return Some(d.to_string());
         }
         // The usual node unless another app's loopback holds it, else found under its label
-        return v4l2::slot_device_in(v4l2::SYSFS, 0).filter(|d| std::path::Path::new(d).exists());
+        return v4l2::slot_device_in(sysfs, 0).filter(|d| std::path::Path::new(d).exists());
     }
-    v4l2::slot_device_in(v4l2::SYSFS, slot)
+    v4l2::slot_device_in(sysfs, slot)
+}
+
+/// The device a camera watch opens: slot's node, or nothing until it is there (never another app's device at the usual path).
+#[cfg(target_os = "linux")]
+fn watched_node(sysfs: &str, preset: Option<&str>, slot: u32) -> String {
+    node_in(sysfs, preset, slot).unwrap_or_default()
 }
 
 /// Open slot's camera on this system (vcam.open_camera).
@@ -166,14 +177,8 @@ fn open_windows(
     if to_mf() {
         return Ok(Box::new(mf::MfCamera::new(width, height, label, shared(), Box::new(to_mf))));
     }
-    let names = wincam::uc_names(reg.as_ref());
-    let ours = || names.iter().find(|(num, _)| wincam::uc_is_ours(reg.as_ref(), *num, uc_dir)).map(|(num, _)| *num);
-    let num = match names.iter().find(|(_, n)| *n == label) {
-        Some((num, _)) => *num,
-        // Registered before it was named Telescope: the main camera takes Telescope's own filter, never another app's
-        None if slot == 0 => ours().ok_or_else(|| format!("{label} isn't set up"))?,
-        None => return Err(format!("{label} isn't set up")),
-    };
+    // Registered before it was named Telescope: the main camera takes Telescope's own filter, never another app's
+    let num = wincam::uc_filter_for(reg.as_ref(), uc_dir, slot).ok_or_else(|| format!("{label} isn't set up"))?;
     Ok(Box::new(unitycapture::UcCamera::new(width, height, label, filter(num), Box::new(to_mf))))
 }
 
@@ -261,7 +266,7 @@ impl Outputs for VirtualCameras {
             }
             let preset = self.device.clone();
             // Looked up at every open: a camera can come back under another number
-            Arc::new(move || node_for(preset.as_deref(), slot).unwrap_or_else(|| if slot == 0 { v4l2::PHONE_DEV.into() } else { String::new() }))
+            Arc::new(move || watched_node(v4l2::SYSFS, preset.as_deref(), slot))
         };
         #[cfg(not(target_os = "linux"))]
         let device: Arc<dyn Fn() -> String + Send + Sync> = Arc::new(String::new);
@@ -290,7 +295,7 @@ impl Outputs for VirtualCameras {
                 if slot != 0 {
                     return None;
                 }
-                let num = wincam::uc_number(&wincam::System, wincam::UC_NAME);
+                let num = wincam::uc_filter_for(&wincam::System, &wininstall::unitycapture_dir(), 0)?;
                 let event = win::open_event(&wincam::uc_object_name("Want", num), win::SYNCHRONIZE)?;
                 Some(Box::new(watch::WinWant(event)) as Box<dyn watch::WantEvent>)
             }),
@@ -436,7 +441,8 @@ fn filter_probe(slot: u32) -> Option<wait_screen::FilterProbe> {
             }),
             // An app's filter makes the shared image when it opens the camera; until then every send goes nowhere
             wincam::FilterProbe::Image => Arc::new(|| {
-                let name = wincam::uc_object_name("Data", wincam::uc_number(&wincam::System, wincam::UC_NAME));
+                let num = wincam::uc_filter_for(&wincam::System, &wininstall::unitycapture_dir(), 0)?;
+                let name = wincam::uc_object_name("Data", num);
                 Some(Box::new(move || win::mapping_exists(&name)) as Box<dyn Fn() -> bool + Send>)
             }),
         })
@@ -567,6 +573,17 @@ mod tests {
         assert_eq!(opened_number(FakeRegistry::uc(&[(0, "Telescope"), (4, "Telescope #3")]), 2), Ok((4, "Telescope #3".to_string())));
         let Err(why) = opened_number(FakeRegistry::uc(&[(0, "Telescope")]), 2) else { panic!("a slot with no registration opened") };
         assert_eq!(why, "Telescope #3 isn't set up", "only the main camera takes any older one");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_watch_never_falls_back_to_another_apps_device_at_the_usual_node() {
+        let dir = telescope_core::testing::scratch_dir("vcam-watch-sysfs");
+        std::fs::create_dir_all(dir.join("video11")).unwrap();
+        std::fs::write(dir.join("video11").join("name"), "Elgato Virtual Camera\n").unwrap();
+        let sysfs = dir.to_string_lossy();
+        assert_eq!(watched_node(&sysfs, None, 0), "");
+        assert_eq!(watched_node(&sysfs, Some("/dev/video30"), 0), "/dev/video30");
     }
 
     #[cfg(target_os = "linux")]

@@ -10,6 +10,8 @@ use telescope_core::i18n::tr;
 
 pub const SEGMENTER_MODEL: &str = "selfie_segmenter_landscape.tflite";
 pub const POSE_MODEL: &str = "pose_landmarker_lite.task";
+/// The face finder Auto framing follows faces with while effects are lighter; a pack from before it has none and the pose model does it all.
+pub const FACE_MODEL: &str = "blaze_face_short_range.tflite";
 /// Written last, holding the pack's id: a folder without it is a download that didn't finish.
 pub const DONE: &str = ".verified";
 /// How long connecting, the server's answer and each wait for more bytes may take: it bounds a dead connection, never the whole download.
@@ -98,6 +100,8 @@ pub struct PackInfo {
     /// The full sha256 of the pack's files (tree_hash), None without an entry.
     pub id: Option<String>,
     pub size: u64,
+    /// The ids of older packs this version still runs, newest first, so an update doesn't make everyone download again (they may lack a newer model).
+    pub older: Vec<String>,
 }
 
 impl PackInfo {
@@ -124,6 +128,7 @@ impl PackInfo {
             key: key.map(str::to_string),
             id: entry.and_then(|e| e["id"].as_str()).map(str::to_string),
             size: entry.and_then(|e| e.get("size")).and_then(Value::as_u64).unwrap_or(0),
+            older: entry.and_then(|e| e.get("older")).and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default(),
         }
     }
 
@@ -146,7 +151,18 @@ impl PackInfo {
         std::fs::read_to_string(vision_dir.join(&pid).join(DONE)).is_ok_and(|t| t.trim() == pid)
     }
 
-    /// The pack this version uses: site/ holds MediaPipe, models/ the two models.
+    /// The packs this version runs that are unpacked and checked, this version's first and then the older ones, newest first.
+    pub fn installed_packs<'a>(&'a self, vision_dir: &'a Path) -> impl Iterator<Item = PackInfo> + 'a {
+        let ids = self.id.iter().chain(&self.older);
+        ids.map(|id| PackInfo { id: Some(id.clone()), older: Vec::new(), ..self.clone() }).filter(|info| info.installed(vision_dir))
+    }
+
+    /// The pack to load: this version's when it is unpacked and checked, else the newest older one this version still runs.
+    pub fn usable(&self, vision_dir: &Path) -> Option<PackInfo> {
+        self.installed_packs(vision_dir).next()
+    }
+
+    /// The pack this version uses: site/ holds MediaPipe, models/ its models.
     pub fn folder(&self, vision_dir: &Path) -> PathBuf {
         vision_dir.join(self.pack_id().unwrap_or_else(|| "none".into()))
     }
@@ -231,13 +247,15 @@ pub fn web(url: &str, timeout: Duration) -> io::Result<Box<dyn Read>> {
 }
 
 /// Unpacks the archive into staging, checks it against the pack's id and moves it to its folder.
-fn place(archive: &Path, staging: &Path, vision_dir: &Path, id: &str, pid: &str, max_unpacked: u64) -> Result<PathBuf, Failed> {
+fn place(archive: &Path, staging: &Path, vision_dir: &Path, ids: &[&str], max_unpacked: u64) -> Result<PathBuf, Failed> {
     unpack(archive, staging, max_unpacked)?;
-    if tree_hash(staging)? != id {
+    let hash = tree_hash(staging)?;
+    let Some(id) = ids.iter().find(|id| **id == hash) else {
         return Err(Failed::Pack(PackError(tr("The download didn't match what this version of Telescope expects and wasn't used."))));
-    }
-    std::fs::write(staging.join(DONE), pid)?;
-    let last = vision_dir.join(pid);
+    };
+    let pid: String = id.chars().take(16).collect();
+    std::fs::write(staging.join(DONE), &pid)?;
+    let last = vision_dir.join(&pid);
     if last.exists() {
         std::fs::remove_dir_all(&last)?;
     }
@@ -255,17 +273,20 @@ pub fn pack_zip_kind(name: &str) -> Option<Kind> {
 }
 
 /// Install a pack zip the person already has (downloaded from the release by hand) through the same unpack and hash check as the
-/// download, so only this version's pack is accepted; older packs go.
+/// download, so only this version's pack or an older one it still runs is accepted; other older packs go.
 pub fn install_zip(info: &PackInfo, vision_dir: &Path, archive: &Path) -> Result<PathBuf, PackError> {
     let (Some(id), Some(pid)) = (info.id.clone(), info.pack_id()) else {
         return Err(PackError(tr("There's no vision pack for this computer.")));
     };
     let staging = vision_dir.join(format!(".{pid}.unpacking"));
-    let result = std::fs::create_dir_all(vision_dir).map_err(Failed::from).and_then(|_| place(archive, &staging, vision_dir, &id, &pid, MAX_UNPACKED));
+    let ids: Vec<&str> = std::iter::once(id.as_str()).chain(info.older.iter().map(String::as_str)).collect();
+    let result = std::fs::create_dir_all(vision_dir).map_err(Failed::from).and_then(|_| place(archive, &staging, vision_dir, &ids, MAX_UNPACKED));
     let _ = std::fs::remove_dir_all(&staging);
     match result {
         Ok(last) => {
-            let _ = prune(vision_dir, &pid);
+            // An older pack just installed doesn't take this version's pack away if that is there
+            let placed = last.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let _ = prune(vision_dir, &[&placed, &pid]);
             Ok(last)
         }
         Err(Failed::Pack(e)) => Err(e),
@@ -325,14 +346,14 @@ fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(
             progress(done, size);
         }
         drop(f);
-        place(&archive, &staging, vision_dir, &id, &pid, max_unpacked)
+        place(&archive, &staging, vision_dir, &[&id], max_unpacked)
     };
     let result = run();
     let _ = std::fs::remove_file(&archive);
     let _ = std::fs::remove_dir_all(&staging);
     match result {
         Ok(last) => {
-            let _ = prune(vision_dir, &pid);
+            let _ = prune(vision_dir, &[&pid]);
             Ok(last)
         }
         Err(Failed::Pack(e)) => Err(e),
@@ -443,9 +464,9 @@ pub fn remove(vision_dir: &Path, keep: Option<&str>) -> Result<(), String> {
     failed
 }
 
-/// After an install or download: delete older packs and leftovers of unfinished downloads, but only what Telescope makes itself (a pack
+/// After an install or download: delete older packs, all but keep, and leftovers of unfinished downloads, but only what Telescope makes itself (a pack
 /// folder is named by 16 hex characters). Anything else in the folder, such as a zip the person chose to install, stays.
-fn prune(vision_dir: &Path, keep: &str) -> Result<(), String> {
+fn prune(vision_dir: &Path, keep: &[&str]) -> Result<(), String> {
     let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
     let mut failed = Ok(());
     for entry in entries.flatten() {
@@ -453,7 +474,7 @@ fn prune(vision_dir: &Path, keep: &str) -> Result<(), String> {
         let path = entry.path();
         let is_pack = path.is_dir() && name.len() == 16 && name.chars().all(|c| c.is_ascii_hexdigit());
         let is_temp = name.starts_with('.') && (name.ends_with(".zip.part") || name.ends_with(".unpacking"));
-        if name == keep || !(is_pack || is_temp) {
+        if keep.contains(&name.as_str()) || !(is_pack || is_temp) {
             continue;
         }
         let gone = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };

@@ -488,8 +488,8 @@ fn the_cleanup_never_flashes_dark_through_settings_and_the_balance_moving_it() {
     run(&mut pipeline, 3);
     // four settings of three frames each ran on the card
     let on_card = 12;
-    (0..8).for_each(|_| balance.note_wait(50_000_000));
-    assert_eq!(balance.place(), Place::Cpu);
+    (0..8).for_each(|_| pipeline.lane().note_wait(50_000_000));
+    assert_eq!(pipeline.lane().place(), Place::Cpu);
     run(&mut pipeline, 3);
     set(&mut pipeline, json!({"cleanup": "bw", "shape": "a4"}));
     run(&mut pipeline, 3);

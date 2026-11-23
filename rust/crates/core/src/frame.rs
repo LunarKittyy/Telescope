@@ -51,6 +51,18 @@ pub struct Frame {
     decoded: Option<Decoded>,
     /// How much of each pixel is the picture, for a frame whose background was cut out; None for a frame that is all picture, which is every frame today.
     alpha: Option<Arc<Alpha>>,
+    copied: Copied,
+}
+
+/// How long the decoder took to copy a frame's picture off the graphics card and pack it, when leaving it there would have spared that.
+/// Not part of the picture, so frames that differ only in this are equal.
+#[derive(Clone, Copy, Debug, Default)]
+struct Copied(Option<u64>);
+
+impl PartialEq for Copied {
+    fn eq(&self, _: &Copied) -> bool {
+        true
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -212,7 +224,7 @@ impl Frame {
     pub fn from_surface(width: u32, height: u32, format: PixelFormat, surface: Arc<dyn DecodedSurface>) -> Frame {
         let data = Arc::new(Vec::new());
         let decoded = Some(Decoded { of: Arc::downgrade(&data), picture: None, surface: Some(surface), size: (width, height, format) });
-        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded, alpha: None }
+        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded, alpha: None, copied: Copied::default() }
     }
 
     /// A flat dark picture: black luma and neutral chroma for the YUV formats, opaque black for the others.
@@ -227,12 +239,23 @@ impl Frame {
 
     /// The frame's size, format and stamps with no pixels and no hold on a decoder surface, for a record of a picture that is kept elsewhere.
     pub fn without_pixels(&self) -> Frame {
-        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, geometry: self.geometry.clone(), mask_space: self.mask_space, decoded: None, alpha: self.alpha.clone() }
+        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, geometry: self.geometry.clone(), mask_space: self.mask_space, decoded: None, alpha: self.alpha.clone(), copied: Copied::default() }
     }
 
     /// The surface while the frame still names the decoder's original picture.
     pub fn surface(&self) -> Option<&Arc<dyn DecodedSurface>> {
         self.decoded.as_ref().filter(|d| Weak::as_ptr(&d.of) == Arc::as_ptr(&self.data) && d.size == (self.width, self.height, self.format))?.surface.as_ref()
+    }
+
+    /// This frame, noted as having cost the decoder ns to copy off the graphics card where it could have stayed.
+    pub fn with_copied_off_card(mut self, ns: u64) -> Frame {
+        self.copied = Copied(Some(ns));
+        self
+    }
+
+    /// What copying this frame off the graphics card cost the decoder, when leaving it there would have spared that (with_copied_off_card).
+    pub fn copied_off_card(&self) -> Option<u64> {
+        self.copied.0
     }
 
     /// The packed RAM picture, made once by media when first needed, with this frame's stamps.
@@ -248,7 +271,7 @@ impl Frame {
 
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
-        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded: None, alpha: None }
+        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded: None, alpha: None, copied: Copied::default() }
     }
 
     /// The alpha plane, while it is the size of the picture: one left behind by a step that changed the size reads as none.

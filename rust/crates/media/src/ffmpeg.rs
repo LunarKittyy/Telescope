@@ -529,8 +529,29 @@ impl Codec {
         Ok(())
     }
 
-    /// The decoded picture as one packed I420 frame (NV12 from the card is split into U and V), and the pts its packet had.
+    /// take_picture, with what a copy off the card cost noted on the frame (Frame::copied_off_card) when only the frame steps' wish made it:
+    /// this decoder could have left the picture on the card for them. A copy that every way pays isn't noted.
     unsafe fn take_frame(&mut self) -> Result<(Frame, Option<i64>), Fault> {
+        let began = monotonic_ns();
+        let spared = self.could_leave_on_card();
+        let (frame, pts) = self.take_picture()?;
+        let copied = spared && frame.surface().is_none();
+        Ok((if copied { frame.with_copied_off_card(monotonic_ns().saturating_sub(began)) } else { frame }, pts))
+    }
+
+    /// Whether the picture in hand would have stayed on the card had the frame steps wished it.
+    #[cfg(surfaces)]
+    unsafe fn could_leave_on_card(&self) -> bool {
+        !self.defer_surfaces && self.surface_room && self.forced.is_none() && (*self.frame).format == import_mod::HW.pixel_format() as i32 && self.import.enabled()
+    }
+
+    #[cfg(not(surfaces))]
+    unsafe fn could_leave_on_card(&self) -> bool {
+        false
+    }
+
+    /// The decoded picture as one packed I420 frame (NV12 from the card is split into U and V), and the pts its packet had.
+    unsafe fn take_picture(&mut self) -> Result<(Frame, Option<i64>), Fault> {
         // Read off the decoder's own frame (on a card that's the surface, which the copy to memory leaves be)
         let pts = Some((*self.frame).pts).filter(|&p| p != ff::AV_NOPTS_VALUE);
         #[cfg(surfaces)]

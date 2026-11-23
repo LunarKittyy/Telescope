@@ -423,7 +423,8 @@ fn rows_listing(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context, 
     if nerd {
         out.push(Row::head("chip", &tr("On this computer")));
         let balance = &snap.app.balance;
-        let place = if balance.on_card { tr("The graphics card") } else { tr("The processor") };
+        // This stream's own place once it said, since each stream decides for itself
+        let place = if s.steps_on_card.unwrap_or(balance.on_card) { tr("The graphics card") } else { tr("The processor") };
         out.push(Row::line(&tr("Frame steps run on"), place).note(if balance.pinned { tr("held there on purpose") } else { String::new() }).pin(PIN_STEPS_ON));
         out.push(Row::line(&tr("Balancer moves"), balance.moves.to_string()).pin(PIN_MOVES));
         for (i, m) in balance.recent.iter().rev().take(MOVES_LISTED).enumerate() {
@@ -432,6 +433,7 @@ fn rows_listing(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context, 
             let why = match m.why {
                 telescope_core::balance::Why::CardBusy => tr("frames waited {n} for the card").field("n", ms(m.wait_ms)),
                 telescope_core::balance::Why::CardClear => tr("the card was clear for a while"),
+                telescope_core::balance::Why::CpuSlower => tr("the processor was late too and not much quicker than the card"),
             };
             out.push(Row::line(&label, ago).note(why).pin(&format!("stats.balancer_move_{i}")));
         }

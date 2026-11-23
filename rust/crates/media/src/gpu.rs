@@ -1517,11 +1517,12 @@ pub(crate) struct CardFrame {
     shape: (u32, u32, PixelFormat),
     fallback: LandingFailure,
     failed: Arc<AtomicBool>,
-    balance: Arc<telescope_core::balance::Balance>,
+    /// The stream's way in to the balance, for a picture whose wait says where its steps should run.
+    balance: Option<telescope_core::balance::Lane>,
 }
 
 impl CardFrame {
-    pub(crate) fn new(gpu: Arc<Gpu>, mut held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Arc<telescope_core::balance::Balance>) -> Self {
+    pub(crate) fn new(gpu: Arc<Gpu>, mut held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Option<telescope_core::balance::Lane>) -> Self {
         let shape = (before.width, before.height, before.format);
         let cut_out = before.alpha().is_some();
         // The submission is already queued, so scratch textures (b, temporaries) can return to the pool right away.
@@ -1574,7 +1575,10 @@ impl telescope_core::media::CardPicture for CardFrame {
                     if let Some(alpha) = before.as_ref().and_then(Frame::alpha) {
                         frame.set_alpha(alpha.clone());
                     }
-                    self.balance.note_wait(held.as_mut().unwrap().take_waited());
+                    let waited = held.as_mut().unwrap().take_waited();
+                    if let Some(lane) = &self.balance {
+                        lane.note_wait(waited);
+                    }
                     frame
                 }
                 _ => {
@@ -1632,7 +1636,10 @@ impl telescope_core::media::CardPicture for CardFrame {
         match out {
             Ok(Ok(frame)) => {
                 transfers::landed();
-                self.balance.note_wait(held.take_waited());
+                let waited = held.take_waited();
+                if let Some(lane) = &self.balance {
+                    lane.note_wait(waited);
+                }
                 Some(frame)
             }
             // The whole picture lands instead; a card that can't fit pictures isn't asked again

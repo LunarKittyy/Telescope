@@ -540,12 +540,12 @@ impl ConnectionPlugin {
         self.spawn(P_USB, move || {
             let res = link.check(&phone, RoutePreference::Usb);
             let route = (res.status == PhoneStatus::Ready).then_some(res.route).flatten();
-            json!({"watch_id": watch_id, "route": route})
+            json!({"watch_id": watch_id, "phone_id": phone.id, "route": route})
         });
     }
 
     fn on_usb_available(&mut self, host: &mut dyn Host, data: &Value) {
-        let Some(watch_id) = data["watch_id"].as_u64() else { return };
+        let (Some(watch_id), Some(phone_id)) = (data["watch_id"].as_u64(), data["phone_id"].as_str()) else { return };
         let route: Option<RouteSpec> = serde_json::from_value(data["route"].clone()).unwrap_or(None);
         let now = self.now();
         let outcome = self.conn().on_usb_available(watch_id, route, now);
@@ -554,18 +554,24 @@ impl ConnectionPlugin {
             UsbWatch::HideButton => self.render(host),
             UsbWatch::HandOver(route) => {
                 // adb opens the forward here, not on the UI thread, which would freeze the window while it answers
-                let RouteSpec::Usb { serial } = &route else { return self.hand_over(host, &route, false) };
-                let (shared, serial) = (self.shared.clone(), serial.clone());
-                self.spawn(P_USB_FORWARD, move || json!({"route": route, "held": shared.hold_stream_forward(&serial)}));
+                let RouteSpec::Usb { serial } = &route else { return self.hand_over(host, phone_id, &route, false) };
+                let (shared, serial, phone_id) = (self.shared.clone(), serial.clone(), phone_id.to_string());
+                self.spawn(P_USB_FORWARD, move || json!({"phone_id": phone_id, "route": route, "held": shared.hold_stream_forward(&serial)}));
             }
         }
     }
 
     fn on_usb_forward(&mut self, host: &mut dyn Host, data: &Value) {
-        let Ok(route) = serde_json::from_value::<RouteSpec>(data["route"].clone()) else { return };
+        let (Ok(route), Some(phone_id)) = (serde_json::from_value::<RouteSpec>(data["route"].clone()), data["phone_id"].as_str()) else { return };
         let held = data["held"].as_bool() == Some(true);
-        if held {
-            self.hand_over(host, &route, true);
+        if self.conn().selected_id.as_deref() != Some(phone_id) {
+            // The cable was found for another phone than the one in front now: it waits for that phone's own check
+            if let (true, RouteSpec::Usb { serial }) = (held, &route) {
+                let (shared, serial) = (self.shared.clone(), serial.clone());
+                std::thread::spawn(move || shared.release_stream_forward(&serial));
+            }
+        } else if held {
+            self.hand_over(host, phone_id, &route, true);
         } else {
             self.conn().switch_usb_visible = true;
             self.render(host);
@@ -573,9 +579,8 @@ impl ConnectionPlugin {
     }
 
     /// Hands the stream over to route; held: hold_stream_forward holds its forward, let go once prepare_route counted it.
-    fn hand_over(&mut self, host: &mut dyn Host, route: &RouteSpec, held: bool) {
-        let selected = self.conn().selected_id.clone();
-        let moving = host.hand_over_stream(route, selected.as_deref());
+    fn hand_over(&mut self, host: &mut dyn Host, phone_id: &str, route: &RouteSpec, held: bool) {
+        let moving = host.hand_over_stream(route, Some(phone_id));
         if let (true, RouteSpec::Usb { serial }) = (held, route) {
             // Removing the forward is adb too when the hand-over didn't take it
             let (shared, serial) = (self.shared.clone(), serial.clone());
@@ -3082,7 +3087,7 @@ mod tests {
         assert_eq!(e.shared.conn().hold("id-a"), Some(&(Some(wifi()), None)));
         assert_eq!(e.props("card")["switch-usb-shown"], true);
         e.shared.conn().watch_id = 4;
-        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB.into(), data: json!({"watch_id": 4, "route": usb()}) });
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB.into(), data: json!({"watch_id": 4, "phone_id": "id-a", "route": usb()}) });
         e.settle();
         assert!(!e.called("hand_over_stream")); // USB sits out, and the button does it by hand
         e.ui("card", "switch-usb", vec![]);
@@ -3641,7 +3646,7 @@ mod tests {
             c.streaming = true;
             c.watch_usb().unwrap().0
         };
-        let data = json!({"watch_id": watch_id, "route": usb()});
+        let data = json!({"watch_id": watch_id, "phone_id": "id-a", "route": usb()});
         e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB.into(), data });
         assert!(!e.called("hand_over_stream"), "waits for the forward first");
         e.settle();
@@ -3650,5 +3655,55 @@ mod tests {
         assert_eq!(*tunnels.seen.lock().unwrap(), ["acquire on_ui=false", "release"]);
         // FakeHost refuses the hand-over, so the button shows to try by hand
         assert!(e.shared.conn().switch_usb_visible);
+    }
+
+    #[test]
+    fn a_usb_hand_over_found_for_one_phone_never_moves_the_phone_selected_since() {
+        let tunnels = Arc::new(WatchedTunnels::default());
+        let link = FakeLink::new();
+        let shared = Shared::new(tunnels.clone());
+        let mut plugin = ConnectionPlugin::new(link.clone(), shared.clone());
+        let mut host = FakeHost::new();
+        plugin.setup(&mut host);
+        let mut e = Env { plugin, host, link, shared };
+        e.add("id-a", "Pixel");
+        e.add("id-b", "Galaxy");
+        let watch_id = {
+            let mut c = e.shared.conn();
+            c.selected_id = Some("id-a".into());
+            c.streaming = true;
+            c.watch_usb().unwrap().0
+        };
+        let data = json!({"watch_id": watch_id, "phone_id": "id-a", "route": usb()});
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB.into(), data });
+        // The forward is still opening when the other phone comes to the front
+        e.shared.conn().selected_id = Some("id-b".into());
+        e.settle();
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(!e.called("hand_over_stream"), "{:?}", e.host.calls);
+        assert_eq!(*tunnels.seen.lock().unwrap(), ["acquire on_ui=false", "release"]);
+    }
+
+    #[test]
+    fn a_usb_hand_over_names_the_phone_it_was_found_for() {
+        let tunnels = Arc::new(WatchedTunnels::default());
+        let link = FakeLink::new();
+        let shared = Shared::new(tunnels.clone());
+        let mut plugin = ConnectionPlugin::new(link.clone(), shared.clone());
+        let mut host = FakeHost::new();
+        plugin.setup(&mut host);
+        let mut e = Env { plugin, host, link, shared };
+        e.add("id-a", "Pixel");
+        e.add("id-b", "Galaxy");
+        let watch_id = {
+            let mut c = e.shared.conn();
+            c.selected_id = Some("id-b".into());
+            c.streaming = true;
+            c.watch_usb().unwrap().0
+        };
+        let data = json!({"watch_id": watch_id, "phone_id": "id-b", "route": usb()});
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB.into(), data });
+        e.settle();
+        assert!(e.host.calls.iter().any(|c| c.starts_with("hand_over_stream") && c.ends_with(" id-b")), "{:?}", e.host.calls);
     }
 }

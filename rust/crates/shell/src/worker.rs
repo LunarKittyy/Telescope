@@ -73,6 +73,8 @@ pub enum WorkerEvent {
     MoveFailed(String),
     /// The virtual camera opened at this width and height.
     VcamOpened(u32, u32),
+    /// The size the virtual camera's frames are fitted to changed (the size it opened at, then the one an app reading it picked).
+    CameraFit(u32, u32),
     /// The frames coming in changed size (also the first frame's size), at this width and height.
     FrameSizeChanged(u32, u32),
     /// A picture for the preview, RGB24 at the size set_preview_size() asked for.
@@ -786,6 +788,8 @@ impl StreamWorker {
         self.shared.restart_vcam.set();
         if parked {
             self.shared.vcam_free.wait(Duration::from_secs(1)); // the wait screen opens it next; it retries if this ran late
+            // The camera's pictures go with it, so the heap they leave goes back to the system too
+            (crate::window::app_hooks().release_memory_soon)();
         }
     }
 
@@ -1377,33 +1381,38 @@ impl Shared {
     }
 
     /// Pull frames off the wire as fast as they come, reconnecting when the stream drops; returns at a stop.
-    fn read_frames(self: &Arc<Self>, mut cap: Cap) {
+    fn read_frames(self: &Arc<Self>, first: Cap) {
+        let mut cap = Some(first);
         loop {
             if self.stopped() {
                 return;
             }
             if let Some(moved) = self.take_handover() {
-                cap = moved;
+                cap = Some(moved);
                 continue;
             }
-            let ended = match &mut cap {
-                Cap::Frames(reader) => self.read_h264(reader.as_mut()),
-                Cap::Jpegs { feed, own: false, .. } => self.read_jpegs(feed.as_mut(), &mut jpeg_decoders(self)),
-                Cap::Jpegs { feed, decoder, own: true } => {
+            let ended = match cap.as_mut() {
+                Some(Cap::Frames(reader)) => self.read_h264(reader.as_mut()),
+                Some(Cap::Jpegs { feed, own: false, .. }) => self.read_jpegs(feed.as_mut(), &mut jpeg_decoders(self)),
+                Some(Cap::Jpegs { feed, decoder, own: true }) => {
                     // Its decoder goes to the decoding thread; a reconnect opens the feed again and asks for a new one
                     self.read_jpegs(feed.as_mut(), &mut vec![std::mem::replace(decoder, Box::new(NoDecoder))])
                 }
+                None => return,
             };
             match ended {
                 Ended::Stopped => return,
                 Ended::Moved(new) => {
-                    cap = new;
+                    cap = Some(new);
                     continue;
                 }
                 Ended::Dropped => {}
             }
+            // The dropped stream's decoder and pictures go now, not after the wait for the phone, and the heap they leave goes back to the system
+            drop(cap.take());
+            (crate::window::app_hooks().release_memory_soon)();
             let Some(new) = self.reconnect() else { return };
-            cap = new;
+            cap = Some(new);
             self.settle.lock().unwrap().restart(Instant::now());
             self.status("ok", &tr("Stream reconnected"));
             (self.events)(WorkerEvent::Reconnected);
@@ -1685,6 +1694,7 @@ impl Shared {
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
         let mut fitted_to = (cam_w, cam_h);
+        let mut told_fit = (0, 0);
         // Frames that came in while the last one was being paced, each with how many had been published by then, and the newest one sent
         let mut queued: std::collections::VecDeque<(Frame, u64)> = std::collections::VecDeque::new();
         // How many times the steps that hide things had been run on the frame already out when the queue was last looked at
@@ -1778,6 +1788,10 @@ impl Shared {
                 let started = Instant::now();
                 // An app that took another size than the camera was opened at gets frames fitted to that one, or they'd be fitted twice
                 let want = cam.fit_size().unwrap_or((cam_w, cam_h));
+                if want != told_fit {
+                    told_fit = want;
+                    (self.events)(WorkerEvent::CameraFit(want.0, want.1));
+                }
                 let (src, fresh_at) = match next {
                     Some((src, at)) => {
                         // A frame a plugin replaced in the slot goes out again but isn't another one

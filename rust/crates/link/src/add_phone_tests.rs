@@ -281,7 +281,7 @@ fn a_picked_phone_gets_the_pairing_offer_over_usb() {
     r.plugin.add.as_mut().unwrap().last_offer.insert("serial-1".into(), long_ago);
     r.poll(); // sent again, in case the app wasn't on screen the first time
     assert_eq!(r.broadcasts(2), ["serial-1", "serial-1"]);
-    assert_eq!(r.adb.count(&reverse), 1);
+    assert_eq!(r.adb.count(&reverse), 2, "the tunnel is put back each time, in case unplugging dropped it");
     r.ui("add-closed", vec![]);
     let unreverse = adb_words("serial-1", &["reverse", "--remove", &tcp]);
     let deadline = Instant::now() + Duration::from_secs(5);

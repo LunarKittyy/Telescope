@@ -141,6 +141,12 @@ fn i420_rows_avx2(p: &Rows, luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
     i420_rows(p, luma, u, v);
 }
 
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+fn i420_rows_sse41(p: &Rows, luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
+    i420_rows(p, luma, u, v);
+}
+
 /// BGR (rows `stride` bytes apart) to I420 the way OpenCV's COLOR_BGR2YUV_I420 does it: BT.601 limited, fixed point
 /// with 20 bits, and a 2 x 2 block's chroma from its top left pixel.
 fn bgr_to_i420(bgr: &[u8], stride: usize, width: usize, height: usize) -> Vec<u8> {
@@ -153,6 +159,12 @@ fn bgr_to_i420(bgr: &[u8], stride: usize, width: usize, height: usize) -> Vec<u8
     if std::arch::is_x86_feature_detected!("avx2") {
         // SAFETY: the processor was just asked whether it has AVX2
         unsafe { i420_rows_avx2(&rows, luma, u, v) };
+        return out;
+    }
+    #[cfg(target_arch = "x86_64")]
+    if telescope_core::image::sse41_wanted() {
+        // SAFETY: the processor was just asked whether it has SSE4.1
+        unsafe { i420_rows_sse41(&rows, luma, u, v) };
         return out;
     }
     i420_rows(&rows, luma, u, v);
@@ -342,6 +354,12 @@ fn matrix_rows_avx2(m: &Matrix, src: &Planes, out: &mut [MaybeUninit<u8>], scrat
     matrix_rows(m, src, out, scratch, width, height);
 }
 
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+fn matrix_rows_sse41(m: &Matrix, src: &Planes, out: &mut [MaybeUninit<u8>], scratch: &mut Scratch, width: usize, height: usize) {
+    matrix_rows(m, src, out, scratch, width, height);
+}
+
 /// What the BGR for a converted picture is made with: swscale's context and buffer, kept per thread between pictures.
 #[derive(Default)]
 struct Scale {
@@ -484,6 +502,14 @@ impl Converter {
         if std::arch::is_x86_feature_detected!("avx2") {
             // SAFETY: the processor was just asked whether it has AVX2
             unsafe { matrix_rows_avx2(&matrix, planes, room, &mut self.scratch, width, height) };
+            // SAFETY: matrix_rows wrote every byte of the len
+            unsafe { out.set_len(len) };
+            return out;
+        }
+        #[cfg(target_arch = "x86_64")]
+        if telescope_core::image::sse41_wanted() {
+            // SAFETY: the processor was just asked whether it has SSE4.1
+            unsafe { matrix_rows_sse41(&matrix, planes, room, &mut self.scratch, width, height) };
             // SAFETY: matrix_rows wrote every byte of the len
             unsafe { out.set_len(len) };
             return out;

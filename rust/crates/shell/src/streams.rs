@@ -1005,6 +1005,9 @@ impl Window {
                 }
                 self.process();
             }
+            WorkerEvent::CameraFit(w, h) => {
+                self.state.borrow_mut().bus.emit(Event::CameraFit { source_id: source.id_str().into(), width: w, height: h });
+            }
             WorkerEvent::FrameSizeChanged(w, h) => {
                 self.state.borrow_mut().bus.emit(Event::FrameSizeChanged { source_id: source.id_str().into(), width: w, height: h });
             }
