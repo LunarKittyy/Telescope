@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
-use telescope_core::image::spare_bytes;
+use telescope_core::image::{spare_bytes, spare_room};
 use telescope_core::shader;
 use telescope_core::time::{monotonic_ns, span};
 use wgpu::naga;
@@ -625,16 +625,7 @@ impl Gpu {
 
     /// Whether the frame is a decoder's picture this card can take in where it is, with no copy through memory.
     pub(crate) fn importable(frame: &Frame) -> bool {
-        let Some(_source) = frame.surface() else { return false };
-        #[cfg(all(target_os = "linux", ffmpeg))]
-        if _source.as_any().is::<crate::vaapi_import::Surface>() {
-            return true;
-        }
-        #[cfg(all(windows, ffmpeg))]
-        if _source.as_any().is::<crate::d3d11_import::Surface>() {
-            return true;
-        }
-        false
+        frame.surface().is_some_and(|source| decoder_surface(source.as_any()))
     }
 
     /// Whether this card can still be used.
@@ -760,14 +751,12 @@ impl Gpu {
         let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
         // Rows go straight into one buffer from the spares, so the readback is the only copy
         let total: usize = textures.iter().zip(bpp).map(|(t, b)| (t.width() * b) as usize * t.height() as usize).sum();
-        let mut out = spare_bytes(total);
-        let mut put = 0;
+        let mut out = spare_room(total);
         for ((t, b), off) in textures.iter().zip(bpp).zip(&offsets) {
             let (row, stride) = ((t.width() * b) as usize, aligned_row(t.width() * b) as usize);
             for y in 0..t.height() as usize {
                 let at = *off as usize + y * stride;
-                out[put..put + row].copy_from_slice(&mapped[at..at + row]);
-                put += row;
+                out.extend_from_slice(&mapped[at..at + row]);
             }
         }
         drop(mapped);
@@ -1263,6 +1252,22 @@ impl Gpu {
         self.give_back(used);
         Ok(out)
     }
+}
+
+/// Whether a decoder's picture is one this build imports onto the card (VA-API on Linux, D3D11VA on Windows).
+#[cfg(all(target_os = "linux", ffmpeg))]
+fn decoder_surface(source: &dyn std::any::Any) -> bool {
+    source.is::<crate::vaapi_import::Surface>()
+}
+
+#[cfg(all(windows, ffmpeg))]
+fn decoder_surface(source: &dyn std::any::Any) -> bool {
+    source.is::<crate::d3d11_import::Surface>()
+}
+
+#[cfg(not(any(all(target_os = "linux", ffmpeg), all(windows, ffmpeg))))]
+fn decoder_surface(_source: &dyn std::any::Any) -> bool {
+    false
 }
 
 /// Why a DX12 device was removed (a driver reset, the card unplugged); None on other backends and while it's fine.
