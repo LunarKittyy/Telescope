@@ -479,6 +479,8 @@ pub struct State {
     pub(crate) reset_pending: Option<Option<std::path::PathBuf>>,
     /// Settings of phones that were switched away from while the file couldn't be written: saved again with the next save, and handed back if their phone comes back first.
     unsaved_profiles: Vec<PluginSection>,
+    /// Phones whose settings were copied to a new id: the old entries go once a save has written the new pairing.
+    forget_after_save: Vec<String>,
     /// Posts from plugins' threads (host.poster), delivered to their owner after the bus's events.
     pub posts: Arc<Posts>,
     /// Built-in plugins that are off this run (not the optional ones never switched on), by name.
@@ -615,6 +617,7 @@ impl State {
             save_failure_notified: false,
             reset_pending: None,
             unsaved_profiles: Vec::new(),
+            forget_after_save: Vec::new(),
             posts: Arc::default(),
             off: Vec::new(),
             builtins: Vec::new(),
@@ -1212,6 +1215,8 @@ impl State {
     }
 
     fn apply_config(&mut self, cfg: &mut Value) {
+        // Settings of a phone removed on an earlier run go before anything reads them (Connection's list says who is paired)
+        let cleaned = profiles::drop_unpaired_phones(cfg);
         let window = WindowState::from_config(cfg);
         self.collapse.load(cfg.get("collapsed"));
         for key in self.collapse.keys() {
@@ -1224,7 +1229,7 @@ impl State {
         if let Some(ids) = self.bar.pins_changed() {
             self.bus.emit(Event::BarPinsChanged { pinned: ids });
         }
-        if profiles::spread_shared_settings(cfg, &self.device_local()) {
+        if profiles::spread_shared_settings(cfg, &self.device_local()) || cleaned {
             self.file.save(cfg);
         }
         let global = cfg.get("plugin_configs").and_then(Value::as_object).cloned().unwrap_or_default();
@@ -1662,6 +1667,9 @@ impl State {
         if self.file.save(&mut cfg) {
             self.save_failure_notified = false;
             self.unsaved_profiles.clear();
+            for old in std::mem::take(&mut self.forget_after_save) {
+                self.forget_device_settings(&old);
+            }
             true
         } else {
             self.note_save_failure();
@@ -1744,17 +1752,23 @@ impl State {
         }
     }
 
+    /// Copies old's settings and camera under new. The old entries go after the next save, which writes the new pairing,
+    /// so a file written at any point in between holds them under a phone it lists.
     pub fn move_device_settings(&mut self, old: &str, new: &str) {
+        self.forget_after_save.push(old.to_string());
+        if self.selected.as_deref() == Some(old) {
+            self.selected = Some(new.to_string()); // else the next save files the pick under the id that is going
+        }
         let mut memory = self.slot_memory.borrow_mut();
-        if let Some(slot) = memory.remove(old) {
+        if let Some(slot) = memory.get(old).copied() {
             memory.insert(new.to_string(), slot);
         }
         drop(memory);
-        for section in self.unsaved_profiles.iter_mut().filter(|s| s.device.as_deref() == Some(old)) {
-            section.device = Some(new.to_string());
-        }
+        let copies: Vec<_> = self.unsaved_profiles.iter().filter(|s| s.device.as_deref() == Some(old)).cloned()
+            .map(|mut s| { s.device = Some(new.to_string()); s }).collect();
+        self.unsaved_profiles.extend(copies);
         if let Ok(mut cfg) = self.file.load_strict() {
-            profiles::move_device(&mut cfg, old, new);
+            profiles::copy_device(&mut cfg, old, new);
             self.file.save(&mut cfg);
         }
     }
@@ -2497,6 +2511,45 @@ mod tests {
         s.register(stub("transforms", json!({"zoom": 2}), true).0).unwrap();
         s.save_now();
         assert_eq!(s.file.load()["devices"], json!({}));
+    }
+
+    #[test]
+    fn settings_of_a_phone_that_took_a_new_id_stay_under_a_listed_phone_until_the_new_pairing_is_saved() {
+        let mut s = state();
+        s.register(stub("connection", json!({"phones": [{"id": "old"}]}), false).0).unwrap();
+        s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
+        s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"id": "old"}]}},
+                                "devices": {"old": {"plugin_configs": {"transforms": {"zoom": 4}}}}, "output_slots": {"old": 2}}));
+        s.apply_saved_config();
+        s.move_device_settings("old", "new");
+        // A start now would drop what isn't listed: "new" isn't yet, "old" still is and holds everything
+        let mut gap = s.file.load();
+        profiles::drop_unpaired_phones(&mut gap);
+        assert_eq!(gap["devices"]["old"]["plugin_configs"]["transforms"]["zoom"], 4);
+        assert_eq!(gap["output_slots"]["old"], 2);
+        s.with_plugin(0, |p| p.set_config(&json!({"phones": [{"id": "new"}]})).unwrap());
+        assert!(s.save_now());
+        let saved = s.file.load();
+        assert_eq!(saved["devices"]["new"]["plugin_configs"]["transforms"]["zoom"], 4);
+        assert_eq!(saved["output_slots"], json!({"new": 2}));
+        assert!(saved["devices"].get("old").is_none());
+    }
+
+    #[test]
+    fn starting_drops_the_settings_of_a_phone_that_is_not_paired_and_keeps_browsers_and_webcams() {
+        let mut s = state();
+        s.register(stub("connection", json!({"phones": []}), false).0).unwrap();
+        s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
+        let zoom = |n: u32| json!({"plugin_configs": {"transforms": {"zoom": n}}});
+        s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"id": "kept"}]}},
+                                "devices": {"kept": zoom(2), "gone": zoom(3), "browser:x": zoom(4), "webcam:y": zoom(5)},
+                                "output_slots": {"kept": 1, "gone": 2, "webcam:y": 3}}));
+        s.apply_saved_config();
+        let saved = s.file.load();
+        assert_eq!(saved["devices"], json!({"kept": zoom(2), "browser:x": zoom(4), "webcam:y": zoom(5)}));
+        assert_eq!(saved["output_slots"], json!({"kept": 1, "webcam:y": 3}));
+        assert!(s.save_now());
+        assert!(s.file.load()["output_slots"].get("gone").is_none(), "what started with the file isn't written back");
     }
 
     #[test]
