@@ -196,13 +196,13 @@ impl Chain {
     }
 }
 
-/// Whether a plain stream may convert on the card: always on Linux, on Windows only with TELESCOPE_PLAIN_ON_CARD set, since it hasn't run on a real card there yet.
+/// Whether a plain stream may convert on the card: yes unless TELESCOPE_PLAIN_ON_CARD=0 switches it off.
 pub(crate) fn plain_allowed() -> bool {
-    plain_gate(cfg!(windows), std::env::var_os("TELESCOPE_PLAIN_ON_CARD").is_some_and(|v| v != "0"))
+    plain_gate(std::env::var_os("TELESCOPE_PLAIN_ON_CARD").as_deref())
 }
 
-fn plain_gate(windows: bool, opted_in: bool) -> bool {
-    !windows || opted_in
+fn plain_gate(set: Option<&std::ffi::OsStr>) -> bool {
+    set.is_none_or(|v| v != "0")
 }
 
 /// A step that hides, as the frame last through the steps had it: what a frame sent again is compared with.
@@ -3686,10 +3686,10 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_plain_stream_converts_on_the_card_on_windows_only_when_asked_to() {
-        assert!(plain_gate(false, false), "Linux: on by default");
-        assert!(!plain_gate(true, false), "Windows: off by default");
-        assert!(plain_gate(true, true), "Windows: opted in");
+    fn a_plain_stream_converts_on_the_card_unless_switched_off() {
+        assert!(plain_gate(None), "on by default");
+        assert!(!plain_gate(Some("0".as_ref())), "switched off");
+        assert!(plain_gate(Some("1".as_ref())));
     }
 
     #[test]

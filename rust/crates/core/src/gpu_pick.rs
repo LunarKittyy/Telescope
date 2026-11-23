@@ -134,19 +134,37 @@ fn windows_gpu_preference() -> Result<Option<String>, u32> {
     Ok(Some(String::from_utf16_lossy(&buf[..len]).trim_end_matches('\0').to_string()))
 }
 
+/// Whether TELESCOPE_VULKAN_FIRST asks Windows to try Vulkan before DX12 again, as up to 5.1.x (read once).
+pub fn vulkan_first_asked() -> bool {
+    static ASKED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ASKED.get_or_init(|| {
+        let asked = std::env::var_os("TELESCOPE_VULKAN_FIRST").is_some_and(|v| !v.is_empty() && v != "0");
+        if asked && cfg!(windows) {
+            log::info!("TELESCOPE_VULKAN_FIRST is set, so Vulkan is tried before DX12");
+        }
+        asked
+    })
+}
+
 /// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Between the real ones `prefer`
 /// decides which kind goes first (Intel's Windows Vulkan driver crashes, so with a preference it goes after every other real card).
-/// Inside a group Vulkan goes first on every OS (every Windows install so far ran on it) except for Intel on Windows, then DX12,
-/// Metal and GL, and inside an API the driver's own order stays.
+/// Inside a group DX12 goes first on Windows, where only DX12 can share the decoder's pictures and keep a plain stream on the card
+/// (TELESCOPE_VULKAN_FIRST puts Vulkan first again, except on Intel). Elsewhere Vulkan goes first. Metal and GL follow, and inside an
+/// API the driver's own order stays.
 pub fn order(candidates: &[Candidate], prefer: Prefer) -> Vec<usize> {
+    order_by(candidates, prefer, vulkan_first_asked())
+}
+
+fn order_by(candidates: &[Candidate], prefer: Prefer, vulkan_first: bool) -> Vec<usize> {
     let tier = |k: Kind| match k {
         Kind::Integrated | Kind::Discrete => 0,
         Kind::Other => 1,
         Kind::Virtual => 2,
         Kind::Cpu => 3,
     };
-    // Intel's Windows Vulkan driver crashes while opening the card, its DX12 one doesn't (gfx-rs/wgpu#9845)
-    let dx12_first = |c: &Candidate| c.windows && c.vendor == VENDOR_INTEL;
+    // Intel's Windows Vulkan driver crashes while opening the card, its DX12 one doesn't (gfx-rs/wgpu#9845), so it stays DX12 first even when Vulkan is asked for
+    let intel_windows = |c: &Candidate| c.windows && c.vendor == VENDOR_INTEL;
+    let dx12_first = |c: &Candidate| c.windows && (!vulkan_first || c.vendor == VENDOR_INTEL);
     let api = |c: &Candidate| match c.api {
         Api::Vulkan if dx12_first(c) => 1,
         Api::Dx12 if dx12_first(c) => 0,
@@ -157,7 +175,7 @@ pub fn order(candidates: &[Candidate], prefer: Prefer) -> Vec<usize> {
     };
     let mut sorted = candidates.to_vec();
     // gfx-rs/wgpu#9845
-    let crashy = |c: &Candidate| prefer != Prefer::Unchanged && dx12_first(c) && c.api == Api::Vulkan;
+    let crashy = |c: &Candidate| prefer != Prefer::Unchanged && intel_windows(c) && c.api == Api::Vulkan;
     let kind_rank = |k: Kind| match (prefer, k) {
         (Prefer::HighPerformance, Kind::Integrated) | (Prefer::PowerSaving, Kind::Discrete) => 1,
         _ => 0,
@@ -285,11 +303,20 @@ mod tests {
     }
 
     #[test]
-    fn intel_elsewhere_and_other_vendors_on_windows_keep_vulkan_first() {
+    fn every_vendor_on_windows_tries_dx12_first_and_vulkan_goes_first_elsewhere() {
         let list = [intel(Api::Dx12, 0, false), intel(Api::Vulkan, 1, false)];
-        assert_eq!(order(&list, Prefer::Unchanged), [1, 0]);
+        assert_eq!(order_by(&list, Prefer::Unchanged, false), [1, 0]);
         let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
-        assert_eq!(order(&[nvidia(Api::Dx12, 0), nvidia(Api::Vulkan, 1)], Prefer::Unchanged), [1, 0]);
+        assert_eq!(order_by(&[nvidia(Api::Vulkan, 0), nvidia(Api::Dx12, 1)], Prefer::Unchanged, false), [1, 0]);
+    }
+
+    #[test]
+    fn asking_for_vulkan_puts_it_first_on_windows_except_on_intel() {
+        let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
+        assert_eq!(order_by(&[nvidia(Api::Dx12, 0), nvidia(Api::Vulkan, 1)], Prefer::Unchanged, true), [1, 0]);
+        assert_eq!(order_by(&[intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true)], Prefer::Unchanged, true), [1, 0], "Intel's Vulkan driver crashes");
+        let linux = [c(Api::Dx12, Kind::Discrete, 0), c(Api::Vulkan, Kind::Discrete, 1)];
+        assert_eq!(order_by(&linux, Prefer::Unchanged, true), order_by(&linux, Prefer::Unchanged, false), "nothing changes off Windows");
     }
 
     #[test]
@@ -342,17 +369,20 @@ mod tests {
 
     #[test]
     fn high_performance_puts_the_discrete_card_before_intel_dx12() {
-        assert_eq!(order(&laptop(), Prefer::HighPerformance), [0, 3, 2, 1]);
+        assert_eq!(order_by(&laptop(), Prefer::HighPerformance, false), [3, 0, 2, 1]);
+        assert_eq!(order_by(&laptop(), Prefer::HighPerformance, true), [0, 3, 2, 1]);
     }
 
     #[test]
     fn power_saving_puts_intel_dx12_first_and_intel_vulkan_last() {
-        assert_eq!(order(&laptop(), Prefer::PowerSaving), [2, 0, 3, 1]);
+        assert_eq!(order_by(&laptop(), Prefer::PowerSaving, false), [2, 3, 0, 1]);
+        assert_eq!(order_by(&laptop(), Prefer::PowerSaving, true), [2, 0, 3, 1]);
     }
 
     #[test]
-    fn unchanged_keeps_the_old_order() {
-        assert_eq!(order(&laptop(), Prefer::Unchanged), [0, 2, 1, 3]);
+    fn unchanged_keeps_the_drivers_order_inside_each_api() {
+        assert_eq!(order_by(&laptop(), Prefer::Unchanged, false), [2, 3, 0, 1]);
+        assert_eq!(order_by(&laptop(), Prefer::Unchanged, true), [0, 2, 1, 3]);
     }
 
     #[test]
@@ -373,9 +403,9 @@ mod tests {
 
     #[test]
     fn a_chosen_card_goes_first_and_keeps_its_own_order() {
-        let ordered = order(&laptop(), Prefer::HighPerformance);
-        assert_eq!(ordered, [0, 3, 2, 1]);
-        assert_eq!(with_choice(ordered.clone(), &laptop(), "8086:591b"), [2, 0, 3, 1], "Intel DX12 first, its crashy Vulkan adapter stays behind the working cards");
+        let ordered = order_by(&laptop(), Prefer::HighPerformance, false);
+        assert_eq!(ordered, [3, 0, 2, 1]);
+        assert_eq!(with_choice(ordered.clone(), &laptop(), "8086:591b"), [2, 3, 0, 1], "Intel DX12 first, its crashy Vulkan adapter stays behind the working cards");
         assert_eq!(with_choice(ordered.clone(), &laptop(), "10DE:1C20"), ordered);
     }
 
@@ -400,7 +430,9 @@ mod tests {
         let mut list = laptop().to_vec();
         list.push(c(Api::Vulkan, Kind::Cpu, 4));
         note_listed(&list, &names);
-        assert_eq!(listed(), [Listed { id: "10de:1c20".into(), name: "GTX".into() }, Listed { id: "8086:591b".into(), name: "Intel (R)".into() }]);
+        let mut found = listed();
+        found.sort_by(|a, b| a.id.cmp(&b.id));
+        assert_eq!(found, [Listed { id: "10de:1c20".into(), name: "GTX".into() }, Listed { id: "8086:591b".into(), name: "Intel (R)".into() }]);
     }
 
     #[test]
