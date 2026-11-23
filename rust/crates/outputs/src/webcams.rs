@@ -662,6 +662,7 @@ struct GphotoState {
 const RELOOK: std::time::Duration = std::time::Duration::from_secs(600);
 
 /// The USB devices that are plugged in (bus, address, vendor and product ids), or None where the system doesn't say.
+#[cfg(target_os = "linux")]
 fn usb_devices(root: &std::path::Path) -> Option<String> {
     let mut found = Vec::new();
     for entry in std::fs::read_dir(root).ok()?.flatten() {
@@ -684,7 +685,7 @@ fn usb_devices(root: &std::path::Path) -> Option<String> {
 type UsbLook = Box<dyn Fn() -> Option<String> + Send>;
 
 /// The look at the USB devices a system lists in a folder (Linux's sysfs).
-#[cfg(any(target_os = "linux", windows))]
+#[cfg(target_os = "linux")]
 fn folder_look(root: std::path::PathBuf) -> UsbLook {
     Box::new(move || usb_devices(&root))
 }
