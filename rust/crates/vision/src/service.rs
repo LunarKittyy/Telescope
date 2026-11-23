@@ -1396,10 +1396,47 @@ fn compatible_geometry(old: Option<Geometry>, new: Option<Geometry>) -> bool {
 
 // Sample the held mask in its original crop, so repeated moves never resample an already resampled mask.
 fn remap_mask(src: &[u8], w: usize, h: usize, out_w: usize, out_h: usize, old: &Geometry, new: &Geometry) -> Vec<u8> {
-    let mut out = vec![0; out_w * out_h];
     if w == 0 || h == 0 || out_w == 0 || out_h == 0 || src.len() != w * h {
-        return out;
+        return vec![0; out_w * out_h];
     }
+    if quarter_turned(old) || quarter_turned(new) {
+        return remap_each(src, w, h, out_w, out_h, old, new);
+    }
+    // Without a quarter turn each axis maps on its own, so remap_each's sums are worked out once per column and once per row
+    let mut out = vec![0; out_w * out_h];
+    let cols: Vec<_> = (0..out_w).map(|x| axis_tap((x as f64 + 0.5) / out_w as f64, w, old, new, |p| p.0)).collect();
+    for (y, row) in out.chunks_exact_mut(out_w).enumerate() {
+        let Some((y0, y1, fy)) = axis_tap((y as f64 + 0.5) / out_h as f64, h, old, new, |p| p.1) else { continue };
+        let (above, below) = (&src[y0 * w..][..w], &src[y1 * w..][..w]);
+        for (pixel, col) in row.iter_mut().zip(&cols) {
+            let Some((x0, x1, fx)) = *col else { continue };
+            let top = above[x0] as f64 * (1.0 - fx) + above[x1] as f64 * fx;
+            let bottom = below[x0] as f64 * (1.0 - fx) + below[x1] as f64 * fx;
+            *pixel = (top * (1.0 - fy) + bottom * fy).round() as u8;
+        }
+    }
+    out
+}
+
+/// Whether the view is turned a quarter, which swaps the picture's axes.
+fn quarter_turned(g: &Geometry) -> bool {
+    matches!(g.rotation, Some(90) | Some(270))
+}
+
+/// One axis of remap_each's sampling for views with no quarter turn: the two neighbours and the weight between them, None outside the stretched picture.
+fn axis_tap(t: f64, len: usize, old: &Geometry, new: &Geometry, pick: fn((f64, f64)) -> f64) -> Option<(usize, usize, f64)> {
+    if !(0.0..=1.0).contains(&pick(telescope_core::view::unstretch(t, t, new.stretch_x, new.stretch_y))) {
+        return None;
+    }
+    let (x, y) = shown_to_view(t, t, new);
+    let s = (pick(view_to_shown(x, y, old)) * len as f64 - 0.5).clamp(0.0, (len - 1) as f64);
+    let i0 = s.floor() as usize;
+    Some((i0, (i0 + 1).min(len - 1), s - i0 as f64))
+}
+
+/// remap_mask worked out for every pixel on its own, which a quarter turn needs.
+fn remap_each(src: &[u8], w: usize, h: usize, out_w: usize, out_h: usize, old: &Geometry, new: &Geometry) -> Vec<u8> {
+    let mut out = vec![0; out_w * out_h];
     for (y, row) in out.chunks_exact_mut(out_w).enumerate() {
         for (x, pixel) in row.iter_mut().enumerate() {
             let (u, v) = ((x as f64 + 0.5) / out_w as f64, (y as f64 + 0.5) / out_h as f64);
