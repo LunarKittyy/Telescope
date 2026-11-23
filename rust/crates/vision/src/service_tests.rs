@@ -1340,7 +1340,7 @@ fn remapping_a_mask_lines_up_with_pixels_cropped_from_the_same_source() {
                  View { zoom: 2.0, pan_y: 0.5, rotation: Some(90), flip_h: true, ..Default::default() }] {
         let mut picture = source.clone();
         for step in telescope_core::view_step::steps(&view) {
-            let FrameStep::Cpu(mut step) = step else { panic!("view steps run on the CPU") };
+            let (FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = step else { panic!("every view step has a CPU way") };
             step.process(&mut picture, &Context);
         }
         let remapped = remap_mask(&mask, w, h, picture.width as usize, picture.height as usize, &Geometry::default(), &picture.geometry.unwrap());
@@ -1475,7 +1475,7 @@ fn framed(source: &telescope_core::frame::Frame, view: &telescope_core::host::Vi
     }
     let run = |steps: Vec<FrameStep>, mut frame: Frame| {
         for step in steps {
-            let FrameStep::Cpu(mut step) = step else { panic!("view steps run on the CPU") };
+            let (FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = step else { panic!("every view step has a CPU way") };
             step.process(&mut frame, &Context);
         }
         frame

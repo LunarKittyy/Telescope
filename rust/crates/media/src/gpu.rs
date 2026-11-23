@@ -1323,6 +1323,8 @@ pub struct ShaderSlot {
     wants_mask: bool,
     wants_history: bool,
     built: Option<Result<Built, String>>,
+    /// Uniforms that still have to go into a buffer taken over from an older slot (adopt).
+    pending_uniforms: Option<serde_json::Value>,
     /// What the step drew for the stream's last frame, for a shader that asks for it (previous).
     history: Mutex<Option<Past>>,
     #[cfg(test)]
@@ -1506,6 +1508,14 @@ struct Built {
 }
 
 #[cfg(test)]
+impl ShaderSlot {
+    /// Whether the shader is built (or has failed to be), for tests.
+    pub(crate) fn is_built(&self) -> bool {
+        self.built.is_some()
+    }
+}
+
+#[cfg(test)]
 impl Built {
     /// How many textures it holds for the plugin's pictures, for tests.
     fn kept_textures(&self) -> usize {
@@ -1594,6 +1604,7 @@ impl ShaderSlot {
             wants_history: shader::uses_history(&step.wgsl),
             step,
             built: None,
+            pending_uniforms: None,
             history: Mutex::new(None),
             #[cfg(test)]
             draws: AtomicU64::new(0),
@@ -1633,6 +1644,8 @@ impl ShaderSlot {
 
     /// Changes the shader's uniforms; once built, the new values go into its buffer. A shader with no Params ignores them.
     pub fn set_uniforms(&mut self, gpu: &Gpu, uniforms: serde_json::Value) {
+        // Newer than any an adopted buffer was still waiting for
+        self.pending_uniforms = None;
         if uniforms == self.step.uniforms {
             return;
         }
@@ -1645,6 +1658,20 @@ impl ShaderSlot {
             }
             Err(why) => log::warn!("A shader's uniforms were refused: {why}"),
         }
+    }
+
+    /// Takes over the shader `old` built (the same shader with no pictures of its own, from a step made again since), so a step that is made
+    /// again for every frame (the view's crop while Auto framing moves it) isn't built again each time. Its own uniforms go in before it next
+    /// draws. False when there's nothing to take.
+    pub fn adopt(&mut self, old: &mut ShaderSlot) -> bool {
+        if self.built.is_some() || old.built.is_none() || self.step.wgsl != old.step.wgsl || !self.step.textures.is_empty() || !old.step.textures.is_empty() {
+            return false;
+        }
+        self.built = old.built.take();
+        // The buffer holds old's values until these replace them
+        let wanted = std::mem::replace(&mut self.step.uniforms, old.step.uniforms.clone());
+        self.pending_uniforms = Some(wanted);
+        true
     }
 
     /// Takes over what `old` (the same shader from a step the plugin has since replaced) drew for the last frame, so a step whose settings
@@ -1706,6 +1733,9 @@ impl ShaderSlot {
             }
             if self.built.is_none() {
                 self.built = Some(build(gpu, &self.step));
+            }
+            if let Some(uniforms) = self.pending_uniforms.take() {
+                self.set_uniforms(gpu, uniforms);
             }
             self.built.as_ref().unwrap().as_ref().map(|_| ()).map_err(Clone::clone)
         })

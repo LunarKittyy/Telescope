@@ -592,6 +592,8 @@ pub trait CpuStep: Send {
     fn card_cut_out(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Arc<Alpha>> {
         None
     }
+    /// For the CPU half of an Either: what process changes on the frame besides its pixels (a view step's geometry), done on the frame in hand when the shader runs in its place.
+    fn card_frame(&mut self, _frame: &mut Frame) {}
     /// For the CPU half of an Either: whether the card reads YUV chroma as the CPU does (a sample repeated over its 2 x 2 block, not blended).
     fn card_block_chroma(&self) -> bool {
         false
