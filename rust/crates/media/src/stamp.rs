@@ -124,12 +124,10 @@ impl CropTags {
         self.0.push_back((pts, crop));
     }
 
-    /// The crop of the picture with this pts, forgetting it and any older one (a picture comes out once, and the ones before it are dropped or out already).
+    /// The crop of the picture with this pts, forgetting only it: with B-frames a picture shown earlier can come out after a later one was decoded, and the later one's crop is still wanted.
     pub fn take(&mut self, pts: Option<i64>) -> Option<PhoneZoom> {
         let i = self.0.iter().position(|(p, _)| Some(*p) == pts)?;
-        let crop = self.0[i].1;
-        self.0.drain(..=i);
-        Some(crop)
+        self.0.remove(i).map(|(_, crop)| crop)
     }
 }
 
@@ -290,6 +288,19 @@ mod tests {
     }
 
     #[test]
+    fn a_reordered_picture_does_not_take_a_later_ones_crop() {
+        let crop = |c: f64| PhoneZoom { ratio: 1.0, crop: c, x: 0.5, y: 0.5 };
+        let mut tags = CropTags::default();
+        // Decoded as I0 P2 B1, shown as I0 B1 P2
+        for (pts, c) in [(0, 1.0), (2, 2.0), (1, 1.5)] {
+            tags.note(Some(pts), Some(crop(c)));
+        }
+        assert_eq!(tags.take(Some(0)), Some(crop(1.0)));
+        assert_eq!(tags.take(Some(1)), Some(crop(1.5)));
+        assert_eq!(tags.take(Some(2)), Some(crop(2.0)));
+    }
+
+    #[test]
     fn each_picture_gets_its_own_crop_however_late_it_comes_out() {
         let crop = |c: f64| PhoneZoom { ratio: 1.0, crop: c, x: 0.5, y: 0.5 };
         let mut tags = CropTags::default();
@@ -299,9 +310,10 @@ mod tests {
         tags.note(None, Some(crop(9.0)));
         tags.note(Some(40), None);
         assert_eq!(tags.take(Some(20)), Some(crop(1.2)));
-        assert_eq!(tags.take(Some(10)), None, "an older picture was dropped");
+        assert_eq!(tags.take(Some(20)), None, "a picture comes out once");
         assert_eq!(tags.take(Some(40)), None, "a picture with no crop has none");
         assert_eq!(tags.take(Some(30)), Some(crop(1.4)));
+        assert_eq!(tags.take(Some(10)), Some(crop(1.0)), "an older picture is not lost when a later one came out first");
         for pts in 0..100 {
             tags.note(Some(pts), Some(crop(1.0)));
         }
