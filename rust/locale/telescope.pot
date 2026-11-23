@@ -416,6 +416,9 @@ msgstr ""
 msgid "Auto framing"
 msgstr ""
 
+msgid "Auto framing follows your body until you close Telescope, even while effects are lighter."
+msgstr ""
+
 msgid "Auto framing speed"
 msgstr ""
 
@@ -1870,6 +1873,9 @@ msgstr ""
 msgid "Finding the current adb…"
 msgstr ""
 
+msgid "Finding your face costs a fraction of finding your body. Auto framing uses your body again when it finds no face or sees several people."
+msgstr ""
+
 msgid "Fine tune"
 msgstr ""
 
@@ -1948,6 +1954,9 @@ msgstr ""
 msgid "Follow one person"
 msgstr ""
 
+msgid "Follow your body"
+msgstr ""
+
 msgid "Forget this device."
 msgstr ""
 
@@ -2001,6 +2010,9 @@ msgid "Frames were running late"
 msgstr ""
 
 msgid "Framing"
+msgstr ""
+
+msgid "Framing by face"
 msgstr ""
 
 #, python-brace-format
@@ -5578,6 +5590,9 @@ msgstr ""
 msgid "Stops"
 msgstr ""
 
+msgid "Stops Auto framing following your face to save effort, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
 msgstr ""
 
@@ -7625,6 +7640,9 @@ msgstr ""
 msgid "While Telescope is in the background"
 msgstr ""
 
+msgid "While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off."
+msgstr ""
+
 msgid "White"
 msgstr ""
 
@@ -7957,6 +7975,10 @@ msgstr ""
 
 msgctxt "search"
 msgid "audio sound voice input volume"
+msgstr ""
+
+msgctxt "search"
+msgid "auto framing face head body tracking power saving lighter effects processor battery"
 msgstr ""
 
 msgctxt "search"

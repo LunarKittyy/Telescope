@@ -205,13 +205,91 @@ fn the_settings_card() {
             r.skip(40);
             r.w.process();
         }
-        let labels = ["Lighter effects", "Effects off a busy graphics card", "Dynamic bitrate"];
+        let labels = ["Lighter effects", "Framing by face", "Effects off a busy graphics card", "Dynamic bitrate"];
         for label in labels {
             assert!(ElementHandle::find_by_accessible_label(&settings.ui, label).next().is_some(), "{label} is on the card");
         }
         if let Some(dir) = &dir {
             let pic = offscreen::draw(settings.ui.window(), 940.0, 520.0, 1.5).expect("a picture");
             pic.save_png(&dir.join(format!("settings-video-{look_name}.png"))).unwrap();
+        }
+    }
+}
+
+/// The Automatic adjustments card with the "Framing by face" switch in it, at the settings window's usual and narrowest widths and the largest text.
+#[test]
+fn the_framing_by_face_switch_in_settings() {
+    let dir = out();
+    let r = rig();
+    for (look_name, look) in LOOKS {
+        for (size, large) in [("", false), ("-large", true)] {
+            dress(&r, look, large);
+            telescope_shell::settings::open(&r.w, "video");
+            let settings = telescope_shell::settings::current().expect("the settings window");
+            assert!(settings.show_tab("video"));
+            settings.ui.set_global_property("Theme", "look", Value::Number(look)).unwrap();
+            telescope_shell::appearance::apply_to(&settings.ui, &Appearance { text: if large { TextSize::Large } else { TextSize::Normal }, ..Default::default() });
+            for (width_name, width) in [("usual", 940.0), ("narrowest", 560.0)] {
+                // Tall enough for the whole tab, so the card is on the picture whatever is above it
+                settings.ui.window().set_size(slint::LogicalSize::new(width, 2600.0));
+                for _ in 0..20 {
+                    offscreen::pump();
+                    r.skip(40);
+                    r.w.process();
+                }
+                let find = |label: &str| ElementHandle::find_by_accessible_label(&settings.ui, label).next().unwrap_or_else(|| panic!("no {label}"));
+                let (first, last) = (find("Lighter effects"), find("Dynamic bitrate"));
+                let switch = find("Framing by face");
+                let (top, bottom) = (first.absolute_position().y, last.absolute_position().y + last.size().height);
+                assert!(switch.absolute_position().y > top && switch.absolute_position().y < bottom, "{look_name}{size} {width_name}: the switch sits among the others");
+                assert!(switch.absolute_position().x + switch.size().width <= width + 0.5, "{look_name}{size} {width_name}: the switch stays inside the window");
+                if let Some(dir) = &dir {
+                    let pic = offscreen::draw(settings.ui.window(), width, 2600.0, 1.5).expect("a picture");
+                    let (from, to) = (((top - 90.0).max(0.0) * 1.5) as usize, (((bottom + 40.0) * 1.5) as usize).min(pic.height as usize));
+                    let row = pic.width as usize * 4;
+                    let rgba = pic.rgba[from * row..to * row].to_vec();
+                    offscreen::Picture { width: pic.width, height: (to - from) as u32, rgba }.save_png(&dir.join(format!("heads-settings-{width_name}-{look_name}{size}.png"))).unwrap();
+                }
+            }
+        }
+    }
+}
+
+/// Auto framing following faces (the "Framing by face" row) next to the lighter effects it comes with, in every look, text size and width, and the switch under Automatic adjustments.
+#[test]
+fn the_framing_by_face_row_and_its_switch() {
+    let dir = out();
+    let r = rig();
+    for (look_name, look) in LOOKS {
+        for (size, large) in [("", false), ("-large", true)] {
+            dress(&r, look, large);
+            let mut snap = snapshot(1, 0, 1);
+            snap.app.effort.heads = true;
+            feed(&r, snap.clone());
+            settle(&r, 1380.0);
+            let bare = narrowest(&r);
+            for width in [bare, 1100.0] {
+                settle(&r, width);
+                assert!(start_right(&r) <= width + 0.5, "{look_name}{size} at {width}: Start ends at {}", start_right(&r));
+                chip(&r).expect("the chip").invoke_accessible_default_action();
+                for _ in 0..30 {
+                    r.skip(40);
+                    r.w.process();
+                }
+                assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "Framing by face").next().is_some(), "{look_name}{size} at {width}: the row is in the list");
+                let name = if width == bare { "narrowest" } else { "wide" };
+                shot(&r, &dir, &format!("heads-list-{name}-{look_name}{size}"), width, 420.0);
+                r.w.ui.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Escape.into() });
+                r.w.ui.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Escape.into() });
+                for _ in 0..20 {
+                    r.skip(40);
+                    r.w.process();
+                }
+            }
+            snap.app.effort.heads = false;
+            feed(&r, snap);
+            assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "Framing by face").next().is_none(), "{look_name}{size}: the row goes when faces aren't followed");
+            feed(&r, snapshot(0, 0, 0));
         }
     }
 }
