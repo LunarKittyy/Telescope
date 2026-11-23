@@ -2918,6 +2918,63 @@ pub(crate) mod tests {
         assert!((seen[0] as i32 - 151).abs() <= 2, "the mask was asked for on the picture from before the card's work ({})", seen[0]);
     }
 
+    /// Says it needs nothing of the frame but its person mask, which it asks for at a quarter of the frame's size.
+    struct MaskOnly;
+
+    impl CpuStep for MaskOnly {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn card_textures_offered(&self) -> Option<bool> {
+            Some(true)
+        }
+        fn card_textures_from_mask(&self) -> bool {
+            true
+        }
+        fn card_textures(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
+            let _ = ctx.background_mask_at(frame, frame.width as usize / 4, frame.height as usize / 4, false);
+            Some(Vec::new())
+        }
+    }
+
+    /// Notes the size, number and luma of each picture a mask is asked for on, and the size it is asked at.
+    struct SeesPicture(std::sync::Mutex<Vec<((u32, u32), u64, u8, (usize, usize))>>);
+
+    impl FrameContext for SeesPicture {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            self.person_mask_at(frame, frame.width as usize, frame.height as usize)
+        }
+        fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+            self.0.lock().unwrap().push(((frame.width, frame.height), frame.number, frame.data[frame.data.len() / 3], (w, h)));
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    fn a_step_that_only_needs_the_mask_gets_a_small_picture_of_the_cards_work_and_the_picture_comes_down_once() {
+        assert_eq!([vision_size(3840, 2160), vision_size(1920, 1080), vision_size(1080, 1920), vision_size(1280, 720), vision_size(640, 360)], [Some((640, 360)), Some((640, 360)), Some((360, 640)), Some((640, 360)), None]);
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let step = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(MaskOnly)) }]);
+        let ctx = SeesPicture(Default::default());
+        let mut frame = grey(1920, 1080, 100);
+        frame.number = 7;
+        p.process(frame, &ctx);
+        let seen = ctx.0.lock().unwrap().clone();
+        assert_eq!(seen.len(), 1);
+        let (size, number, luma, asked) = seen[0];
+        assert_eq!((size, number, asked), ((640, 360), 7, (480, 270)), "the small picture, numbered as the frame, and the mask at the size the step asked");
+        assert!((luma as i32 - 151).abs() <= 2, "the picture after the card's work ({luma})");
+        assert_eq!(p.last_transfers, (1, 1), "up once, and down only at the end");
+    }
+
     /// The card goes wrong on a readback (see Fault): the frame the CPU makes goes out, never what was left in the kept buffer, and the stream stays on the CPU unless the card is fine.
     fn a_readback_that_goes_wrong(fault: crate::gpu::Fault) {
         let gpu = Arc::new(Gpu::open().unwrap());
