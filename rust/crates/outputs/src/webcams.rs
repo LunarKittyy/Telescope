@@ -803,7 +803,9 @@ impl GphotoScanner {
                     match out {
                         Ok(text) => {
                             st.missing = false;
-                            let settled = st.looked.as_ref().is_none_or(|(seen, _)| Some(seen) == devices.as_ref()) || (devices.is_some() && st.probation == devices);
+                            // The first look settles only with a camera found: an empty one may just have come before the camera was ready
+                            let settled = st.looked.as_ref().map_or(!text.is_empty() || devices.is_none(), |(seen, _)| Some(seen) == devices.as_ref())
+                                || (devices.is_some() && st.probation == devices);
                             if settled {
                                 st.looked = devices.map(|d| (d, std::time::Instant::now()));
                                 st.probation = None;
