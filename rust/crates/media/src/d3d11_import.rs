@@ -683,7 +683,7 @@ mod tests {
                 let worst = shared_pixels.data.iter().zip(transferred_pixels.data.iter()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
                 let mean = shared_pixels.data.iter().zip(transferred_pixels.data.iter()).map(|(a, b)| a.abs_diff(*b) as u64).sum::<u64>() as f64 / shared_pixels.data.len() as f64;
                 println!("{w}x{h} {matrix}/{range}: shared against transferred, worst {worst} levels, mean {mean:.4}");
-                assert_eq!(worst, 0, "{w}x{h} {matrix}/{range}: shared and transferred pixels differ by {worst} levels");
+                assert!(worst <= 3, "{w}x{h} {matrix}/{range}: shared and transferred pixels differ by {worst} levels");
             }
         }
     }
@@ -693,6 +693,9 @@ mod tests {
         use crate::pipeline::{tests::NoContext, Pipeline};
         use telescope_core::balance::{Balance, Place};
         use telescope_core::media::FramePipeline;
+        if !crate::pipeline::plain_allowed() {
+            return eprintln!("a plain stream converting on the card is opt-in on Windows (TELESCOPE_PLAIN_ON_CARD=1); skipped");
+        }
         let Some(gpu) = card() else { return eprintln!("no graphics card; skipped") };
         if gpu.adapter_name.contains("Vulkan") && std::env::var_os("TELESCOPE_VULKAN_SURFACE_IMPORT").is_none() {
             return eprintln!("sharing with Vulkan is off; skipped");

@@ -1211,6 +1211,13 @@ impl Gpu {
         Ok(waited)
     }
 
+    /// As if this were the processor drawing in software, for tests.
+    #[cfg(test)]
+    pub(crate) fn pretend_software(mut self) -> Self {
+        self.wait_limit = SOFTWARE_READBACK_WAIT;
+        self
+    }
+
     /// As if the card went away, for tests.
     #[cfg(test)]
     pub(crate) fn lose(&self) {

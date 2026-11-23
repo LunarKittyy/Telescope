@@ -175,6 +175,15 @@ impl Chain {
     }
 }
 
+/// Whether a plain stream may convert on the card: always on Linux, on Windows only with TELESCOPE_PLAIN_ON_CARD set, since it hasn't run on a real card there yet.
+pub(crate) fn plain_allowed() -> bool {
+    plain_gate(cfg!(windows), std::env::var_os("TELESCOPE_PLAIN_ON_CARD").is_some_and(|v| v != "0"))
+}
+
+fn plain_gate(windows: bool, opted_in: bool) -> bool {
+    !windows || opted_in
+}
+
 /// A step that hides, as the frame last through the steps had it: what a frame sent again is compared with.
 #[derive(Clone)]
 struct Applied {
@@ -435,7 +444,7 @@ impl Pipeline {
             self.balance.note_wait(chain.waited_ns);
         }
         // A plain stream that would convert on the card but was moved off it tries the card again like a step with both ways
-        off_card |= !on_card && self.card_decoder && !self.card_lost && self.no_steps_run();
+        off_card |= !on_card && self.card_decoder && !self.card_lost && plain_allowed() && self.no_steps_run();
         if off_card {
             if !self.was_off_card && ON_THE_CARD.load(Ordering::SeqCst) <= 1 {
                 if let Some(gpu) = self.gpu.clone().flatten() {
@@ -618,7 +627,7 @@ impl Pipeline {
             Some(None) => false,
             None => true,
         };
-        card && !self.card_lost && self.balance.place() == Place::Card && self.no_steps_run()
+        card && !self.card_lost && plain_allowed() && self.balance.place() == Place::Card && self.no_steps_run()
     }
 
     /// Whether every step is left out (none, or all skipped for failing).
@@ -3333,7 +3342,7 @@ pub(crate) mod tests {
     #[test]
     fn the_decoder_is_only_asked_for_pictures_on_the_card_while_the_first_step_runs_there() {
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        assert!(wish(&p), "no steps: the picture is converted on the card for the camera");
+        assert_eq!(wish(&p), plain_allowed(), "no steps: the picture is converted on the card for the camera, where that's on");
         p.set_steps(vec![shader(INVERT)]);
         assert!(wish(&p), "a card step first");
         p.set_steps(vec![step("first", FrameStage::Background, Brightens), shader(INVERT)]);
@@ -3341,13 +3350,20 @@ pub(crate) mod tests {
         p.set_steps(vec![shader(INVERT), step("last", FrameStage::Privacy, Brightens)]);
         assert!(wish(&p), "a card step first, a CPU step after it");
         p.set_steps(Vec::new());
-        assert!(wish(&p), "steps taken off again");
+        assert_eq!(wish(&p), plain_allowed(), "steps taken off again");
         p.set_steps(vec![step("first", FrameStage::Background, Brightens)]);
         assert!(!wish(&p), "a CPU step alone");
         let (p, _) = either(Place::Card);
         assert!(wish(&p), "a step with both ways, with the card ahead");
         let (p, _) = either(Place::Cpu);
         assert!(!wish(&p), "a step with both ways, with the CPU ahead");
+    }
+
+    #[test]
+    fn a_plain_stream_converts_on_the_card_on_windows_only_when_asked_to() {
+        assert!(plain_gate(false, false), "Linux: on by default");
+        assert!(!plain_gate(true, false), "Windows: off by default");
+        assert!(plain_gate(true, true), "Windows: opted in");
     }
 
     #[test]

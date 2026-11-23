@@ -564,6 +564,46 @@ mod tests {
     }
 
     #[test]
+    fn a_plain_stream_on_a_card_drawing_in_software_converts_on_the_cpu() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::media::FramePipeline;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
+        codec.surfaces(true);
+        let Some(packets) = testenc::h264_hd(3, 256, 144) else { return eprintln!("no H.264 encoder; skipped") };
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        pipeline.use_card(Arc::new(gpu.pretend_software()));
+        pipeline.set_steps(Vec::new());
+        assert!(!pipeline.surface_wish().unwrap().load(std::sync::atomic::Ordering::Relaxed), "the decoder is asked to keep pictures on a card that only costs CPU");
+        for i in 0..packets.len() {
+            let Some(frame) = decode_surface(&mut codec, &packets[i..=i]) else { continue };
+            let out = pipeline.process_picture(frame.clone(), &NoContext);
+            assert!(out.picture().is_none(), "picture {i} went to a software card");
+            assert_eq!(out.land().data, frame.materialise().data, "picture {i}");
+        }
+    }
+
+    #[test]
+    fn a_plain_stream_whose_import_is_refused_gets_the_cpus_picture() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::media::FramePipeline;
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
+        codec.surfaces(true);
+        let Some(packets) = testenc::h264_hd(1, 256, 144) else { return eprintln!("no H.264 encoder; skipped") };
+        let frame = decode_surface(&mut codec, &packets).expect("a decoded frame");
+        frame.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap().disable("a test");
+        let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let out = pipeline.process_picture(frame.clone(), &NoContext);
+        assert!(out.picture().is_none(), "a refused picture stayed on the card");
+        assert_eq!(out.land().data, frame.materialise().data);
+    }
+
+    #[test]
     fn a_card_lost_mid_stream_leaves_a_plain_stream_the_same_pictures_from_the_cpu() {
         use crate::pipeline::{tests::NoContext, Pipeline};
         use telescope_core::balance::{Balance, Place};
