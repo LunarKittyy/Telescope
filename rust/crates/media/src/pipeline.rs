@@ -2147,6 +2147,8 @@ pub(crate) mod tests {
             *v = (16 + (i % w as usize) * 220 / w as usize) as u8;
         }
         let balance = Arc::new(Balance::free());
+        // Held on the card until the move, so a slow software card's real waits can't move it early
+        balance.keep_on_card(true);
         let mut p = Pipeline::with_balance(balance.clone());
         // The same frames on the CPU alone, as the stream gave them before
         let mut cpu = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Cpu)));
@@ -2154,6 +2156,7 @@ pub(crate) mod tests {
         for n in 0..120 {
             // The card gets busy for a while in the middle and the steps move to the CPU, as a game starting would do
             if n == 40 {
+                balance.keep_on_card(false);
                 (0..8).for_each(|_| balance.note_wait(50_000_000));
             }
             // Framing on at the start, a slow pan as Auto framing makes, a zoom change, and off again at the end
