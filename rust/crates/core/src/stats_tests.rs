@@ -381,6 +381,26 @@ fn the_computer_is_slow_when_a_tenth_of_the_frames_are_shed_for_a_few_seconds() 
     assert_eq!(four_a_second.shed_share(100), None, "not that many seconds counted yet");
 }
 
+#[test]
+fn the_rate_is_there_without_the_lock() {
+    let (_hub, stats, _) = running();
+    assert_eq!(stats.target_fps(), 0);
+    stats.set_target_fps(60);
+    assert_eq!(stats.target_fps(), 60);
+}
+
+#[test]
+fn each_stream_says_where_its_own_steps_run() {
+    let hub = Hub::new();
+    let (a, b) = (hub.register("a", 0), hub.register("b", 1));
+    a.set_steps_on_card(false);
+    b.set_steps_on_card(true);
+    let snap = hub.snapshot_at(crate::time::monotonic_ns() + SECOND, None, None);
+    let on = |id: &str| snap.sources.iter().find(|s| s.source_id == id).unwrap().steps_on_card;
+    assert_eq!((on("a"), on("b")), (Some(false), Some(true)));
+    assert_eq!(hub.register("c", 2).steps_on.load(Ordering::Relaxed), STEPS_UNKNOWN, "nothing said yet");
+}
+
 fn power_hub() -> (Hub, Arc<Effort>) {
     let effort = Arc::new(Effort::free());
     (Hub::with_parts(Arc::new(Balance::free()), effort.clone()), effort)

@@ -171,6 +171,16 @@ fn decoding_on_the_processor_offers_the_video_settings() {
 }
 
 #[test]
+fn a_trimmed_stream_size_offers_the_pick_back_or_switching_it_off() {
+    let seen = Seen { trimmed: Some(((1920, 1080), (3840, 2160))), ..quiet() };
+    let all = items(&seen);
+    assert_eq!(kinds(&seen), [Kind::StreamSize]);
+    assert_eq!(all[0].overrides, [Override::KeepPickedSize, Override::TurnOff]);
+    let why = why_of(&all[0].reason);
+    assert!(why.contains("1920 × 1080") && why.contains("3840 × 2160"), "{why}");
+}
+
+#[test]
 fn every_item_has_a_name_a_reason_and_a_tooltip_for_each_button() {
     let seen = Seen {
         effort: EffortSnapshot { heads: true, ..lighter() },
@@ -178,6 +188,7 @@ fn every_item_has_a_name_a_reason_and_a_tooltip_for_each_button() {
         dynamic_in_use: true,
         phone: Phone { bitrate_bps: Some(2e6), peak_bps: 8e6, dynamic_fps: Some(20), heat_fps: None },
         decoding_slow: true,
+        trimmed: Some(((1920, 1080), (3840, 2160))),
         ..Default::default()
     };
     for item in items(&seen) {
@@ -287,19 +298,36 @@ fn the_overrides_reach_the_host_through_its_methods_and_an_event() {
 }
 
 #[test]
+fn keeping_the_picked_size_asks_stream_output_and_turn_off_is_the_saved_switch() {
+    let (mut p, mut host) = plugin();
+    p.on_event(&mut host, &Event::StreamSizeTrimmed { trimmed: true, width: 1920, height: 1080, picked_width: 3840, picked_height: 2160 });
+    assert_eq!(p.trimmed, Some(((1920, 1080), (3840, 2160))));
+    p.rows = items(&Seen { trimmed: p.trimmed, ..quiet() });
+    let click = |p: &mut AdjustmentsPlugin, host: &mut FakeHost, which: u64| {
+        p.on_ui(host, &UiEvent { ui: "header".into(), callback: "override-clicked".into(), args: vec![json!(0), json!(which)] });
+    };
+    click(&mut p, &mut host, 0);
+    assert_eq!(host.events, [Event::StreamSizeHeld { on: true }]);
+    click(&mut p, &mut host, 1);
+    assert_eq!(p.get_config()["stream_size"], false);
+    p.on_event(&mut host, &Event::StreamStopped);
+    assert_eq!(p.trimmed, None, "a new stream starts untrimmed");
+}
+
+#[test]
 fn the_switches_are_applied_at_the_start_and_reset_puts_them_back_on() {
     let (mut p, mut host) = plugin();
-    p.set_config(&json!({"effects": false, "heads": false, "balance": false, "dynamic": false, "power": false})).unwrap();
+    p.set_config(&json!({"effects": false, "heads": false, "balance": false, "dynamic": false, "power": false, "stream_size": false})).unwrap();
     p.on_plugins_ready(&mut host);
     for call in ["set_effects_step_down false", "set_effects_follow_power false", "hold_effects_full false", "allow_heads false", "keep_steps_on_card true"] {
         assert!(host.calls.contains(&call.to_string()), "{call}: {:?}", host.calls);
     }
-    assert_eq!(host.events, [Event::FixedBitrateRequested { on: true }]);
+    assert_eq!(host.events, [Event::FixedBitrateRequested { on: true }, Event::StreamSizeHeld { on: true }]);
     p.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "reset-clicked".into(), args: vec![] });
-    assert_eq!(p.get_config(), json!({"effects": true, "heads": true, "balance": true, "dynamic": true, "power": true}));
+    assert_eq!(p.get_config(), json!({"effects": true, "heads": true, "balance": true, "dynamic": true, "power": true, "stream_size": true}));
     assert!(host.calls.contains(&"set_effects_follow_power true".to_string()));
     assert_eq!(host.calls.iter().rev().find(|c| c.starts_with("allow_heads")).map(String::as_str), Some("allow_heads true"));
-    assert_eq!(host.events.last(), Some(&Event::FixedBitrateRequested { on: false }));
+    assert_eq!(host.events[2..], [Event::FixedBitrateRequested { on: false }, Event::StreamSizeHeld { on: false }]);
     assert!(host.calls.contains(&"keep_steps_on_card false".to_string()));
 }
 
@@ -423,8 +451,8 @@ fn the_banner_asks_to_hear_about_its_dismissal() {
 #[test]
 fn every_switch_in_settings_is_one_the_plugin_has() {
     let ui = include_str!("../ui/adjustments.slint");
-    assert_eq!(ui.matches("SwitchRow {").count(), 5);
-    for switch in ["effects", "heads", "balance", "dynamic", "power"] {
+    assert_eq!(ui.matches("SwitchRow {").count(), 6);
+    for switch in ["effects", "heads", "balance", "dynamic", "power", "stream-size"] {
         assert!(ui.contains(&format!("root.{switch}-toggled(on)")), "{switch}");
     }
     assert!(!ui.contains("enabled: false"));

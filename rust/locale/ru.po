@@ -2008,6 +2008,10 @@ msgstr "Выдано кадров"
 msgid "Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."
 msgstr "Частота кадров при съемке на телефоне и для виртуальной камеры. Меньшие значения экономят трафик и заряд батареи."
 
+#, python-brace-format
+msgid "Frames ran late and the camera can't use more than {sent}, picked {picked}"
+msgstr ""
+
 msgid "Frames to collect"
 msgstr ""
 
@@ -2689,6 +2693,9 @@ msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Меньший диапазон дает более точный шаг. Больший диапазон помогает, если звук с телефона тихий."
 
 msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
+msgstr ""
+
+msgid "Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked."
 msgstr ""
 
 msgid "Let an AI app read and change Telescope's settings."
@@ -4787,6 +4794,9 @@ msgstr "Отправитель не запущен"
 msgid "Sending…"
 msgstr "Отправка…"
 
+msgid "Sends the size you picked until you close Telescope, even while frames run late."
+msgstr ""
+
 msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
 msgstr ""
 
@@ -5252,6 +5262,9 @@ msgstr "Длинная выдержка делает картинку ярче, 
 msgid "Small"
 msgstr "Маленький"
 
+msgid "Smaller stream size"
+msgstr ""
+
 msgid "Smear"
 msgstr "Смазывание"
 
@@ -5617,6 +5630,9 @@ msgid "Stops Auto framing following your face to save effort, until you switch i
 msgstr ""
 
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
@@ -6561,6 +6577,9 @@ msgstr "Телефон отклонил запрос микрофона (HTTP {c
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "Телефон отклонил запрос на запуск трансляции ({error})."
 
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It moves up to the picked size when you zoom in or use Auto framing. A photo keeps the size it began at."
+msgstr ""
+
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Телефон отправил данные, которые эта версия не может прочитать. Обнови оба приложения до одинаковой версии."
 
@@ -7450,6 +7469,9 @@ msgstr "Использовать микрофон телефона на этом
 msgid "Use the phone's microphone on this computer."
 msgstr "Использовать микрофон телефона на этом компьютере."
 
+msgid "Use the size I picked"
+msgstr ""
+
 msgid "Use zoom"
 msgstr ""
 
@@ -8050,7 +8072,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "авто старт стоп запуск остановка камера приложение открывается дискорд обс зум мит тимс телефон устройство готово простой без рук auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k"
 msgstr ""
 
 msgctxt "search"
@@ -8474,6 +8496,10 @@ msgid "stable nightly beta release track builds testing"
 msgstr "стабильный стабильная nightly бета релиз канал ветка сборки тестирование stable nightly beta release track builds testing"
 
 msgctxt "search"
+msgid "stream size resolution 4k 1080p 720p smaller lower decode slow late frames"
+msgstr ""
+
+msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "растянуть сжать пропорции высокий stretch squish aspect tall"
 
@@ -8509,6 +8535,9 @@ msgstr "телефон не отвечает по USB"
 
 msgid "the phone plugged in over USB is a different one"
 msgstr "по USB подключен другой телефон"
+
+msgid "the processor was late too and not much quicker than the card"
+msgstr ""
 
 msgid "the shutter speed"
 msgstr ""
