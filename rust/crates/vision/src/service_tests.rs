@@ -247,6 +247,29 @@ fn test_camera_noise_alone_doesnt_count_as_moving() {
 }
 
 #[test]
+fn test_a_big_move_is_a_tenth_of_the_picture_changing_and_is_judged_against_the_frame_used() {
+    let still = Rgb::filled(1280, 720, 80);
+    let mut motion = Motion::default();
+    // The first frame has nothing to compare with
+    assert!(motion.moved(&still) && motion.big());
+    motion.used();
+    assert!(!motion.moved(&still) && !motion.big());
+    // 5% of the picture: moving, not big
+    assert!(motion.moved(&with_arm(&still, (0, 1280), (0, 36), 200)) && !motion.big());
+    // 20%: big
+    assert!(motion.moved(&with_arm(&still, (0, 1280), (0, 144), 200)) && motion.big());
+    // Back to still, and a level change of 12 or less doesn't count however much of the picture it is
+    assert!(!motion.moved(&still) && !motion.big());
+    assert!(!motion.moved(&Rgb::filled(1280, 720, 80 + crate::ops::MOVED_LEVELS)) && !motion.big());
+    // After the big one is used, the same picture is no longer a move
+    motion.moved(&with_arm(&still, (0, 1280), (0, 144), 200));
+    motion.used();
+    assert!(!motion.moved(&with_arm(&still, (0, 1280), (0, 144), 200)) && !motion.big());
+    // A frame of another size has nothing to compare with either
+    assert!(motion.moved(&Rgb::filled(640, 360, 80)) && motion.big());
+}
+
+#[test]
 fn test_model_input_looks_like_one_area_shrink() {
     let (w, h) = (1920, 1080);
     let data: Vec<u8> = (0..w * h * 3).map(|i| {
@@ -557,8 +580,17 @@ fn test_people_are_looked_for_less_often_while_nothing_moves() {
     assert_eq!(sent, [true, false, true, true]);
 }
 
+// The mask's last run was this long ago (the clock is held still otherwise, see HELD)
+fn mask_ran_ago(v: &Vision, secs: f64) {
+    sv(v, "a").mask.lock().unwrap().at = monotonic() - secs;
+}
+
+fn segmented(r: &Ready) -> usize {
+    r.backend.log.lock().unwrap().segmented.len()
+}
+
 #[test]
-fn test_power_saving_runs_the_mask_at_once_on_a_big_move() {
+fn test_power_saving_runs_the_mask_soon_on_a_big_move() {
     let r = ready();
     r.v.set_power_saving(true);
     let still = Rgb::filled(1280, 720, 80);
@@ -566,9 +598,73 @@ fn test_power_saving_runs_the_mask_at_once_on_a_big_move() {
     hold_mask_clock(&r.v);
     // An arm moving a little waits for the slower beat, standing up (most of the picture changing) doesn't
     mask(&r.v, "a", 1, &with_arm(&still, (400, 600), (200, 400), 200));
-    assert_eq!(r.backend.log.lock().unwrap().segmented.len(), 1);
-    mask(&r.v, "a", 2, &with_arm(&still, (200, 1100), (100, 720), 200));
-    assert_eq!(r.backend.log.lock().unwrap().segmented.len(), 2);
+    assert_eq!(segmented(&r), 1);
+    let standing = with_arm(&still, (200, 1100), (100, 720), 200);
+    // not within the shortest gap of the last run, so 60 fps or a flickering picture doesn't make a mask every frame
+    mask_ran_ago(&r.v, SAVING_MASK_BIG_MOVE_EVERY_S / 2.0);
+    mask(&r.v, "a", 2, &standing);
+    assert_eq!(segmented(&r), 1);
+    mask_ran_ago(&r.v, SAVING_MASK_BIG_MOVE_EVERY_S * 1.5);
+    mask(&r.v, "a", 3, &standing);
+    assert_eq!(segmented(&r), 2);
+}
+
+#[test]
+fn test_a_big_move_brings_the_mask_sooner_only_with_power_saving() {
+    for saving in [false, true] {
+        let r = ready();
+        r.v.set_power_saving(saving);
+        let still = Rgb::filled(160, 90, 80);
+        mask(&r.v, "a", 0, &still);
+        // A small move 0.04 s after the last run: only without Power-saving
+        mask_ran_ago(&r.v, 0.04);
+        mask(&r.v, "a", 1, &with_arm(&still, (0, 21), (0, 21), 200));
+        assert_eq!(segmented(&r), if saving { 1 } else { 2 }, "saving {saving}");
+        // A big one: both have a mask for it
+        mask_ran_ago(&r.v, 0.04);
+        mask(&r.v, "a", 2, &with_arm(&still, (0, 160), (0, 45), 200));
+        assert_eq!(segmented(&r), if saving { 2 } else { 3 }, "saving {saving}");
+    }
+}
+
+#[test]
+fn test_power_saving_masks_come_ten_a_second_at_any_frame_rate_whatever_the_jitter() {
+    // Arms in three places, 3% of the picture each: neither the move between two nor standing still makes a big one
+    let still = Rgb::filled(160, 90, 80);
+    let arms: Vec<Rgb> = (0..3).map(|i| with_arm(&still, (40 * i, 40 * i + 21), (0, 21), 200)).collect();
+    for (fps, per_second) in [(15.0, 7.5), (24.0, 8.0), (30.0, 10.0), (60.0, 10.0)] {
+        let r = ready();
+        r.v.set_power_saving(true);
+        let frames = (fps * 6.0) as usize;
+        for seq in 0..frames {
+            // The frame arrives a few ms off its beat, one early and one late
+            let jitter = if seq % 2 == 0 { -0.003 } else { 0.003 };
+            if seq > 0 {
+                sv(&r.v, "a").mask.lock().unwrap().at -= 1.0 / fps + jitter;
+            }
+            mask(&r.v, "a", seq as u64, &arms[seq % 3]);
+        }
+        let runs = segmented(&r) as f64;
+        assert!((runs - per_second * 6.0).abs() <= 2.0, "{fps} fps: {runs} runs in 6 s");
+    }
+}
+
+#[test]
+fn test_power_saving_masks_on_a_run_of_big_moves_stay_at_or_under_thirty_a_second() {
+    let still = Rgb::filled(160, 90, 80);
+    // Each of the three is a big move from either of the others
+    let busy = [with_arm(&still, (0, 160), (0, 45), 200), with_arm(&still, (0, 160), (45, 90), 200), with_arm(&still, (0, 80), (0, 90), 200)];
+    for (fps, saving, expected) in [(30.0, true, 60), (60.0, true, 60), (60.0, false, 120)] {
+        let r = ready();
+        r.v.set_power_saving(saving);
+        for seq in 0..(fps * 2.0) as usize {
+            if seq > 0 {
+                sv(&r.v, "a").mask.lock().unwrap().at -= 1.0 / fps;
+            }
+            mask(&r.v, "a", seq as u64, &busy[seq % 3]);
+        }
+        assert_eq!(segmented(&r), expected, "{fps} fps, saving {saving}");
+    }
 }
 
 #[test]

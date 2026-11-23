@@ -36,6 +36,10 @@ pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
 pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
 /// And the mask this often, or sooner on a big move (ops::BIG_MOVE_SHARE), so standing up or waving doesn't leave the room sharp around you.
 pub const SAVING_MASK_EVERY_S: f64 = 0.1;
+/// Frames arrive a few ms off their beat, so 3 frames at 30 fps (exactly 0.1 s) count as due instead of waiting for a 4th.
+pub const SAVING_MASK_JITTER_S: f64 = 0.008;
+/// A big move brings the mask sooner but not sooner than this, so 60 fps or a flickering picture doesn't make it every frame.
+pub const SAVING_MASK_BIG_MOVE_EVERY_S: f64 = 0.025;
 /// How long a frame waits for its mask when there's none it can use, so the picture doesn't go out without one when a stream starts.
 pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 /// A mask of a frame further back than this is of a picture that's gone: frame steps hear there's none, not an old silhouette.
@@ -820,12 +824,13 @@ impl Vision {
         let saving = self.power_saving();
         let still_every = match which {
             Which::Cutout => CUTOUT_STILL_EVERY_S,
-            _ if saving => SAVING_MASK_EVERY_S,
+            _ if saving => SAVING_MASK_EVERY_S - SAVING_MASK_JITTER_S,
             _ => MASK_STILL_EVERY_S,
         };
         let overdue = m.small.is_none() || now - m.at >= still_every;
-        // Power-saving still runs the normal model at once on a big move; the cutout costs too much for that
-        let jumped = |motion: &Motion| saving && which != Which::Cutout && motion.big();
+        // Power-saving still runs the normal model soon on a big move; the cutout costs too much for that
+        let may_jump = saving && which != Which::Cutout && now - m.at >= SAVING_MASK_BIG_MOVE_EVERY_S;
+        let jumped = |motion: &Motion| may_jump && motion.big();
         // With a grey look at hand the colour picture is only made when the model is about to run
         let run = if let Some(look) = look {
             let grey = look()?;
