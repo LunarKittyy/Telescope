@@ -25,6 +25,7 @@ const LINK: &str = "The plugin contains a link to somewhere else, which plugins 
 const BAD_NAME: &str = "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter).";
 const TOO_BIG: &str = "The plugin is too big (over 500 files or 20 MB).";
 const SAME_NAME: &str = "The .zip holds two files with names that differ only in capital letters, which Windows treats as one file.";
+const NOT_ONE_FOLDER: &str = "The .zip has to hold one folder, named as the plugin.";
 const NOT_A_ZIP: &str = "The file isn't a .zip file Telescope can open.";
 const NOT_IN_FOLDER: &str = "That isn't a folder in the plugins folder.";
 const TAKEN: &str = "A plugin included in Telescope already has that name.";
@@ -453,6 +454,10 @@ fn zip_name<R: io::Read + io::Seek>(zip: &mut zip::ZipArchive<R>) -> Result<Stri
         if entry.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000) {
             return Err(invalid(LINK));
         }
+        // A file straight in the top level isn't a folder: unpacked it would replace the installed plugin's folder with a file
+        if parts.len() == 1 && !entry.is_dir() {
+            return Err(invalid(NOT_ONE_FOLDER));
+        }
         tops.insert(parts[0].to_string());
         // Two names Windows reads as one (capitals, a trailing dot or space) are two files here and one there, where the later one wins
         let key: Vec<String> = parts.iter().map(|p| p.trim_end_matches(['.', ' ']).to_lowercase()).collect();
@@ -470,7 +475,7 @@ fn zip_name<R: io::Read + io::Seek>(zip: &mut zip::ZipArchive<R>) -> Result<Stri
         return Err(invalid(TOO_BIG));
     }
     if tops.len() != 1 {
-        return Err(invalid("The .zip has to hold one folder, named as the plugin."));
+        return Err(invalid(NOT_ONE_FOLDER));
     }
     let name = tops.into_iter().next().unwrap();
     if !manifest::valid_name(&name) {

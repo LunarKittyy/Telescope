@@ -517,6 +517,19 @@ fn a_bad_zip_leaves_the_installed_one_alone() {
     assert!(one(&p).enabled);
 }
 
+#[test]
+fn a_zip_holding_one_file_instead_of_a_folder_is_refused_and_leaves_the_installed_one_alone() {
+    let p = plugins();
+    example(&p.folder, "black_and_white");
+    p.set_enabled(&one(&p), true).unwrap();
+    let archive = write_zip(&scratch(&p).join("file.zip"), &[("black_and_white", b"not a folder".to_vec())], &[]);
+    assert!(matches!(p.install_zip(&archive, true), Err(InstallError::Invalid(why)) if why.contains("folder")));
+    assert!(one(&p).enabled && p.folder.join("black_and_white/plugin.json").is_file());
+    let archive = write_zip(&scratch(&p).join("file2.zip"), &[("fresh_one", b"x".to_vec())], &[]);
+    assert!(matches!(p.install_zip(&archive, false), Err(InstallError::Invalid(_))));
+    assert_eq!(listing(&p.folder), ["black_and_white"], "no stray file in the plugins folder");
+}
+
 #[cfg(unix)]
 #[test]
 fn replacing_a_link_is_refused() {
