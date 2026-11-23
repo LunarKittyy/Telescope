@@ -16,7 +16,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSensors, PhoneSession, PhoneStatus, Resolution, RoutePreference,
-                           RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable, UsbDevice, PresenceUpdate};
+                           RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable, UsbDevice, UsbNote, PresenceUpdate};
 use telescope_core::media::{Codec, VideoFeed};
 use telescope_core::source::{ControlClient as Control, PairedPhone, RouteSpec};
 
@@ -190,7 +190,9 @@ impl Default for LinkService {
 
 /// A check that found nothing while this computer has no network is marked, since the phone isn't what to look at then.
 fn mark_offline(mut res: Resolution, network_up: impl Fn() -> bool) -> Resolution {
-    if res.status == PhoneStatus::Unreachable && !res.other_app && !res.other_telescope && !network_up() {
+    // A phone on a cable that doesn't answer (no debugging allowed, the app closed) is a problem on the phone's side
+    let cable_attached = matches!(res.usb_note, Some(UsbNote::Unauthorized | UsbNote::OtherPhone | UsbNote::AppClosed));
+    if res.status == PhoneStatus::Unreachable && !res.other_app && !res.other_telescope && !cable_attached && !network_up() {
         res.no_network = true;
     }
     res
@@ -221,7 +223,7 @@ impl Link for LinkService {
 
     fn presence_hint(&self) { self.presence.hint(); }
 
-    fn network_up(&self) -> bool { !crate::net::pairing_addresses().is_empty() }
+    fn network_up(&self) -> bool { crate::net::network_present() }
 
     fn presence_wake(&self, wake: Option<Arc<dyn Fn() + Send + Sync>>) { self.presence.set_wake(wake); }
 
@@ -713,6 +715,12 @@ mod tests {
         let found = Resolution { route: Some(RouteSpec::Usb { serial: "S".into() }), ..Resolution::new(PhoneStatus::Ready) };
         assert!(!mark_offline(found, || false).no_network, "a phone that answered is reachable whatever the addresses say");
         assert!(!mark_offline(Resolution { other_app: true, ..nothing() }, || false).no_network, "something answered");
+        for note in [UsbNote::Unauthorized, UsbNote::OtherPhone, UsbNote::AppClosed] {
+            assert!(!mark_offline(Resolution { usb_note: Some(note), ..nothing() }, || false).no_network, "a cable is plugged in: {note:?}");
+        }
+        for note in [None, Some(UsbNote::NoCable), Some(UsbNote::NoAdb)] {
+            assert!(mark_offline(Resolution { usb_note: note, ..nothing() }, || false).no_network, "no cable to blame: {note:?}");
+        }
     }
 
     #[test]
