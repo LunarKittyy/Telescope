@@ -649,6 +649,8 @@ fn a_tip_of_a_control_in_a_dialog_draws_over_the_dialog() {
     wait(&w, 900);
     assert_eq!(popups(&w), 1, "the tip of a control in the pop-up comes up");
     assert_eq!(says(&w), "From inside the dialog");
+    // Past its fade-in, so the picture has the whole tip however quickly it was drawn
+    wait(&w, 400);
     let (x0, y0, x1, y1) = box_between(&before, &draw(&w));
     // Over the dialog's face, below the button, where the pop-up's own layer draws it
     assert!(x0 < 140 && x1 > 140 && y0 > 120 && y1 < 330, "over the dialog, under its button: {x0},{y0} to {x1},{y1}");
