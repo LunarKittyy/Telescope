@@ -506,12 +506,14 @@ fn a_browser_that_hangs_up_in_the_handshake_is_counted() {
 }
 
 #[test]
-fn no_address_has_more_than_six_connections_open() {
+fn no_address_has_more_than_six_connections_busy() {
     let run = start(0);
+    // Six that are in the middle of a request
     let mut kept: Vec<Client> = (0..MAX_PER_ADDRESS).map(|_| Client::connect(&run)).collect();
     for client in &mut kept {
-        assert_eq!(client.get("/hello").status, 200);
+        client.send("GET /hello HTTP/1.1\r\n");
     }
+    std::thread::sleep(Duration::from_millis(300));
     // The seventh is dropped before it's even greeted
     let tcp = TcpStream::connect(("127.0.0.1", run.server.port())).unwrap();
     tcp.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
@@ -522,6 +524,22 @@ fn no_address_has_more_than_six_connections_open() {
     kept.pop();
     std::thread::sleep(Duration::from_millis(300));
     assert_eq!(Client::connect(&run).get("/hello").status, 200);
+}
+
+#[test]
+fn a_seventh_connection_closes_the_oldest_idle_one_instead_of_being_refused() {
+    let run = start(0);
+    let mut kept: Vec<Client> = (0..MAX_PER_ADDRESS).map(|_| Client::connect(&run)).collect();
+    for client in &mut kept {
+        assert_eq!(client.get("/hello").status, 200);
+    }
+    // Six kept-alive sockets that wait for a next request: the seventh gets served and the oldest one goes
+    let mut seventh = Client::connect(&run);
+    assert_eq!(seventh.get("/hello").status, 200);
+    assert!(kept[0].closed());
+    for client in &mut kept[1..] {
+        assert_eq!(client.get("/hello?again").status, 200);
+    }
 }
 
 #[test]

@@ -10,7 +10,7 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use telescope_core::web::{Certificate, PageHandler, Reply, Request, Serve, ServerStats, Socket, Step, Upgrade, Web, WebServer};
@@ -277,32 +277,57 @@ fn tls_config(cert: &Path, key: &Path) -> Result<Arc<rustls::ServerConfig>, Stri
 
 // ── The server ───────────────────────────────────────────────────────────────
 
-/// Connections open now, in total and for each address.
+/// A connection that counts against the caps, and what it takes to close it from outside.
+struct Entry {
+    id: u64,
+    from: IpAddr,
+    /// Between requests: nothing is being asked or answered, so it can go to make room.
+    idle: Arc<AtomicBool>,
+    tcp: Option<TcpStream>,
+}
+
+/// Connections open now, oldest first, in total and for each address.
 #[derive(Default)]
-struct Open(Mutex<Vec<IpAddr>>);
+struct Open {
+    list: Mutex<Vec<Entry>>,
+    next: AtomicU64,
+}
 
 impl Open {
-    /// Takes a place for a connection from this address, unless the caps say no.
-    fn enter(self: &Arc<Self>, from: IpAddr) -> Option<Place> {
-        let mut open = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        if open.len() >= MAX_CONNECTIONS || open.iter().filter(|a| **a == from).count() >= MAX_PER_ADDRESS {
-            return None;
+    /// Takes a place for a connection from this address. At a cap, the oldest idle connection (kept alive and quiet) gives
+    /// its place up, from this address first, so a browser holding spare sockets can still open a new one.
+    fn enter(self: &Arc<Self>, from: IpAddr, tcp: &TcpStream) -> Option<Place> {
+        let mut open = self.list.lock().unwrap_or_else(|e| e.into_inner());
+        let full = |open: &[Entry]| open.len() >= MAX_CONNECTIONS || open.iter().filter(|e| e.from == from).count() >= MAX_PER_ADDRESS;
+        if full(&open) {
+            let idle = |e: &Entry| e.idle.load(Ordering::SeqCst);
+            let address_full = open.iter().filter(|e| e.from == from).count() >= MAX_PER_ADDRESS;
+            let victim = open.iter().position(|e| e.from == from && idle(e))
+                .or_else(|| if address_full { None } else { open.iter().position(idle) })?;
+            if let Some(tcp) = open.remove(victim).tcp {
+                let _ = tcp.shutdown(Shutdown::Both);
+            }
+            if full(&open) {
+                return None;
+            }
         }
-        open.push(from);
-        Some(Place { open: self.clone(), from })
+        let (id, idle) = (self.next.fetch_add(1, Ordering::SeqCst), Arc::new(AtomicBool::new(false)));
+        open.push(Entry { id, from, idle: idle.clone(), tcp: tcp.try_clone().ok() });
+        Some(Place { open: self.clone(), id, idle })
     }
 }
 
 struct Place {
     open: Arc<Open>,
-    from: IpAddr,
+    id: u64,
+    idle: Arc<AtomicBool>,
 }
 
 impl Drop for Place {
     fn drop(&mut self) {
-        let mut open = self.open.0.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(i) = open.iter().position(|a| *a == self.from) {
-            open.swap_remove(i);
+        let mut open = self.open.list.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(i) = open.iter().position(|e| e.id == self.id) {
+            open.remove(i);
         }
     }
 }
@@ -345,15 +370,15 @@ impl Server {
                         continue;
                     }
                 };
-                let Some(place) = conn.peer_addr().ok().and_then(|a| open.enter(a.ip())) else {
+                let Some(place) = conn.peer_addr().ok().and_then(|a| open.enter(a.ip(), &conn)) else {
                     let _ = conn.shutdown(Shutdown::Both);
                     continue;
                 };
                 seen.note(Step::Connections);
                 let (config, handler, stats) = (config.clone(), handler.clone(), seen.clone());
                 let spawned = std::thread::Builder::new().name("web-connection".into()).spawn(move || {
-                    let _place = place;
-                    connection(conn, config, &*handler, &stats);
+                    connection(conn, config, &*handler, &stats, place.idle.clone());
+                    drop(place);
                 });
                 if let Err(e) = spawned {
                     log::warn!("A connection couldn't get a thread: {e}");
@@ -428,11 +453,13 @@ struct Limited {
     /// The longest one read waits, deadline or not; None for as long as it takes.
     timeout: Option<Duration>,
     deadline: Option<Instant>,
+    /// Set while the connection waits for a request to begin, for the caps to find what can make room.
+    idle: Arc<AtomicBool>,
 }
 
 impl Limited {
     fn new(tcp: TcpStream) -> Limited {
-        Limited { tcp, timeout: Some(REQUEST_TIMEOUT), deadline: None }
+        Limited { tcp, timeout: Some(REQUEST_TIMEOUT), deadline: None, idle: Arc::default() }
     }
 }
 
@@ -472,11 +499,12 @@ fn finish_handshake(tls: &mut rustls::ServerConnection, tcp: &mut Limited, withi
 }
 
 /// One connection on its own thread: the TLS handshake, then requests until the other end or a timeout ends it.
-fn connection(tcp: TcpStream, config: Arc<rustls::ServerConfig>, handler: &dyn PageHandler, stats: &ServerStats) {
+fn connection(tcp: TcpStream, config: Arc<rustls::ServerConfig>, handler: &dyn PageHandler, stats: &ServerStats, idle: Arc<AtomicBool>) {
     let _ = tcp.set_write_timeout(Some(REQUEST_TIMEOUT));
     let _ = tcp.set_nodelay(true);
     let Ok(mut tls) = rustls::ServerConnection::new(config) else { return };
     let mut tcp = Limited::new(tcp);
+    tcp.idle = idle;
     if finish_handshake(&mut tls, &mut tcp, REQUEST_TIMEOUT).is_err() {
         // A browser that hasn't accepted the certificate yet hangs up here, which is expected
         stats.note(Step::TlsFailed);
@@ -565,11 +593,18 @@ enum Served {
 /// A stream whose next reads can be given a deadline, past which they fail whatever trickles in.
 trait Timed {
     fn limit_reads(&mut self, until: Option<Instant>);
+
+    /// Whether the connection is between requests, where it may be closed to make room for another.
+    fn waiting(&mut self, _idle: bool) {}
 }
 
 impl Timed for rustls::StreamOwned<rustls::ServerConnection, Limited> {
     fn limit_reads(&mut self, until: Option<Instant>) {
         self.sock.deadline = until;
+    }
+
+    fn waiting(&mut self, idle: bool) {
+        self.sock.idle.store(idle, Ordering::SeqCst);
     }
 }
 
@@ -622,9 +657,11 @@ fn serve_request<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &d
 fn serve_one<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats, quiet: Duration, head_timeout: Duration) -> Result<bool, Upgrade> {
     // A quiet kept-alive connection gets the usual timeout, the clock for the head starts with its first byte
     stream.get_mut().limit_reads(Some(Instant::now() + quiet));
-    match stream.fill_buf() {
-        Ok(chunk) if !chunk.is_empty() => {}
-        _ => return Ok(false),
+    stream.get_mut().waiting(true);
+    let first = stream.fill_buf().map(|chunk| !chunk.is_empty());
+    stream.get_mut().waiting(false);
+    if !matches!(first, Ok(true)) {
+        return Ok(false);
     }
     let deadline = Instant::now() + head_timeout;
     let line = match read_line(stream, deadline) {
