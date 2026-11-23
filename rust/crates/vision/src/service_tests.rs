@@ -13,9 +13,11 @@ pub(crate) struct Log {
     pub closed: Vec<&'static str>,
     pub made: Vec<&'static str>,
     pub posed: Vec<(usize, usize)>,
+    pub faced: Vec<(usize, usize)>,
 }
 
 type Detect = Arc<dyn Fn() -> Vec<Person> + Send + Sync>;
+type FaceDetect = Arc<dyn Fn() -> Vec<Face> + Send + Sync>;
 
 pub(crate) struct Fake {
     pub log: Arc<Mutex<Log>>,
@@ -23,6 +25,8 @@ pub(crate) struct Fake {
     pub values: Arc<Mutex<Vec<u8>>>,
     pub broken_segmenter: Mutex<Option<VisionError>>,
     pub detect: Mutex<Detect>,
+    /// What the face finder finds; None: a pack without one.
+    pub faces: Mutex<Option<FaceDetect>>,
 }
 
 impl Fake {
@@ -32,6 +36,7 @@ impl Fake {
             values: Default::default(),
             broken_segmenter: Mutex::new(None),
             detect: Mutex::new(Arc::new(|| vec![Person::new([("nose", 0.5, 0.25, 0.9), ("left_wrist", 0.1, 0.5, 0.2)])])),
+            faces: Mutex::new(None),
         })
     }
 
@@ -84,6 +89,26 @@ impl Drop for FakePose {
     }
 }
 
+struct FakeFaces {
+    log: Arc<Mutex<Log>>,
+    detect: FaceDetect,
+}
+
+impl FaceModel for FakeFaces {
+    fn detect(&mut self, frame: &Rgb, _ts: i64) -> Result<Vec<Face>, VisionError> {
+        self.log.lock().unwrap().faced.push((frame.w, frame.h));
+        Ok((self.detect)())
+    }
+}
+
+impl Drop for FakeFaces {
+    fn drop(&mut self) {
+        if let Ok(mut log) = self.log.lock() {
+            log.closed.push("faces");
+        }
+    }
+}
+
 impl Backend for Fake {
     fn version(&self) -> String {
         "fake".into()
@@ -98,6 +123,11 @@ impl Backend for Fake {
     fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
         self.log.lock().unwrap().made.push("pose");
         Ok(Box::new(FakePose { log: self.log.clone(), detect: self.detect.lock().unwrap().clone() }))
+    }
+    fn faces(&self) -> Result<Box<dyn FaceModel>, VisionError> {
+        self.log.lock().unwrap().made.push("faces");
+        let detect = self.faces.lock().unwrap().clone().ok_or_else(|| VisionError::new("FileNotFoundError", "no face model in the pack"))?;
+        Ok(Box::new(FakeFaces { log: self.log.clone(), detect }))
     }
 }
 
@@ -1722,4 +1752,136 @@ fn a_mask_after_the_view_turned_is_stamped_with_the_frame_it_was_run_for() {
         assert_eq!(ask(7).seq, 7, "waiting {waiting}");
         assert_eq!(ask(8).seq, 7, "waiting {waiting}");
     }
+}
+
+// ── Following faces ─────────────────────────────────────────────────────
+
+fn a_face() -> Face {
+    Face { area: (0.45, 0.2, 0.55, 0.38), right_eye: (0.48, 0.27), left_eye: (0.52, 0.27), nose: (0.5, 0.3), right_ear: (0.46, 0.28), left_ear: (0.54, 0.28), score: 0.9 }
+}
+
+/// A ready vision whose pack has a face finder that always sees one face.
+fn faces_ready() -> Ready {
+    let r = ready();
+    *r.backend.faces.lock().unwrap() = Some(Arc::new(|| vec![a_face()]));
+    r
+}
+
+/// Feeds frames one at a time, each once the one before has been answered, with the people clock moved past the cadence in between.
+fn feed_answered(r: &Ready, n: usize) {
+    let frame = Rgb::filled(1280, 720, 0);
+    for i in 0..n {
+        feed(&r.v, "a", &frame);
+        wait(|| r.people.lock().unwrap().len() > i);
+        let s = sv(&r.v, "a");
+        let mut p = s.people.lock().unwrap();
+        (p.at, p.probed) = (0.0, 0.0);
+    }
+}
+
+#[test]
+fn faces_are_followed_only_while_effects_are_lighter_and_every_owner_needs_only_heads() {
+    let r = faces_ready();
+    r.v.want_people("Auto framing", true);
+    r.v.want_heads("Auto framing", true);
+    assert!(!r.v.following_heads(), "full quality follows whole bodies");
+    r.v.set_power_saving(true);
+    assert!(r.v.following_heads());
+    r.v.want_people("Fun pack", true);
+    assert!(!r.v.following_heads(), "another owner needs whole bodies");
+    r.v.want_people("Fun pack", false);
+    assert!(r.v.following_heads());
+    r.v.inner.effort.allow_heads(false);
+    assert!(!r.v.following_heads(), "switched off, or kept off for this run");
+    r.v.inner.effort.allow_heads(true);
+    r.v.want_heads("Auto framing", false);
+    assert!(!r.v.following_heads(), "Waist, Body or Show hands");
+    r.v.want_heads("Auto framing", true);
+    r.v.want_people("Auto framing", false);
+    r.v.want_people("Auto framing", true);
+    assert!(!r.v.following_heads(), "asking for people again starts from whole bodies");
+}
+
+#[test]
+fn following_faces_runs_the_face_finder_and_checks_the_body_once_a_second() {
+    let r = faces_ready();
+    r.v.set_power_saving(true);
+    r.v.want_people("Auto framing", true);
+    r.v.want_heads("Auto framing", true);
+    feed_answered(&r, 3);
+    let log = r.backend.log.lock().unwrap();
+    assert_eq!(log.faced.len(), 3);
+    // The first frame checks the body, and the next is a second away
+    assert_eq!(log.posed.len(), 1);
+    drop(log);
+    let people = r.people.lock().unwrap();
+    let (_, last) = people.last().unwrap();
+    assert!(last[0].point("left_shoulder", 0.5).is_some(), "a face is a person with shoulders");
+    assert!(r.v.inner.effort.heads());
+    drop(people);
+    assert!(r.v.diagnostics()[0].1.contains("following faces"));
+}
+
+#[test]
+fn faces_cost_less_than_bodies_at_every_level_that_follows_them() {
+    // A face is about a tenth of a pose (1.2 against 13 ms on the same picture), and the body is checked once a second
+    for level in 0..=MOST {
+        let c = cadence(level);
+        let Some(faces) = c.faces else {
+            assert_eq!(level, FULL, "only full quality never follows faces");
+            continue;
+        };
+        let (pose_ms, face_ms) = (13.2, 1.24);
+        let bodies = pose_ms / c.people.moving;
+        let by_faces = face_ms / faces.moving + pose_ms / crate::heads::BODY_CHECK_S;
+        assert!(by_faces < bodies / 2.0, "level {level}: {by_faces:.0} against {bodies:.0} ms a second");
+        assert!(faces.moving <= c.people.moving, "level {level}: faces are looked for at least as often as bodies");
+        let lighter = cadence(level + 1).faces.filter(|_| level < MOST);
+        assert!(lighter.is_none_or(|l| l.moving >= faces.moving && l.still >= faces.still), "level {level}: the next level looks for faces no more often");
+    }
+}
+
+#[test]
+fn full_quality_follows_whole_bodies_even_when_heads_are_enough() {
+    let r = faces_ready();
+    r.v.want_people("Auto framing", true);
+    r.v.want_heads("Auto framing", true);
+    feed_answered(&r, 2);
+    let log = r.backend.log.lock().unwrap();
+    assert_eq!((log.faced.len(), log.posed.len()), (0, 2));
+    assert!(!log.made.contains(&"faces"), "the face finder isn't even made");
+    drop(log);
+    assert!(!r.v.inner.effort.heads());
+}
+
+#[test]
+fn a_pack_without_a_face_finder_follows_whole_bodies() {
+    let r = ready();
+    r.v.set_power_saving(true);
+    r.v.want_people("Auto framing", true);
+    r.v.want_heads("Auto framing", true);
+    assert!(r.v.following_heads(), "not known until the face finder is asked for");
+    feed_answered(&r, 2);
+    let log = r.backend.log.lock().unwrap();
+    assert_eq!((log.faced.len(), log.posed.len()), (0, 2));
+    drop(log);
+    assert!(!r.v.following_heads());
+    assert!(!r.v.inner.effort.heads());
+    // Asked once, not on every frame
+    assert_eq!(r.backend.log.lock().unwrap().made.iter().filter(|m| **m == "faces").count(), 1);
+}
+
+#[test]
+fn faces_are_looked_for_at_their_own_pace() {
+    let r = faces_ready();
+    r.v.set_power_saving(true);
+    r.v.want_people("x", true);
+    r.v.want_heads("x", true);
+    r.v.inner.hold_people.store(true, Ordering::SeqCst);
+    let faces = cadence(1).faces.unwrap();
+    let moving: Vec<Rgb> = (0..3).map(|i| with_arm(&Rgb::filled(1280, 720, 80), (400, 700), (100 * i, 100 * i + 300), 200)).collect();
+    // A face gap after the last is due, which is sooner than level 1 looks for bodies
+    assert!(faces.moving + TICK < cadence(1).people.moving);
+    let sent = sent_each(&r, &[(&moving[0], faces.moving), (&moving[1], 0.0), (&moving[2], 0.0)]);
+    assert_eq!(sent, [true, true, false]);
 }

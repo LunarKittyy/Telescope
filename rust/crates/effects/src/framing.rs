@@ -566,6 +566,8 @@ pub struct FramingPlugin {
     chased_at: Option<f64>,
     /// What the Framing bubble last showed: the part of the stand-in scene, so it is only redrawn when it moves
     peek_shown: Option<[f64; 4]>,
+    /// What the vision service was last told about whether faces are enough (None: nothing since people were last asked for).
+    told_heads: Option<bool>,
     /// set_config has no host: taking the view and the card's update wait for the next hook that has one.
     pending: bool,
     /// Settings that switched it off came in before that hook, as a device change's defaults do: it goes through off first.
@@ -623,6 +625,7 @@ impl FramingPlugin {
             chasing: None,
             chased_at: None,
             peek_shown: None,
+            told_heads: None,
             pending: false,
             cycle: false,
             clock: Box::new(clock),
@@ -721,6 +724,7 @@ impl FramingPlugin {
             }
             self.steering = true;
             host.want_people(TITLE, true);
+            self.told_heads = None;
             (self.spring, self.goal, self.smooth) = (None, None, None);
             self.room_state.reset();
             self.ticked_at = None;
@@ -730,6 +734,7 @@ impl FramingPlugin {
             self.last_box = None;
             host.cancel_schedule(T_TICK);
             host.want_people(TITLE, false);
+            self.told_heads = None;
             host.release_view(TITLE);
             self.people.clear();
             self.forget_group();
@@ -742,6 +747,20 @@ impl FramingPlugin {
             self.show_following(host);
         }
         self.refresh_status(host, self.switch, String::new());
+    }
+
+    /// Faces with shoulders are enough at Head and Chest without Show hands or one person picked (no hips or hands in a face, and bodies tell people apart better).
+    fn heads_enough(&self) -> bool {
+        self.steering && self.framing <= FRAMING_STEPS && !self.hand && self.followed.is_none()
+    }
+
+    /// Tells the vision service when heads_enough changed.
+    fn sync_heads(&mut self, host: &mut dyn Host) {
+        let enough = self.heads_enough();
+        if self.steering && self.told_heads != Some(enough) {
+            self.told_heads = Some(enough);
+            host.want_heads(TITLE, enough);
+        }
     }
 
     /// The Framing bubble came up or went down: while it is up its crop follows the slider, and nothing runs while it is down.
@@ -1229,6 +1248,7 @@ impl Plugin for FramingPlugin {
             }
             _ => {}
         }
+        self.sync_heads(host);
     }
 
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
@@ -1305,6 +1325,7 @@ impl Plugin for FramingPlugin {
             }
             _ => {}
         }
+        self.sync_heads(host);
     }
 
     fn actions(&mut self) -> Vec<ActionSpec> {
@@ -1326,7 +1347,7 @@ impl Plugin for FramingPlugin {
         if !self.paired.on() {
             return None;
         }
-        match id {
+        let said = match id {
             "framing.on" => {
                 let want = actions::toggle_wanted(params, self.switch, &mut self.held);
                 if want != self.switch {
@@ -1345,7 +1366,9 @@ impl Plugin for FramingPlugin {
                 Some(actions::slider_text(&tr(SPEED_LABEL), &self.speed_text()))
             }
             _ => None,
-        }
+        };
+        self.sync_heads(host);
+        said
     }
 
     fn release_action(&mut self, host: &mut dyn Host, id: &str, params: &Value) {
@@ -1357,6 +1380,7 @@ impl Plugin for FramingPlugin {
                 self.switched_by_hand(host, before);
             }
         }
+        self.sync_heads(host);
     }
 
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
@@ -1388,6 +1412,7 @@ impl Plugin for FramingPlugin {
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         let done = self.set_config(cfg);
         self.catch_up(host);
+        self.sync_heads(host);
         done
     }
 

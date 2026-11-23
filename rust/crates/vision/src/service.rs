@@ -4,8 +4,10 @@
 //! picture and never over MASK_MAX_AGE_S behind (past that a step gets None). People come from another such thread, about 12 times a second
 //! while something moves and 3 while nothing does. The high quality cutout (matting) is a second model behind the same kind of mask thread, on
 //! a stream key of its own: it only ever stands in for the normal mask when it has one in time, and the normal one is what a frame step
-//! gets while it's missing, loading, failed or late.
+//! gets while it's missing, loading, failed or late. While the effects are lighter and every owner only needs heads (want_heads), people are
+//! followed by their faces (heads::Heads), with the pose model checking once a second and taking over whenever faces don't fit.
 
+use crate::heads::Heads;
 use crate::ops::{add_weighted, firm_mask, mask_resized, model_input, people_size, turned, Motion, Rgb, MODEL_SIZE};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -52,6 +54,8 @@ pub struct Cadence {
     /// The high quality cutout; None: it doesn't run, and the normal mask stands in.
     pub cutout: Option<Gaps>,
     pub people: Gaps,
+    /// How often people are looked for while they are followed by their faces; None: never by faces, the pose model does it all.
+    pub faces: Option<Gaps>,
 }
 
 const fn gaps(moving: f64, still: f64) -> Gaps {
@@ -66,13 +70,13 @@ const fn early(gap: f64) -> f64 {
 /// The cadence of each effort level (core::effort), which only says when the models run and changes nothing about what they work out.
 pub const CADENCE: [Cadence; MOST as usize + 1] = [
     // 0: full, a mask for every frame that moves, people about 12 times a second
-    Cadence { mask: gaps(0.0, MASK_STILL_EVERY_S), big_move: Some(0.0), cutout: Some(gaps(0.0, CUTOUT_STILL_EVERY_S)), people: gaps(PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S) },
-    // 1: what power-saving effects does, the mask 10 times a second (a big move sooner, not within 25 ms of the last), the cutout 4, people 6
-    Cadence { mask: gaps(early(0.1), early(0.1)), big_move: Some(0.025), cutout: Some(gaps(CUTOUT_STILL_EVERY_S, CUTOUT_STILL_EVERY_S)), people: gaps(0.16, 0.5) },
-    // 2: the mask 6 times a second (a big move not within 0.1 s of the last), the cutout 2, people 4
-    Cadence { mask: gaps(early(0.15), early(0.15)), big_move: Some(early(0.1)), cutout: Some(gaps(0.5, 0.5)), people: gaps(0.25, 0.66) },
-    // 3: the mask 5 times a second whatever moves, no cutout, people 3
-    Cadence { mask: gaps(early(0.2), early(0.2)), big_move: None, cutout: None, people: gaps(0.33, 1.0) },
+    Cadence { mask: gaps(0.0, MASK_STILL_EVERY_S), big_move: Some(0.0), cutout: Some(gaps(0.0, CUTOUT_STILL_EVERY_S)), people: gaps(PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S), faces: None },
+    // 1: what power-saving effects does, the mask 10 times a second (a big move sooner, not within 25 ms of the last), the cutout 4, people 6 or faces 12 (a face costs a tenth of a pose)
+    Cadence { mask: gaps(early(0.1), early(0.1)), big_move: Some(0.025), cutout: Some(gaps(CUTOUT_STILL_EVERY_S, CUTOUT_STILL_EVERY_S)), people: gaps(0.16, 0.5), faces: Some(gaps(PEOPLE_EVERY_S, PEOPLE_STILL_EVERY_S)) },
+    // 2: the mask 6 times a second (a big move not within 0.1 s of the last), the cutout 2, people 4 or faces 8
+    Cadence { mask: gaps(early(0.15), early(0.15)), big_move: Some(early(0.1)), cutout: Some(gaps(0.5, 0.5)), people: gaps(0.25, 0.66), faces: Some(gaps(0.125, 0.5)) },
+    // 3: the mask 5 times a second whatever moves, no cutout, people 3 or faces 5
+    Cadence { mask: gaps(early(0.2), early(0.2)), big_move: None, cutout: None, people: gaps(0.33, 1.0), faces: Some(gaps(0.2, 0.66)) },
 ];
 
 /// The cadence for a level, which a level past the lightest has as the lightest.
@@ -151,11 +155,33 @@ pub trait PoseModel: Send {
     fn detect(&mut self, frame: &Rgb, ts_ms: i64) -> Result<Vec<Person>, VisionError>;
 }
 
+/// A face the face finder saw, in 0..1 of the picture it was given: its box and the head points the pose model names the same way.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Face {
+    /// (x0, y0, x1, y1)
+    pub area: (f64, f64, f64, f64),
+    pub right_eye: (f64, f64),
+    pub left_eye: (f64, f64),
+    pub nose: (f64, f64),
+    pub right_ear: (f64, f64),
+    pub left_ear: (f64, f64),
+    pub score: f64,
+}
+
+/// The face finder (one stream's). Closed when dropped.
+pub trait FaceModel: Send {
+    fn detect(&mut self, frame: &Rgb, ts_ms: i64) -> Result<Vec<Face>, VisionError>;
+}
+
 /// Makes the models (MediaPipeBackend).
 pub trait Backend: Send + Sync {
     fn version(&self) -> String;
     fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError>;
     fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError>;
+    /// The face finder; an error where the pack has none (one from before it), and the pose model does it all.
+    fn faces(&self) -> Result<Box<dyn FaceModel>, VisionError> {
+        Err(VisionError::new("NotImplementedError", "no face finder"))
+    }
 }
 
 pub type Find = Box<dyn Fn() -> Result<Arc<dyn Backend>, LoadError> + Send + Sync>;
@@ -441,6 +467,10 @@ pub(crate) struct Inner {
     pub(crate) looked_at: Mutex<f64>,
     pub(crate) streams: Mutex<HashMap<String, Arc<StreamVision>>>,
     people_wanted: Mutex<BTreeSet<String>>,
+    /// The owners in people_wanted that only need heads (want_heads).
+    heads_only: Mutex<BTreeSet<String>>,
+    /// The pack loaded has no face finder, so people are always followed whole; looked at again when a pack is downloaded.
+    pub(crate) faceless: AtomicBool,
     ms: Mutex<HashMap<&'static str, Vec<f64>>>,
     tidier: Mutex<Option<Sender<()>>>,
     closed: AtomicBool,
@@ -499,6 +529,8 @@ impl Vision {
             looked_at: Mutex::new(-LOOK_AGAIN_S),
             streams: Mutex::new(HashMap::new()),
             people_wanted: Mutex::new(BTreeSet::new()),
+            heads_only: Mutex::new(BTreeSet::new()),
+            faceless: AtomicBool::new(false),
             ms: Mutex::new(HashMap::new()),
             tidier: Mutex::new(None),
             closed: AtomicBool::new(false),
@@ -992,7 +1024,25 @@ impl Vision {
             self.load();
         } else {
             self.inner.people_wanted.lock().unwrap().remove(owner);
+            self.inner.heads_only.lock().unwrap().remove(owner);
         }
+    }
+
+    /// Whether the owner's people are enough as faces with shoulders; an owner that wants people and never says so needs them whole.
+    pub fn want_heads(&self, owner: &str, on: bool) {
+        let mut heads = self.inner.heads_only.lock().unwrap();
+        if on { heads.insert(owner.to_string()) } else { heads.remove(owner) };
+    }
+
+    /// People are followed by their faces now: every owner only needs heads, the effects are lighter, that is allowed and the pack has a face finder.
+    pub fn following_heads(&self) -> bool {
+        self.inner.following_heads()
+    }
+
+    /// How often people are looked for now.
+    fn people_gaps(&self) -> Gaps {
+        let cadence = self.cadence();
+        cadence.faces.filter(|_| self.following_heads()).unwrap_or(cadence.people)
     }
 
     pub fn wants_people(&self) -> bool {
@@ -1010,7 +1060,7 @@ impl Vision {
         }
         let sv = self.stream(key);
         let p = sv.people.lock().unwrap();
-        let every = self.cadence().people.moving;
+        let every = self.people_gaps().moving;
         let now = self.now();
         now - p.at >= every && now - p.probed >= every
     }
@@ -1031,7 +1081,7 @@ impl Vision {
         let now = self.now();
         let mut p = sv.people.lock().unwrap();
         p.fed = now;
-        let Gaps { moving: every, still: still_every } = self.cadence().people;
+        let Gaps { moving: every, still: still_every } = self.people_gaps();
         if now - p.at < every || now - p.probed < every {
             return;
         }
@@ -1192,6 +1242,9 @@ impl Vision {
         if self.power_saving() {
             line += ", power saving";
         }
+        if self.inner.effort.heads() {
+            line += ", following faces";
+        }
         let level = self.inner.effort.level();
         if level > self.inner.effort.floor() {
             line += &format!(", effects stepped down to level {level}");
@@ -1217,6 +1270,18 @@ impl Vision {
 }
 
 impl Inner {
+    /// Whether everyone that wants people only needs their heads.
+    fn heads_enough(&self) -> bool {
+        let wanted = self.people_wanted.lock().unwrap();
+        let heads = self.heads_only.lock().unwrap();
+        !wanted.is_empty() && wanted.iter().all(|o| heads.contains(o))
+    }
+
+    fn following_heads(&self) -> bool {
+        let level = self.effort.level();
+        cadence(level).faces.is_some() && self.effort.heads_allowed() && !self.faceless.load(Ordering::SeqCst) && self.heads_enough()
+    }
+
     fn set_state(&self, state: &'static str) {
         let _held = self.callback_lock.lock().unwrap();
         if self.closed.load(Ordering::SeqCst) {
@@ -1289,6 +1354,7 @@ impl Inner {
         match (self.find)() {
             Ok(backend) => {
                 log::info!("MediaPipe {} loaded", backend.version());
+                self.faceless.store(false, Ordering::SeqCst);
                 *self.backend.lock().unwrap() = Some(backend);
                 self.set_state(READY);
             }
@@ -1412,6 +1478,8 @@ fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<
         }
     };
     let mut clock = Timestamps::new();
+    // The face finder, made the first time faces are followed (None in a pack without one, and the pose model does it all)
+    let (mut faces, mut face_clock, mut heads, mut by_faces) = (None::<Box<dyn FaceModel>>, Timestamps::new(), Heads::new(), false);
     let done = || sv.stopping.load(Ordering::SeqCst) || quit.load(Ordering::SeqCst);
     while !done() {
         let waiting = {
@@ -1428,8 +1496,49 @@ fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<
         let Some((frame, upright)) = waiting else { continue };
         let t0 = std::time::Instant::now();
         let prepared = if upright.turn == Default::default() { frame } else { turned(&frame, upright.turn) };
-        let people = match model.detect(&prepared, clock.next()) {
-            Ok(people) => people.iter().map(|p| p.mapped(&|x, y| upright.to_shown(x, y))).collect::<Vec<Person>>(),
+        let follow_faces = inner.following_heads() && (faces.is_some() || match backend.faces() {
+            Ok(made) => {
+                faces = Some(made);
+                true
+            }
+            Err(e) => {
+                log::info!("Following whole bodies only, the vision pack has no face finder: {}: {}", e.kind, e.message);
+                inner.faceless.store(true, Ordering::SeqCst);
+                false
+            }
+        });
+        if follow_faces != by_faces {
+            by_faces = follow_faces;
+            log::info!("People on {key} are followed by {}", if follow_faces { "their faces" } else { "their whole bodies" });
+            if follow_faces {
+                heads.restart();
+            }
+        }
+        let found = match faces.as_mut().filter(|_| follow_faces) {
+            Some(finder) => match finder.detect(&prepared, face_clock.next()) {
+                Ok(found) => Some(found),
+                Err(e) => {
+                    log::warn!("Looking for faces failed; trying the next frame: {}: {}", e.kind, e.message);
+                    continue;
+                }
+            },
+            None => None,
+        };
+        let seen = match found {
+            Some(found) => {
+                inner.effort.note_heads();
+                let aspect = prepared.w as f64 / prepared.h.max(1) as f64;
+                let gap = cadence(inner.effort.level()).people.moving;
+                heads.people(&found, aspect, monotonic(), gap, &mut || model.detect(&prepared, clock.next()))
+            }
+            None => model.detect(&prepared, clock.next()).map(Some),
+        };
+        let people = match seen {
+            Ok(None) => {
+                Vision { inner: inner.clone() }.note("people", t0);
+                continue;
+            }
+            Ok(Some(people)) => people.iter().map(|p| p.mapped(&|x, y| upright.to_shown(x, y))).collect::<Vec<Person>>(),
             Err(e) => {
                 log::warn!("Looking for people failed; trying the next frame: {}: {}", e.kind, e.message);
                 continue;

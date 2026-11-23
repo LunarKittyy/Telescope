@@ -10,6 +10,8 @@ use telescope_core::i18n::tr;
 
 pub const SEGMENTER_MODEL: &str = "selfie_segmenter_landscape.tflite";
 pub const POSE_MODEL: &str = "pose_landmarker_lite.task";
+/// The face finder Auto framing follows faces with while effects are lighter; a pack from before it has none and the pose model does it all.
+pub const FACE_MODEL: &str = "blaze_face_short_range.tflite";
 /// Written last, holding the pack's id: a folder without it is a download that didn't finish.
 pub const DONE: &str = ".verified";
 /// How long connecting, the server's answer and each wait for more bytes may take: it bounds a dead connection, never the whole download.
@@ -98,6 +100,8 @@ pub struct PackInfo {
     /// The full sha256 of the pack's files (tree_hash), None without an entry.
     pub id: Option<String>,
     pub size: u64,
+    /// The ids of older packs this version still runs, newest first, so an update doesn't make everyone download again (they may lack a newer model).
+    pub older: Vec<String>,
 }
 
 impl PackInfo {
@@ -124,6 +128,7 @@ impl PackInfo {
             key: key.map(str::to_string),
             id: entry.and_then(|e| e["id"].as_str()).map(str::to_string),
             size: entry.and_then(|e| e.get("size")).and_then(Value::as_u64).unwrap_or(0),
+            older: entry.and_then(|e| e.get("older")).and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default(),
         }
     }
 
@@ -146,7 +151,13 @@ impl PackInfo {
         std::fs::read_to_string(vision_dir.join(&pid).join(DONE)).is_ok_and(|t| t.trim() == pid)
     }
 
-    /// The pack this version uses: site/ holds MediaPipe, models/ the two models.
+    /// The pack to load: this version's when it is unpacked and checked, else the newest older one this version still runs.
+    pub fn usable(&self, vision_dir: &Path) -> Option<PackInfo> {
+        let ids = self.id.iter().chain(&self.older);
+        ids.map(|id| PackInfo { id: Some(id.clone()), older: Vec::new(), ..self.clone() }).find(|info| info.installed(vision_dir))
+    }
+
+    /// The pack this version uses: site/ holds MediaPipe, models/ its models.
     pub fn folder(&self, vision_dir: &Path) -> PathBuf {
         vision_dir.join(self.pack_id().unwrap_or_else(|| "none".into()))
     }

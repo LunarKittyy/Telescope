@@ -398,3 +398,23 @@ fn a_pack_zipped_with_lzma_installs() {
 fn a_pack_zipped_with_deflate_from_an_older_release_still_installs() {
     installs_from_python_zip(include_bytes!("../testdata/deflate.zip"), zip::CompressionMethod::Deflated);
 }
+
+#[test]
+fn older_pack_ids_come_from_the_platforms_entry() {
+    let info = PackInfo::from_json(&serde_json::json!({"linux": {"id": "a", "size": 1, "older": ["b", 3, "c"]}, "windows": {"id": "d"}}), Some("linux"));
+    assert_eq!(info.older, ["b", "c"]);
+    assert!(PackInfo::from_json(&serde_json::json!({"windows": {"id": "d"}}), Some("windows")).older.is_empty());
+}
+
+#[test]
+fn this_versions_pack_comes_before_an_older_one() {
+    let f = Fixture::new();
+    f.download().unwrap();
+    let older = f.tree.clone();
+    let both = PackInfo { older: vec![older.clone()], ..f.info.clone() };
+    assert_eq!(both.usable(&f.folder).and_then(|p| p.id), Some(older), "only the one there");
+    let mut ahead = both.clone();
+    ahead.id = Some("e".repeat(64));
+    assert_eq!(ahead.usable(&f.folder).and_then(|p| p.id), Some(f.tree.clone()));
+    assert!(PackInfo { older: Vec::new(), ..ahead }.usable(&f.folder).is_none());
+}

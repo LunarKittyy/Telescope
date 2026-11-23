@@ -208,6 +208,8 @@ pub trait VisionService: Send + Sync {
     }
     /// While any owner wants people, fed frames are looked at and people_seen and people_tracked follow.
     fn want_people(&self, owner: &str, on: bool);
+    /// The owner's people are enough as faces with shoulders (see HostVision::want_heads). The default ignores it, so people stay whole.
+    fn want_heads(&self, _owner: &str, _on: bool) {}
     fn wants_people(&self) -> bool;
     /// Whether feed_raw would look at this stream's next frame now: a caller that has to make the frame's pixels first (off a card) only does when this is true. The default always looks.
     fn people_due(&self, _source_id: &str) -> bool {

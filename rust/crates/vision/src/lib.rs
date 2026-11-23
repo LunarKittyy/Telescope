@@ -2,6 +2,7 @@
 //! the picture work around the models (ops) and the per-stream scheduling (service). VisionHost puts them together as core's
 //! VisionService, adding the steady people tracking app.py does (core::people) and the app's one download (VisionDownload).
 
+pub mod heads;
 pub mod matting;
 pub mod mediapipe;
 pub mod ops;
@@ -179,13 +180,13 @@ fn damaged(folder: &Path, what: &str) -> LoadError {
     LoadError::Missing(format!("the {what} in {} was damaged", folder.display()))
 }
 
-/// The pack's backend from `load`: the marker only says the files matched once, and the library is native code that runs as the user.
+/// The backend from `load` for this version's pack or an older one it still runs, hashed again first: the marker only says the files matched once, and the library is native code that runs as the user.
 fn find_pack(dir: &Path, info: &PackInfo, load: &dyn Fn(&Path) -> Result<Arc<dyn Backend>, LoadError>) -> Result<Arc<dyn Backend>, LoadError> {
+    let Some(info) = info.usable(dir) else {
+        return Err(LoadError::Missing(format!("no vision pack in {}", info.folder(dir).display())));
+    };
     let folder = info.folder(dir);
-    if !info.installed(dir) {
-        return Err(LoadError::Missing(format!("no vision pack in {}", folder.display())));
-    }
-    match whole(&folder, info) {
+    match whole(&folder, &info) {
         Some(true) => load(&folder),
         Some(false) => Err(damaged(&folder, "vision pack")),
         None => Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack couldn't be checked, so it wasn't loaded"))),
@@ -212,7 +213,7 @@ impl VisionHost {
         let (find_dir, find_info) = (dir.clone(), info.clone());
         let find: Find = Box::new(move || find_pack(&find_dir, &find_info, &|folder| mediapipe::MediaPipe::load(folder).map(|b| Arc::new(b) as Arc<dyn Backend>)));
         let (there_dir, there_info) = (dir.clone(), info.clone());
-        let host = VisionHost::with(find, Some(Box::new(move || there_info.installed(&there_dir))), dir, info, Box::new(pack::web));
+        let host = VisionHost::with(find, Some(Box::new(move || there_info.usable(&there_dir).is_some())), dir, info, Box::new(pack::web));
         let (cutout_dir, cutout_info) = (pack::matting_dir(), PackInfo::current_matting());
         let (find_dir, find_info) = (cutout_dir.clone(), cutout_info.clone());
         let find: Find = Box::new(move || find_matting(&find_dir, &find_info));
@@ -441,6 +442,10 @@ impl VisionService for VisionHost {
         self.shared.vision.want_people(owner, on);
     }
 
+    fn want_heads(&self, owner: &str, on: bool) {
+        self.shared.vision.want_heads(owner, on);
+    }
+
     fn wants_people(&self) -> bool {
         self.shared.vision.wants_people()
     }
@@ -546,7 +551,7 @@ impl VisionService for VisionHost {
         let d = self.shared.download.lock().unwrap();
         let size = self.shared.info.download_size();
         VisionPack {
-            ready: self.shared.info.installed(&self.shared.dir),
+            ready: self.shared.info.usable(&self.shared.dir).is_some(),
             available: self.shared.info.asset_name().is_some(),
             downloading: d.running,
             size_mb: ((size as f64 / 1e6).round_ties_even() as u64).max(1),

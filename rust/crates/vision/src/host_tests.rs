@@ -997,3 +997,34 @@ fn a_normal_mask_late_from_a_slow_open_does_not_lead_a_cutout_of_a_newer_frame()
     let normal = MaskSnapshot { mask: Arc::new(vec![2]), at: now - 0.01, frame_at: now - 0.9, seq: 8 };
     assert_eq!(*preferred_mask(Some(hq), Some(normal), false).unwrap().mask, [1]);
 }
+
+#[test]
+fn a_pack_from_before_the_face_finder_still_loads_after_an_update() {
+    let (dir, old, _) = installed_pack("vision-older");
+    let newer = PackInfo::from_json(&serde_json::json!({"linux": {"id": "f".repeat(64), "size": 1, "older": [old.id.clone().unwrap()]}}), Some("linux"));
+    assert!(!newer.installed(&dir), "this version's own pack isn't there");
+    assert_eq!(newer.usable(&dir).and_then(|p| p.id), old.id, "the older one it still runs is");
+    let loaded = std::sync::Mutex::new(None);
+    let load = |folder: &Path| -> Result<Arc<dyn Backend>, LoadError> {
+        *loaded.lock().unwrap() = Some(folder.to_path_buf());
+        Ok(Fake::new() as Arc<dyn Backend>)
+    };
+    assert!(find_pack(&dir, &newer, &load).is_ok());
+    assert_eq!(loaded.lock().unwrap().as_deref(), Some(old.folder(&dir).as_path()));
+    // Without it in the list, it's a pack this version can't run
+    let unrelated = PackInfo::from_json(&serde_json::json!({"linux": {"id": "f".repeat(64), "size": 1}}), Some("linux"));
+    assert!(unrelated.usable(&dir).is_none());
+    assert!(matches!(find_pack(&dir, &unrelated, &load), Err(LoadError::Missing(_))));
+}
+
+#[test]
+fn the_card_says_ready_with_an_older_pack_this_version_still_runs() {
+    let (dir, old, _) = installed_pack("vision-older-card");
+    let newer = PackInfo::from_json(&serde_json::json!({"linux": {"id": "f".repeat(64), "size": 1, "older": [old.id.clone().unwrap()]}}), Some("linux"));
+    let (find_dir, find_info) = (dir.clone(), newer.clone());
+    let find: crate::service::Find = Box::new(move || find_pack(&find_dir, &find_info, &|_| Ok(Fake::new() as Arc<dyn Backend>)));
+    let h = VisionHost::with(find, None, dir, newer, Box::new(|_, _| Err(io::Error::other("offline"))));
+    assert!(h.pack().ready);
+    h.load();
+    wait(|| h.state() == READY);
+}
