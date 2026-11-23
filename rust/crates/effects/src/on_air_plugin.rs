@@ -437,6 +437,11 @@ impl OnAirPlugin {
             host.cancel_schedule(T_URL);
         } else if moved {
             // Not on each key: once the box has been quiet a moment, the new address gets what's true now
+            if self.retrying {
+                // A retry waiting would send to the address as typed so far, and the quiet timer sends again
+                self.retrying = false;
+                host.cancel_schedule(T_RETRY);
+            }
             host.schedule(URL_QUIET_MS, T_URL);
         }
         host.schedule_save();

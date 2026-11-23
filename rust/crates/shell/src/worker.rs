@@ -24,6 +24,9 @@ const BURST_KEPT: usize = 3;
 pub const RECONNECT_DELAY: Duration = Duration::from_secs(3);
 /// Between tries after a stream drops mid-way, since a phone back on Wi-Fi answers within seconds.
 pub const DROP_RETRY_DELAY: Duration = Duration::from_secs(1);
+/// Stored in `sent_through` when the camera was parked: the reopened one starts counting from what is published by then.
+const CAUGHT_UP: u64 = u64::MAX;
+
 /// Tries a stream that dropped makes at DROP_RETRY_DELAY (about half a minute) before it calms down, and how many more at the next pace.
 const QUICK_TRIES: u32 = 30;
 const SLOW_TRIES: u32 = 90;
@@ -1679,7 +1682,10 @@ impl Shared {
         let mut shown: Option<Frame> = None;
         // How many frames had been published when the last one was sent, to count the ones skipped since: none yet for a first camera, whose first frame
         // passes over the ones that came in while it opened
-        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or(0);
+        let mut published_then = match self.sent_through.lock().unwrap().take() {
+            Some(CAUGHT_UP) => *self.published.lock().unwrap(), // after a park: what was published while the camera was let go isn't skipped
+            other => other.unwrap_or(0),
+        };
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -1843,9 +1849,8 @@ impl Shared {
             }
         }
         // A requested reopen takes frame periods too, so the count carries over unless the camera was let go on purpose
-        if !self.parked.load(Ordering::SeqCst) {
-            *self.sent_through.lock().unwrap() = Some(published_then);
-        }
+        let parked = self.parked.load(Ordering::SeqCst);
+        *self.sent_through.lock().unwrap() = Some(if parked { CAUGHT_UP } else { published_then });
         drop(cam);
         self.vcam_free.set();
         ok
@@ -5323,6 +5328,25 @@ mod tests {
         let published = *w.shared.published.lock().unwrap();
         assert_eq!(published, 60);
         assert_eq!((s.totals.delivered, s.drops.paced), (60, 0), "{s:?}");
+    }
+
+    #[test]
+    fn frames_published_while_the_camera_is_parked_are_not_counted_as_dropped_after() {
+        let steps: Vec<Step> = (0..150u32).flat_map(|i| [Step::Frame(10 + (i % 200) as u8), Step::Pause(Duration::from_millis(20))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let cams = Arc::new(Cams::default());
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: "park-test".into(), url: "https://127.0.0.1:40005/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) >= 20);
+        w.set_parked(true);
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) >= 100);
+        w.set_parked(false);
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 150);
+        std::thread::sleep(Duration::from_millis(600));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        let s = snap.sources.iter().find(|s| s.source_id == "park-test").expect("the stream is in the snapshot");
+        assert!(s.drops.paced < 10, "frames that came in while parked are not skipped ones: {s:?}");
     }
 
     #[test]
