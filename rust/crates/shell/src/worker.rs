@@ -13,9 +13,9 @@ use std::time::{Duration, Instant};
 use telescope_core::effort::Effort;
 use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
 use telescope_core::i18n::tr;
-use telescope_core::image::resize_linear_into;
+use telescope_core::image::{fit_box, resize_linear_into};
 use telescope_core::media::{Codec, DecodeOptions, Decoder, FeedEnd, FeedStopper, FramePipeline, FrameReader, FrameSlot,
-                            Media, Newest, PacketTap, StagedStep, VideoFeed};
+                            Media, Newest, PacketTap, PipelineFrame, StagedStep, VideoFeed};
 use telescope_core::output::{Outputs, VideoOutput};
 use telescope_core::stats::{DropReason, Hub, SourceStats};
 
@@ -279,9 +279,7 @@ pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     if (frame.width, frame.height) == (width, height) || frame.format != PixelFormat::I420 {
         return frame.clone();
     }
-    let scale = (width as f64 / frame.width as f64).min(height as f64 / frame.height as f64);
-    let (nw, nh) = ((frame.width as f64 * scale) as u32, (frame.height as f64 * scale) as u32);
-    let (x, y) = ((width - nw.min(width)) / 2, (height - nh.min(height)) / 2);
+    let (x, y, nw, nh) = fit_box(frame.width, frame.height, width, height);
     let mut out = vec![0u8; PixelFormat::I420.size(width, height)];
     let (sy, su, sv) = frame.i420_planes().unwrap();
     let (cw, ch) = (width.div_ceil(2) as usize, height.div_ceil(2) as usize);
@@ -1634,6 +1632,16 @@ impl Shared {
         Some(cap)
     }
 
+    /// src fitted to the camera's size `want`. A frame that came off the card already fitted (card, with its number) is fitted there again from
+    /// the whole picture when the size changed since, so it isn't scaled twice.
+    fn fit_for_camera(&self, src: &Frame, card: Option<&(u64, PipelineFrame)>, want: (u32, u32)) -> Frame {
+        if let Some((_, picture)) = card.filter(|(number, _)| *number == src.number && (src.width, src.height) != want) {
+            return picture.land_fitted_until(want.0, want.1, &|| self.stopped())
+                .unwrap_or_else(|| fit_frame(&picture.land_until(&|| self.stopped()).flattened(CAMERA_BACKGROUND), want.0, want.1));
+        }
+        fit_frame(&src.flattened(CAMERA_BACKGROUND), want.0, want.1)
+    }
+
     /// Open the virtual camera at the current size and fps and feed it until a stop or a restart. False if it failed.
     fn run_vcam(&self, reader_done: &Flag) -> bool {
         let Some((picture, _)) = self.slot.latest_picture() else { return false };
@@ -1677,6 +1685,10 @@ impl Shared {
         let mut hidings = self.hidings.load(Ordering::SeqCst);
         let mut urgent = false;
         let mut shown: Option<Frame> = None;
+        // The newest picture that came off the card already fitted to the camera's size, and its number, to fit it again at another size
+        let mut fitted_on_card: Option<(u64, PipelineFrame)> = None;
+        // Whether the last picture had to come off the card whole, which the stream then lands for the camera before it goes out
+        let mut lands_whole = false;
         // How many frames had been published when the last one was sent, to count the ones skipped since: none yet for a first camera, whose first frame
         // passes over the ones that came in while it opened
         let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or(0);
@@ -1702,9 +1714,22 @@ impl Shared {
                 let published = self.published.lock().unwrap();
                 (self.slot.latest_picture(), *published, self.hidings.load(Ordering::SeqCst))
             };
-            // The camera reads pixels, so the stream lands what it makes before it goes out; a picture that came before this was asked is landed here, with no lock held
-            self.slot.want_ram();
-            let latest = latest.filter(|(_, count)| *count != seen).map(|(picture, count)| (picture.land_until(&|| self.stopped()), count));
+            // The camera reads pixels. A card picture of another size than the camera's is fitted on the card and only the camera's size comes back; any other
+            // is landed whole, by the stream before it goes out once this has asked (one that came before that is landed here, with no lock held)
+            if lands_whole {
+                self.slot.want_ram();
+            }
+            let want_now = cam.fit_size().unwrap_or((cam_w, cam_h));
+            let latest = latest.filter(|(_, count)| *count != seen).map(|(picture, count)| match picture.land_fitted_until(want_now.0, want_now.1, &|| self.stopped()) {
+                Some(fitted) => {
+                    (fitted_on_card, lands_whole) = (Some((fitted.number, picture)), false);
+                    (fitted, count)
+                }
+                None => {
+                    (fitted_on_card, lands_whole) = (None, picture.picture().is_some());
+                    (picture.land_until(&|| self.stopped()), count)
+                }
+            });
             // The next frame sent is the hidden one: a camera that thins frames to its reader's rate must not drop it
             urgent |= forget_before_hiding(&mut queued, &mut hidings, hid);
             if let Some((src, count)) = latest.filter(|(_, count)| *count != seen) {
@@ -1740,7 +1765,7 @@ impl Shared {
                         // A frame a plugin replaced in the slot goes out again but isn't another one
                         let fresh = src.number != self.last_sent_number.load(Ordering::Relaxed);
                         watch.frame(telescope_core::time::monotonic_ns(), &context);
-                        let fit = fit_frame(&src.flattened(CAMERA_BACKGROUND), want.0, want.1);
+                        let fit = self.fit_for_camera(&src, fitted_on_card.as_ref(), want);
                         fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
                         fitted_to = want;
                         shown = Some(src.clone());
@@ -1749,7 +1774,7 @@ impl Shared {
                     None => {
                         let src = shown.clone().unwrap();
                         if want != fitted_to {
-                            let fit = fit_frame(&src.flattened(CAMERA_BACKGROUND), want.0, want.1);
+                            let fit = self.fit_for_camera(&src, fitted_on_card.as_ref(), want);
                             fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
                             fitted_to = want;
                         }
@@ -3831,6 +3856,107 @@ mod tests {
         assert!(wanted.iter().all(|landed| *landed), "a slot that wants pixels was handed pictures that had not landed: {wanted:?}");
         let unwanted = published_landed(false);
         assert!(unwanted.iter().all(|landed| !*landed), "a picture nobody reads from memory was read back: {unwanted:?}");
+    }
+
+    /// A picture on the card that fits itself to the camera there as grey 33, and counts how often it is landed whole.
+    struct FitsOnTheCard(Arc<AtomicUsize>);
+
+    impl telescope_core::media::CardPicture for FitsOnTheCard {
+        fn land(&self) -> Frame {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            grey(4, 2, 77)
+        }
+        fn landed(&self) -> Option<Frame> {
+            None
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn land_fitted(&self, width: u32, height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
+            Some(grey(width, height, 33))
+        }
+    }
+
+    /// Makes every picture on the card, as one the card can fit to the camera.
+    struct FittingCard(Arc<AtomicUsize>);
+
+    impl FramePipeline for FittingCard {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
+            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(FitsOnTheCard(self.0.clone()))))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn a_card_picture_of_another_size_reaches_the_camera_fitted_on_the_card_and_never_comes_down_whole() {
+        let cams = Arc::new(Cams::default());
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10), Step::Pause(Duration::from_millis(40)), Step::Frame(11), Step::Pause(Duration::from_millis(40)), Step::Frame(12), Step::Pause(Duration::from_secs(30))])]);
+        let whole = Arc::new(AtomicUsize::new(0));
+        let media = WithPipeline(Box::new({
+            let whole = whole.clone();
+            move || Box::new(FittingCard(whole.clone()))
+        }));
+        let events: Events = Arc::new(|_| {});
+        let setup = WorkerSetup { canvas: (Some(4), Some(4)), ..setup(opener) };
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(Arc::new(Mutex::new(None)), Arc::new(Mutex::new(Vec::new()))));
+        let w = StreamWorker::start(setup, Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| cams.frames.lock().unwrap().len() >= 3);
+        w.stop();
+        let sent: Vec<_> = cams.frames.lock().unwrap().iter().map(|f| (f.width, f.height, f.data[0])).collect();
+        assert!(sent.iter().all(|f| *f == (4, 4, 33)), "a frame reached the camera without the card's fit: {sent:?}");
+        assert_eq!(whole.load(Ordering::SeqCst), 0, "a picture the card fitted was read back whole as well");
+    }
+
+    /// Every other picture on the card (one the card fits to the camera) and the rest in memory at another size, as when the balance moves steps.
+    struct Alternating(Arc<AtomicUsize>, u64);
+
+    impl FramePipeline for Alternating {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
+            self.1 += 1;
+            if self.1.is_multiple_of(2) {
+                return grey(8, 2, 100).into();
+            }
+            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(FitsOnTheCard(self.0.clone()))))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn moving_between_the_card_and_memory_and_changing_size_sends_no_dark_frame() {
+        let cams = Arc::new(Cams::default());
+        let steps: Vec<Step> = (0..12u8).flat_map(|i| [Step::Frame(10 + i), Step::Pause(Duration::from_millis(40))]).chain([Step::Pause(Duration::from_secs(30))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let whole = Arc::new(AtomicUsize::new(0));
+        let media = WithPipeline(Box::new({
+            let whole = whole.clone();
+            move || Box::new(Alternating(whole.clone(), 0))
+        }));
+        let events: Events = Arc::new(|_| {});
+        let setup = WorkerSetup { canvas: (Some(4), Some(4)), ..setup(opener) };
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(Arc::new(Mutex::new(None)), Arc::new(Mutex::new(Vec::new()))));
+        let w = StreamWorker::start(setup, Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| cams.frames.lock().unwrap().len() >= 8);
+        w.stop();
+        let frames = cams.frames.lock().unwrap().clone();
+        for f in &frames {
+            assert_eq!((f.width, f.height), (4, 4));
+            let luma = &f.i420_planes().unwrap().0;
+            assert!(luma.iter().any(|&v| v == 33 || v == 100), "a frame went out without the picture: {luma:?}");
+        }
+        assert!(frames.iter().any(|f| f.data[0] == 33) && frames.iter().any(|f| f.i420_planes().unwrap().0.contains(&100)), "both kinds of picture went out");
+        assert_eq!(whole.load(Ordering::SeqCst), 0);
     }
 
     #[test]

@@ -1818,6 +1818,48 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_card_picture_fitted_to_the_camera_on_the_card_is_its_whole_landing_fitted_and_only_that_comes_down() {
+        use crate::transfers::measurement::measure;
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let mut pipeline = card_pipeline(Arc::new(gpu));
+        pipeline.set_steps(vec![shader(INVERT)]);
+        let mut source = grey(64, 36, 100);
+        Arc::make_mut(&mut source.data).iter_mut().enumerate().for_each(|(i, v)| *v = (i * 7 % 200 + 20) as u8);
+        source.number = 9;
+        let picture = pipeline.process_picture(source.clone(), &NoContext);
+        let (fitted, costs) = measure(|| picture.land_fitted_until(40, 40, &|| false).unwrap());
+        assert_eq!(costs.down, 1);
+        assert!(picture.landed().is_none(), "the whole picture stayed on the card");
+        assert_eq!((fitted.width, fitted.height, fitted.number), (40, 40, 9));
+        assert_eq!(fitted.data.as_slice(), gpu::cpu_fit(&picture.land(), 40, 40).as_slice());
+        // At the camera's own size there's nothing to fit, and a cut-out goes over the camera's background first, which the card doesn't do
+        assert!(picture.land_fitted_until(64, 36, &|| false).is_none());
+        let mut keep = shader(INVERT);
+        if let FrameStep::Shader(ref mut shader) = keep.step {
+            shader.keeps_geometry = true;
+        }
+        pipeline.set_steps(vec![keep]);
+        source.set_alpha(Arc::new(Alpha::new(64, 36, vec![128; 64 * 36], false)));
+        let cut_out = pipeline.process_picture(source, &NoContext);
+        assert!(cut_out.picture().is_some());
+        assert!(cut_out.land_fitted_until(40, 40, &|| false).is_none());
+    }
+
+    #[test]
+    fn a_hiding_picture_the_card_cant_fit_is_left_to_land_whole_and_comes_out_dark() {
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let mut pipeline = card_pipeline(gpu.clone());
+        let mut hiding = shader(INVERT);
+        hiding.stage = FrameStage::Privacy;
+        pipeline.set_steps(vec![hiding]);
+        let picture = pipeline.process_picture(grey(32, 18, 200), &NoContext);
+        gpu.inject(gpu::Fault::Lost);
+        assert!(picture.land_fitted_until(16, 16, &|| false).is_none());
+        assert!(picture.land().data[..32 * 18].iter().all(|&p| p == 16));
+    }
+
+    #[test]
     fn the_preview_draws_a_card_picture_repeatedly_without_landing() {
         use crate::transfers::measurement::measure;
         let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };

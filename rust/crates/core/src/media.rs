@@ -293,6 +293,11 @@ pub trait CardPicture: Send + Sync {
     /// The RAM picture if a landing already made it, without waiting for the card.
     fn landed(&self) -> Option<Frame>;
     fn as_any(&self) -> &dyn std::any::Any;
+    /// The picture fitted into width x height as the virtual camera fits frames (image::fit_box, black bars), scaled on the card so only
+    /// that much comes back. None when this picture can't be (the caller lands it and fits it itself).
+    fn land_fitted(&self, _width: u32, _height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
+        None
+    }
 }
 
 /// A finished pipeline picture; with a card picture its own frame has only the size and stamps, and every landing shares the same pixels.
@@ -329,6 +334,16 @@ impl PipelineFrame {
         frame.time_ns = self.frame.time_ns;
         frame.capture_ns = self.frame.capture_ns;
         frame
+    }
+
+    /// The picture fitted into width x height on the card with the publication's stamps (CardPicture::land_fitted), None for a picture
+    /// already in memory or one the card can't fit. The caller waits, like land.
+    pub fn land_fitted_until(&self, width: u32, height: u32, cancel: &dyn Fn() -> bool) -> Option<Frame> {
+        let mut frame = self.picture.as_ref()?.land_fitted(width, height, cancel)?;
+        frame.number = self.frame.number;
+        frame.time_ns = self.frame.time_ns;
+        frame.capture_ns = self.frame.capture_ns;
+        Some(frame)
     }
 
     /// The RAM picture if it is there without a readback, so a thread that can't wait for the card can still read what has landed.

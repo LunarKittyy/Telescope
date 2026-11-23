@@ -54,6 +54,10 @@ const WAIT_SLICE: std::time::Duration = std::time::Duration::from_millis(50);
 
 #[path = "gpu_tint.rs"]
 mod tint;
+#[path = "gpu_fit.rs"]
+mod fit;
+#[cfg(test)]
+pub(crate) use fit::cpu_fit;
 pub use tint::{CardPreview, Scope, ScopeRead, ScopeSamples};
 
 /// What a test makes go wrong on the next readback.
@@ -99,6 +103,10 @@ pub struct Gpu {
     pool: Mutex<Pool<(u32, u32, wgpu::TextureFormat), wgpu::Texture>>,
     /// The tint shader's pipelines (gpu_tint.rs), built when a picture is first tinted.
     tint_kit: Mutex<Option<Arc<tint::Kit>>>,
+    /// The camera fit's pipeline (gpu_fit.rs), built when a picture is first fitted.
+    fit_kit: OnceLock<fit::Kit>,
+    /// Set once fitting a picture on this card failed: the processor fits them from then on.
+    fit_refused: AtomicBool,
     pub adapter_name: String,
     /// Set when the device is lost or wgpu panicked: nothing more goes to this card.
     lost: Arc<AtomicBool>,
@@ -401,6 +409,8 @@ impl Gpu {
             blank,
             pool: Mutex::new(Pool::new(POOL_BUDGET)),
             tint_kit: Mutex::default(),
+            fit_kit: OnceLock::new(),
+            fit_refused: AtomicBool::new(false),
             adapter_name,
             lost,
             wait_limit,
@@ -1470,6 +1480,44 @@ impl telescope_core::media::CardPicture for CardFrame {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn land_fitted(&self, width: u32, height: u32, cancel: &dyn Fn() -> bool) -> Option<Frame> {
+        let (w, h, format) = self.shape;
+        if format != PixelFormat::I420 || (w, h) == (width, height) || self.gpu.fit_refused.load(Ordering::Relaxed) {
+            return None;
+        }
+        // A cut-out goes over the camera's background before the fit, which the card doesn't do; a picture that failed to land is the fallback now
+        match self.landed.get() {
+            Some(landed) if landed.alpha().is_some() || self.failed.load(Ordering::SeqCst) => return None,
+            Some(_) => {}
+            None if self.before.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_some_and(|b| b.alpha().is_some()) => return None,
+            None => {}
+        }
+        let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+        let held = held.as_mut()?;
+        let began = monotonic_ns();
+        let out = catch_unwind(AssertUnwindSafe(|| self.gpu.land_fitted(held, width, height, cancel)));
+        span("readback", began);
+        match out {
+            Ok(Ok(frame)) => {
+                transfers::landed();
+                self.balance.note_wait(held.take_waited());
+                Some(frame)
+            }
+            // The whole picture lands instead; a card that can't fit pictures isn't asked again
+            Ok(Err(why)) if !cancel() => {
+                if !self.gpu.fit_refused.swap(true, Ordering::Relaxed) {
+                    log::warn!("Couldn't fit a picture to the camera on the graphics card ({why}); the processor fits them from now on");
+                }
+                None
+            }
+            Err(_) => {
+                self.gpu.fit_refused.store(true, Ordering::Relaxed);
+                None
+            }
+            Ok(Err(_)) => None,
+        }
     }
 }
 
