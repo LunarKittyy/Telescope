@@ -2018,6 +2018,10 @@ msgstr "От камеры"
 msgid "From the phone"
 msgstr "С телефона"
 
+#, python-brace-format
+msgid "From the plugin “{name}”"
+msgstr ""
+
 #. part of a lens name: the front (selfie) camera
 msgctxt "lens"
 msgid "Front"
@@ -3990,6 +3994,10 @@ msgid "Plug it in, or pick another camera."
 msgstr "Подключи ее или выбери другую камеру."
 
 msgid "Plugging it in will help."
+msgstr ""
+
+#, python-brace-format
+msgid "Plugin “{name}”: {title}"
 msgstr ""
 
 msgid "Plugins"

@@ -207,3 +207,41 @@ pub fn added_issue_key(plugin: &str, key: &str) -> String {
 pub fn issue_owner(key: &str) -> Option<(&str, &str)> {
     key.strip_prefix(ADDED_KEY)?.split_once('\u{1f}')
 }
+
+/// How an added plugin's name is shown next to its notices: one line, no control characters, at most 40 characters. Falls back to `id`.
+pub fn plugin_label(title: &str, id: &str) -> String {
+    let line: String = title.chars().filter(|c| !c.is_control() || c.is_whitespace()).collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ");
+    let line = if line.is_empty() { id.split_whitespace().collect::<Vec<_>>().join(" ") } else { line };
+    let mut chars = line.chars();
+    let short: String = chars.by_ref().take(40).collect();
+    if chars.next().is_some() { format!("{}…", short.trim_end()) } else { short }
+}
+
+/// The title of an added plugin's desktop notification, which the plugin can't change: its name always leads, in quotes, so a plugin
+/// that calls itself "Telescope" still reads as a plugin.
+pub fn plugin_notice_title(label: &str, title: &str) -> String {
+    crate::i18n::tr_with("Plugin “{name}”: {title}", "", &[("name", &label), ("title", &title)])
+}
+
+/// What a banner of an added plugin says it comes from, for the line over its title.
+pub fn plugin_banner_from(label: &str) -> String {
+    crate::i18n::tr_with("From the plugin “{name}”", "", &[("name", &label)])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_plugin_label_is_one_short_line() {
+        assert_eq!(plugin_label("Fancy\nCrop\u{7}", "fancy"), "Fancy Crop");
+        assert_eq!(plugin_label("  ", "fancy"), "fancy");
+        assert_eq!(plugin_label(&"x".repeat(60), "x").chars().count(), 41);
+    }
+
+    #[test]
+    fn a_notice_title_leads_with_the_plugin_even_when_it_is_called_telescope() {
+        assert_eq!(plugin_notice_title("Telescope", "Update available"), "Plugin “Telescope”: Update available");
+        assert_eq!(plugin_banner_from("Telescope"), "From the plugin “Telescope”");
+    }
+}

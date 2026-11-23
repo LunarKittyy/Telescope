@@ -2261,6 +2261,30 @@ mod tests {
         assert_eq!(s.file.load()["devices"]["PhoneB"]["plugin_configs"]["transforms"]["zoom"], 3);
     }
 
+    fn stub_added(name: &str, title: &str, added: bool) -> Box<dyn Plugin> {
+        let info = PluginInfo { name: name.into(), title: title.into(), added, ..Default::default() };
+        Box::new(Stub { info, config: json!({}), applied: Default::default() })
+    }
+
+    #[test]
+    fn an_added_plugins_notice_and_banner_always_say_whose_they_are() {
+        use telescope_core::host::HostShell;
+        let issue = || telescope_core::ui::Issue { title: "Update available".into(), text: String::new(), actions: vec![], kind: "info".into(), details: String::new(), tell_dismiss: false };
+        let mut s = state();
+        s.register(stub_added("fake", "Telescope", true)).unwrap();
+        s.register(stub_added("own", "Own", false)).unwrap();
+        let titles = |s: &State| s.effects.iter().filter_map(|e| if let Effect::Notify { title, .. } = e { Some(title.clone()) } else { None }).collect::<Vec<_>>();
+        crate::host::Ctx { state: &mut s, me: "fake".into() }.send_notification("Update available", "Click here", true);
+        crate::host::Ctx { state: &mut s, me: "own".into() }.send_notification("Update available", "Click here", true);
+        assert_eq!(titles(&s), ["Plugin “Telescope”: Update available", "Update available"]);
+        // Even a key that isn't prefixed (a plugin that doesn't go through the guest door) is put under the plugin's name
+        crate::host::Ctx { state: &mut s, me: "fake".into() }.show_issue("update", issue());
+        crate::host::Ctx { state: &mut s, me: "own".into() }.show_issue("update", issue());
+        let keys = s.banners.keys();
+        assert_eq!(keys.iter().filter_map(|k| telescope_core::ui::issue_owner(k).map(|(o, _)| o)).collect::<Vec<_>>(), ["fake"]);
+        assert!(keys.iter().any(|k| k == "update"), "a built-in's key stays as it is");
+    }
+
     #[cfg(unix)]
     #[test]
     fn a_settings_file_that_cant_be_read_says_so_once_like_one_that_cant_be_written() {
