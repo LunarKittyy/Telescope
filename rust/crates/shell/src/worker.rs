@@ -15,7 +15,7 @@ use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
 use telescope_core::i18n::tr;
 use telescope_core::image::{fit_box, resize_linear_into};
 use telescope_core::media::{Codec, DecodeOptions, Decoder, FeedEnd, FeedStopper, FramePipeline, FrameReader, FrameSlot,
-                            Media, Newest, PacketTap, PipelineFrame, StagedStep, VideoFeed};
+                            Media, Newest, PacketTap, PipelineFrame, StagedStep, StandIn, VideoFeed};
 use telescope_core::output::{Outputs, VideoOutput};
 use telescope_core::stats::{DropReason, Hub, SourceStats};
 
@@ -1632,14 +1632,17 @@ impl Shared {
         Some(cap)
     }
 
-    /// src fitted to the camera's size `want`. A frame that came off the card already fitted (card, with its number) is fitted there again from
-    /// the whole picture when the size changed since, so it isn't scaled twice.
-    fn fit_for_camera(&self, src: &Frame, card: Option<&(u64, PipelineFrame)>, want: (u32, u32)) -> Frame {
-        if let Some((_, picture)) = card.filter(|(number, _)| *number == src.number && (src.width, src.height) != want) {
-            return picture.land_fitted_until(want.0, want.1, &|| self.stopped())
-                .unwrap_or_else(|| fit_frame(&picture.land_until(&|| self.stopped()).flattened(CAMERA_BACKGROUND), want.0, want.1));
-        }
-        fit_frame(&src.flattened(CAMERA_BACKGROUND), want.0, want.1)
+    /// What the camera takes from a picture of the stream: fitted to its size `want` on the card when the card can, else the whole picture in memory (landed here
+    /// if nobody did). None when the card failed to land a picture that has no honest stand-in (uncropped, ungraded), which the camera must not send: it goes on with
+    /// the last good one. The bool is whether the card fitted it.
+    fn take_for_camera(&self, picture: &PipelineFrame, want: (u32, u32)) -> Option<(Frame, bool)> {
+        take_for_camera(picture, want, &|| self.stopped())
+    }
+
+    /// src fitted to the camera's size `want`. A frame that came off the card already fitted is fitted again from its whole picture (one of `cards`, by number) when
+    /// the size changed since, so it isn't scaled twice. None when that picture can't be had (take_for_camera).
+    fn fit_for_camera(&self, src: &Frame, cards: &[(u64, PipelineFrame)], want: (u32, u32)) -> Option<Frame> {
+        fit_for_camera(src, cards, want, &|| self.stopped())
     }
 
     /// Open the virtual camera at the current size and fps and feed it until a stop or a restart. False if it failed.
@@ -1685,8 +1688,8 @@ impl Shared {
         let mut hidings = self.hidings.load(Ordering::SeqCst);
         let mut urgent = false;
         let mut shown: Option<Frame> = None;
-        // The newest picture that came off the card already fitted to the camera's size, and its number, to fit it again at another size
-        let mut fitted_on_card: Option<(u64, PipelineFrame)> = None;
+        // The pictures that came off the card already fitted to the camera's size (the ones queued, and the one shown), by number, to fit them again at another size
+        let mut fitted_on_card: Vec<(u64, PipelineFrame)> = Vec::new();
         // Whether the last picture had to come off the card whole, which the stream then lands for the camera before it goes out
         let mut lands_whole = false;
         // How many frames had been published when the last one was sent, to count the ones skipped since: none yet for a first camera, whose first frame
@@ -1720,19 +1723,26 @@ impl Shared {
                 self.slot.want_ram();
             }
             let want_now = cam.fit_size().unwrap_or((cam_w, cam_h));
-            let latest = latest.filter(|(_, count)| *count != seen).map(|(picture, count)| match picture.land_fitted_until(want_now.0, want_now.1, &|| self.stopped()) {
-                Some(fitted) => {
-                    (fitted_on_card, lands_whole) = (Some((fitted.number, picture)), false);
-                    (fitted, count)
+            let mut ready: Option<(Frame, u64)> = None;
+            if let Some((picture, count)) = latest.filter(|(_, count)| *count != seen) {
+                lands_whole = !picture.fits_on_card(want_now.0, want_now.1) && picture.picture().is_some();
+                // A frame a plugin replaced in the slot has its number and other pixels, so it is never fitted from the picture it replaced
+                let number = picture.metadata().number;
+                fitted_on_card.retain(|(n, _)| *n != number);
+                match self.take_for_camera(&picture, want_now) {
+                    Some((frame, on_card)) => {
+                        if on_card {
+                            fitted_on_card.push((number, picture));
+                        }
+                        ready = Some((frame, count));
+                    }
+                    // The card failed to land it and what it left is no honest picture: passed over, so the camera repeats the last good frame
+                    None => seen = count,
                 }
-                None => {
-                    (fitted_on_card, lands_whole) = (None, picture.picture().is_some());
-                    (picture.land_until(&|| self.stopped()), count)
-                }
-            });
+            }
             // The next frame sent is the hidden one: a camera that thins frames to its reader's rate must not drop it
             urgent |= forget_before_hiding(&mut queued, &mut hidings, hid);
-            if let Some((src, count)) = latest.filter(|(_, count)| *count != seen) {
+            if let Some((src, count)) = ready {
                 seen = count;
                 match queued.back_mut() {
                     // A plugin replaced the frame that hasn't gone out yet
@@ -1746,6 +1756,8 @@ impl Shared {
                     }
                 }
             }
+            // Only what is queued or shown can be fitted again
+            fitted_on_card.retain(|(n, _)| queued.iter().any(|(f, _)| f.number == *n) || shown.as_ref().is_some_and(|f| f.number == *n));
             let next = match pacer.pick(Instant::now(), &mut queued, fitted.is_some()) {
                 Pick::Wait => continue,
                 Pick::New(frame, at) => Some((frame, at)),
@@ -1765,7 +1777,8 @@ impl Shared {
                         // A frame a plugin replaced in the slot goes out again but isn't another one
                         let fresh = src.number != self.last_sent_number.load(Ordering::Relaxed);
                         watch.frame(telescope_core::time::monotonic_ns(), &context);
-                        let fit = self.fit_for_camera(&src, fitted_on_card.as_ref(), want);
+                        // One that can't be fitted honestly isn't sent: the next pass sends what comes next, or the last good frame again
+                        let Some(fit) = self.fit_for_camera(&src, &fitted_on_card, want) else { continue };
                         fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
                         fitted_to = want;
                         shown = Some(src.clone());
@@ -1774,7 +1787,7 @@ impl Shared {
                     None => {
                         let src = shown.clone().unwrap();
                         if want != fitted_to {
-                            let fit = self.fit_for_camera(&src, fitted_on_card.as_ref(), want);
+                            let Some(fit) = self.fit_for_camera(&src, &fitted_on_card, want) else { continue };
                             fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
                             fitted_to = want;
                         }
@@ -1875,6 +1888,33 @@ impl Shared {
         self.vcam_free.set();
         ok
     }
+}
+
+/// What the camera takes from `picture` (Shared::take_for_camera).
+fn take_for_camera(picture: &PipelineFrame, want: (u32, u32), cancel: &dyn Fn() -> bool) -> Option<(Frame, bool)> {
+    // One in memory already (another reader landed it, or the stream did for the camera) is fitted from there, not read back a second time
+    let taken = match picture.landed() {
+        Some(whole) => (whole, false),
+        None => match picture.land_fitted_until(want.0, want.1, cancel) {
+            Some(fitted) => (fitted, true),
+            None => (picture.land_until(cancel), false),
+        },
+    };
+    (picture.stood_in() != Some(StandIn::Unprocessed)).then_some(taken)
+}
+
+/// src fitted to `want` (Shared::fit_for_camera).
+fn fit_for_camera(src: &Frame, cards: &[(u64, PipelineFrame)], want: (u32, u32), cancel: &dyn Fn() -> bool) -> Option<Frame> {
+    if (src.width, src.height) != want {
+        if let Some((_, picture)) = cards.iter().find(|(number, _)| *number == src.number) {
+            if let Some(fitted) = picture.land_fitted_until(want.0, want.1, cancel) {
+                return Some(fitted);
+            }
+            let whole = picture.land_until(cancel);
+            return (picture.stood_in() != Some(StandIn::Unprocessed)).then(|| fit_frame(&whole.flattened(CAMERA_BACKGROUND), want.0, want.1));
+        }
+    }
+    Some(fit_frame(&src.flattened(CAMERA_BACKGROUND), want.0, want.1))
 }
 
 /// The steps that hide things were run on the frame already out since the queue was last looked at (`hid` times against `seen`): what's queued was made before, with the room in it, and never goes out.
@@ -3875,6 +3915,9 @@ mod tests {
         fn land_fitted(&self, width: u32, height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
             Some(grey(width, height, 33))
         }
+        fn fits_on_card(&self, _width: u32, _height: u32) -> bool {
+            true
+        }
     }
 
     /// Makes every picture on the card, as one the card can fit to the camera.
@@ -3956,6 +3999,141 @@ mod tests {
             assert!(luma.iter().any(|&v| v == 33 || v == 100), "a frame went out without the picture: {luma:?}");
         }
         assert!(frames.iter().any(|f| f.data[0] == 33) && frames.iter().any(|f| f.i420_planes().unwrap().0.contains(&100)), "both kinds of picture went out");
+        assert_eq!(whole.load(Ordering::SeqCst), 0);
+    }
+
+    /// A card picture the camera can only land whole, which gave `stand_in` when it did (the card failed), or the real picture when none.
+    struct Whole(Option<StandIn>);
+
+    impl telescope_core::media::CardPicture for Whole {
+        fn land(&self) -> Frame {
+            grey(4, 2, if self.0 == Some(StandIn::Unprocessed) { 255 } else { 20 })
+        }
+        fn landed(&self) -> Option<Frame> {
+            None
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn stood_in(&self) -> Option<StandIn> {
+            self.0
+        }
+    }
+
+    /// A card picture that fits itself to the camera as grey `.0`, counting how often it was asked to; `.2` is its picture when something landed it already.
+    struct Marks(u8, Arc<AtomicUsize>, Option<Frame>);
+
+    impl telescope_core::media::CardPicture for Marks {
+        fn land(&self) -> Frame {
+            self.2.clone().unwrap_or_else(|| grey(8, 4, 90))
+        }
+        fn landed(&self) -> Option<Frame> {
+            self.2.clone()
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn land_fitted(&self, width: u32, height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
+            self.1.fetch_add(1, Ordering::SeqCst);
+            Some(grey(width, height, self.0))
+        }
+        fn fits_on_card(&self, _width: u32, _height: u32) -> bool {
+            true
+        }
+    }
+
+    fn picture(card: impl telescope_core::media::CardPicture + 'static, number: u64) -> PipelineFrame {
+        let mut picture = PipelineFrame::new(grey(8, 4, 0), Some(Arc::new(card)));
+        picture.stamp(number, 0);
+        picture
+    }
+
+    #[test]
+    fn the_camera_passes_over_a_picture_the_card_failed_to_land_unless_it_stands_in_to_hide_something() {
+        let never = || false;
+        assert!(take_for_camera(&picture(Whole(Some(StandIn::Unprocessed)), 1), (4, 4), &never).is_none(), "an uncropped frame would have gone out");
+        let (dark, on_card) = take_for_camera(&picture(Whole(Some(StandIn::Dark)), 1), (4, 4), &never).unwrap();
+        assert!(!on_card && dark.data[0] == 20, "a picture that hides things still goes out as the dark frame it landed as");
+        let (real, _) = take_for_camera(&picture(Whole(None), 1), (4, 4), &never).unwrap();
+        assert_eq!(real.data[0], 20);
+        // The same when the picture is fitted again after the camera changed size
+        let cards = [(1, picture(Whole(Some(StandIn::Unprocessed)), 1))];
+        let mut queued = grey(4, 4, 33);
+        queued.number = 1;
+        assert!(fit_for_camera(&queued, &cards, (8, 6), &never).is_none());
+        assert!(fit_for_camera(&queued, &cards, (4, 4), &never).is_some(), "at the size it already has there is nothing to fit");
+    }
+
+    #[test]
+    fn a_picture_already_in_memory_is_fitted_from_there_and_not_asked_of_the_card_again() {
+        let asked = Arc::new(AtomicUsize::new(0));
+        let (frame, on_card) = take_for_camera(&picture(Marks(33, asked.clone(), Some(grey(8, 4, 70))), 1), (4, 4), &|| false).unwrap();
+        assert!(!on_card && frame.data[0] == 70 && (frame.width, frame.height) == (8, 4));
+        assert_eq!(asked.load(Ordering::SeqCst), 0, "the card read the picture back a second time");
+        // One that is not in memory is fitted on the card
+        let (frame, on_card) = take_for_camera(&picture(Marks(33, asked.clone(), None), 2), (4, 4), &|| false).unwrap();
+        assert!(on_card && frame.data[0] == 33 && asked.load(Ordering::SeqCst) == 1);
+    }
+
+    #[test]
+    fn every_queued_frame_is_fitted_again_from_its_own_picture_when_the_camera_changes_size() {
+        let asked = Arc::new(AtomicUsize::new(0));
+        let cards = [(1, picture(Marks(41, asked.clone(), None), 1)), (2, picture(Marks(42, asked.clone(), None), 2))];
+        let mut older = grey(4, 4, 41);
+        older.number = 1;
+        let mut newer = grey(4, 4, 42);
+        newer.number = 2;
+        for (queued, mark) in [(&older, 41), (&newer, 42)] {
+            let fitted = fit_for_camera(queued, &cards, (8, 6), &|| false).unwrap();
+            assert_eq!((fitted.width, fitted.height, fitted.data[0]), (8, 6, mark), "a letterboxed copy was scaled into the new size");
+        }
+        // A frame the card didn't fit is scaled from itself
+        let mut other = grey(8, 4, 99);
+        other.number = 3;
+        let fitted = fit_for_camera(&other, &cards, (8, 6), &|| false).unwrap();
+        assert_eq!((fitted.width, fitted.height), (8, 6));
+        assert_eq!(asked.load(Ordering::SeqCst), 2);
+    }
+
+    /// Every other picture's landing fails and leaves the unprocessed one (grey 255) in its place, the rest are fitted on the card (grey 33).
+    struct EveryOtherFails(Arc<AtomicUsize>, u64);
+
+    impl FramePipeline for EveryOtherFails {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
+            self.1 += 1;
+            let card: Arc<dyn telescope_core::media::CardPicture> = if self.1.is_multiple_of(2) { Arc::new(Whole(Some(StandIn::Unprocessed))) } else { Arc::new(FitsOnTheCard(self.0.clone())) };
+            telescope_core::media::PipelineFrame::new(frame, Some(card))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn a_picture_the_card_fails_to_land_never_reaches_the_camera_and_the_last_good_frame_goes_again() {
+        let cams = Arc::new(Cams::default());
+        let steps: Vec<Step> = (0..8u8).flat_map(|i| [Step::Frame(10 + i), Step::Pause(Duration::from_millis(40))]).chain([Step::Pause(Duration::from_secs(30))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let whole = Arc::new(AtomicUsize::new(0));
+        let media = WithPipeline(Box::new({
+            let whole = whole.clone();
+            move || Box::new(EveryOtherFails(whole.clone(), 0))
+        }));
+        let events: Events = Arc::new(|_| {});
+        let setup = WorkerSetup { canvas: (Some(4), Some(4)), ..setup(opener) };
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(Arc::new(Mutex::new(None)), Arc::new(Mutex::new(Vec::new()))));
+        let w = StreamWorker::start(setup, Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| cams.frames.lock().unwrap().len() >= 8);
+        w.stop();
+        let frames = cams.frames.lock().unwrap().clone();
+        for f in &frames {
+            assert!(!f.i420_planes().unwrap().0.contains(&255), "the unprocessed picture went out: {:?}", f.i420_planes().unwrap().0);
+            assert_eq!(f.data[0], 33, "a frame went out that wasn't the card's fit");
+        }
         assert_eq!(whole.load(Ordering::SeqCst), 0);
     }
 

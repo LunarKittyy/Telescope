@@ -12,8 +12,11 @@ pub(super) struct Kit {
     layout: wgpu::BindGroupLayout,
     pipeline: wgpu::RenderPipeline,
     /// The taps for the last picture and camera sizes fitted, which stay the same frame after frame.
-    taps: Mutex<Option<((u32, u32, u32, u32), wgpu::Texture)>>,
+    taps: Mutex<Option<(TapsKey, wgpu::Texture)>>,
 }
+
+/// The picture and camera sizes a taps texture is for.
+type TapsKey = (u32, u32, u32, u32);
 
 fn taps_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
@@ -55,14 +58,12 @@ impl Gpu {
     }
 
     /// Every plane's taps on one texture, x then y for each, a row each, as (first, second, p, q) in 16 bits; made again only when a size changes.
-    fn fit_taps(&self, kit: &Kit, from: (u32, u32), to: (u32, u32), fits: &[PlaneFit; 3]) -> Result<wgpu::Texture, String> {
+    /// A new texture comes back with the key to keep it under (keep_taps) once its upload is known to have gone through: other streams bind the kept one.
+    fn fit_taps(&self, kit: &Kit, from: (u32, u32), to: (u32, u32), fits: &[PlaneFit; 3]) -> Result<(wgpu::Texture, Option<TapsKey>), String> {
         let key = (from.0, from.1, to.0, to.1);
-        let mut kept = kit.taps.lock().unwrap();
-        if let Some((_, texture)) = kept.as_ref().filter(|(k, _)| *k == key) {
-            return Ok(texture.clone());
+        if let Some((_, texture)) = kit.taps.lock().unwrap().as_ref().filter(|(k, _)| *k == key) {
+            return Ok((texture.clone(), None));
         }
-        // Not trusted until the write is through
-        *kept = None;
         let rows: Vec<&Vec<Tap>> = fits.iter().flat_map(|f| [&f.xs, &f.ys]).collect();
         let width = rows.iter().map(|r| r.len()).max().unwrap_or(1).max(1) as u32;
         if width > self.device.limits().max_texture_dimension_2d {
@@ -88,8 +89,12 @@ impl Gpu {
             }
         }
         self.write_plane(&texture, &bytes, width * 8);
-        *kept = Some((key, texture.clone()));
-        Ok(texture)
+        Ok((texture.clone(), Some(key)))
+    }
+
+    /// Shares a taps texture whose upload went through with the pictures fitted from now on.
+    fn keep_taps(&self, key: TapsKey, texture: &wgpu::Texture) {
+        *self.fit_kit().taps.lock().unwrap() = Some((key, texture.clone()));
     }
 
     /// The held I420 picture fitted into width x height as the virtual camera fits frames (image::fit_box, bars in black), scaled on the
@@ -106,9 +111,9 @@ impl Gpu {
         // The picture's planes as they are now: the ones it holds, or what landing would make of its colours
         let rgba = if held.planes.is_none() { Some(self.ensure_rgba(held)) } else { None };
         let mut made = Vec::new();
-        let (enc, targets, taps) = self.scoped(|| -> Result<_, String> {
+        let (enc, targets, taps, fresh) = self.scoped(|| -> Result<_, String> {
             let kit = self.fit_kit();
-            let taps = self.fit_taps(kit, (w, h), (width, height), &fits)?;
+            let (taps, fresh) = self.fit_taps(kit, (w, h), (width, height), &fits)?;
             let mut enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
             let planes = match (&held.planes, &rgba) {
                 (Some(planes), _) => planes.clone(),
@@ -143,8 +148,12 @@ impl Gpu {
                 draw(&mut enc, &kit.pipeline, &[&bind], &target.create_view(&Default::default()));
                 targets.push(target);
             }
-            Ok((enc, targets, taps))
+            Ok((enc, targets, taps, fresh))
         }).inspect_err(|_| *self.fit_kit().taps.lock().unwrap() = None)??;
+        // Every error scope was clear, so the upload went through
+        if let Some(key) = fresh {
+            self.keep_taps(key, &taps);
+        }
         let read = self.download_until(enc, &[&targets[0], &targets[1], &targets[2]], &[1, 1, 1], cancel);
         drop(taps);
         self.give_back(targets.into_iter().chain(made));
@@ -230,6 +239,27 @@ mod tests {
         let landed = gpu.land(&mut held).unwrap();
         assert_eq!((landed.width, landed.height), (1920, 1080));
         assert_eq!(worst(&fitted.data, &cpu_fit(&landed, 1280, 720)), 0);
+        gpu.put_down(held);
+    }
+
+    #[test]
+    fn taps_are_shared_with_other_streams_only_once_their_upload_went_through() {
+        let Ok(gpu) = Gpu::open() else { return };
+        let kit = gpu.fit_kit();
+        let (from, to) = ((64, 36), (40, 40));
+        let fits = plane_fits(from, to);
+        // Made but not yet through the error scopes: nobody else is handed it
+        let (_, fresh) = gpu.fit_taps(kit, from, to, &fits).unwrap();
+        assert!(fresh.is_some() && kit.taps.lock().unwrap().is_none());
+        // A refused upload leaves nothing behind, and the next fit still gives the right picture
+        let frame = noisy(from.0, from.1, 3);
+        let mut held = gpu.lift(&frame).unwrap();
+        gpu.inject(Fault::BadUpload);
+        assert!(gpu.land_fitted(&mut held, to.0, to.1, &|| false).is_err());
+        assert!(kit.taps.lock().unwrap().is_none(), "a refused upload was shared");
+        let fitted = gpu.land_fitted(&mut held, to.0, to.1, &|| false).unwrap();
+        assert_eq!(worst(&fitted.data, &cpu_fit(&frame, to.0, to.1)), 0);
+        assert!(kit.taps.lock().unwrap().is_some(), "taps that went through are kept for the next picture");
         gpu.put_down(held);
     }
 

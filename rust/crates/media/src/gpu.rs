@@ -1404,6 +1404,10 @@ pub(crate) struct CardFrame {
     landed: OnceLock<Frame>,
     /// What the card steps began from, only until the picture lands (its last good frame if the landing fails, and the cut-out it carries): a decoder surface in it isn't held longer.
     before: Mutex<Option<Frame>>,
+    /// Whether the picture carries a cut-out, known from the start (`before` goes when a landing begins, which would leave a gap to read it in).
+    cut_out: bool,
+    /// What stands in for the picture once its landing failed.
+    stood_in: OnceLock<telescope_core::media::StandIn>,
     shape: (u32, u32, PixelFormat),
     fallback: LandingFailure,
     failed: Arc<AtomicBool>,
@@ -1413,6 +1417,7 @@ pub(crate) struct CardFrame {
 impl CardFrame {
     pub(crate) fn new(gpu: Arc<Gpu>, mut held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Arc<telescope_core::balance::Balance>) -> Self {
         let shape = (before.width, before.height, before.format);
+        let cut_out = before.alpha().is_some();
         // The submission is already queued, so scratch textures (b, temporaries) can return to the pool right away.
         let mut release = std::mem::take(&mut held.used);
         release.extend(held.b.take());
@@ -1424,7 +1429,13 @@ impl CardFrame {
         };
         gpu.give_back(release);
         let size = held.size();
-        Self { gpu, shown: (shown, size), held: Mutex::new(Some(held)), landed: OnceLock::new(), before: Mutex::new(Some(before)), shape, fallback, failed, balance }
+        Self { gpu, shown: (shown, size), held: Mutex::new(Some(held)), landed: OnceLock::new(), before: Mutex::new(Some(before)), cut_out, stood_in: OnceLock::new(), shape, fallback, failed, balance }
+    }
+
+    /// The state a landing in progress leaves the picture in, for tests: what it began from is taken and nothing has landed yet.
+    #[cfg(test)]
+    pub(crate) fn begin_landing_for_test(&self) {
+        self.before.lock().unwrap().take();
     }
 
     /// Whether this card can draw the picture itself: it is on the same device and the card didn't fail to land it.
@@ -1466,8 +1477,14 @@ impl telescope_core::media::CardPicture for CardFrame {
                         self.failed.store(true, Ordering::SeqCst);
                     }
                     match (self.fallback, before) {
-                        (LandingFailure::LastGood, Some(before)) => before.materialise(),
-                        _ => Frame::dark(self.shape.0, self.shape.1, self.shape.2),
+                        (LandingFailure::LastGood, Some(before)) => {
+                            let _ = self.stood_in.set(telescope_core::media::StandIn::Unprocessed);
+                            before.materialise()
+                        }
+                        _ => {
+                            let _ = self.stood_in.set(telescope_core::media::StandIn::Dark);
+                            Frame::dark(self.shape.0, self.shape.1, self.shape.2)
+                        }
                     }
                 }
             }
@@ -1482,19 +1499,26 @@ impl telescope_core::media::CardPicture for CardFrame {
         self
     }
 
-    fn land_fitted(&self, width: u32, height: u32, cancel: &dyn Fn() -> bool) -> Option<Frame> {
+    fn fits_on_card(&self, width: u32, height: u32) -> bool {
         let (w, h, format) = self.shape;
-        if format != PixelFormat::I420 || (w, h) == (width, height) || self.gpu.fit_refused.load(Ordering::Relaxed) {
+        // A cut-out goes over the camera's background before the fit, which the card doesn't do; a picture that failed to land is its stand-in now
+        format == PixelFormat::I420 && (w, h) != (width, height) && !self.cut_out && self.stood_in.get().is_none() && !self.gpu.fit_refused.load(Ordering::Relaxed)
+    }
+
+    fn stood_in(&self) -> Option<telescope_core::media::StandIn> {
+        self.stood_in.get().copied()
+    }
+
+    fn land_fitted(&self, width: u32, height: u32, cancel: &dyn Fn() -> bool) -> Option<Frame> {
+        // A picture in memory is fitted from there: reading it back from the card again would be a second readback
+        if !self.fits_on_card(width, height) || self.landed.get().is_some() {
             return None;
         }
-        // A cut-out goes over the camera's background before the fit, which the card doesn't do; a picture that failed to land is the fallback now
-        match self.landed.get() {
-            Some(landed) if landed.alpha().is_some() || self.failed.load(Ordering::SeqCst) => return None,
-            Some(_) => {}
-            None if self.before.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_some_and(|b| b.alpha().is_some()) => return None,
-            None => {}
-        }
         let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+        // A landing that held the lock before this one is through: its picture is the one to use
+        if self.landed.get().is_some() {
+            return None;
+        }
         let held = held.as_mut()?;
         let began = monotonic_ns();
         let out = catch_unwind(AssertUnwindSafe(|| self.gpu.land_fitted(held, width, height, cancel)));
