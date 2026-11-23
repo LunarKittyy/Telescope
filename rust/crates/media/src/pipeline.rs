@@ -2009,12 +2009,54 @@ pub(crate) mod tests {
                     let on_cpu = cpu.process(frame.clone(), &NoContext);
                     let (worst, mean) = gap(&on_card, &on_cpu);
                     eprintln!("{format:?} {w}x{h} {view:?}: max {worst} mean {mean:.3}");
-                    assert!(worst <= 4 && mean <= 1.0, "{format:?} {w}x{h} {view:?}: max {worst} mean {mean:.3}");
+                    assert!(worst <= 2 && mean <= 0.25, "{format:?} {w}x{h} {view:?}: max {worst} mean {mean:.3}");
                     assert_eq!(on_card.geometry, on_cpu.geometry, "the card records where the picture came from as the CPU does");
                     assert!(on_card.geometry.is_some());
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_crop_made_again_keeps_its_shader_across_sizes_and_formats() {
+        use telescope_core::host::View;
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let mut card = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let mut cpu = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Cpu)));
+        let first = View { zoom: 2.0, pan_x: 0.3, ..View::default() };
+        card.set_steps(view_staged(&first));
+        cpu.set_steps(view_staged(&first));
+        card.process(pattern(320, 180, PixelFormat::I420), &NoContext);
+        let built = |p: &mut Pipeline| p.steps[0].kind.slot_mut().is_some_and(|slot| slot.is_built());
+        assert!(built(&mut card), "the first frame built it");
+        // Each new view takes the built shader over, and the frames after it (another size, another format) are still the CPU's
+        for (n, (w, h, format)) in [(320, 180, PixelFormat::I420), (318, 178, PixelFormat::I420), (318, 178, PixelFormat::Rgba), (640, 360, PixelFormat::I420)].into_iter().enumerate() {
+            let view = View { zoom: 1.5 + n as f32 * 0.4, pan_x: 0.3 - n as f32 * 0.2, flip_h: n == 2, ..View::default() };
+            card.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
+            cpu.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
+            assert!(built(&mut card), "{view:?}: made again, it was built already");
+            let frame = pattern(w, h, format);
+            let (on_card, on_cpu) = (card.process(frame.clone(), &NoContext), cpu.process(frame, &NoContext));
+            assert_eq!(card.last_transfers.0, 1, "{view:?}: still on the card");
+            let (worst, mean) = gap(&on_card, &on_cpu);
+            assert!(worst <= 2 && mean <= 0.25, "{w}x{h} {format:?} {view:?}: max {worst} mean {mean:.3}");
+            assert_eq!(on_card.geometry, on_cpu.geometry);
+        }
+    }
+
+    #[test]
+    fn a_step_with_no_geometry_to_record_leaves_the_frames_own_on_the_card() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let (mut p, _) = either(Place::Card);
+        let mut frame = grey(8, 8, 100);
+        frame.geometry = Some(Box::new(telescope_core::view::Geometry { zoom: 2.0, ..Default::default() }));
+        let out = p.process(frame.clone(), &NoContext);
+        assert_eq!(p.last_transfers, (1, 1));
+        assert_eq!(out.geometry, frame.geometry);
     }
 
     #[test]
@@ -2058,6 +2100,37 @@ pub(crate) mod tests {
         assert!(means.iter().all(|&m| m > 40.0), "a frame went dark: {means:?}");
         // Every frame is the CPU's picture to a level, before, during and after the move, so neither switch shows
         assert!(gaps.iter().all(|&(worst, mean)| worst <= 2 && mean <= 0.5), "a frame strayed from the CPU's: {gaps:?}");
+    }
+
+    #[test]
+    fn a_pan_that_goes_back_and_forth_between_the_card_and_the_cpu_never_jumps() {
+        use telescope_core::host::View;
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let (w, h) = (256u32, 64u32);
+        let mut frame = Frame::new(w, h, PixelFormat::I420, vec![128; PixelFormat::I420.size(w, h)]);
+        for (i, v) in frame.data_mut()[..(w * h) as usize].iter_mut().enumerate() {
+            *v = (16 + (i % w as usize) * 220 / w as usize) as u8;
+        }
+        let (on_card, on_cpu) = (Arc::new(Balance::pinned_to(Place::Card)), Arc::new(Balance::pinned_to(Place::Cpu)));
+        let mut p = Pipeline::with_balance(on_card.clone());
+        let mut cpu = Pipeline::with_balance(on_cpu.clone());
+        let (mut lefts, mut ups) = (Vec::new(), Vec::new());
+        for n in 0..90 {
+            // Every seventh frame the card gets busy or has room again, the first time with the shader not built yet
+            p.balance = if (n / 7) % 2 == 0 { on_card.clone() } else { on_cpu.clone() };
+            let view = View { zoom: 2.0, pan_x: -0.8 + n as f32 * 0.015, ..View::default() };
+            p.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
+            cpu.replace_steps("view", FrameStage::View, telescope_core::view_step::steps(&view));
+            let out = p.process(frame.clone(), &NoContext);
+            ups.push(p.last_transfers.0);
+            let (worst, mean) = gap(&out, &cpu.process(frame.clone(), &NoContext));
+            assert!(worst <= 2 && mean <= 0.25, "frame {n}: max {worst} mean {mean:.3}");
+            lefts.push(out.data[(h / 2 * w) as usize] as i32);
+        }
+        assert!(ups.iter().enumerate().all(|(n, &up)| up == u32::from((n / 7) % 2 == 0)), "the card did every other seven frames and the CPU the rest: {ups:?}");
+        assert!(lefts.windows(2).all(|pair| (-1..=3).contains(&(pair[1] - pair[0]))), "the pan jumped: {lefts:?}");
     }
 
     #[test]

@@ -1471,6 +1471,14 @@ struct Built {
 }
 
 #[cfg(test)]
+impl ShaderSlot {
+    /// Whether the shader is built (or has failed to be), for tests.
+    pub(crate) fn is_built(&self) -> bool {
+        self.built.is_some()
+    }
+}
+
+#[cfg(test)]
 impl Built {
     /// How many textures it holds for the plugin's pictures, for tests.
     fn kept_textures(&self) -> usize {
