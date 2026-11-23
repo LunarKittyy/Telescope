@@ -253,11 +253,12 @@ fn these_built_in_plugins_keep_their_settings_per_phone() {
         Box::new(fx::colour_grading::ColourGradingPlugin::new()), Box::new(fx::fun_pack::FunPackPlugin::new()),
         Box::new(fx::background::BackgroundPlugin::new()), Box::new(fx::chroma_key::ChromaKeyPlugin::new()),
         Box::new(fx::framing::FramingPlugin::new()), Box::new(fx::face_exposure::FaceExposurePlugin::new()), Box::new(fx::name_tag::NameTagPlugin::new()),
+        Box::new(fx::photos::PhotosPlugin::new()),
     ];
     let names: Vec<String> = per_phone.iter().filter(|p| p.info().device_local).map(|p| p.info().name).collect();
-    assert_eq!(names, ["camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk", "colour_grading", "fun_pack", "background", "chroma_key", "framing", "face_exposure", "name_tag"]);
+    assert_eq!(names, ["camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk", "colour_grading", "fun_pack", "background", "chroma_key", "framing", "face_exposure", "name_tag", "photos"]);
     let whole_app: Vec<Box<dyn Plugin>> = vec![
-        Box::new(fx::cinema::CinemaPlugin::new()), Box::new(fx::privacy_blur::PrivacyBlurPlugin::new()), Box::new(fx::photos::PhotosPlugin::new()),
+        Box::new(fx::cinema::CinemaPlugin::new()), Box::new(fx::privacy_blur::PrivacyBlurPlugin::new()),
         Box::new(fx::notes::NotesPlugin::new()), Box::new(fx::qr_reader::QrReaderPlugin::new()),
     ];
     assert!(whole_app.iter().all(|p| !p.info().device_local));
