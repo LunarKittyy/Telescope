@@ -73,6 +73,9 @@ pub struct EffortSnapshot {
     pub auto_level: u8,
     /// The least level power-saving effects asks for.
     pub floor: u8,
+    /// The least level the computer's own power saving asks for while it is on and full quality isn't kept (0 or 1). Live only: left out of anything written or sent.
+    #[serde(skip)]
+    pub machine_floor: u8,
     /// Whether the automatic part is on.
     pub auto: bool,
     /// Full quality is kept for this run of the app.
@@ -192,6 +195,10 @@ impl Watch {
 /// Everything behind the lock: the decision, the switches and what happened.
 struct State {
     watch: Watch,
+    /// The floor power-saving effects asks for; `watch.floor` is the higher of this and the machine's.
+    user_floor: u8,
+    /// The computer says it is saving power (battery saver or a power-saver profile).
+    machine_saving: bool,
     auto: bool,
     held: bool,
     /// When the window now being counted began, 0 before the first.
@@ -202,6 +209,16 @@ struct State {
 }
 
 impl State {
+    /// What the computer's power saving asks for: level 1, unless full quality is kept for this run.
+    fn machine_floor(&self) -> u8 {
+        u8::from(self.machine_saving && !self.held)
+    }
+
+    /// The floor the decision goes by: the person's or the computer's, whichever is higher.
+    fn sync_floor(&mut self) {
+        self.watch.floor = self.user_floor.max(self.machine_floor());
+    }
+
     fn level(&self) -> u8 {
         let auto = if self.auto && !self.held { self.watch.level } else { FULL };
         auto.max(self.watch.floor)
@@ -242,7 +259,7 @@ impl Effort {
     /// One of its own, for tests.
     pub fn free() -> Effort {
         Effort {
-            state: Mutex::new(State { watch: Watch::new(), auto: true, held: false, window_start: 0, moves: VecDeque::new(), shown: FULL }),
+            state: Mutex::new(State { watch: Watch::new(), user_floor: FULL, machine_saving: false, auto: true, held: false, window_start: 0, moves: VecDeque::new(), shown: FULL }),
             level: AtomicU8::new(FULL),
             ran: AtomicU32::new(0),
             late: AtomicU32::new(0),
@@ -298,6 +315,7 @@ impl Effort {
             return;
         }
         st.held = on;
+        st.sync_floor();
         st.watch.restart();
         self.settled(&mut st, monotonic_ns(), None);
     }
@@ -306,10 +324,11 @@ impl Effort {
     pub fn set_floor(&self, floor: u8) {
         let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
         let floor = floor.min(MOST);
-        if st.watch.floor == floor {
+        if st.user_floor == floor {
             return;
         }
-        st.watch.floor = floor;
+        st.user_floor = floor;
+        st.sync_floor();
         st.watch.restart();
         self.settled(&mut st, monotonic_ns(), None);
     }
@@ -336,8 +355,21 @@ impl Effort {
         at != 0 && monotonic_ns().saturating_sub(at) < HEADS_SHOWN
     }
 
+    /// What power-saving effects asks for (not the computer's own power saving).
     pub fn floor(&self) -> u8 {
-        self.state.lock().unwrap_or_else(|p| p.into_inner()).watch.floor
+        self.state.lock().unwrap_or_else(|p| p.into_inner()).user_floor
+    }
+
+    /// The computer says it is saving power, so the effects run at level 1 at least, until full quality is kept or this says otherwise. Live only: not saved, not logged.
+    pub fn set_machine_saving(&self, on: bool) {
+        let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        if st.machine_saving == on {
+            return;
+        }
+        st.machine_saving = on;
+        st.sync_floor();
+        st.watch.restart();
+        self.settled(&mut st, monotonic_ns(), None);
     }
 
     pub fn snapshot(&self) -> EffortSnapshot {
@@ -345,7 +377,8 @@ impl Effort {
         EffortSnapshot {
             level: st.level(),
             auto_level: st.watch.level,
-            floor: st.watch.floor,
+            floor: st.user_floor,
+            machine_floor: st.machine_floor(),
             auto: st.auto,
             held: st.held,
             late_share: st.watch.late_share,
@@ -569,6 +602,51 @@ mod tests {
         e.set_floor(0);
         e.hold_full(false);
         assert_eq!(e.level(), 1);
+    }
+
+    #[test]
+    fn the_computers_power_saving_is_a_floor_of_its_own_beside_the_persons() {
+        let e = Effort::free();
+        e.set_machine_saving(true);
+        let snap = e.snapshot();
+        assert_eq!((e.level(), snap.floor, snap.machine_floor), (1, 0, 1), "the person's floor stays 0, the machine's is 1");
+        // Both ask: the person's floor is still what the setting says
+        e.set_floor(1);
+        e.set_machine_saving(false);
+        assert_eq!((e.level(), e.floor(), e.snapshot().machine_floor), (1, 1, 0));
+        e.set_floor(0);
+        assert_eq!(e.level(), FULL, "each goes without the other");
+        // It is one step from the level it holds, like any floor
+        e.set_machine_saving(true);
+        let mut st = e.state.lock().unwrap();
+        e.judged(&mut st, 100 * SECOND, behind());
+        e.judged(&mut st, 101 * SECOND, behind());
+        drop(st);
+        assert_eq!(e.level(), 2);
+        assert_eq!(e.snapshot().auto_level, 2, "stepping down went on from the floor");
+    }
+
+    #[test]
+    fn keeping_full_quality_lets_go_of_the_computers_power_saving_but_not_the_persons() {
+        let e = Effort::free();
+        e.set_machine_saving(true);
+        e.hold_full(true);
+        assert_eq!((e.level(), e.snapshot().machine_floor), (FULL, 0));
+        e.set_floor(1);
+        assert_eq!(e.level(), 1, "power-saving effects still holds");
+        e.set_floor(0);
+        e.hold_full(false);
+        assert_eq!((e.level(), e.snapshot().machine_floor), (1, 1), "the machine's ask comes back when full quality isn't kept");
+    }
+
+    #[test]
+    fn the_computers_power_saving_is_one_move_with_no_reason_of_its_own() {
+        let e = Effort::free();
+        e.set_machine_saving(true);
+        e.set_machine_saving(true);
+        e.set_machine_saving(false);
+        let moves: Vec<_> = e.snapshot().moves.iter().map(|m| (m.from, m.to, m.why)).collect();
+        assert_eq!(moves, [(0, 1, Why::Override), (1, 0, Why::Override)], "nothing in the stats says why");
     }
 
     #[test]

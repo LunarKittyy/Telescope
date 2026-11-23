@@ -839,6 +839,8 @@ pub trait Host:
     fn want_system(&mut self, _owner: &str, _on: bool) {}
     /// Whether the effects step down by themselves while frames run late (a saved setting). Off, only Power-saving effects holds them down.
     fn set_effects_step_down(&mut self, _on: bool) {}
+    /// Whether the effects run at Power-saving level while the computer says it is saving power (a saved setting). The computer's state is only looked at live while a stream runs.
+    fn set_effects_follow_power(&mut self, _on: bool) {}
     /// Keeps the effects at full quality for this run of the app, whatever stepping down says. Not saved.
     fn hold_effects_full(&mut self, _on: bool) {}
     /// Whether people may be followed by their faces while the effects are lighter (a saved switch, or kept off for one run). Not saved here.

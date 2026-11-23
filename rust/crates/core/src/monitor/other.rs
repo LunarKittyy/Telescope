@@ -13,3 +13,7 @@ impl Reader {
         Sample::default()
     }
 }
+
+pub(super) fn power_saver() -> Option<bool> {
+    None
+}

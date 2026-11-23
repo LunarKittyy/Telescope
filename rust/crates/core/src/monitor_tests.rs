@@ -356,3 +356,16 @@ fn print_the_graphics_part_and_scan_time() {
     }
     println!("process listing {:?} per look, graphics scan {:?} per look", listing / runs, scan / runs);
 }
+
+#[test]
+fn the_power_state_can_be_asked_here_without_waiting_long() {
+    let began = std::time::Instant::now();
+    // The first ask may only start a listener (Windows reports its power mode a moment after one registers)
+    let _ = power_saver();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let (first, second) = (power_saver(), power_saver());
+    // Whatever this computer says, asking again agrees and doesn't hang on a bus or a daemon that isn't there
+    assert_eq!(first, second);
+    assert!(began.elapsed() < std::time::Duration::from_secs(3), "{:?}", began.elapsed());
+    eprintln!("power_saver here: {first:?}");
+}

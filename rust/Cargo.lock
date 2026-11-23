@@ -5859,6 +5859,7 @@ dependencies = [
  "unicode-segmentation",
  "windows",
  "yeslogic-fontconfig-sys",
+ "zbus",
 ]
 
 [[package]]

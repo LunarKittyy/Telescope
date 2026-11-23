@@ -90,6 +90,56 @@ fn power_saving_is_the_reason_not_an_item_of_its_own() {
 }
 
 #[test]
+fn the_computers_power_saving_is_the_reason_with_full_quality_and_its_own_switch_to_undo_it() {
+    let saving = |floor: u8, auto_level: u8, held: bool| {
+        let level = if held { floor } else { auto_level.max(floor).max(1) };
+        Seen { effort: EffortSnapshot { level, auto_level, floor, machine_floor: u8::from(!held), auto: true, held, ..Default::default() }, ..quiet() }
+    };
+    let list = items(&saving(0, 0, false));
+    assert_eq!((list.len(), &list[0].kind, &list[0].reason), (1, &Kind::Effects, &Reason::ComputerSavesPower));
+    assert_eq!(list[0].overrides, [Override::KeepFull, Override::TurnOffPower]);
+    // Power-saving effects asks for as much itself: that is the reason, and its own card has the switch
+    let both = items(&saving(1, 0, false));
+    assert_eq!((&both[0].reason, both[0].overrides.len()), (&Reason::PowerSaving, 0));
+    // Frames running late have taken it further than either floor
+    assert_eq!(items(&saving(0, 2, false))[0].reason, Reason::FramesLate);
+    // Full quality kept: the computer's ask is let go, so nothing is adjusted
+    assert!(items(&saving(0, 0, true)).is_empty());
+}
+
+#[test]
+fn the_computers_power_saving_has_a_saved_switch_that_the_list_and_settings_both_move() {
+    let (mut p, mut host) = plugin();
+    p.on_plugins_ready(&mut host);
+    assert!(host.calls.contains(&"set_effects_follow_power true".to_string()), "on as it comes");
+    let mut snap = stream(0);
+    snap.app.effort = EffortSnapshot { level: 1, floor: 0, machine_floor: 1, auto: true, ..Default::default() };
+    p.on_event(&mut host, &Event::StatsUpdated { snapshot: snap });
+    assert_eq!((p.rows.len(), &p.rows[0].reason), (1, &Reason::ComputerSavesPower));
+    // Full quality for this run: the host is told to hold it
+    host.calls.clear();
+    let click = |p: &mut AdjustmentsPlugin, host: &mut FakeHost, b: u64| p.on_ui(host, &UiEvent { ui: "header".into(), callback: "override-clicked".into(), args: vec![json!(0), json!(b)] });
+    click(&mut p, &mut host, 0);
+    assert!(host.calls.contains(&"hold_effects_full true".to_string()));
+    assert_eq!(p.get_config()["power"], true, "that one isn't saved");
+    // Turn off is the saved switch, and leaves the lighter-effects-while-late switch alone
+    click(&mut p, &mut host, 1);
+    assert_eq!((p.get_config()["power"].clone(), p.get_config()["effects"].clone()), (json!(false), json!(true)));
+    assert!(host.calls.contains(&"set_effects_follow_power false".to_string()) && host.calls.contains(&"schedule_save".to_string()));
+    // Settings moves it back
+    p.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "power-toggled".into(), args: vec![json!(true)] });
+    assert_eq!(p.get_config()["power"], true);
+    assert!(host.calls.last().is_some_and(|c| c.starts_with("set_ui_props adjustments")));
+}
+
+#[test]
+fn switching_the_plugin_off_lets_go_of_following_power() {
+    let (mut p, mut host) = plugin();
+    p.shutdown(&mut host);
+    assert!(host.calls.contains(&"set_effects_follow_power false".to_string()));
+}
+
+#[test]
 fn the_balancer_only_counts_when_it_moved_frames_and_nothing_pins_them() {
     let moved = Seen { balance: BalanceSnapshot { on_card: false, ..Default::default() }, busiest_gpu: Some("Game".into()), ..quiet() };
     let list = items(&moved);
@@ -239,14 +289,15 @@ fn the_overrides_reach_the_host_through_its_methods_and_an_event() {
 #[test]
 fn the_switches_are_applied_at_the_start_and_reset_puts_them_back_on() {
     let (mut p, mut host) = plugin();
-    p.set_config(&json!({"effects": false, "heads": false, "balance": false, "dynamic": false})).unwrap();
+    p.set_config(&json!({"effects": false, "heads": false, "balance": false, "dynamic": false, "power": false})).unwrap();
     p.on_plugins_ready(&mut host);
-    for call in ["set_effects_step_down false", "hold_effects_full false", "allow_heads false", "keep_steps_on_card true"] {
+    for call in ["set_effects_step_down false", "set_effects_follow_power false", "hold_effects_full false", "allow_heads false", "keep_steps_on_card true"] {
         assert!(host.calls.contains(&call.to_string()), "{call}: {:?}", host.calls);
     }
     assert_eq!(host.events, [Event::FixedBitrateRequested { on: true }]);
     p.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "reset-clicked".into(), args: vec![] });
-    assert_eq!(p.get_config(), json!({"effects": true, "heads": true, "balance": true, "dynamic": true}));
+    assert_eq!(p.get_config(), json!({"effects": true, "heads": true, "balance": true, "dynamic": true, "power": true}));
+    assert!(host.calls.contains(&"set_effects_follow_power true".to_string()));
     assert_eq!(host.calls.iter().rev().find(|c| c.starts_with("allow_heads")).map(String::as_str), Some("allow_heads true"));
     assert_eq!(host.events.last(), Some(&Event::FixedBitrateRequested { on: false }));
     assert!(host.calls.contains(&"keep_steps_on_card false".to_string()));
@@ -372,8 +423,8 @@ fn the_banner_asks_to_hear_about_its_dismissal() {
 #[test]
 fn every_switch_in_settings_is_one_the_plugin_has() {
     let ui = include_str!("../ui/adjustments.slint");
-    assert_eq!(ui.matches("SwitchRow {").count(), 4);
-    for switch in ["effects", "heads", "balance", "dynamic"] {
+    assert_eq!(ui.matches("SwitchRow {").count(), 5);
+    for switch in ["effects", "heads", "balance", "dynamic", "power"] {
         assert!(ui.contains(&format!("root.{switch}-toggled(on)")), "{switch}");
     }
     assert!(!ui.contains("enabled: false"));

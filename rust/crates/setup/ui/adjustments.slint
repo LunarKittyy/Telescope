@@ -124,11 +124,13 @@ export component AdjustmentsSettings inherits Card {
     in-out property <bool> heads: true;
     in-out property <bool> balance: true;
     in-out property <bool> dynamic: true;
+    in-out property <bool> power: true;
     callback reset-clicked;
     callback effects-toggled(bool);
     callback heads-toggled(bool);
     callback balance-toggled(bool);
     callback dynamic-toggled(bool);
+    callback power-toggled(bool);
 
     title: @tr("Automatic adjustments");
     tip: @tr("Switch off any of the automatic changes Telescope makes for a smoother stream.");
@@ -160,6 +162,16 @@ export component AdjustmentsSettings inherits Card {
         hue: root.hue;
         checked <=> root.heads;
         toggled(on) => { root.heads-toggled(on); }
+    }
+    SwitchRow {
+        icon: Icons.battery;
+        label: @tr("Lighter effects when saving power");
+        tip: @tr("Lighter effects when saving power");
+        tip-detail: @tr("Start Background and Auto framing at Power-saving level while the computer is in battery saver or a power-saver mode. Telescope only looks at this while a stream runs and doesn't keep or send it.");
+        keywords: @tr("search" => "battery saver power saver profile mode laptop effects power saving");
+        hue: root.hue;
+        checked <=> root.power;
+        toggled(on) => { root.power-toggled(on); }
     }
     SwitchRow {
         icon: Icons.chip;
