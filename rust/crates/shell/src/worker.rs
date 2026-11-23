@@ -786,6 +786,8 @@ impl StreamWorker {
         self.shared.restart_vcam.set();
         if parked {
             self.shared.vcam_free.wait(Duration::from_secs(1)); // the wait screen opens it next; it retries if this ran late
+            // The camera's pictures go with it, so the heap they leave goes back to the system too
+            (crate::window::app_hooks().release_memory_soon)();
         }
     }
 
@@ -1377,33 +1379,38 @@ impl Shared {
     }
 
     /// Pull frames off the wire as fast as they come, reconnecting when the stream drops; returns at a stop.
-    fn read_frames(self: &Arc<Self>, mut cap: Cap) {
+    fn read_frames(self: &Arc<Self>, first: Cap) {
+        let mut cap = Some(first);
         loop {
             if self.stopped() {
                 return;
             }
             if let Some(moved) = self.take_handover() {
-                cap = moved;
+                cap = Some(moved);
                 continue;
             }
-            let ended = match &mut cap {
-                Cap::Frames(reader) => self.read_h264(reader.as_mut()),
-                Cap::Jpegs { feed, own: false, .. } => self.read_jpegs(feed.as_mut(), &mut jpeg_decoders(self)),
-                Cap::Jpegs { feed, decoder, own: true } => {
+            let ended = match cap.as_mut() {
+                Some(Cap::Frames(reader)) => self.read_h264(reader.as_mut()),
+                Some(Cap::Jpegs { feed, own: false, .. }) => self.read_jpegs(feed.as_mut(), &mut jpeg_decoders(self)),
+                Some(Cap::Jpegs { feed, decoder, own: true }) => {
                     // Its decoder goes to the decoding thread; a reconnect opens the feed again and asks for a new one
                     self.read_jpegs(feed.as_mut(), &mut vec![std::mem::replace(decoder, Box::new(NoDecoder))])
                 }
+                None => return,
             };
             match ended {
                 Ended::Stopped => return,
                 Ended::Moved(new) => {
-                    cap = new;
+                    cap = Some(new);
                     continue;
                 }
                 Ended::Dropped => {}
             }
+            // The dropped stream's decoder and pictures go now, not after the wait for the phone, and the heap they leave goes back to the system
+            drop(cap.take());
+            (crate::window::app_hooks().release_memory_soon)();
             let Some(new) = self.reconnect() else { return };
-            cap = new;
+            cap = Some(new);
             self.settle.lock().unwrap().restart(Instant::now());
             self.status("ok", &tr("Stream reconnected"));
             (self.events)(WorkerEvent::Reconnected);
