@@ -490,6 +490,8 @@ class CameraStreamService : Service() {
     private val binder = LocalBinder()
 
     @Volatile private var controller: CameraSessionController? = null
+    // The camera thread's state callbacks only count while their controller is the one running
+    private val controllerGate = RunGate<CameraSessionController>()
     @Volatile private var stills: StillCapture? = null
     private val stillJobs by lazy { StillJobs(java.io.File(cacheDir, "stills")) }
     // What each lens can do for photos, read once in the background when the stream starts (StillCatalog)
@@ -828,7 +830,7 @@ class CameraStreamService : Service() {
             onFrameSkipped = { server?.countFrame() },
             // A callback from a controller that's been replaced or stopped only goes in the history.
             onStateChanged = { newState, op, error ->
-                if (controller === ctrl) setState(newState, op, error) else stateMachine.record(op, error)
+                if (!controllerGate.ifCurrent(ctrl) { setState(newState, op, error) }) stateMachine.record(op, error)
             },
             // A full stop: stopSelf() alone leaves the server, wake lock and notification up while MainActivity is bound.
             onFatalError   = { mainHandler.post { if (controller === ctrl) stopStreaming("cameraLost") } },
@@ -837,6 +839,7 @@ class CameraStreamService : Service() {
             onCodecFailed  = { server?.closeH264Clients() },
         )
         controller = ctrl
+        controllerGate.begin(ctrl)
         // Before the first open: the video request that follows then finds the codec it wants and doesn't reopen the camera
         intent?.getStringExtra(EXTRA_CODEC)?.takeIf { it == H264Stream.CODEC_H264 && h264Available }?.let { ctrl.presetCodec(it) }
         stills = StillCapture(this, ctrl, stillJobs,
@@ -1357,11 +1360,15 @@ class CameraStreamService : Service() {
         wakeLock?.let { if (it.isHeld) it.release() }
         releaseWifiLocks()
         stopWatchingThermalStatus()
-        controller = null; server = null
+        server = null
         NotesBoard.clear()
         streamingSinceMs = 0L
         viewer = null
-        setState(StreamState.Idle, op)
+        // One step with the camera thread's state callbacks, so a late one can't set Streaming after Idle
+        controllerGate.end {
+            controller = null
+            setState(StreamState.Idle, op)
+        }
         // Release camera ownership only after CameraSessionController.teardown() has closed the device on its own thread.
         if (ctrl != null) {
             ctrl.stop {
