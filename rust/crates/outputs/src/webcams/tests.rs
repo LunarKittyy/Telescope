@@ -707,7 +707,7 @@ mod gphoto_scanning {
         let (root, counter) = (tmp.join("devices"), tmp.join("looks"));
         plug(&root, "1-2", "1", "2");
         // Lists nothing until the first look after the plug-in is over
-        let p = program("late", &format!("echo look >> {c}\nif [ -e {c}.plugged ] && [ $(wc -l < {c}) -lt 3 ]; then exit 0; fi\nif [ -e {c}.plugged ]; then cat <<'EOF'\n{DETECTED}EOF\nfi\n", c = counter.display()));
+        let p = program("late", &format!("echo look >> {c}\nif [ -e {c}.plugged ] && [ $(wc -l < {c}) -lt 4 ]; then exit 0; fi\nif [ -e {c}.plugged ]; then cat <<'EOF'\n{DETECTED}EOF\nfi\n", c = counter.display()));
         let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
         scanner.usb = Some(folder_look(root.clone()));
         scan_until_looks(&mut scanner, &counter, 1);
@@ -718,7 +718,20 @@ mod gphoto_scanning {
         let found = scan_until(&mut scanner, |d| !d.is_empty());
         assert!(!found.is_empty(), "the camera that wasn't ready for the first look was never found");
         scan_for_a_while(&mut scanner);
-        assert_eq!(looks(&counter), 3);
+        assert_eq!(looks(&counter), 4, "two looks at startup, the plug-in's look, then the one more that found it");
+    }
+
+    #[test]
+    fn a_camera_the_usb_bus_lists_before_gphoto_sees_it_is_found_after_startup() {
+        let tmp = telescope_core::testing::scratch_dir("gphoto-usb-startup");
+        let (root, counter) = (tmp.join("devices"), tmp.join("looks"));
+        plug(&root, "1-2", "1", "2");
+        // The camera is on the bus from the start, but only the second look lists it
+        let p = program("startup", &format!("echo look >> {c}\nif [ $(wc -l < {c}) -ge 2 ]; then cat <<'EOF'\n{DETECTED}EOF\nfi\n", c = counter.display()));
+        let mut scanner = GphotoScanner::new(&p, Duration::ZERO, Duration::from_secs(5));
+        scanner.usb = Some(folder_look(root));
+        let found = scan_until(&mut scanner, |d| !d.is_empty());
+        assert!(!found.is_empty(), "an empty first look was kept for ten minutes");
     }
 
     #[test]
