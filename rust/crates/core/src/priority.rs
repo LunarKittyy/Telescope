@@ -72,6 +72,13 @@ pub fn behind_the_frames() {
     apply(mode());
 }
 
+/// The same for the app's threads, but never in a test: a test run is many tests at once, and a lowered thread there can wait seconds for its turn.
+pub fn behind_the_frames_unless_testing() {
+    if !cfg!(test) && std::env::var_os("NEXTEST").is_none() {
+        behind_the_frames();
+    }
+}
+
 #[cfg(unix)]
 fn apply(mode: Mode) {
     match mode {

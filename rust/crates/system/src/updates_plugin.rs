@@ -586,7 +586,7 @@ impl UpdatesPlugin {
         if self.backend.threaded() {
             std::thread::spawn(move || {
                 // Looking for or fetching an update can wait for a busy computer
-                telescope_core::priority::behind_the_frames();
+                telescope_core::priority::behind_the_frames_unless_testing();
                 work(&push)
             });
         } else {
