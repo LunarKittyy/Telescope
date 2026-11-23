@@ -86,6 +86,8 @@ Any thread can emit (`BusSender`) and the host delivers on a thread of its own i
 
 Each stream's worker counts into a `core::stats::SourceStats` with relaxed atomics only, which leaves locks and allocation off the frame path. `perf::record` also adds a stage's time to the stream the thread is bound to (`stats::bind`). The link and decoder note drops the same way (`stats::note_drop`). Once a second `Hub` reads them into a `Snapshot` (numbers, with the last 60 s of every series) and puts it on the bus as `Event::StatsUpdated`. What costs something to measure (each plugin's frame step and hook time) only runs while a plugin has asked with `Host::want_stats`, like `want_people`.
 
+How the whole computer is doing (processor, graphics card, memory, power, the user's busiest programs) comes from `core::monitor`, which `Hub` only reads into `AppSnapshot::system` while a plugin has asked with `Host::want_system`. It needs no admin rights and is live only: never logged, saved, put in Copy diagnostics or the MCP server's tools, and left out when a snapshot becomes JSON for a script plugin. Telescope's own vision models are always timed (`stats::note_model`) into `AppSnapshot::models`.
+
 ## Frames
 
 `Frame` holds packed planes in an `Arc`. Handing a frame to the preview, the virtual camera and other plugins (`FrameStore`) shares it. A step that changes pixels gets its own copy through `data_mut()`.

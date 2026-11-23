@@ -833,6 +833,8 @@ pub trait Host:
     }
     /// The expensive stats (each plugin's frame step and hook times) are measured while any plugin wants them; the cheap ones are always counted.
     fn want_stats(&mut self, _owner: &str, _on: bool) {}
+    /// The whole computer's load (processor, graphics card, memory, power, the user's busiest programs) is read into each stats snapshot while any plugin wants it. Live only: never logged, saved or sent.
+    fn want_system(&mut self, _owner: &str, _on: bool) {}
 
     /// Puts value in the host's registry as "<owner>.<name>" for other plugins to read, or takes it out with None. Everyone hears
     /// Event::SharedChanged. Only the owner writes its keys; the values go when it stops, and nothing is kept past a restart.

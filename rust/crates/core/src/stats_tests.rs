@@ -297,6 +297,44 @@ fn a_mean_never_passes_its_slowest() {
 }
 
 #[test]
+fn model_runs_are_timed_always_and_the_computer_only_while_asked() {
+    let (hub, _stats, began) = running();
+    crate::stats::note_model("mask", 4 * MS);
+    crate::stats::note_model("mask", 2 * MS);
+    crate::stats::note_model("people", 8 * MS);
+    crate::stats::note_model("something else", 8 * MS);
+    let snap = hub.snapshot_at(began + SECOND, None, None);
+    let names: Vec<&str> = snap.app.models.iter().map(|m| m.name.as_str()).collect();
+    assert_eq!(names, ["mask", "people"]);
+    assert_eq!((snap.app.models[0].timing.count, snap.app.models[0].timing.mean_ms), (2, 3.0));
+    assert!(snap.app.system.is_none(), "nobody asked");
+    assert!(hub.snapshot_at(began + 2 * SECOND, None, None).app.models.is_empty(), "a second with no runs has none");
+
+    hub.want_system("test", true);
+    assert!(hub.snapshot_at(began + 3 * SECOND, None, None).app.system.is_some());
+    hub.want_system("other", true);
+    hub.want_system("test", false);
+    assert!(hub.snapshot_at(began + 4 * SECOND, None, None).app.system.is_some(), "one still wants it");
+    hub.want_system("other", false);
+    assert!(hub.snapshot_at(began + 5 * SECOND, None, None).app.system.is_none());
+    // Asked again after a pause, the first reading starts over, so its rates don't average the whole pause
+    hub.want_system("test", true);
+    assert!(!hub.system.lock().unwrap().1.has_history());
+    hub.snapshot_at(began + 6 * SECOND, None, None);
+    assert!(hub.system.lock().unwrap().1.has_history());
+}
+
+#[test]
+fn what_the_computer_is_doing_never_reaches_a_plugin_as_json() {
+    let mut snap = Snapshot::default();
+    snap.app.system = Some(crate::monitor::SystemReading { busiest: vec![crate::monitor::ProcessUse { name: "secret program".into(), percent: 50.0 }], ..Default::default() });
+    let text = serde_json::to_string(&snap).unwrap();
+    assert!(!text.contains("secret program") && !text.contains("system"), "{text}");
+    let back: Snapshot = serde_json::from_str(&text).unwrap();
+    assert!(back.app.system.is_none());
+}
+
+#[test]
 fn the_snapshot_carries_the_effects_level_and_an_old_one_without_it_still_loads() {
     let effort = Arc::new(Effort::free());
     let hub = Hub::with_parts(Arc::new(Balance::free()), effort.clone());

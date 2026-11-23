@@ -197,6 +197,19 @@ fn a_connection_answers_line_by_line_and_a_slow_tool_does_not_hold_up_the_next_r
     assert!(last["result"]["content"][0]["text"].as_str().unwrap().contains("measure"));
 }
 
+#[test]
+fn an_answer_too_long_for_a_line_is_replaced_by_one_the_bridge_can_pass_on() {
+    let call: Arc<Caller> = Arc::new(|_, _| Ok(json!({"text": "x".repeat(2 * MAX_LINE)})));
+    let (tx, rx) = channel();
+    let input = "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"describe\"}}\n";
+    serve_connection(std::io::Cursor::new(input), Arc::new(Mutex::new(Lines(tx))), call, Arc::new(|_| {}));
+    let line = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(line.len() <= MAX_LINE, "{} bytes would be dropped by the bridge, and the AI app would wait for ever", line.len());
+    let answer: Value = serde_json::from_str(&line).unwrap();
+    assert_eq!((answer["id"].clone(), answer["result"]["isError"].clone()), (json!(9), json!(true)));
+    assert!(answer["result"]["content"][0]["text"].as_str().unwrap().contains("too long"));
+}
+
 // ── Off by default, and what a connection finds ─────────────────────
 
 #[test]
