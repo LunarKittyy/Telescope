@@ -608,9 +608,14 @@ mod tests {
                     }
                     let name = format!("{w}x{h} matrix {matrix} full {full_range}");
                     assert!(Converter::default().standard(source.clone(), w, h, enc).0 == want, "{name}: the converter differs");
-                    let mut plain = vec![0u8; source.len()];
-                    matrix_rows(&m, &source, &mut plain, &mut Scratch::default(), w, h);
-                    assert!(plain == want, "{name}: the plain rows differ");
+                    // Poison in the room, to see that every byte of it is written
+                    for poison in [0u8, 255] {
+                        let mut plain = vec![MaybeUninit::new(poison); source.len()];
+                        matrix_rows(&m, &Planes::packed(&source, w, h), &mut plain, &mut Scratch::default(), w, h);
+                        // SAFETY: the room was initialised with the poison to begin with
+                        let plain: Vec<u8> = plain.into_iter().map(|b| unsafe { b.assume_init() }).collect();
+                        assert!(plain == want, "{name}: the plain rows differ (room poisoned with {poison})");
+                    }
                 }
             }
         }
