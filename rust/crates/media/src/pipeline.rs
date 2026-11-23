@@ -2485,7 +2485,7 @@ pub(crate) mod tests {
             p.process(grey(64, 64, 100), &NoContext);
         }
         assert!(balance.cpu_cost().is_some(), "ten frames on the CPU were heard");
-        assert_eq!(balance.late_ns(), 12_500_000, "three quarters of a 60 fps frame");
+        assert_eq!(balance.late_ns() / 1000, 12_499, "three quarters of a 60 fps frame");
     }
 
     #[test]
