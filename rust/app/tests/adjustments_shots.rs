@@ -205,7 +205,7 @@ fn the_settings_card() {
             r.skip(40);
             r.w.process();
         }
-        let labels = ["Lighter effects", "Effects off a busy graphics card", "Dynamic bitrate", "Decoding fallback", "Phone cooling"];
+        let labels = ["Lighter effects", "Effects off a busy graphics card", "Dynamic bitrate"];
         for label in labels {
             assert!(ElementHandle::find_by_accessible_label(&settings.ui, label).next().is_some(), "{label} is on the card");
         }

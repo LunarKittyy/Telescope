@@ -316,7 +316,7 @@ fn behind_with(p: &mut AdjustmentsPlugin, host: &mut FakeHost, shed: u64, app: O
 }
 
 fn dismiss(p: &mut AdjustmentsPlugin, host: &mut FakeHost) {
-    host.clear_issue(Some(BANNER), None);
+    telescope_core::host::HostShell::clear_issue(host, Some(BANNER), None);
     p.on_issue_action(host, BANNER, "dismiss");
 }
 
