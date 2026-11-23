@@ -276,6 +276,11 @@ impl H264 {
 
     /// The newest frame the data completed (older ones are dropped to keep latency down after a stall) and how many it completed.
     pub fn feed(&mut self, data: &[u8]) -> (Option<Frame>, u32) {
+        self.feed_with(data, true)
+    }
+
+    /// feed; take false decodes the data but leaves the pictures on the decoder (nobody looks at them), so none is copied or converted.
+    fn feed_with(&mut self, data: &[u8], take: bool) -> (Option<Frame>, u32) {
         self.headers.remember(data);
         let mut data = std::borrow::Cow::Borrowed(data);
         if let Some(steps) = &self.steps {
@@ -295,14 +300,16 @@ impl H264 {
         let result = if std::mem::take(&mut self.break_next) {
             Err("the driver failed after receiving setup".to_string())
         } else {
-            decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref())
+            decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take)
         };
         #[cfg(not(test))]
-        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref());
+        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take);
+        // Pictures left on the decoder took less than a picture handed over does, which says nothing about keeping up
+        let timed = if take { 1 } else { 0 };
         match result {
             Ok(fed) if self.codec.hw.is_none() => {
                 self.note_picture_back(fed.count);
-                self.time(began, fed.count);
+                self.time(began, fed.count * timed);
                 if let Some(hw) = self.retry_hw.filter(|_| has_keyframe(&data)) {
                     if let Some(back) = self.go_back_to(hw, &data) {
                         return if back.0.is_some() { back } else { (fed.newest, fed.count) };
@@ -317,7 +324,7 @@ impl H264 {
                     let why = format!("no picture from the last {} pieces of the stream", self.silent);
                     return self.fall_back(why, &data);
                 }
-                if let Some(why) = self.time(began, fed.count) {
+                if let Some(why) = self.time(began, fed.count * timed) {
                     // The card's picture is good, so it stays if software has none yet
                     return match self.fall_back_slow(why, &data) {
                         (None, _) => (fed.newest, fed.count),
@@ -402,7 +409,7 @@ impl H264 {
         self.restart_steps();
         // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
         let setup = [&self.headers.setup(), data].concat();
-        Some(decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref()).map_or((None, 0), |fed| (fed.newest, fed.count)))
+        Some(decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref(), true).map_or((None, 0), |fed| (fed.newest, fed.count)))
     }
 
     /// Steps of its own for a new decoder: the old ones have already seen this data.
@@ -434,7 +441,7 @@ impl H264 {
         // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
         let setup = [&self.headers.setup(), data].concat();
         self.swapped_at = Some(std::time::Instant::now());
-        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref()).map_or((None, 0), |fed| (fed.newest, fed.count));
+        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref(), true).map_or((None, 0), |fed| (fed.newest, fed.count));
         self.note_picture_back(fed.1);
         fed
     }
@@ -494,7 +501,7 @@ struct Fed {
 /// refuses is the decoder's fault (a card that can't take the stream), not something to skip. Each access unit's capture time
 /// (the SEI the phone puts in front of a picture) is read before the steps change the unit and goes with it as the packet's pts, so the
 /// picture that comes out has its own time however the decoder delays or reorders; clock turns it into this computer's.
-fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, clock: Option<&PhoneClock>) -> Result<Fed, String> {
+fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, clock: Option<&PhoneClock>, take: bool) -> Result<Fed, String> {
     let mut newest = None;
     let mut count = 0;
     let mut units_in = 0;
@@ -526,8 +533,8 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
             }
         }
     });
-    // Only the newest picture is downloaded and converted; the ones it replaced never were
-    if fault.is_none() {
+    // Only the newest picture is downloaded and converted; the ones it replaced never were, and none is while nobody looks
+    if fault.is_none() && take {
         match codec.take_newest_stamped() {
             Ok(taken) => {
                 newest = taken.map(|(mut frame, pts)| {
@@ -557,6 +564,14 @@ impl Decoder for H264 {
             f.time_ns = packet.time_ns;
         }
         Decoded { newest, count }
+    }
+
+    fn decode_unseen(&mut self, packet: &Packet) -> Decoded {
+        #[cfg(surfaces)]
+        self.codec.surfaces(self.surface_wish.as_ref().is_some_and(|w| w.load(Ordering::Relaxed)));
+        // A swap to software or back to the card mid-way may hand a picture over anyway; nobody wants it
+        let (_, count) = self.feed_with(&packet.data, false);
+        Decoded { newest: None, count }
     }
 
     fn hardware(&self) -> bool {
@@ -626,6 +641,21 @@ pub(crate) mod tests {
             // Frame i, not frame i - 1
             assert!(count == 1 && (mean(&frame) - luma(v)).abs() <= 8.0, "{} vs {}", mean(&frame), luma(v));
         }
+    }
+
+    #[test]
+    fn pictures_nobody_looks_at_are_decoded_but_not_handed_over_and_the_next_needs_no_keyframe() {
+        // One keyframe, then P-frames only: the picture after the unseen ones can only be right if they went through the decoder
+        let values = [20, 60, 100, 140, 180, 220];
+        let Some(packets) = testenc::h264(&values, 64, 48, 100) else { return };
+        let mut dec = software();
+        assert!(dec.decode(&Packet { data: packets[0].clone(), time_ns: 0 }).newest.is_some());
+        for p in &packets[1..5] {
+            let unseen = dec.decode_unseen(&Packet { data: p.clone(), time_ns: 0 });
+            assert!(unseen.newest.is_none() && unseen.count == 1, "decoded and counted, but no picture");
+        }
+        let last = dec.decode(&Packet { data: packets[5].clone(), time_ns: 0 }).newest.expect("the picture after the pause");
+        assert!((mean(&last) - luma(220)).abs() <= 8.0, "{} vs {}", mean(&last), luma(220));
     }
 
     #[test]

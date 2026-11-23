@@ -78,8 +78,9 @@ object UpdateLogic {
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
-    // Once a day at most; a failed check doesn't count, so it retries on the next launch.
-    fun checkDue(lastCheckMs: Long, nowMs: Long): Boolean = nowMs - lastCheckMs >= DAY_MS
+    // Once a day at most; a failed check doesn't count, so it retries on the next launch. A last check in the future
+    // means the clock was set back since, and would otherwise hold the checks off until it caught up.
+    fun checkDue(lastCheckMs: Long, nowMs: Long): Boolean = nowMs < lastCheckMs || nowMs - lastCheckMs >= DAY_MS
 
     const val DAY_MS = 24L * 60 * 60 * 1000
 

@@ -1242,7 +1242,8 @@ impl Shared {
 
     /// Whether the camera has its first frame and is paused, noting it in the log the first time.
     fn demand_paused(&self) -> bool {
-        if self.slot.latest_picture().is_some() && self.paused() {
+        // The slot's lock only once the gate says paused: the reader asks before every picture
+        if self.paused() && self.slot.latest_picture().is_some() {
             if !self.was_paused.swap(true, Ordering::SeqCst) {
                 log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
                 (crate::window::app_hooks().release_memory_soon)();
@@ -1435,13 +1436,19 @@ impl Shared {
             if let Some(moved) = self.take_handover() {
                 break Ended::Moved(moved);
             }
-            match reader.read() {
-                Ok(f) => {
+            // While the steps are paused the pictures would only be dropped, so they're decoded (the next one then needs no keyframe) but never handed over
+            let read = if self.demand_paused() {
+                reader.read_unseen().map(|a| self.count_arrived(a.count, a.bytes))
+            } else {
+                reader.read().map(|f| {
                     self.count_arrived(f.count, f.bytes);
                     if newest.put((self.next_seq(), f.frame)) {
                         self.shed(1);
                     }
-                }
+                })
+            };
+            match read {
+                Ok(()) => {}
                 Err(FeedEnd::Stopped) if self.stopped() => break Ended::Stopped,
                 Err(e) => {
                     log::info!("The stream ended: {e:?}");
@@ -1671,8 +1678,9 @@ impl Shared {
         let mut hidings = self.hidings.load(Ordering::SeqCst);
         let mut urgent = false;
         let mut shown: Option<Frame> = None;
-        // How many frames had been published when the last one was sent, to count the ones skipped since
-        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or_else(|| *self.published.lock().unwrap());
+        // How many frames had been published when the last one was sent, to count the ones skipped since: none yet for a first camera, whose first frame
+        // passes over the ones that came in while it opened
+        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or(0);
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -4505,7 +4513,8 @@ mod tests {
         let started = Instant::now();
         w.shared.join_handover();
         assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
-        assert_eq!(new_opens.gone(), 1);
+        // The reader's own thread lets go of the feed on its next read, a moment after the hand-over has
+        wait_for(|| new_opens.gone() == 1);
         assert!(!log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Moved(_) | WorkerEvent::MoveFailed(_))));
         w.stop();
     }
@@ -4743,6 +4752,76 @@ mod tests {
         gate.watched(true);
         wait_for(|| made(&seen) > held);
         assert_eq!(seen.forgotten.load(Ordering::SeqCst), 1, "what the steps kept from before the pause is dropped, once");
+        w.stop();
+    }
+
+    /// Watching's media with an endless H.264 reader that counts the reads made while nobody looks at the pictures.
+    struct WatchingH264(Watching, Arc<AtomicU32>);
+
+    impl Media for WatchingH264 {
+        fn decoder(&self, codec: Codec, options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            self.0.decoder(codec, options)
+        }
+        fn decoder_with_tap(&self, codec: Codec, options: &DecodeOptions, tap: Arc<dyn PacketTap>) -> Result<Box<dyn Decoder>, String> {
+            self.0.decoder_with_tap(codec, options, tap)
+        }
+        fn frame_reader(&self, _feed: Box<dyn VideoFeed>, _decoder: Box<dyn Decoder>) -> Result<Box<dyn FrameReader>, String> {
+            Ok(Box::new(CountsUnseen(Reader(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }), self.1.clone())))
+        }
+        fn packet_tap(&self) -> Option<Arc<dyn PacketTap>> {
+            self.0.packet_tap()
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            self.0.scaler()
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            self.0.pipeline()
+        }
+    }
+
+    struct CountsUnseen(Reader, Arc<AtomicU32>);
+
+    impl FrameReader for CountsUnseen {
+        fn read(&mut self) -> Result<telescope_core::media::ReadFrame, FeedEnd> {
+            self.0.read()
+        }
+        fn read_unseen(&mut self) -> Result<telescope_core::media::Arrived, FeedEnd> {
+            self.1.fetch_add(1, Ordering::SeqCst);
+            self.0.0.read().map(|_| telescope_core::media::Arrived { bytes: 1, count: 1 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            self.0.stopper()
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn paused_h264_is_decoded_but_hands_no_picture_over_and_carries_on_when_someone_reads() {
+        let (seen, gate, unseen) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(0)), Arc::new(AtomicU32::new(0)));
+        gate.reliable(true);
+        let opener: Opener = Arc::new(|_| {
+            Ok((Codec::H264, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
+        });
+        let setup = WorkerSetup { label: String::new(), url: "https://phone/v1/video.h264".into(), opener, width: None, height: None, fps: 60, canvas: (None, None), slot: 0,
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false,
+                                  vision: None, steps: Vec::new(), gate: None, idle: Some(gate.clone()) };
+        let w = StreamWorker::start(setup, Arc::new(WatchingH264(Watching(seen.clone()), unseen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
+                                    telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap();
+        wait_for(|| made(&seen) >= 3);
+        assert_eq!(unseen.load(Ordering::SeqCst), 0, "pictures someone looks at are handed over");
+        gate.watched(false);
+        // The stream is still read, so the picture after the pause needs no keyframe, but nothing is handed over to be dropped
+        wait_for(|| unseen.load(Ordering::SeqCst) >= 5);
+        let held = made(&seen);
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(made(&seen), held, "paused: the steps ran on nothing");
+        gate.watched(true);
+        wait_for(|| made(&seen) > held);
+        let after = unseen.load(Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(unseen.load(Ordering::SeqCst) <= after + 1, "reading as unseen stops once someone reads the camera");
         w.stop();
     }
 
@@ -5039,7 +5118,7 @@ mod tests {
         use telescope_core::host::View;
         use telescope_core::view::PhoneZoom;
         let gate = Arc::new(crate::handover::ViewGate::default());
-        gate.follow(Some("phone-1"), true);
+        gate.follow(Some("phone-1"));
         let (old, new) = (PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 }, PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.6, y: 0.5 });
         gate.begin(old, new, (View { zoom: 2.0, ..View::default() }, View { zoom: 3.0, ..View::default() }), &View::default(), crate::shell::now_s());
         let seen = with_gate(Vec::new(), None, 1, Some(gate));
@@ -5300,9 +5379,15 @@ mod tests {
 
     /// Runs frames arriving after each of the gaps (ms) through a 30 fps camera and returns (arrived, delivered, paced drops).
     fn run_with_gaps(id: &str, gaps: &[u64]) -> (u64, u64, u64) {
+        run_with_gaps_and_open(id, gaps, 0)
+    }
+
+    /// run_with_gaps, with the virtual camera taking open_ms to open: the stream's first frames come in before it is there.
+    fn run_with_gaps_and_open(id: &str, gaps: &[u64], open_ms: u64) -> (u64, u64, u64) {
         let steps: Vec<Step> = gaps.iter().enumerate().flat_map(|(i, g)| [Step::Frame(10 + (i % 200) as u8), Step::Pause(Duration::from_millis(*g))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
         let (opener, _opens) = scripted(vec![Some(steps)]);
         let cams = Arc::new(Cams::default());
+        cams.open_delay_ms.store(open_ms, Ordering::SeqCst);
         let events: Events = Arc::new(|_| {});
         let w = StreamWorker::start(WorkerSetup { label: String::new(), source_id: id.into(), url: "https://127.0.0.1:40003/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         let n = gaps.len() as u64;
@@ -5377,6 +5462,15 @@ mod tests {
         assert_eq!(received, 12);
         assert_eq!(delivered + paced, 12, "every frame went out or was counted as skipped");
         assert!(paced >= 1 && delivered >= 3, "delivered {delivered}, skipped {paced}");
+    }
+
+    #[test]
+    fn frames_that_came_in_before_the_camera_opened_are_counted_as_skipped() {
+        // Twelve frames 1 ms apart come in while the camera takes 150 ms to open: the camera starts on the newest, and the ones before it were never sent
+        let gaps: Vec<u64> = (0..12).map(|i| if i == 11 { 600 } else { 1 }).collect();
+        let (received, delivered, paced) = run_with_gaps_and_open("early-frames-test", &gaps, 150);
+        assert_eq!(received, 12);
+        assert_eq!(delivered + paced, 12, "every frame went out or was counted as skipped: delivered {delivered}, skipped {paced}");
     }
 
     #[test]

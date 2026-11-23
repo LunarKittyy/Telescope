@@ -273,11 +273,10 @@ impl Handover {
 struct Inner {
     /// The stream the phone share is for.
     source: Option<String>,
-    tracking: bool,
     handover: Option<Handover>,
     /// The guess about the crop of a handover that has ended, for as long as it lasts.
     guess: Option<Guess>,
-    /// That stream's last frame, small, while the view controls its zoom.
+    /// That stream's last frame, small, while a new share is on its way or its crop is a guess, and always for a frame in memory.
     last: Option<Thumb>,
     shown: Option<(View, (f64, f64, f64))>,
     cameras: HashMap<String, (Value, u64)>,
@@ -302,7 +301,7 @@ impl ViewGate {
         self.0.lock().unwrap().cameras.get(source).map_or(0, |(_, epoch)| *epoch)
     }
 
-    pub fn follow(&self, source: Option<&str>, tracking: bool) {
+    pub fn follow(&self, source: Option<&str>) {
         let mut inner = self.0.lock().unwrap();
         if inner.source.as_deref() != source {
             inner.source = source.map(str::to_string);
@@ -311,7 +310,6 @@ impl ViewGate {
             inner.guess = None;
             inner.shown = None;
         }
-        inner.tracking = tracking;
     }
 
     pub fn begin(&self, old: PhoneZoom, new: PhoneZoom, mut views: (View, View), framing: &View, now: f64) {
@@ -322,7 +320,8 @@ impl ViewGate {
         if let Some((zoom, pan_x, pan_y)) = rest_within(framing.zoom as f64, framing.pan_x as f64, framing.pan_y as f64, &old, true) {
             views.0 = View { zoom: zoom as f32, pan_x: pan_x as f32, pan_y: pan_y as f32, ..views.0 };
         }
-        // The last frame came in the old share, so it is the one to compare with
+        // The last frame came in the old share, so it is the one to compare with; with none kept, the first frame after this one is (the phone can't
+        // have shown the new share by then)
         let base = inner.last.clone().map(|b| (b, 0.0, now));
         inner.handover = Some(Handover { old, new, views, framing: framing.clone(), since: now, guess, arrived: false, progress: 0.0, base, calm: 0.0, still: None });
     }
@@ -381,7 +380,23 @@ impl ViewGate {
         if inner.source.as_deref() != Some(source) {
             return (None, false);
         }
-        let thumb = (inner.tracking || inner.handover.is_some() || inner.guess.is_some()).then(|| thumb(frame));
+        // A guess past the time the phone is given says nothing any more
+        if inner.guess.as_ref().is_some_and(|g| now > g.until) {
+            inner.guess = None;
+        }
+        // A picture still on the card is copied off it to be looked at, so it is only looked at while a share is on its way or its crop is a guess (and
+        // outside the lock the window takes). One already in memory costs next to nothing, and the last of those is the one to compare a new share with
+        let thumb = if inner.handover.is_some() || inner.guess.is_some() || frame.surface().is_none() {
+            drop(inner);
+            let thumb = thumb(frame);
+            inner = self.0.lock().unwrap();
+            if inner.source.as_deref() != Some(source) {
+                return (None, false);
+            }
+            Some(thumb)
+        } else {
+            None
+        };
         let before = std::mem::replace(&mut inner.last, thumb.clone());
         let Some(h) = inner.handover.as_mut() else {
             let unsure = inner.guess.as_mut().is_some_and(|g| {
@@ -455,7 +470,7 @@ mod tests {
     #[test]
     fn mask_source_coordinates_follow_the_phone_crop_through_a_handover() {
         let gate = ViewGate::default();
-        gate.follow(Some("a"), true);
+        gate.follow(Some("a"));
         let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.4, y: 0.5 };
         let new = PhoneZoom { ratio: 1.0, crop: 4.0, x: 0.6, y: 0.5 };
         gate.begin(old, new, (View::default(), View::default()), &View::default(), 0.0);
@@ -474,7 +489,7 @@ mod tests {
     #[test]
     fn a_phone_crop_move_refreshes_mask_geometry_even_when_the_desktop_crop_is_unchanged() {
         let gate = ViewGate::default();
-        gate.follow(Some("a"), false);
+        gate.follow(Some("a"));
         let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
         let new = PhoneZoom { crop: 4.0, ..old };
         gate.begin(old, new, (View::default(), View::default()), &View::default(), 0.0);
@@ -488,7 +503,7 @@ mod tests {
     #[test]
     fn a_frame_snapshot_keeps_the_desktop_and_phone_crops_together() {
         let gate = ViewGate::default();
-        gate.follow(Some("a"), true);
+        gate.follow(Some("a"));
         let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
         let new = PhoneZoom { crop: 4.0, ..old };
         let framing = View { zoom: 8.0, ..View::default() };
@@ -506,7 +521,7 @@ mod tests {
     #[test]
     fn a_label_is_a_guess_a_moment_after_a_new_zoom_is_sent_until_it_arrives() {
         let gate = ViewGate::default();
-        gate.follow(Some("a"), true);
+        gate.follow(Some("a"));
         let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
         let new = PhoneZoom { crop: 4.0, ..old };
         let flat = Frame::new(8, 8, PixelFormat::I420, vec![120; 96]);
@@ -538,7 +553,7 @@ mod tests {
         for ended in [false, true] {
             let begun = |fitted: bool| {
                 let gate = ViewGate::default();
-                gate.follow(Some("a"), false);
+                gate.follow(Some("a"));
                 gate.begin(old, new, (View::default(), View::default()), &View::default(), 1.0);
                 let mut inner = gate.0.lock().unwrap();
                 let h = inner.handover.as_mut().unwrap();
@@ -560,6 +575,88 @@ mod tests {
             assert!(gate.for_frame_labelled("a", &flat, 1.3, false).1, "not still for long enough, ended {ended}");
             assert!(!gate.for_frame_labelled("a", &flat, 1.55, false).1, "held still, ended {ended}");
         }
+    }
+
+    /// A picture on the card that counts how often it is copied off it.
+    #[derive(Debug)]
+    struct Counted(Frame, std::sync::atomic::AtomicUsize);
+
+    impl DecodedSurface for Counted {
+        fn ram(&self) -> &Frame {
+            self.1.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            &self.0
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn frames_are_only_copied_off_the_card_while_a_share_is_on_its_way_or_a_guess() {
+        let (w, h) = (64, 48);
+        let surface = Arc::new(Counted(Frame::new(w, h, PixelFormat::I420, vec![120; PixelFormat::I420.size(w, h)]), Default::default()));
+        let on_card = Frame::from_surface(w, h, PixelFormat::I420, surface.clone());
+        let copies = || surface.1.load(std::sync::atomic::Ordering::SeqCst);
+        let gate = ViewGate::default();
+        gate.follow(Some("a"));
+        for i in 0..10 {
+            gate.for_frame_labelled("a", &on_card, i as f64 / 30.0, false);
+        }
+        assert_eq!(copies(), 0, "nothing is on its way, so no frame is looked at");
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        gate.begin(old, PhoneZoom { crop: 4.0, ..old }, (View::default(), View::default()), &View::default(), 1.0);
+        gate.for_frame_labelled("a", &on_card, 1.03, false);
+        assert_eq!(copies(), 1, "a share on its way is looked for in the frames");
+        // Taken to have arrived without a frame fitting it: a guess until the phone has had all the time it is given, and then nothing
+        gate.end();
+        gate.for_frame_labelled("a", &on_card, 1.5, false);
+        assert_eq!(copies(), 2);
+        gate.for_frame_labelled("a", &on_card, 1.0 + HANDOVER_S + 0.1, false);
+        gate.for_frame_labelled("a", &on_card, 1.0 + HANDOVER_S + 0.2, false);
+        assert_eq!(copies(), 2, "an old guess says nothing about the frames");
+    }
+
+    /// The scene through the middle 1/crop of it, as a phone share of that crop sends it: a picture with something to find in it.
+    fn through(crop: f64) -> Frame {
+        let (w, h) = (512u32, 288u32);
+        let mut data = vec![128u8; PixelFormat::I420.size(w, h)];
+        for y in 0..h as usize {
+            for x in 0..w as usize {
+                let (sx, sy) = (0.5 + (x as f64 / w as f64 - 0.5) / crop, 0.5 + (y as f64 / h as f64 - 0.5) / crop);
+                data[y * w as usize + x] = (128.0 + 60.0 * (13.0 * sx).sin() * (9.0 * sy).cos() + 40.0 * (31.0 * sx + 7.0 * sy).sin()) as u8;
+            }
+        }
+        Frame::new(w, h, PixelFormat::I420, data)
+    }
+
+    /// The scene's picture as a decoder's, still on the card.
+    fn on_the_card(frame: Frame) -> Frame {
+        Frame::from_surface(frame.width, frame.height, frame.format, Arc::new(OnTheCard(frame)))
+    }
+
+    #[test]
+    fn a_share_sent_while_nothing_was_on_its_way_is_found_in_the_frames_on_the_card() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"));
+        let old = PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 };
+        gate.for_frame_labelled("a", &on_the_card(through(1.0)), 0.0, false);
+        gate.begin(old, PhoneZoom { crop: 2.0, ..old }, (View::default(), View::default()), &View::default(), 0.1);
+        // Frames still come in the old share for a while (the phone hasn't had the new one yet), then in the new one
+        gate.for_frame_labelled("a", &on_the_card(through(1.0)), 0.13, false);
+        gate.for_frame_labelled("a", &on_the_card(through(2.0)), 0.16, false);
+        let inner = gate.0.lock().unwrap();
+        let h = inner.handover.as_ref().unwrap();
+        assert!(h.arrived && h.progress >= 1.0, "progress {}", h.progress);
+    }
+
+    #[test]
+    fn the_last_frame_in_memory_is_the_one_a_share_sent_after_it_is_compared_with() {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"));
+        let old = PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 };
+        gate.for_frame_labelled("a", &through(1.0), 0.0, false);
+        gate.begin(old, PhoneZoom { crop: 2.0, ..old }, (View::default(), View::default()), &View::default(), 0.1);
+        assert!(gate.0.lock().unwrap().handover.as_ref().unwrap().base.is_some());
     }
 
     #[test]
