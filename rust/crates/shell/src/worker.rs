@@ -4457,7 +4457,8 @@ mod tests {
         let started = Instant::now();
         w.shared.join_handover();
         assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
-        assert_eq!(new_opens.gone(), 1);
+        // The reader's own thread lets go of the feed on its next read, a moment after the hand-over has
+        wait_for(|| new_opens.gone() == 1);
         assert!(!log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Moved(_) | WorkerEvent::MoveFailed(_))));
         w.stop();
     }
@@ -4991,7 +4992,7 @@ mod tests {
         use telescope_core::host::View;
         use telescope_core::view::PhoneZoom;
         let gate = Arc::new(crate::handover::ViewGate::default());
-        gate.follow(Some("phone-1"), true);
+        gate.follow(Some("phone-1"));
         let (old, new) = (PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 }, PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.6, y: 0.5 });
         gate.begin(old, new, (View { zoom: 2.0, ..View::default() }, View { zoom: 3.0, ..View::default() }), &View::default(), crate::shell::now_s());
         let seen = with_gate(Vec::new(), None, 1, Some(gate));
