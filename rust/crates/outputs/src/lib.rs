@@ -334,7 +334,7 @@ impl Outputs for VirtualCameras {
         {
             let setup = linux_setup::Setup { sys: &linux_setup::Real };
             let loaded = setup.module_loaded();
-            return SetupStatus { installed: setup.module_installed(), loaded, ready: setup.devices_ready(), persisted: setup.persisted(),
+            return SetupStatus { installed: setup.module_installed(), loaded, ready: v4l2::main_camera_ready_in(v4l2::SYSFS, setup.devices_ready()), persisted: setup.persisted(),
                                  ..SetupStatus::default() };
         }
         #[cfg(windows)]
