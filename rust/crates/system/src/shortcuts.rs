@@ -241,6 +241,10 @@ impl ShortcutsPlugin {
     }
 
     pub fn set_bindings(&mut self, host: &mut dyn Host, bindings: Vec<Binding>) {
+        // Held keys come up against the bindings they went down on: a removed binding's release would find nothing once the list is replaced
+        for id in self.held.keys().cloned().collect::<Vec<_>>() {
+            self.release(host, &id);
+        }
         let raw = Value::Array(bindings.iter().map(Binding::to_json).collect());
         self.bindings = clean_bindings(&raw);
         host.schedule_save();
@@ -1836,6 +1840,15 @@ mod tests {
         let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({"mode": "hold"}), true)]), false, true);
         plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
         plugin.on_hotkey(&mut host, &json!({"kind": "released", "id": "a"}));
+        assert_eq!(ran(&host), [r#"run_action microphone microphone.mute {"mode":"hold"}"#,
+                                r#"release_action microphone microphone.mute {"mode":"hold"}"#]);
+    }
+
+    #[test]
+    fn removing_a_held_shortcut_still_lets_go_of_it() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({"mode": "hold"}), true)]), false, true);
+        plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
+        plugin.set_bindings(&mut host, Vec::new());
         assert_eq!(ran(&host), [r#"run_action microphone microphone.mute {"mode":"hold"}"#,
                                 r#"release_action microphone microphone.mute {"mode":"hold"}"#]);
     }
