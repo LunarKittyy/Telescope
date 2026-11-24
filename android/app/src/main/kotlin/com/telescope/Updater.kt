@@ -65,8 +65,16 @@ object Updater {
     // An install the user walked away from goes back to Available, so the button works again.
     fun recoverStuckInstall() {
         val installing = state as? State.Installing ?: return
-        if (canUpdate() && UpdateLogic.installStuck(installing.sinceMs, IntervalClock.nowMs())) installCancelled()
+        if (canUpdate() && UpdateLogic.installStuck(installing.sinceMs, IntervalClock.nowMs())) {
+            installSessionId = UpdateLogic.NO_SESSION
+            installCancelled()
+        }
     }
+
+    // The installer session of the attempt in progress; a late result from an older one is ignored
+    @Volatile private var installSessionId = UpdateLogic.NO_SESSION
+
+    internal fun isActiveSession(reported: Int): Boolean = UpdateLogic.fromActiveSession(reported, installSessionId)
 
     // Once each time the app starts, then daily while it stays open.
     fun maybeCheck(context: Context) {
@@ -194,6 +202,7 @@ object Updater {
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         params.setAppPackageName(context.packageName)
         val sessionId = installer.createSession(params)
+        installSessionId = sessionId
         return UpdateLogic.abandonOnFailure({ installer.abandonSession(sessionId) }) {
             installer.openSession(sessionId).use { session ->
                 session.openWrite("Telescope.apk", 0, apk.length()).use { out ->
@@ -239,6 +248,7 @@ object Updater {
 // Where Android reports on the install session. Needs to launch the confirm screen itself.
 class UpdateInstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (!Updater.isActiveSession(intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1))) return
         when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 val confirm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
