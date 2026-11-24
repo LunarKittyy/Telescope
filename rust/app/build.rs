@@ -86,8 +86,8 @@ fn pack_catalog(text: &str) -> Vec<u8> {
     for block in text.replace("\r\n", "\n").split("\n\n") {
         let lines: Vec<&str> = block.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
         let body: Vec<&str> = lines.iter().copied().filter(|l| !l.starts_with('#')).collect();
-        // The header (the empty text) is read whatever its flags say
-        let header = body.first() == Some(&"msgid \"\"");
+        // The header (the empty text) is read whatever its flags say; a long text's msgid is "" too, but a continuation line follows
+        let header = body.first() == Some(&"msgid \"\"") && body.get(1).is_some_and(|l| l.starts_with("msgstr "));
         let fuzzy = lines.iter().any(|l| l.starts_with("#,") && l[2..].split(',').any(|f| f.trim() == "fuzzy"));
         let obsolete = lines.iter().any(|l| l.starts_with("#~"));
         if !obsolete && (header || !fuzzy) && !body.is_empty() {
