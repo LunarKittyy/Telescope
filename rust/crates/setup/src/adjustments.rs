@@ -186,7 +186,8 @@ pub fn items(seen: &Seen) -> Vec<Item> {
         };
         out.push(Item { kind: Kind::Effects, reason: why.clone(), overrides });
     }
-    if e.heads {
+    // Faces are followed only for lighter effects, so the 2 s tail after the level is back at 0 isn't listed with a reason it no longer has
+    if e.heads && e.level > 0 {
         out.push(Item { kind: Kind::Heads, reason: why, overrides: vec![Override::KeepBodies, Override::TurnOff] });
     }
     if !seen.balance.on_card && !seen.balance.pinned {
@@ -523,13 +524,16 @@ impl AdjustmentsPlugin {
         if behind {
             self.quiet_since = None;
             let cause = system.and_then(likely_cause);
+            let read = system.is_some();
             if cause.is_some() || system.is_some() || !self.behind {
                 self.last_cause = cause;
             }
             let shed = source.and_then(|s| s.shed_share(KEPT_UP_SECONDS)).unwrap_or(0.0);
             self.last_shed = shed;
             let key = cause_key(self.last_cause.as_ref());
-            if self.dismissed.as_ref().is_some_and(|was| !stays_dismissed(was, &key, shed)) {
+            // Until the computer has been read there is no cause to compare, so only clearly worse frames bring it back
+            let back = |was: &Dismissal| if read { !stays_dismissed(was, &key, shed) } else { shed >= was.shed + WORSE_BY };
+            if self.dismissed.as_ref().is_some_and(back) {
                 self.dismissed = None;
             }
             if self.dismissed.is_none() {
@@ -673,6 +677,8 @@ impl Plugin for AdjustmentsPlugin {
                 self.trimmed = trimmed.then_some(((*width, *height), (*picked_width, *picked_height)));
             }
             Event::StreamStopped | Event::DeviceChanged { .. } => self.stopped(host),
+            // The polls during a stream are how Dynamic's and the heat's changes get here, as on_phone_state only hears the first reading
+            Event::PhonePolled { shown: true, state, .. } => self.phone = Phone::from_state(state, self.phone),
             _ => {}
         }
     }

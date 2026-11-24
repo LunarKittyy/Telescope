@@ -212,6 +212,7 @@ pub fn setup_status(reg: &dyn Registry, uc_dir: &Path, mf_dir: &Path) -> telesco
         registered_name: uc_registered_name(reg, uc_dir).unwrap_or_default(),
         in_app_folder: uc_in_app_folder(reg, uc_dir),
         installable: mf_installable(reg, mf_dir),
+        driver_files: crate::wininstall::UC_SHA256.iter().all(|(name, _)| uc_dir.join(name).exists()),
         ..Default::default()
     }
 }
