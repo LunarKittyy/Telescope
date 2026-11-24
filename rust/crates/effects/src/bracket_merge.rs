@@ -1213,7 +1213,14 @@ pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind,
     }
     let before: Vec<_> = jpegs.iter().map(|p| stamp(p)).collect();
     let exif = read_jpeg(&jpegs[jpegs.len() / 2]).and_then(|(_, exif)| exif).and_then(|e| orientation_exif(&e));
-    let (merged, in_merge) = match merge_frames(jpegs.len(), &|i| read_jpeg(&jpegs[i]).map(|(image, _)| image), kind) {
+    // which photos decoded: a truncated one passes the header check but isn't a copy worth deleting its RAW for
+    let decoded = std::sync::Mutex::new(vec![false; jpegs.len()]);
+    let read = |i: usize| {
+        let image = read_jpeg(&jpegs[i]).map(|(image, _)| image);
+        decoded.lock().unwrap_or_else(|e| e.into_inner())[i] = image.is_some();
+        image
+    };
+    let (merged, in_merge) = match merge_frames(jpegs.len(), &read, kind) {
         Ok(merged) => merged,
         Err(e) => return fail(&e),
     };
@@ -1232,7 +1239,7 @@ pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind,
     };
     let used = in_merge.iter().filter(|u| **u).count();
     // every shot has to be here: one that never arrived has its only copy among the files being deleted (its RAW, in a RAW and JPEG bracket)
-    let complete = jpegs.len() >= expected;
+    let complete = jpegs.len() >= expected && decoded.lock().unwrap_or_else(|e| e.into_inner()).iter().all(|d| *d);
     let (mut removed, mut left) = (0, 0);
     if !keep_frames && complete {
         for f in files {
