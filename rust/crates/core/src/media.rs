@@ -317,6 +317,10 @@ pub trait CardPicture: Send + Sync {
     fn land_fitted(&self, _width: u32, _height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
         None
     }
+    /// The picture land_fitted made for width x height, if it was made already: for a reader that paints from the camera's size and can't wait for the card.
+    fn landed_fitted(&self, _width: u32, _height: u32) -> Option<Frame> {
+        None
+    }
     /// Whether the card can fit this picture into width x height (land_fitted may still fail), whether or not it landed already.
     fn fits_on_card(&self, _width: u32, _height: u32) -> bool {
         false
@@ -367,6 +371,15 @@ impl PipelineFrame {
     /// already in memory or one the card can't fit. The caller waits, like land.
     pub fn land_fitted_until(&self, width: u32, height: u32, cancel: &dyn Fn() -> bool) -> Option<Frame> {
         let mut frame = self.picture.as_ref()?.land_fitted(width, height, cancel)?;
+        frame.number = self.frame.number;
+        frame.time_ns = self.frame.time_ns;
+        frame.capture_ns = self.frame.capture_ns;
+        Some(frame)
+    }
+
+    /// What land_fitted_until already made for width x height, with the publication's stamps, without waiting for the card.
+    pub fn landed_fitted(&self, width: u32, height: u32) -> Option<Frame> {
+        let mut frame = self.picture.as_ref()?.landed_fitted(width, height)?;
         frame.number = self.frame.number;
         frame.time_ns = self.frame.time_ns;
         frame.capture_ns = self.frame.capture_ns;

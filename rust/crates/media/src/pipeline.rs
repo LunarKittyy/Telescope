@@ -514,7 +514,7 @@ impl Pipeline {
         }
         if picture.is_none() && keep_fit && !chain.pending() && !chain.withheld {
             if let Some(surface) = frame.surface().cloned() {
-                picture = Some(Arc::new(SurfacePicture(surface)) as Arc<dyn telescope_core::media::CardPicture>);
+                picture = Some(Arc::new(SurfacePicture::new(surface)) as Arc<dyn telescope_core::media::CardPicture>);
             }
         }
         if picture.is_none() {
@@ -4188,6 +4188,14 @@ pub(crate) mod tests {
         let whole = out.land();
         assert_eq!((whole.width, whole.height, whole.data[0]), (128, 72, 90), "landing it whole still gives the real picture");
         assert!(out.land_fitted_until(64, 36, &|| false).is_none(), "one in memory is fitted from there, not read back again");
+        let (frame, surface) = scalable(128, 72);
+        let again = p.process_picture(frame, &NoContext);
+        assert!(again.landed_fitted(64, 36).is_none(), "nothing scaled yet");
+        let first = again.land_fitted_until(64, 36, &|| false).unwrap();
+        let second = again.land_fitted_until(64, 36, &|| false).unwrap();
+        assert_eq!((first.width, second.width, surface.fits.load(Ordering::SeqCst)), (64, 64, 1), "the camera and the preview share one scaling");
+        assert_eq!(again.landed_fitted(64, 36).map(|f| f.height), Some(36));
+        assert!(again.landed_fitted(32, 18).is_none(), "another size isn't the kept one");
         // A step that needs the whole picture comes on: the next picture is whole, not dark, and the decoder is no longer asked to keep them
         p.set_steps(vec![step("first", FrameStage::Background, Brightens)]);
         assert!(!wish(&p));

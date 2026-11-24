@@ -1,6 +1,6 @@
 //! A decoder's picture left on the card for the virtual camera, which asks for it scaled to its own size so only that much comes down.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use telescope_core::frame::{DecodedSurface, Frame};
 use telescope_core::image::fit_box;
 use telescope_core::media::CardPicture;
@@ -18,19 +18,29 @@ pub(crate) fn wanted(windows: bool, plain: bool, camera: Option<(u32, u32)>, sou
 }
 
 /// A card picture that is still the decoder's surface: it lands whole as it always did, or scaled to the camera's size when the card can.
-pub(crate) struct SurfacePicture(pub(crate) Arc<dyn DecodedSurface>);
+/// The scaled one is kept, so the camera and the preview that paint from it share one scaling.
+pub(crate) struct SurfacePicture {
+    surface: Arc<dyn DecodedSurface>,
+    fitted: Mutex<Option<((u32, u32), Frame)>>,
+}
+
+impl SurfacePicture {
+    pub(crate) fn new(surface: Arc<dyn DecodedSurface>) -> Self {
+        Self { surface, fitted: Mutex::new(None) }
+    }
+
+    fn kept(&self, width: u32, height: u32) -> Option<Frame> {
+        self.fitted.lock().unwrap_or_else(|e| e.into_inner()).as_ref().filter(|(size, _)| *size == (width, height)).map(|(_, frame)| frame.clone())
+    }
+}
 
 impl CardPicture for SurfacePicture {
     fn land(&self) -> Frame {
-        static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-        if N.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 3 {
-            log::info!("DIAG a kept picture landed whole (backtrace {})", std::backtrace::Backtrace::force_capture().to_string().lines().filter(|l| l.contains("telescope")).take(6).collect::<Vec<_>>().join(" | "));
-        }
-        self.0.ram().clone()
+        self.surface.ram().clone()
     }
 
     fn landed(&self) -> Option<Frame> {
-        self.0.landed().cloned()
+        self.surface.landed().cloned()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -38,15 +48,28 @@ impl CardPicture for SurfacePicture {
     }
 
     fn fits_on_card(&self, width: u32, height: u32) -> bool {
-        self.0.can_fit(width, height)
+        self.surface.can_fit(width, height)
+    }
+
+    fn landed_fitted(&self, width: u32, height: u32) -> Option<Frame> {
+        self.kept(width, height)
     }
 
     fn land_fitted(&self, width: u32, height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
         // One in memory already is fitted from there; a second readback would cost more than it saves
-        if self.0.landed().is_some() || !self.0.can_fit(width, height) {
+        if self.surface.landed().is_some() || !self.surface.can_fit(width, height) {
             return None;
         }
-        self.0.fitted(width, height)
+        // Held across the scaling, so two readers asking at once scale the picture once
+        let mut kept = self.fitted.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((size, frame)) = kept.as_ref() {
+            if *size == (width, height) {
+                return Some(frame.clone());
+            }
+        }
+        let frame = self.surface.fitted(width, height)?;
+        *kept = Some(((width, height), frame.clone()));
+        Some(frame)
     }
 }
 

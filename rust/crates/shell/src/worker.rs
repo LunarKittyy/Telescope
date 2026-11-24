@@ -536,6 +536,10 @@ pub trait VideoWorker: Send + Sync {
     fn failed_tries(&self) -> u32;
     fn last_arrival_fps(&self) -> f32;
     fn camera_size(&self) -> Option<(u32, u32)>;
+    /// The size the camera's reader takes while the camera is open (what pictures are scaled to), None while it isn't.
+    fn camera_fit(&self) -> Option<(u32, u32)> {
+        None
+    }
     fn hand_over(&self, url: &str, opener: Opener) -> bool;
 }
 
@@ -602,6 +606,9 @@ impl VideoWorker for StreamWorker {
     }
     fn camera_size(&self) -> Option<(u32, u32)> {
         StreamWorker::camera_size(self)
+    }
+    fn camera_fit(&self) -> Option<(u32, u32)> {
+        StreamWorker::camera_fit(self)
     }
     fn hand_over(&self, url: &str, opener: Opener) -> bool {
         StreamWorker::hand_over(self, url, opener)
@@ -825,6 +832,10 @@ impl StreamWorker {
     }
 
     /// (width, height) the virtual camera last opened at.
+    pub fn camera_fit(&self) -> Option<(u32, u32)> {
+        self.shared.camera_fit.as_ref().and_then(|cell| telescope_core::media::unpack_camera_fit(cell.load(Ordering::Relaxed)))
+    }
+
     pub fn camera_size(&self) -> Option<(u32, u32)> {
         *self.shared.camera_size.lock().unwrap()
     }

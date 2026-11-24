@@ -1308,7 +1308,7 @@ impl Window {
             step => step == crate::preview::Step::Take,
         };
         let tag = crate::preview::paint_tag(self.colour_split_tag(), number);
-        let ram = picking || !on_card || self.state.borrow().colour.split().is_some() || self.passes.borrow().needs_copy(&passes, plan.card);
+        let ram = picking || !on_card || self.preview_fit(&picture).is_some() || self.state.borrow().colour.split().is_some() || self.passes.borrow().needs_copy(&passes, plan.card);
         let frame = if ram && !picking {
             let Some(landed) = self.preview_in_memory(&picture) else { return };
             landed
@@ -1402,8 +1402,36 @@ impl Window {
         }
     }
 
+    /// The size the camera takes when this picture can be scaled to it on the card.
+    fn preview_fit(&self, picture: &telescope_core::media::PipelineFrame) -> Option<(u32, u32)> {
+        let (width, height) = self.preview_worker()?.inner.camera_fit()?;
+        picture.fits_on_card(width, height).then_some((width, height))
+    }
+
     /// The preview picture's pixels without waiting for the card: one not landed yet is landed on a thread of its own and painted after, and the stream lands the next ones.
     fn preview_in_memory(&self, picture: &telescope_core::media::PipelineFrame) -> Option<telescope_core::Frame> {
+        // A picture kept on the card for the camera is painted from the size the camera takes, which the camera's own scaling shares: the preview is
+        // far smaller, and landing the whole picture for it would undo what keeping it there saves
+        if let Some((width, height)) = self.preview_fit(picture) {
+            if let Some(frame) = picture.landed().or_else(|| picture.landed_fitted(width, height)) {
+                return Some(frame);
+            }
+            let number = picture.metadata().number;
+            if self.landing.replace(number) != number {
+                let picture = picture.clone();
+                let started = std::thread::Builder::new().name("preview-landing".into()).spawn(move || {
+                    if picture.land_fitted_until(width, height, &|| false).is_none() {
+                        picture.land();
+                    }
+                    let _ = slint::invoke_from_event_loop(|| with_window(|w| w.frame_ready()));
+                });
+                if let Err(e) = started {
+                    log::warn!("The preview has no thread to read a picture back on: {e}");
+                    self.landing.set(0);
+                }
+            }
+            return None;
+        }
         // Asked every time, so the stream keeps landing what it makes for as long as the window paints from memory
         if let Some(worker) = self.preview_worker() {
             worker.inner.slot().want_ram();
