@@ -1017,6 +1017,9 @@ impl Shared {
         // The one place a card picture is read back for the readers of the slot: here, on this thread, before the lock they take
         if self.slot.ram_wanted() {
             out.land_until(&|| self.stopped());
+        } else if let Some((w, h)) = self.camera_fit.as_ref().and_then(|cell| telescope_core::media::unpack_camera_fit(cell.load(Ordering::Relaxed))).filter(|&(w, h)| out.keeps_fitted() && out.fits_on_card(w, h)) {
+            // A picture the camera takes scaled is scaled here, off the camera's pacing thread, and kept for it and the preview
+            out.land_fitted_until(w, h, &|| self.stopped());
         }
         // A frame made while Stop waited isn't published after it
         if self.stopped() {
@@ -4023,6 +4026,79 @@ mod tests {
         let sent: Vec<_> = cams.frames.lock().unwrap().iter().map(|f| (f.width, f.height, f.data[0])).collect();
         assert!(sent.iter().all(|f| *f == (4, 4, 33)), "a frame reached the camera without the card's fit: {sent:?}");
         assert_eq!(whole.load(Ordering::SeqCst), 0, "a picture the card fitted was read back whole as well");
+    }
+
+    /// A picture that fits itself to the camera on the card and keeps it, like a decoder's surface, and the number of times it did.
+    struct KeepsFitted(Arc<AtomicUsize>, Mutex<Option<Frame>>);
+
+    impl telescope_core::media::CardPicture for KeepsFitted {
+        fn land(&self) -> Frame {
+            grey(4, 2, 77)
+        }
+        fn landed(&self) -> Option<Frame> {
+            None
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn fits_on_card(&self, _width: u32, _height: u32) -> bool {
+            true
+        }
+        fn keeps_fitted(&self) -> bool {
+            true
+        }
+        fn landed_fitted(&self, _width: u32, _height: u32) -> Option<Frame> {
+            self.1.lock().unwrap().clone()
+        }
+        fn land_fitted(&self, width: u32, height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
+            let mut kept = self.1.lock().unwrap();
+            if kept.is_none() {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                *kept = Some(grey(width, height, 33));
+            }
+            kept.clone()
+        }
+    }
+
+    struct KeepingCard(Arc<AtomicUsize>, Arc<AtomicU64>);
+
+    impl FramePipeline for KeepingCard {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
+            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(KeepsFitted(self.0.clone(), Mutex::new(None)))))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+        fn camera_fit(&self) -> Option<Arc<AtomicU64>> {
+            Some(self.1.clone())
+        }
+    }
+
+    #[test]
+    fn a_picture_the_camera_takes_scaled_is_scaled_before_it_is_published_and_only_once() {
+        let cams = Arc::new(Cams::default());
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10), Step::Pause(Duration::from_millis(40)), Step::Frame(11), Step::Pause(Duration::from_millis(40)), Step::Frame(12), Step::Pause(Duration::from_secs(30))])]);
+        let (fits, cell) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicU64::new(0)));
+        let media = WithPipeline(Box::new({
+            let (fits, cell) = (fits.clone(), cell.clone());
+            move || Box::new(KeepingCard(fits.clone(), cell.clone()))
+        }));
+        let events: Events = Arc::new(|_| {});
+        let setup = WorkerSetup { canvas: (Some(4), Some(4)), ..setup(opener) };
+        let kept = Arc::new(Mutex::new(None));
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(kept.clone(), Arc::new(Mutex::new(Vec::new()))));
+        let w = StreamWorker::start(setup, Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| cams.frames.lock().unwrap().len() >= 3);
+        w.stop();
+        let sent: Vec<_> = cams.frames.lock().unwrap().iter().map(|f| (f.width, f.height, f.data[0])).collect();
+        assert!(sent.iter().all(|f| *f == (4, 4, 33)), "a frame reached the camera unscaled: {sent:?}");
+        let newest = kept.lock().unwrap().clone().unwrap().0;
+        assert!(newest.landed_fitted(4, 4).is_some(), "the published picture wasn't scaled yet when the camera could take it");
+        assert!(fits.load(Ordering::SeqCst) >= 3, "every frame is scaled once, on its way in");
     }
 
     /// Every other picture on the card (one the card fits to the camera) and the rest in memory at another size, as when the balance moves steps.
