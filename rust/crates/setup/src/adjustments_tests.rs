@@ -497,3 +497,37 @@ fn following_faces_can_be_kept_off_for_this_run_or_switched_off() {
     assert_eq!(p.get_config()["heads"], false);
     assert_eq!(host.calls.iter().rev().find(|c| c.starts_with("allow_heads")).map(String::as_str), Some("allow_heads false"));
 }
+
+#[test]
+fn a_closed_banner_stays_closed_when_the_cause_isnt_read_yet_on_the_first_tick_back() {
+    let (mut p, mut host) = plugin();
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 0);
+    dismiss(&mut p, &mut host);
+    let mut calm = stream(0);
+    calm.app.effort = lightest();
+    p.on_stats_at(&mut host, &calm, SECOND);
+    behind_with(&mut p, &mut host, 6, None, 2 * SECOND);
+    assert!(host.issues.is_empty(), "the computer isn't read on the first tick, which says nothing about the cause");
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 3 * SECOND);
+    assert!(host.issues.is_empty());
+    behind_with(&mut p, &mut host, 20, None, 4 * SECOND);
+    assert_eq!(host.issues.len(), 1, "far more frames shed still brings it back");
+}
+
+#[test]
+fn polls_during_a_stream_update_the_phones_readings() {
+    let (mut p, mut host) = plugin();
+    p.on_event(&mut host, &Event::PhonePolled { source_id: "phone".into(), session: 1, shown: true, state: json!({"bitrate": 8e6}) });
+    p.on_event(&mut host, &Event::PhonePolled { source_id: "phone".into(), session: 1, shown: true, state: json!({"bitrate": 3e6, "dynamic_fps": 24}) });
+    assert_eq!(p.phone.bitrate_bps, Some(3e6));
+    assert_eq!(p.phone.peak_bps, 8e6);
+    assert_eq!(p.phone.dynamic_fps, Some(24));
+    p.on_event(&mut host, &Event::PhonePolled { source_id: "other".into(), session: 1, shown: false, state: json!({"bitrate": 1e6}) });
+    assert_eq!(p.phone.bitrate_bps, Some(3e6), "a phone that isn't shown is left alone");
+}
+
+#[test]
+fn faces_are_not_listed_once_the_effects_are_back_at_full() {
+    let tail = Seen { effort: EffortSnapshot { level: 0, heads: true, ..Default::default() }, ..quiet() };
+    assert!(items(&tail).is_empty());
+}
