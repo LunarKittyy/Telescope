@@ -9,8 +9,10 @@ use crate::slow::{self, Rate, Timings};
 use crate::stamp::{self, Stamp};
 use std::time::{Duration, Instant};
 use std::collections::BTreeMap;
+#[cfg(test)]
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{mpsc, Arc, Mutex, Weak};
 use telescope_core::stats::SourceStats;
 use telescope_core::clock::PhoneClock;
 use telescope_core::frame::Frame;
@@ -194,6 +196,8 @@ pub struct H264 {
     candidate: Option<Candidate>,
     /// Set while software has the stream to see whether it's better than the card was: it keeps the stream only if it turns out so.
     trial: Option<Trial>,
+    /// The size of the last picture the running decoder gave, which a trial's comparison is made at.
+    last_size: Option<(u32, u32)>,
     /// New pictures a second that reached the virtual camera, over the last few seconds: the card's before a trial, software's during one.
     rate: Rate,
     /// Whether this decoder is counted in TRYING.
@@ -219,6 +223,12 @@ pub struct H264 {
     /// Tests: the software decoder doesn't open.
     #[cfg(test)]
     no_software: bool,
+    /// Tests: a decoder started beside the running one runs on a thread of its own, as it does for real (else it works through each piece at once).
+    #[cfg(test)]
+    threaded: bool,
+    /// Tests: a decoder started beside the running one waits for this lock before each piece.
+    #[cfg(test)]
+    hold: Option<Arc<Mutex<()>>>,
 }
 
 /// What one stream has learned about its card.
@@ -251,6 +261,14 @@ fn stream_policy() -> Arc<Mutex<Policy>> {
     policy
 }
 
+/// How many times this thread's stream's frame steps have changed (tests: a count they move by hand).
+fn steps_epoch() -> Option<u64> {
+    #[cfg(test)]
+    return Some(TEST_EPOCH.with(|d| d.get()));
+    #[cfg(not(test))]
+    telescope_core::stats::steps_epoch()
+}
+
 /// How many new pictures this thread's stream has sent to the virtual camera so far (tests: a count they move by hand).
 fn delivered_total() -> Option<u64> {
     #[cfg(test)]
@@ -262,29 +280,222 @@ fn delivered_total() -> Option<u64> {
 #[cfg(test)]
 thread_local! {
     static TEST_DELIVERED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    static TEST_EPOCH: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// What a stream's picture is compared under: a trial's verdict means nothing once any of these change.
+#[derive(Clone, Copy, PartialEq, Debug)]
+struct Conditions {
+    fps: u32,
+    size: Option<(u32, u32)>,
+    /// How often the stream's frame steps changed, which changes how many pictures get through.
+    steps_epoch: u64,
+}
+
+impl Conditions {
+    /// What changed from then to now, if anything (a size not known yet is no change).
+    fn change_since(&self, then: &Conditions) -> Option<&'static str> {
+        if self.fps != then.fps {
+            return Some("the frame rate changed");
+        }
+        if self.steps_epoch != then.steps_epoch {
+            return Some("the frame steps changed");
+        }
+        match (self.size, then.size) {
+            (Some(now), Some(was)) if now != was => Some("the picture size changed"),
+            _ => None,
+        }
+    }
 }
 
 /// What a decoder started beside the running one is for.
 enum Plan {
     /// Software, to see whether it's better than the card: what the card took a picture and how many new pictures a second it delivered
-    /// in the last few seconds before.
-    Trial { hw: Hw, card_ms: f64, card_rate: Option<f64> },
+    /// in the last few seconds before, and the conditions it was measured under.
+    Trial { hw: Hw, card_ms: f64, card_rate: Option<f64>, conditions: Conditions },
     /// The card, which the stream goes back to.
     Card(Hw),
 }
 
-/// A decoder started beside the running one and fed the same stream. The stream moves to it once it gives a picture; until then the running
-/// decoder keeps the picture going, so a switch never leaves a gap or a dark frame.
-struct Candidate {
+/// What a decoder started beside the running one made of the last piece of the stream it was given.
+enum Report {
+    /// There was no keyframe to start from: nothing was decoded.
+    Waiting,
+    /// Decoded, but no picture came out of it.
+    Quiet,
+    /// A picture came out, with no errors in it, and was taken off the decoder.
+    Picture,
+    /// A picture carried errors FFmpeg covered up, or a piece was refused: it starts over at the next keyframe.
+    Damaged,
+    /// The decoder itself is broken (a card that refuses the stream).
+    Fault(String),
+    /// The frame steps it was started with changed.
+    Stale,
+}
+
+/// Lets a decoder started beside the running one start where a decoder can: at a whole access unit with an IDR picture in it.
+struct Gate {
+    waiting: bool,
+    /// The stream's SPS and PPS as the skipped units showed them, put in front of the first unit it lets through.
+    headers: Headers,
+}
+
+impl Gate {
+    fn admit<'a>(&mut self, unit: &'a [u8]) -> Option<std::borrow::Cow<'a, [u8]>> {
+        if !self.waiting {
+            return Some(std::borrow::Cow::Borrowed(unit));
+        }
+        if !has_keyframe(unit) {
+            self.headers.remember(unit);
+            return None;
+        }
+        self.waiting = false;
+        Some(std::borrow::Cow::Owned([self.headers.setup().as_slice(), unit].concat()))
+    }
+}
+
+/// The decoding half of a decoder started beside the running one: on a thread of its own, so what it costs is never paid in a picture the running
+/// decoder has ready.
+struct Rig {
     codec: Codec,
     steps: Option<Steps>,
     step_generation: u64,
+    gate: Gate,
+    #[cfg(test)]
+    hold: Option<Arc<Mutex<()>>>,
+}
+
+impl Rig {
+    /// Decodes a piece of the stream and takes its newest picture, and says how that went.
+    fn work(&mut self, data: &[u8]) -> Report {
+        #[cfg(test)]
+        if let Some(hold) = &self.hold {
+            drop(hold.lock().unwrap_or_else(|e| e.into_inner()));
+        }
+        if self.steps.as_ref().map_or(0, Steps::generation) != self.step_generation {
+            return Report::Stale;
+        }
+        // Nothing before the keyframe is decoded, so whatever it refuses after that is its fault, or damage in the stream
+        match decode(&mut self.codec, self.steps.as_ref(), data, true, None, true, Some(&mut self.gate)) {
+            Ok(fed) => {
+                if self.codec.take_damaged() {
+                    self.gate.waiting = true;
+                    Report::Damaged
+                } else if self.gate.waiting {
+                    Report::Waiting
+                } else if fed.newest.is_some() {
+                    Report::Picture
+                } else {
+                    Report::Quiet
+                }
+            }
+            Err(why) if self.codec.hw.is_some() => Report::Fault(why),
+            Err(_) => {
+                self.codec.take_damaged();
+                self.gate.waiting = true;
+                Report::Damaged
+            }
+        }
+    }
+}
+
+/// How a Rig is run: on a thread, which is how it runs for real, or (tests) at once on the caller's.
+enum Engine {
+    Thread { send: Option<mpsc::Sender<Vec<u8>>>, reports: mpsc::Receiver<Report>, thread: Option<std::thread::JoinHandle<Rig>> },
+    #[cfg(test)]
+    Inline { rig: Option<Box<Rig>>, reports: VecDeque<Report> },
+}
+
+impl Engine {
+    fn start(rig: Rig, #[cfg(test)] threaded: bool) -> Result<Engine, String> {
+        #[cfg(test)]
+        if !threaded {
+            return Ok(Engine::Inline { rig: Some(Box::new(rig)), reports: VecDeque::new() });
+        }
+        let (send, work) = mpsc::channel::<Vec<u8>>();
+        let (report, reports) = mpsc::channel();
+        let mut rig = rig;
+        let thread = std::thread::Builder::new()
+            .name("decoder-beside".into())
+            .spawn(move || {
+                while let Ok(data) = work.recv() {
+                    if report.send(rig.work(&data)).is_err() {
+                        break;
+                    }
+                }
+                rig
+            })
+            .map_err(|e| format!("no thread for it: {e}"))?;
+        Ok(Engine::Thread { send: Some(send), reports, thread: Some(thread) })
+    }
+
+    fn send(&mut self, data: Vec<u8>) {
+        match self {
+            Engine::Thread { send, .. } => {
+                if let Some(send) = send {
+                    // A thread that has gone shows as missing reports
+                    let _ = send.send(data);
+                }
+            }
+            #[cfg(test)]
+            Engine::Inline { rig, reports } => {
+                if let Some(rig) = rig {
+                    reports.push_back(rig.work(&data));
+                }
+            }
+        }
+    }
+
+    /// What it reported since the last call, or None when its thread is gone.
+    fn collect(&mut self) -> Option<Vec<Report>> {
+        match self {
+            Engine::Thread { reports, .. } => {
+                let mut out = Vec::new();
+                loop {
+                    match reports.try_recv() {
+                        Ok(r) => out.push(r),
+                        Err(mpsc::TryRecvError::Empty) => return Some(out),
+                        Err(mpsc::TryRecvError::Disconnected) => return if out.is_empty() { None } else { Some(out) },
+                    }
+                }
+            }
+            #[cfg(test)]
+            Engine::Inline { reports, .. } => Some(reports.drain(..).collect()),
+        }
+    }
+
+    /// The decoder back, once it is done with what it was given.
+    fn finish(&mut self) -> Option<Rig> {
+        match self {
+            Engine::Thread { send, thread, .. } => {
+                drop(send.take());
+                thread.take()?.join().ok()
+            }
+            #[cfg(test)]
+            Engine::Inline { rig, .. } => rig.take().map(|rig| *rig),
+        }
+    }
+}
+
+/// A decoder started beside the running one and fed the same stream. The stream moves to it only when it has given a picture with no errors in
+/// it, from a keyframe it started at, and has caught up with the running decoder; until then the running decoder keeps the picture going,
+/// so a switch never leaves a gap, a dark frame or a picture shown twice.
+struct Candidate {
+    engine: Engine,
+    hw: Option<Hw>,
+    plan: Plan,
+    began: Instant,
     /// Given the stream's SPS and PPS ahead of the first of what it is fed.
     primed: bool,
-    /// Has been fed a keyframe, from when a card refusing the stream is its fault.
-    saw_keyframe: bool,
-    began: Instant,
-    plan: Plan,
+    /// Pieces of the stream it was given, and how many it has reported on.
+    sent: u64,
+    reported: u64,
+    /// Has been given a keyframe, whatever came of it: without one, giving no picture is the phone's lateness and not the decoder's fault.
+    keyframe_seen: bool,
+    /// Decoding from a keyframe with no errors so far.
+    started: bool,
+    /// Gave a picture with no errors since it started.
+    ready: bool,
 }
 
 /// Software has the stream to be judged against the card that looked too slow.
@@ -294,10 +505,9 @@ struct Trial {
     card_rate: Option<f64>,
     /// When software got the stream.
     began: Instant,
-    /// What the comparison was made under: it means nothing once any of these change.
-    fps: u32,
+    /// What the comparison was made under, from before software started.
+    conditions: Conditions,
     step_generation: u64,
-    size: Option<(u32, u32)>,
 }
 
 impl H264 {
@@ -369,6 +579,7 @@ impl H264 {
             retry_hw: None,
             candidate: None,
             trial: None,
+            last_size: None,
             rate: Rate::default(),
             counted: false,
             ask_keyframe: None,
@@ -384,6 +595,10 @@ impl H264 {
             card: Default::default(),
             #[cfg(test)]
             no_software: false,
+            #[cfg(test)]
+            threaded: false,
+            #[cfg(test)]
+            hold: None,
         }
     }
 
@@ -399,6 +614,7 @@ impl H264 {
 
     /// feed; take false decodes the data but leaves the pictures on the decoder (nobody looks at them), so none is copied or converted.
     fn feed_with(&mut self, data: &[u8], take: bool) -> (Option<Frame>, u32) {
+        self.poll_candidate();
         let out = self.feed_running(data, take);
         self.advance(data, take, out)
     }
@@ -423,10 +639,10 @@ impl H264 {
         let result = if std::mem::take(&mut self.break_next) {
             Err("the driver failed after receiving setup".to_string())
         } else {
-            decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take)
+            decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take, None)
         };
         #[cfg(not(test))]
-        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take);
+        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take, None);
         // A picture left on the decoder was never waited for (a card decodes in the background until its picture is taken), so it says nothing about keeping up
         let timed = |fed: &Fed| if take { fed.count } else { 0 };
         match result {
@@ -460,21 +676,30 @@ impl H264 {
     }
 
     /// After every feed, however it went: judges software if it has the stream on trial, starts going back to the card when that is due,
-    /// and feeds the decoder started beside the running one. out is what the running decoder gave.
+    /// and hands the decoder started beside the running one the data. out is what the running decoder gave, which goes out as it is.
     fn advance(&mut self, data: &[u8], take: bool, out: (Option<Frame>, u32)) -> (Option<Frame>, u32) {
         let now = slow::now();
+        if let Some(f) = out.0.as_ref() {
+            self.last_size = Some((f.width, f.height));
+        }
         if take {
             if let Some(total) = delivered_total() {
                 self.rate.record(now, total);
             }
         } else {
-            // Nobody sees the pictures, so none is delivered: that says nothing about either decoder
+            // Nobody sees the pictures, so none is delivered, and a decoder beside this one would miss them: that says nothing about either
             self.rate = Rate::default();
             self.cancel_trial("nobody is looking at the stream");
+            if let Some(cand) = self.candidate.take() {
+                self.drop_candidate(cand, "nobody is looking at the stream");
+            }
         }
-        self.judge_trial(now, out.0.as_ref());
-        self.start_card_candidate(now);
-        self.feed_candidate(data, take, out)
+        self.judge_trial(now);
+        if take {
+            self.start_card_candidate(now);
+            self.feed_candidate(data);
+        }
+        out
     }
 
     /// Swaps the card for software mid-stream and retries data on it.
@@ -497,17 +722,22 @@ impl H264 {
         self.swap_to_software(hw, data)
     }
 
-    /// Starts software beside the card because the card looks too slow. The card keeps the stream until software has a picture, and then software
-    /// is timed against it (judge_trial) and keeps the stream only if it turns out better. The card isn't called failed either way.
+    /// What the stream is being compared under now.
+    fn conditions(&self) -> Conditions {
+        Conditions { fps: self.target_fps.load(Ordering::Relaxed), size: self.last_size, steps_epoch: steps_epoch().unwrap_or(0) }
+    }
+
+    /// Starts software beside the card because the card looks too slow. The card keeps the stream until software has a clean picture and has
+    /// caught up, and then software is timed against it (judge_trial) and keeps the stream only if it turns out better. The card isn't called
+    /// failed either way.
     fn begin_software_trial(&mut self, slow: Slowness) {
         let hw = self.codec.hw.expect("only a card decoder falls back");
         let now = slow::now();
         log::warn!("Hardware decoding ({}) is {}; starting software decoding beside it to see whether it's better", hw.name(), slow.why);
-        match self.open_beside(None) {
-            Ok(codec) => {
-                self.start_candidate(codec, Plan::Trial { hw, card_ms: slow.card_ms, card_rate: self.rate.per_second(now) });
-                self.begin_trying();
-            }
+        // Everything the verdict compares is read here, before software starts
+        let plan = Plan::Trial { hw, card_ms: slow.card_ms, card_rate: self.rate.per_second(now), conditions: self.conditions() };
+        match self.open_beside(None).and_then(|codec| self.start_candidate(codec, plan)) {
+            Ok(()) => self.begin_trying(),
             Err(why) => {
                 // Without a pause the next picture would try again and again
                 let wait = self.policy.lock().unwrap().lost.fell(now);
@@ -538,63 +768,114 @@ impl H264 {
         Ok(codec)
     }
 
-    fn start_candidate(&mut self, codec: Codec, plan: Plan) {
+    fn start_candidate(&mut self, codec: Codec, plan: Plan) -> Result<(), String> {
         let steps = self.tap.as_ref().map(|t| t.open());
         let step_generation = steps.as_ref().map_or(0, Steps::generation);
+        let hw = codec.hw;
+        let rig = Rig {
+            codec,
+            steps,
+            step_generation,
+            gate: Gate { waiting: true, headers: Headers::default() },
+            #[cfg(test)]
+            hold: self.hold.clone(),
+        };
+        let engine = Engine::start(rig, #[cfg(test)] self.threaded)?;
         // Without this the picture waits for the phone's next keyframe, up to ten seconds with intra refresh
         if let Some(ask) = &self.ask_keyframe {
             ask();
         }
-        self.candidate = Some(Candidate { codec, steps, step_generation, primed: false, saw_keyframe: false, began: slow::now(), plan });
+        self.candidate = Some(Candidate { engine, hw, plan, began: slow::now(), primed: false, sent: 0, reported: 0, keyframe_seen: false, started: false, ready: false });
+        Ok(())
     }
 
-    /// Feeds the decoder started beside the running one, and moves the stream to it once it has a picture. out is what the running decoder
-    /// gave for this data.
-    fn feed_candidate(&mut self, data: &[u8], take: bool, out: (Option<Frame>, u32)) -> (Option<Frame>, u32) {
-        let Some(mut cand) = self.candidate.take() else { return out };
-        let now = slow::now();
-        if now.saturating_duration_since(cand.began) >= slow::START_LIMIT {
-            self.candidate_failed(cand, &format!("no picture within {} s", slow::START_LIMIT.as_secs()));
-            return out;
-        }
-        if cand.steps.as_ref().map_or(0, Steps::generation) != cand.step_generation {
-            self.drop_candidate(cand, "the frame steps changed");
-            return out;
-        }
-        // It starts wherever the stream is, so it skips pictures until a keyframe comes along: a whole one, however the pieces were cut
+    /// Hands the decoder started beside the running one the data the running one has just had, to work on in its own time.
+    fn feed_candidate(&mut self, data: &[u8]) {
+        let Some(cand) = self.candidate.as_mut() else { return };
         let data = if cand.primed {
-            std::borrow::Cow::Borrowed(data)
+            data.to_vec()
         } else {
             cand.primed = true;
-            std::borrow::Cow::Owned([self.headers.setup().as_slice(), data].concat())
+            [self.headers.setup().as_slice(), data].concat()
         };
-        let strict = cand.codec.hw.is_some() && cand.saw_keyframe;
-        cand.saw_keyframe |= has_keyframe(&data);
-        match decode(&mut cand.codec, cand.steps.as_ref(), &data, strict, self.clock.as_deref(), take) {
-            Ok(fed) if fed.count > 0 && (fed.newest.is_some() || !take) => {
-                self.take_over(cand, now);
-                if fed.newest.is_some() { (fed.newest, fed.count) } else { out }
-            }
-            Ok(_) => {
-                self.candidate = Some(cand);
-                out
-            }
-            Err(why) => {
-                self.candidate_failed(cand, &why);
-                out
-            }
-        }
+        cand.sent += 1;
+        cand.engine.send(data);
     }
 
-    /// The candidate has a picture: it has the stream from now on, and the decoder it replaces is closed.
-    fn take_over(&mut self, cand: Candidate, now: Instant) {
-        let (from, to) = (self.codec.hw, cand.codec.hw);
+    /// Before each feed: reads what the decoder started beside the running one has made of its pieces, and moves the stream to it once it has
+    /// given a clean picture from a keyframe and has seen everything the running decoder has. Nothing is exchanged then, so no picture is shown
+    /// twice, goes back or comes from a decoder that missed some of the stream.
+    fn poll_candidate(&mut self) {
+        let Some(mut cand) = self.candidate.take() else { return };
+        let now = slow::now();
+        let Some(reports) = cand.engine.collect() else {
+            self.candidate_failed(cand, "its thread stopped");
+            return;
+        };
+        for report in reports {
+            cand.reported += 1;
+            cand.keyframe_seen |= !matches!(report, Report::Waiting);
+            match report {
+                Report::Waiting | Report::Damaged => (cand.started, cand.ready) = (false, false),
+                Report::Quiet => cand.started = true,
+                Report::Picture => (cand.started, cand.ready) = (true, true),
+                Report::Fault(why) => {
+                    self.candidate_failed(cand, &why);
+                    return;
+                }
+                Report::Stale => {
+                    self.drop_candidate(cand, "the frame steps changed");
+                    return;
+                }
+            }
+        }
+        if let Plan::Trial { conditions, .. } = &cand.plan {
+            if let Some(why) = self.conditions().change_since(conditions) {
+                self.drop_candidate(cand, why);
+                return;
+            }
+        }
+        if cand.ready && cand.reported == cand.sent {
+            self.take_over(cand, now);
+            return;
+        }
+        if now.saturating_duration_since(cand.began) >= slow::START_LIMIT {
+            let limit = slow::START_LIMIT.as_secs();
+            // Software that was given a keyframe and made nothing of it has lost its trial. A card that decoded from one and gave no picture has failed;
+            // one whose keyframe was damaged or never came says nothing about the card, and another is started
+            let blame = match cand.plan {
+                Plan::Trial { .. } => cand.keyframe_seen,
+                Plan::Card(_) => cand.started,
+            };
+            if blame {
+                self.candidate_failed(cand, &format!("no picture within {limit} s"));
+            } else {
+                self.drop_candidate(cand, &format!("no clean keyframe to start from within {limit} s"));
+            }
+            return;
+        }
+        self.candidate = Some(cand);
+    }
+
+    /// The candidate has had every piece of the stream since a keyframe and its last picture was clean: it has the stream from now on, and the
+    /// decoder it replaces is closed.
+    fn take_over(&mut self, mut cand: Candidate, now: Instant) {
+        let Some(rig) = cand.engine.finish() else {
+            self.candidate_failed(cand, "its thread stopped");
+            return;
+        };
+        let (from, to) = (self.codec.hw, cand.hw);
         let after = now.saturating_duration_since(cand.began).as_millis();
         count_live(from, -1);
         count_live(to, 1);
-        self.codec = cand.codec;
-        self.steps = cand.steps;
-        self.step_generation = cand.step_generation;
+        self.codec = rig.codec;
+        self.steps = rig.steps;
+        self.step_generation = rig.step_generation;
+        #[cfg(surfaces)]
+        {
+            let wish = self.wish();
+            self.codec.surfaces(wish);
+        }
         self.hw_proven = to.is_some();
         self.silent = 0;
         *self.timings.lock().unwrap() = Timed { times: Timings::default(), backend: backend(to) };
@@ -603,11 +884,10 @@ impl H264 {
             self.rate.record(now, total);
         }
         match cand.plan {
-            Plan::Trial { hw, card_ms, card_rate } => {
+            Plan::Trial { hw, card_ms, card_rate, conditions } => {
                 log::info!("Software decoding has the picture after {after} ms; timing it for {} s against {}", slow::WINDOW.as_secs(), hw.name());
-                let fps = self.target_fps.load(Ordering::Relaxed);
                 let step_generation = self.steps.as_ref().map_or(0, Steps::generation);
-                self.trial = Some(Trial { hw, card_ms, card_rate, began: now, fps, step_generation, size: None });
+                self.trial = Some(Trial { hw, card_ms, card_rate, began: now, conditions, step_generation });
             }
             Plan::Card(hw) => {
                 self.retry_hw = None;
@@ -616,7 +896,7 @@ impl H264 {
         }
     }
 
-    /// The candidate gave no picture or errored: the running decoder keeps the stream.
+    /// The candidate errored or gave no picture although it had a keyframe: the running decoder keeps the stream.
     fn candidate_failed(&mut self, cand: Candidate, why: &str) {
         match cand.plan {
             Plan::Trial { hw, .. } => {
@@ -637,50 +917,45 @@ impl H264 {
         }
     }
 
-    /// The candidate isn't wanted any more, for a reason that isn't its fault.
+    /// The candidate isn't wanted any more, for a reason that isn't its fault: the card is still to be tried again, and a trial is no verdict.
     fn drop_candidate(&mut self, cand: Candidate, why: &str) {
-        if let Plan::Trial { hw, .. } = cand.plan {
-            log::info!("Software trial beside {} cancelled: {why}", hw.name());
-            self.end_trying();
+        match cand.plan {
+            Plan::Trial { hw, .. } => {
+                log::info!("Software trial beside {} cancelled: {why}", hw.name());
+                self.end_trying();
+            }
+            Plan::Card(hw) => log::info!("Hardware decoding ({}) is started again later: {why}", hw.name()),
         }
     }
 
     /// Once software has been timed for a whole window: it keeps the stream for a while if it's quicker than the card was and also gets more new
     /// pictures to the camera, and otherwise the card has it back and isn't judged on its speed for a while. A trial that outlasts its limit,
-    /// whatever the feeds did meanwhile, ends the same way, and one whose conditions changed is cancelled without a verdict.
-    fn judge_trial(&mut self, now: Instant, frame: Option<&Frame>) {
-        let Some(trial) = self.trial.as_mut() else { return };
-        let mut changed = None;
-        if let Some(f) = frame {
-            let size = (f.width, f.height);
-            if *trial.size.get_or_insert(size) != size {
-                changed = Some("the picture size changed");
-            }
-        }
-        if self.target_fps.load(Ordering::Relaxed) != trial.fps {
-            changed = Some("the frame rate changed");
-        }
-        if self.steps.as_ref().map_or(0, Steps::generation) != trial.step_generation {
-            changed = Some("the frame steps changed");
-        }
+    /// whatever the feeds did meanwhile (and however late a feed that would have qualified came), ends that way too, and one whose conditions
+    /// changed is cancelled without a verdict.
+    fn judge_trial(&mut self, now: Instant) {
+        let Some(trial) = self.trial.as_ref() else { return };
+        let changed = self.conditions().change_since(&trial.conditions).or_else(|| {
+            (self.steps.as_ref().map_or(0, Steps::generation) != trial.step_generation).then_some("the frame steps changed")
+        });
         let (hw, card_ms, card_rate, began) = (trial.hw, trial.card_ms, trial.card_rate, trial.began);
         if let Some(why) = changed {
             self.cancel_trial(why);
             return;
         }
-        let window = {
-            let timed = self.timings.lock().unwrap();
-            timed.times.per_picture(now).map(|ms| (ms, timed.times.stalled()))
-        };
         let rate = self.rate.per_second(now);
-        let (software_ms, took) = match (window, rate) {
-            (Some((_, Some(worst))), _) => (f64::INFINITY, format!("stalled with pictures up to {worst:.0} ms")),
-            (Some((ms, None)), Some(_)) => (ms, format!("{ms:.1} ms a picture")),
-            // Software has had long enough to show anything
-            _ if now.saturating_duration_since(began) >= slow::TRIAL_LIMIT => {
-                (f64::INFINITY, format!("no steady picture within {} s", slow::TRIAL_LIMIT.as_secs()))
+        let (software_ms, took) = if now.saturating_duration_since(began) >= slow::TRIAL_LIMIT {
+            // Software has had long enough to show anything, and what comes after that is too late to count
+            (f64::INFINITY, format!("no steady picture within {} s", slow::TRIAL_LIMIT.as_secs()))
+        } else {
+            let window = {
+                let timed = self.timings.lock().unwrap();
+                timed.times.per_picture(now).map(|ms| (ms, timed.times.stalled()))
+            };
+            match (window, rate) {
+                (Some((_, Some(worst))), _) => (f64::INFINITY, format!("stalled with pictures up to {worst:.0} ms")),
+                (Some((ms, None)), Some(_)) => (ms, format!("{ms:.1} ms a picture")),
+                _ => return,
             }
-            _ => return,
         };
         self.trial = None;
         self.end_trying();
@@ -731,8 +1006,8 @@ impl H264 {
                 policy.cooldown.returned(now);
             }
         }
-        match self.open_beside(Some(hw)) {
-            Ok(codec) => self.start_candidate(codec, Plan::Card(hw)),
+        match self.open_beside(Some(hw)).and_then(|codec| self.start_candidate(codec, Plan::Card(hw))) {
+            Ok(()) => {}
             Err(why) => {
                 HW_FAILED.store(true, Ordering::SeqCst);
                 self.retry_hw = None;
@@ -759,14 +1034,11 @@ impl H264 {
         self.surface_wish.as_ref().is_some_and(|w| w.load(Ordering::Relaxed))
     }
 
-    /// Passes the wish on to the running decoder and the one beside it.
+    /// Passes the wish on to the running decoder (the one beside it got it when it was opened, and the running one gets it again if it takes over).
     #[cfg(surfaces)]
     fn apply_wish(&mut self) {
         let wish = self.wish();
         self.codec.surfaces(wish);
-        if let Some(cand) = &mut self.candidate {
-            cand.codec.surfaces(wish);
-        }
     }
 
     /// Steps of its own for a new decoder: the old ones have already seen this data.
@@ -804,7 +1076,7 @@ impl H264 {
         // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
         let setup = [&self.headers.setup(), data].concat();
         self.swapped_at = Some(Instant::now());
-        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref(), true).map_or((None, 0), |fed| (fed.newest, fed.count));
+        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref(), true, None).map_or((None, 0), |fed| (fed.newest, fed.count));
         self.note_picture_back(fed.1);
         fed
     }
@@ -895,7 +1167,7 @@ struct Fed {
 /// refuses is the decoder's fault (a card that can't take the stream), not something to skip. Each access unit's capture time
 /// (the SEI the phone puts in front of a picture) is read before the steps change the unit and goes with it as the packet's pts, so the
 /// picture that comes out has its own time however the decoder delays or reorders; clock turns it into this computer's.
-fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, clock: Option<&PhoneClock>, take: bool) -> Result<Fed, String> {
+fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, clock: Option<&PhoneClock>, take: bool, mut gate: Option<&mut Gate>) -> Result<Fed, String> {
     let mut newest = None;
     let mut count = 0;
     let mut units_in = 0;
@@ -906,6 +1178,15 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
         if fault.is_some() {
             return;
         }
+        // A decoder that has to start at a keyframe skips everything before one
+        let unit = match gate.as_mut() {
+            Some(gate) => match gate.admit(unit) {
+                Some(unit) => unit,
+                None => return,
+            },
+            None => std::borrow::Cow::Borrowed(unit),
+        };
+        let unit = &unit[..];
         let pts = stamp::find(unit).and_then(Stamp::to_pts);
         let units = match steps {
             Some(s) => s.step(unit),
@@ -1855,7 +2136,9 @@ pub(crate) mod tests {
         dec.target_fps.store(15, Ordering::Relaxed);
         let packets = testenc::h264(&[60; 8], 64, 48, 5).unwrap();
         dec.feed(&packets[0]);
-        // No verdict either way, and the card is back as soon as it has a picture (the next packet is a keyframe)
+        // The card starts beside software at once, on this keyframe, and has the stream by the next feed
+        dec.feed(&packets[1]);
+        // No verdict either way
         let policy = dec.policy.lock().unwrap();
         assert!(dec.trial.is_none() && dec.hw() == Some(Hw::Cuda) && dec.retry_hw.is_none());
         assert!(!policy.lost.active() && !policy.cooldown.active());
@@ -1865,6 +2148,8 @@ pub(crate) mod tests {
 
     #[test]
     fn each_stream_has_its_own_waits_and_keeps_them_across_a_new_decoder() {
+        // A live wait shows in hardware_slow(), which the tests that check it must have to themselves
+        let _turn = card_test();
         let hub = telescope_core::stats::Hub::new();
         let (a, b) = (hub.register("phone", 1), hub.register("phone", 2));
         let policy_of = |stream: &Arc<SourceStats>| {
@@ -1986,6 +2271,257 @@ pub(crate) mod tests {
         let mut new = H264::new(false, Some(tap)).unwrap();
         running.feed(&stream);
         assert!(new.feed(&stream).1 > 0);
+    }
+
+    fn rig() -> Rig {
+        Rig { codec: Codec::h264(None).unwrap(), steps: None, step_generation: 0, gate: Gate { waiting: true, headers: Headers::default() }, hold: None }
+    }
+
+    fn named(report: &Report) -> &'static str {
+        match report {
+            Report::Waiting => "waiting",
+            Report::Quiet => "quiet",
+            Report::Picture => "picture",
+            Report::Damaged => "damaged",
+            Report::Fault(_) => "fault",
+            Report::Stale => "stale",
+        }
+    }
+
+    /// A pretend card beside software that keeps the picture going: the stream's pictures are flat greys that rise by one a packet.
+    fn rising(count: usize, gop: u32) -> Option<Vec<Vec<u8>>> {
+        testenc::h264(&(0..count).map(|i| 60 + i as u8).collect::<Vec<u8>>(), 64, 48, gop)
+    }
+
+    #[test]
+    fn a_keyframe_cut_short_is_not_a_clean_start() {
+        let Some(packets) = testenc::h264_noisy(&[200; 12], 128, 96, 6) else { return };
+        // A fresh decoder given the first keyframe cut in the middle of its picture still gives one, with the missing part made up
+        let cut = packets[0][..packets[0].len() * 2 / 3].to_vec();
+        let mut damaged = rig();
+        let report = damaged.work(&[cut, packets[1].clone()].concat());
+        assert!(matches!(report, Report::Damaged), "a cut keyframe gave {}", named(&report));
+        assert!(damaged.gate.waiting, "it starts over at the next keyframe");
+        // The same decoder starts from the next whole one
+        let report = damaged.work(&packets[6]);
+        assert!(matches!(report, Report::Picture), "a whole keyframe gave {}", named(&report));
+    }
+
+    #[test]
+    fn a_decoder_beside_waits_for_a_whole_keyframe_before_decoding_anything() {
+        let Some(packets) = testenc::h264(&[100; 12], 64, 48, 6) else { return };
+        let mut r = rig();
+        // Setup first, then pictures that need a keyframe's references
+        assert!(matches!(r.work(&packets[1]), Report::Waiting));
+        assert!(matches!(r.work(&packets[2]), Report::Waiting));
+        assert!(matches!(r.work(&packets[0]), Report::Picture));
+        assert!(matches!(r.work(&packets[1]), Report::Picture));
+    }
+
+    #[test]
+    fn a_picture_never_goes_back_or_comes_twice_across_a_switch() {
+        // Each packet's grey is two steps brighter than the one before it, so a picture shown from behind or twice is a visible step off
+        let Some(packets) = testenc::h264(&(0..70).map(|i| 40 + 2 * i as u8).collect::<Vec<u8>>(), 64, 48, 7) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.software = (Duration::from_millis(5), Duration::ZERO, 0);
+        let mut on = Vec::new();
+        for (i, p) in packets.iter().enumerate() {
+            if i == 1 {
+                card_that_took(&mut dec, 45.0);
+            }
+            slow::advance(Duration::from_millis(50));
+            TEST_DELIVERED.with(|d| d.set(d.get() + 1));
+            let (frame, _) = dec.feed(p);
+            let shown = mean(&frame.unwrap_or_else(|| panic!("no picture for packet {i}")));
+            assert!((shown - luma(40 + 2 * i as u8)).abs() < 1.0, "packet {i} showed {shown}, want {}", luma(40 + 2 * i as u8));
+            if on.last() != Some(&dec.hw()) {
+                on.push(dec.hw());
+            }
+        }
+        assert!(on.starts_with(&[Some(Hw::Cuda), None]), "no switch happened: {on:?}");
+    }
+
+    #[test]
+    fn the_running_decoder_keeps_giving_pictures_while_the_one_beside_it_is_stuck() {
+        let Some(packets) = rising(60, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.threaded = true;
+        let stuck = Arc::new(Mutex::new(()));
+        dec.hold = Some(stuck.clone());
+        let lock = stuck.lock().unwrap();
+        dec.feed(&packets[0]);
+        card_that_took(&mut dec, 45.0);
+        for (i, p) in packets[1..40].iter().enumerate() {
+            // Returns although the decoder beside it hasn't finished anything, with the card's own picture
+            let (frame, _) = dec.feed(p);
+            assert!(frame.is_some(), "no picture for packet {i} while the other decoder was stuck");
+        }
+        assert!(dec.candidate.is_some() && dec.hw() == Some(Hw::Cuda), "the card kept the stream");
+        drop(lock);
+        // Free again, it catches up and takes the stream over without having held anything up
+        for p in &packets[40..] {
+            std::thread::sleep(Duration::from_millis(20));
+            assert!(dec.feed(p).0.is_some());
+            if dec.hw().is_none() {
+                break;
+            }
+        }
+        assert!(dec.hw().is_none() && dec.trial.is_some(), "software never took over");
+    }
+
+    #[test]
+    fn a_decoder_that_has_not_caught_up_does_not_take_over() {
+        let Some(packets) = rising(40, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.feed(&packets[0]);
+        card_that_took(&mut dec, 45.0);
+        // Up to and including the keyframe at packet 5, which the decoder beside gives a clean picture for
+        for p in &packets[1..=5] {
+            dec.feed(p);
+        }
+        assert!(dec.candidate.is_some() && dec.hw() == Some(Hw::Cuda));
+        // As if it still had three pieces to get through: a picture it made from behind would be one already shown
+        dec.candidate.as_mut().unwrap().sent += 3;
+        dec.feed(&packets[6]);
+        assert!(dec.candidate.as_ref().is_some_and(|c| c.ready) && dec.hw() == Some(Hw::Cuda), "took over while behind");
+        dec.candidate.as_mut().unwrap().sent -= 3;
+        dec.feed(&packets[7]);
+        assert!(dec.hw().is_none(), "it never took over once it had caught up");
+    }
+
+    #[test]
+    fn a_late_keyframe_is_not_the_cards_failure() {
+        // One keyframe and then only P-frames: the card started beside software has none to start from
+        let Some(packets) = testenc::h264(&[80; 40], 64, 48, 100) else { return };
+        let _turn = card_test();
+        let mut dec = software();
+        let asked = Arc::new(AtomicUsize::new(0));
+        let a = asked.clone();
+        dec.on_keyframe_needed(Box::new(move || {
+            a.fetch_add(1, Ordering::SeqCst);
+        }));
+        dec.feed(&packets[0]);
+        dec.retry_hw = Some(Hw::Cuda);
+        for p in &packets[1..] {
+            slow::advance(Duration::from_millis(500));
+            dec.feed(p);
+        }
+        assert!(!hardware_failed(), "a keyframe that was late made the card a failure for the whole run");
+        assert!(dec.retry_hw == Some(Hw::Cuda) && dec.hw().is_none());
+        assert!(asked.load(Ordering::SeqCst) >= 2, "another card decoder was started and asked for its own keyframe");
+        // The keyframe comes at last
+        let more = testenc::h264(&[90; 8], 64, 48, 100).unwrap();
+        for p in &more {
+            dec.feed(p);
+        }
+        assert!(dec.hw() == Some(Hw::Cuda) && !hardware_failed());
+    }
+
+    #[test]
+    fn a_card_that_was_given_a_keyframe_and_made_nothing_of_it_has_failed() {
+        let Some(packets) = testenc::h264(&[80; 40], 64, 48, 100) else { return };
+        let _turn = card_test();
+        let mut dec = software();
+        dec.card = (Duration::ZERO, Duration::ZERO);
+        dec.feed(&packets[0]);
+        dec.retry_hw = Some(Hw::Cuda);
+        dec.feed(&packets[1]);
+        let cand = dec.candidate.as_mut().expect("a card started beside software");
+        // It decoded from a keyframe without error and gave no picture for as long as it was allowed
+        cand.began = slow::now() - slow::START_LIMIT;
+        if let Engine::Inline { reports, .. } = &mut cand.engine {
+            *reports = VecDeque::from([Report::Quiet]);
+        }
+        cand.reported = cand.sent - 1;
+        dec.poll_candidate();
+        assert!(dec.candidate.is_none() && hardware_failed());
+    }
+
+    #[test]
+    fn a_trial_is_not_judged_when_the_stream_changed_while_software_started() {
+        let Some(packets) = rising(120, 5) else { return };
+        let of = |dec: &H264| match (&dec.candidate, &dec.trial) {
+            (Some(Candidate { plan: Plan::Trial { conditions, .. }, .. }), _) => Some(*conditions),
+            (_, Some(trial)) => Some(trial.conditions),
+            _ => None,
+        };
+        for change in ["fps", "size", "steps"] {
+            let _turn = card_test();
+            let mut dec = pretend_hardware(None);
+            dec.feed(&packets[0]);
+            card_that_took(&mut dec, 45.0);
+            dec.feed(&packets[1]);
+            assert!(dec.candidate.is_some(), "no trial started for {change}");
+            match change {
+                "fps" => dec.target_fps.store(15, Ordering::Relaxed),
+                // The stream was at another size when the card was measured
+                "size" => {
+                    if let Some(Candidate { plan: Plan::Trial { conditions, .. }, .. }) = &mut dec.candidate {
+                        conditions.size = Some((128, 96));
+                    }
+                }
+                _ => TEST_EPOCH.with(|e| e.set(e.get() + 1)),
+            }
+            let before = of(&dec).unwrap();
+            for p in &packets[2..20] {
+                dec.feed(p);
+            }
+            // A card still too slow may get a new trial, but under the conditions it has now: the old comparison is gone and nothing was decided by it
+            let now = of(&dec);
+            assert!(now.is_none_or(|c| c != before), "{change}: the comparison made under other conditions is still going");
+            let policy = dec.policy.lock().unwrap();
+            assert!(!policy.lost.active() && !policy.cooldown.active(), "{change}: software was judged on other terms");
+            drop(policy);
+            TEST_EPOCH.with(|e| e.set(0));
+        }
+    }
+
+    #[test]
+    fn a_feed_that_would_qualify_after_the_limit_does_not_win_the_trial() {
+        let Some(packets) = rising(8, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.feed(&packets[0]);
+        let now = slow::now();
+        // Software timed 40 pictures in the last three seconds at 5 ms, delivering 30 a second, against a card at 45 ms and 20 a second: a win,
+        // if it had come in time
+        let mut times = slow::Timings::default();
+        for i in 0..40u64 {
+            times.record(now - Duration::from_millis(3000 - i * 70), 5.0);
+        }
+        dec.timings.lock().unwrap().times = times;
+        let mut rate = Rate::default();
+        for i in 0..=34u64 {
+            rate.record(now - Duration::from_millis(3400 - i * 100), i * 3);
+        }
+        dec.rate = rate;
+        TEST_DELIVERED.with(|d| d.set(102));
+        let conditions = dec.conditions();
+        dec.trial = Some(Trial { hw: Hw::Cuda, card_ms: 45.0, card_rate: Some(20.0), began: now - slow::TRIAL_LIMIT - Duration::from_secs(1), conditions, step_generation: dec.steps.as_ref().map_or(0, Steps::generation) });
+        dec.begin_trying();
+        dec.judge_trial(now);
+        let policy = dec.policy.lock().unwrap();
+        assert!(dec.trial.is_none() && policy.lost.waiting(now) && !policy.cooldown.active(), "software won after its time was up");
+    }
+
+    #[test]
+    fn a_candidate_is_dropped_when_nobody_looks_and_never_takes_over_unseen() {
+        let Some(packets) = rising(30, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.feed(&packets[0]);
+        card_that_took(&mut dec, 45.0);
+        dec.feed(&packets[1]);
+        assert!(dec.candidate.is_some());
+        dec.feed_with(&packets[2], false);
+        assert!(dec.candidate.is_none() && dec.hw() == Some(Hw::Cuda) && !hardware_slow());
+        for p in &packets[3..10] {
+            dec.feed_with(p, false);
+        }
+        assert!(dec.candidate.is_none() && dec.hw() == Some(Hw::Cuda), "nothing is started beside it while nobody looks");
     }
 
     // ── The capture time each picture comes out with ──
