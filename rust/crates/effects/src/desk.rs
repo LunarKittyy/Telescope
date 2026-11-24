@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use telescope_core::actions::{self, round_half_even, Choice};
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, ShaderStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, ShaderStep, Touch};
 use telescope_core::host::{Host, PickKind, Poster, View};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{keep_bytes, with_spares};
@@ -55,10 +55,18 @@ struct DeskStep {
     sheet: Sheet,
     made: Option<((usize, usize), Warp, Option<Remap>)>,
     poster: Option<Arc<dyn Poster>>,
+    /// The stream the step last worked on (empty before it has), so a warp it posts says whose picture it was made for.
+    source: std::sync::Mutex<String>,
 }
 
 impl CpuStep for DeskStep {
-    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+    fn touch(&self, ctx: &dyn FrameContext) -> Touch {
+        *self.source.lock().unwrap_or_else(|e| e.into_inner()) = ctx.source_id().to_string();
+        Touch::Changes
+    }
+
+    fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
+        *self.source.lock().unwrap_or_else(|e| e.into_inner()) = ctx.source_id().to_string();
         let mut spares = std::mem::take(&mut self.spares);
         with_spares(&mut spares, || self.run(frame));
         self.spares = spares;
@@ -103,14 +111,19 @@ impl CpuStep for DeskStep {
     }
 
     fn geometry_key(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut hash = std::collections::hash_map::DefaultHasher::new();
-        (self.sheet.corners.map(|p| p.map(f64::to_bits)), &self.sheet.shape, self.sheet.stretch).hash(&mut hash);
-        let g = self.sheet.geometry;
-        [g.zoom, g.pan_x, g.pan_y, g.stretch_x, g.stretch_y, g.distortion].map(f64::to_bits).hash(&mut hash);
-        (g.flip_h, g.flip_v, g.rotation).hash(&mut hash);
-        hash.finish()
+        sheet_key(&self.sheet)
     }
+}
+
+/// A number for where a sheet puts the picture's pixels: the same for as long as the corners, shape and view are.
+fn sheet_key(sheet: &Sheet) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    (sheet.corners.map(|p| p.map(f64::to_bits)), &sheet.shape, sheet.stretch).hash(&mut hash);
+    let g = sheet.geometry;
+    [g.zoom, g.pan_x, g.pan_y, g.stretch_x, g.stretch_y, g.distortion].map(f64::to_bits).hash(&mut hash);
+    (g.flip_h, g.flip_v, g.rotation).hash(&mut hash);
+    hash.finish()
 }
 
 /// The card's uniforms (desk.wgsl's Params) for a warp.
@@ -125,7 +138,8 @@ impl DeskStep {
             let warp = warp_for(&self.sheet, size.0, size.1);
             if let Some(poster) = &self.poster {
                 let m = &warp.on_preview;
-                poster.post(T_WARP, json!({"matrix": [m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]]}));
+                let source = self.source.lock().unwrap_or_else(|e| e.into_inner()).clone();
+                poster.post(T_WARP, json!({"matrix": [m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]], "source": source, "key": sheet_key(&self.sheet)}));
             }
             self.made = Some((size, warp, None));
         }
@@ -308,6 +322,14 @@ impl DeskPlugin {
         }
     }
 
+    /// Whether a posted warp was made for the stream shown and the sheet as it is now: one from another camera or an older sheet would map clicks wrongly.
+    fn warp_is_current(&self, host: &dyn Host, data: &Value) -> bool {
+        let source = data.get("source").and_then(Value::as_str).unwrap_or("");
+        let shown = host.focused_source_id().unwrap_or_default();
+        let key = data.get("key").and_then(Value::as_u64);
+        (source.is_empty() || source == shown) && key.is_none_or(|k| self.sheet().is_some_and(|sheet| sheet_key(&sheet) == k))
+    }
+
     fn catch_up(&mut self, host: &mut dyn Host) {
         if self.pending {
             self.pending = false;
@@ -426,7 +448,7 @@ impl Plugin for DeskPlugin {
                 self.picked(host, pick.as_ref().map(|p| p.full.as_slice()));
             }
             // A warp from a step that has been replaced since is of no use
-            Event::Posted { owner, token, data } if owner == NAME && token == T_WARP && self.active() => {
+            Event::Posted { owner, token, data } if owner == NAME && token == T_WARP && self.active() && self.warp_is_current(host, data) => {
                 let m: Vec<f32> = data["matrix"].as_array().map(|a| a.iter().filter_map(|v| v.as_f64()).map(|v| v as f32).collect()).unwrap_or_default();
                 if let Ok(matrix) = <[f32; 9]>::try_from(m) {
                     host.set_preview_warp(NAME, Some(matrix));
@@ -542,7 +564,7 @@ impl Plugin for DeskPlugin {
             "bw" => DESK_BW,
             _ => DESK,
         };
-        let step = Box::new(DeskStep { sheet, made: None, poster: self.poster.clone(), spares: Vec::new() });
+        let step = Box::new(DeskStep { sheet, made: None, poster: self.poster.clone(), spares: Vec::new(), source: Default::default() });
         let uniforms = card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, 0, 0));
         Some(FrameStep::Either(ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms, textures: Vec::new() }, step))
     }

@@ -411,7 +411,7 @@ fn a_step_dropped_with_a_picture_waiting_leaves_the_next_step_able_to_look() {
     // A picture queued but never taken, as when the step goes while its worker hasn't woken yet
     let waiting = Reader::new(shared.clone(), poster);
     shared.busy.store(true, Ordering::SeqCst);
-    *waiting.slot.frame.lock().unwrap() = Some(video_frame("hello"));
+    *waiting.slot.frame.lock().unwrap() = Some((video_frame("hello"), String::new()));
     drop(waiting);
     assert!(!shared.busy.load(Ordering::SeqCst), "the dropped step's look is over");
     // And through the real thing: queue a frame, drop at once, a new step still answers
@@ -588,6 +588,19 @@ fn what_it_says_in_diagnostics() {
     assert_eq!(rig.plugin.diagnostics()[0].1, "on");
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(rig.plugin.diagnostics()[0].1, "off");
+}
+
+/// A look that finished after the panels moved to another camera says nothing about the one shown now.
+#[test]
+fn a_look_at_a_camera_no_longer_shown_is_dropped() {
+    let mut rig = Rig::new();
+    rig.set_config(json!({"on": true}));
+    for _ in 0..3 {
+        rig.event(Event::Posted { owner: NAME.into(), token: "found".into(), data: json!({"text": "https://example.com", "corners": QUAD, "source": "the old camera"}) });
+    }
+    assert!(rig.outline() == 0 && !rig.plugin.steady.pending(), "nothing from the old camera counts");
+    rig.found("https://example.com", Some(QUAD));
+    assert!(rig.plugin.steady.pending(), "a look with no stream named still counts");
 }
 
 struct BehindContext;
