@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -246,8 +247,10 @@ impl ConfigFile {
     fn write_with(&self, bytes: &[u8], chmod: Chmod) -> io::Result<()> {
         let dir = self.path.parent().unwrap_or(Path::new("."));
         private_dir(dir, chmod)?;
+        // Its own name per write, so two writers (the app and the command line) never share a half-written file
+        static WRITES: AtomicU64 = AtomicU64::new(0);
         let mut tmp_name = self.path.file_name().unwrap_or_default().to_os_string();
-        tmp_name.push(".tmp");
+        tmp_name.push(format!(".tmp-{}-{}", std::process::id(), WRITES.fetch_add(1, Ordering::Relaxed)));
         let tmp = self.path.with_file_name(tmp_name);
         let written = open_private(&tmp, chmod).and_then(|mut f| f.write_all(bytes).and_then(|_| f.flush()).and_then(|_| f.sync_all()));
         let result = written.and_then(|_| fs::rename(&tmp, &self.path));
