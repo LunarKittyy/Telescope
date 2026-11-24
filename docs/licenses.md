@@ -1,4 +1,4 @@
-<!-- covers: LICENSE BRANDING.md rust/crates/ui-kit/ui/fonts rust/windows/unitycapture rust/tools/write_notices.py rust/tools/build_ffmpeg.sh rust/Cargo.lock; checked: bbce71b6d -->
+<!-- covers: LICENSE BRANDING.md rust/crates/ui-kit/ui/fonts rust/windows/unitycapture rust/tools/write_notices.py rust/tools/build_ffmpeg.sh rust/Cargo.lock; checked: 88de924b5 -->
 # Licenses
 
 Telescope is licensed under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html). The full text is in [LICENSE](../LICENSE).
@@ -38,7 +38,7 @@ Source: <https://github.com/IBM/plex>
 **Android SDK Platform Tools** - not included. On Windows, Telescope downloads `adb.exe` from Google when you ask for it, for USB mode.
 Copyright (c) Google LLC. Android Software Development Kit License Agreement: <https://developer.android.com/studio/terms>
 
-**MediaPipe** and its selfie segmenter and pose landmarker models - not included. Telescope downloads them from its own GitHub releases when you switch on Auto framing or Background. Copyright (c) Google LLC. Apache License 2.0. The download includes its own notices file (`NOTICES.txt`), along with absl-py, flatbuffers (both Apache 2.0) and certifi (MPL 2.0).
+**MediaPipe** and its selfie segmenter, pose landmarker and face detector models - not included. Telescope downloads them from its own GitHub releases when you switch on Auto framing or Background. Copyright (c) Google LLC. Apache License 2.0. The download includes MediaPipe's own licence and third-party notices and a notices file (`NOTICES.txt`).
 Source: <https://github.com/google-ai-edge/mediapipe>
 
 **Robust Video Matting** and **ONNX Runtime** - not included. Telescope downloads them from its own GitHub releases when you switch on High quality in Background. The model is by Peter Lin under the GNU GPL v3 and ONNX Runtime is by Microsoft under the MIT license. The download includes both licence texts, ONNX Runtime's own third-party notices and a notices file (`NOTICES.txt`).

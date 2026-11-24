@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/plugin-host/src rust/crates/plugin-host/tests/plugin_api.txt rust/crates/plugin-host/example-plugins rust/crates/plugin-host/tests/lua.rs; checked: 141b7ea82 -->
+<!-- covers: rust/crates/plugin-host/src rust/crates/plugin-host/tests/plugin_api.txt rust/crates/plugin-host/example-plugins rust/crates/plugin-host/tests/lua.rs; checked: 88de924b5 -->
 # Writing a plugin
 
 Plugins are written in Lua, with GPU shaders for whatever changes the picture. To switch plugins on and off or install ones other people made, see [Plugins](../features/plugins.md). Plugins written in Python for the old Telescope (API 1) don't run any more.
@@ -55,7 +55,7 @@ Telescope loads a plugin you're working on straight from its folder when it runs
 }
 ```
 
-- `name` is your plugin's id, made of lowercase letters, digits and `_` and starting with a letter. Your settings are saved under it. Don't change it once people use your plugin or their settings won't find their way back.
+- `name` is your plugin's id, made of lowercase letters, digits and `_`, starting with a letter and 2 to 32 characters long. A name Windows keeps for a device (`con`, `nul`, `com1`) is refused. Your settings are saved under it. Don't change it once people use your plugin or their settings won't find their way back.
 - `title`, `version`, `author` and `description` show on the Plugins tab. Write the description for someone who hasn't heard of your plugin.
 - `api` is the plugin API you wrote it for, which is `2` (Python plugins were `1`). It only goes up for a change that would break existing plugins.
 - `category` picks the group on the Plugins tab: `camera`, `look`, `vision` (People), `preview`, `on_screen`, `sound` or `streaming`. Any other value lands under Extras.
@@ -312,7 +312,7 @@ fn a_drop_shows_one_notification() {
 - **Don't reach into other plugins.** Use events and the host. Other plugins can be switched off and yours has to work without them.
 - **Keep your functions quick.** They run on the window's thread. One that takes longer than 3 seconds is stopped with an error. A plugin can use up to 64 MB of memory.
 - **A failing `frame_step()` in a plugin that hides things shows a dark picture.** For `background`, `privacy` and `cover` plugins an error or a timeout in `frame_step()` isn't taken as "no shader" (that would show the clear picture). Return `nil` when nothing needs hiding.
-- **Don't flood the bus.** A plugin can have about 4000 of its own events waiting to be delivered. `host.emit` raises an error past that.
+- **Don't flood the bus.** A plugin can have 4096 of its own events, or 8 MB of their data, waiting to be delivered. `host.emit` raises an error past that.
 - **Name files differently on Windows.** Two files in a `.zip` whose names differ only in capital letters can't be installed, since Windows treats them as one file.
 - **Don't count on the order of a table's keys.** Lua doesn't preserve it and neither does `json.encode`.
 - **Don't write files into your plugin's folder.** Telescope doesn't let your code do that anyway. A file you or another person changes there by hand counts as a new version, which remains off until it's switched on again.

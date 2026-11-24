@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/shell/src/plugins_tab.rs rust/crates/core/src/plugin_admin.rs rust/crates/plugin-host/src/admin.rs rust/crates/plugin-host/src/package.rs rust/crates/plugin-host/src/updates.rs rust/crates/plugin-host/src/switches.rs; checked: 0d35dc883 -->
+<!-- covers: rust/crates/shell/src/plugins_tab.rs rust/crates/core/src/plugin_admin.rs rust/crates/plugin-host/src/admin.rs rust/crates/plugin-host/src/package.rs rust/crates/plugin-host/src/updates.rs rust/crates/plugin-host/src/switches.rs; checked: 88de924b5 -->
 # Plugins
 
 Most of the desktop app is plugins. The Camera card is one and so are Transforms, the microphone, the wait screen and keyboard shortcuts. You can switch off the ones you don't use or install plugins other people made.
@@ -17,7 +17,7 @@ Switching a plugin off deletes no data. Once you switch it on again it is all ba
 
 Some tiles carry a badge:
 
-- **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](picture.md#the-vision-download). Its **Remove download** button sits next to the **People** heading
+- **Vision download required** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](picture.md#the-vision-download). Its **Remove download** button sits next to the **People** heading
 - **Required** marks Devices and connection, Advanced settings and Updates. Their switches are locked on since Telescope doesn't work without them
 - **Added** marks plugins you installed yourself
 - **Lab** sits next to a plugin's name when it's an early version. It works but can change or behave oddly while it's being finished
@@ -73,3 +73,5 @@ Its tile on the Plugins tab shows the reason. A plugin can also name built-in pl
 | Other users on this computer could change it | Fix the folder's permissions or install it again with **Install** |
 | It contains a link to somewhere else | Plugins have to be plain files and folders |
 | It contains compiled code | Plugins have to be source code, with no `.so`, `.dll`, `.pyc` or other compiled files |
+| Two files in the `.zip` have names that differ only in capital letters | Windows treats them as one file. Rename one and zip it again |
+| The `.zip` doesn't hold one folder named as the plugin | Zip the plugin's folder itself |

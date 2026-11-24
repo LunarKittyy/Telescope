@@ -1,4 +1,4 @@
-<!-- covers: docs/features/camera.md docs/features/picture.md docs/features/effects.md docs/features/sources.md docs/features/output.md docs/features/connection.md docs/features/app.md; checked: a604783e3 -->
+<!-- covers: docs/features/camera.md docs/features/picture.md docs/features/effects.md docs/features/sources.md docs/features/output.md docs/features/connection.md docs/features/app.md; checked: 88de924b5 -->
 # Features
 
 Telescope streams your phone's camera to your computer, where it shows up as a virtual webcam that Discord, Zoom, OBS and any other app can pick. This page is a tour of what it can do. Each feature has a few plain lines here and a link to the page with every setting and the small print.

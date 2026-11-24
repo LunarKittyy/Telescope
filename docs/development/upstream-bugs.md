@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src/https.rs rust/crates/shell/src/parent.rs rust/crates/link/src/adb.rs rust/crates/core/src/gpu_pick.rs; checked: 9acedcd63 -->
+<!-- covers: rust/crates/link/src/https.rs rust/crates/shell/src/parent.rs rust/crates/link/src/adb.rs rust/crates/core/src/gpu_pick.rs; checked: 88de924b5 -->
 # Upstream bugs
 
 Bugs in Android, adb, winit or other dependencies that Telescope works around. Every line of a workaround carries the bug ID in a comment to let `git grep <ID>` find all of it even after the line numbers below drift.

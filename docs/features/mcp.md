@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/system/src/mcp*.rs; checked: 9acedcd63 -->
+<!-- covers: rust/crates/system/src/mcp*.rs; checked: 88de924b5 -->
 # MCP server
 
 With the MCP server an AI app like Claude Desktop can look at Telescope and change its settings. Someone whose picture lags can switch it on and ask the model what's going on. Someone else can describe the look they want and let the model set the colour grading, or ask where a setting is.
@@ -54,7 +54,7 @@ These tools change settings or undo changes:
 - A step for a camera that isn't shown, or a plugin that's switched off isn't lost. Undo notes that the step was stored and it is undone the next time you undo while that camera is shown or the plugin is on
 - **actions** and **run_action** run the same actions keyboard shortcuts run. The settings an action moves are undone by **revert** too. An action's answer shows when it moved none (so there is no step to undo). Actions that change something that isn't saved, like a mute or Blur now, can't be undone. **revert** names them in its answer (the undo button's line in the log counts them)
 
-The model is told to make small steps because changes show in the camera straight away. An AI app can have 4 calls running at once (12 across all of them) and up to 8 can be connected. Starting or stopping the stream, switching the phone's camera off and picking another phone are left to you because they can interrupt whatever is using the camera. `telescope --action` is there if you want them from a command. A message longer than 1 MiB is turned away.
+The model is told to make small steps because changes show in the camera straight away. An AI app can have 4 calls running at once (12 across all of them) and up to 8 can be connected. Starting or stopping the stream, switching the phone's camera off and picking another phone are left to you because they can interrupt whatever is using the camera. `telescope --action` is there if you want them from a command. A message longer than 1 MiB is turned away, and an answer that long is swapped for an error asking the model for less.
 
 Settings are declared by plugins and most built-in plugins declare theirs. A plugin that's switched off doesn't show up in **describe**. Settings that guard your privacy or reach outside Telescope, like Privacy blur's switch, when the stream starts and the update channel, are left out by design.
 

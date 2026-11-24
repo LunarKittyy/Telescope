@@ -1,4 +1,4 @@
-<!-- covers: tools/device_row.py .github/DISCUSSION_TEMPLATE/device-compatibility.yml; checked: a604783e3 -->
+<!-- covers: tools/device_row.py .github/DISCUSSION_TEMPLATE/device-compatibility.yml; checked: 88de924b5 -->
 # Device compatibility
 
 Phones Telescope has been tried on and what each one can do with it. Android 8 or newer is needed. The table covers what changes from one phone to the next. Pairing, reconnecting and starting or stopping the camera work the same on every phone.

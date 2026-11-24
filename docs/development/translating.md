@@ -1,4 +1,4 @@
-<!-- covers: rust/locale/telescope.pot rust/tools/i18n.py rust/crates/core/src/i18n* rust/crates/core/tests/i18n.rs rust/app/tests/texts_in_code.rs rust/app/tests/text_fits.rs android/app/src/main/res/values/strings.xml automation/translation; checked: 277bbbf1a -->
+<!-- covers: rust/locale/telescope.pot rust/tools/i18n.py rust/crates/core/src/i18n* rust/crates/core/tests/i18n.rs rust/app/tests/texts_in_code.rs rust/app/tests/text_fits.rs android/app/src/main/res/values/strings.xml automation/translation; checked: 88de924b5 -->
 # Translating Telescope
 
 ## Helping without any tools
@@ -147,6 +147,6 @@ label.set_text(trn("{n} phone", "{n} phones", count));
 const TITLE: &str = n_("Camera");                                              // in a const or table: mark it, then tr(TITLE) where it shows
 ```
 
-A `// Translators:` comment right above the call goes into the `.po` file. `tr_ctx("search", "...")` gives a text a context. When a text a keyboard shortcut can pick is translated (a segment button, a list entry), use its English as the value. A saved shortcut then still finds it in another language.
+`trn_open` is `trn` for a plural text that has other fields too, which the caller fills in afterwards. A `// Translators:` comment right above the call goes into the `.po` file. `tr_ctx("search", "...")` gives a text a context. When a text a keyboard shortcut can pick is translated (a segment button, a list entry), use its English as the value. A saved shortcut then still finds it in another language.
 
 Then run `python tools/i18n.py extract` in `rust/` and commit `locale`. A new text adds a few lines to each file and changes nothing else. Most pairs of PRs that add texts merge cleanly. When two collide, run `git checkout --ours rust/locale` and then `extract` again to add back the other PR's texts. `app/tests/texts_in_code.rs` fails when the template is out of date or when a text is built from pieces, and `core/tests/i18n.rs` fails when a catalogue is missing a text or a translation has a field the English doesn't.

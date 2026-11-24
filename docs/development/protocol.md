@@ -1,4 +1,4 @@
-<!-- covers: android/app/src/main/kotlin/com/telescope/Protocol.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/SessionEndpoint.kt android/app/src/main/kotlin/com/telescope/SessionServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/SensorStream.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/Pairing.kt rust/crates/link/src/phone_client.rs rust/crates/link/src/pairing.rs rust/crates/link/src/udp.rs rust/crates/link/src/stills.rs rust/crates/link/src/sensors.rs rust/crates/link/src/session_client.rs rust/crates/link/src/browser rust/crates/link/web; checked: 0d35dc883 -->
+<!-- covers: android/app/src/main/kotlin/com/telescope/Protocol.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/SessionEndpoint.kt android/app/src/main/kotlin/com/telescope/SessionServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/SensorStream.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/Pairing.kt rust/crates/link/src/phone_client.rs rust/crates/link/src/pairing.rs rust/crates/link/src/udp.rs rust/crates/link/src/stills.rs rust/crates/link/src/sensors.rs rust/crates/link/src/session_client.rs rust/crates/link/src/browser rust/crates/link/web; checked: 88de924b5 -->
 # Control API reference
 
 Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/video.udp`, `/v1/audio`, `/v1/sensors`, `/v1/state` and `/v1/control` (all only exist while actively streaming); a separate responder on port 7480 serves `/v1/hello`, `/v1/ping`, `/v1/session` and `/v1/unpair`. Every request below except `/v1/hello` requires an `Authorization: Bearer <token>` header carrying the token this computer got when it paired; missing or unknown tokens get `401`. With **Local only** on, port 7480 answers any request that didn't arrive over USB (the phone's loopback, where `adb forward` lands) with `403`, except `/v1/ping` and `/v1/unpair`. The desktop reads a `403` on `/v1/hello` as "this phone is in Local only" and checks with `/v1/ping`.
@@ -196,6 +196,8 @@ A plain photo goes into the stream's own camera session next to the video and th
  "files": [{"name": "IMG_20261026_142501_01.dng", "size": 48711980, "type": "image/x-adobe-dng"}]}
 ```
 
+A shot's RAW and its JPEG have the same name apart from the extension, so the desktop can pair them. File names are kept to what Windows accepts when the desktop saves them.
+
 A file of a photo taken with `desktop_transforms` can have `lens_ratio`, the optical zoom of its lens next to the main one. The computer takes that share out of the crop it makes.
 
 `state` goes from `waiting` (the timer, with `countdown_ms` left) to `capturing` and ends at `done` or `failed` (with `error` and `code`, the latter one of the codes above, or `interrupted` when the lens changed, the camera reopened (a new size or codec) or turned off, or the stream stopped, `timeout` and `failed`). A setting that only rebuilds the stream's camera setup (the frame rate, low light, the phone's preview) doesn't end a photo. The photo continues and the phone requests whatever the rebuild dropped once more. Changes the phone makes without being asked, like Dynamic's frame rate step or the heat, wait until the photo is done. Every photo ends. It gets 10 s plus 5 s a picture plus its exposures after the timer and a photo that shot and then hears nothing from the camera for 6 s (plus its longest exposure) has stalled. A stalled photo with any of the best quality modes (`nr_hq`, `edge_hq`, `hot_pixel_hq`) goes again once without them. Photos of that format on that stream leave them out from then on; otherwise it ends with `timeout`. Should the camera thread itself get stuck in the phone's camera service, the phone still reports `timeout` a few seconds after that limit (twice it, with the best quality modes). The best quality modes leave the photo's frame out of the video. `paused` is true while the video is paused for it, which also covers any manual exposure next to the stream, since those frames are left out of the video and the phone then delays the preview until its exposure has settled again (1.5 s at most). `files` lists every file written so far in the order they were taken. A desktop can start fetching them before the last one is done.
@@ -279,7 +281,7 @@ Served on port 7480 by `SessionServer`. Unlike the endpoints above, it exists wh
 
 ```json
 {
-  "protocol": 2,
+  "protocol": 3,
   "streaming": false,
   "busy": false,
   "localOnly": true,
@@ -397,13 +399,13 @@ The camera and mic go over WebRTC (`rust/crates/link/src/browser/rtc.rs`, using 
 Page to desktop (all text):
 
 - `{"type": "hello", "device": "Safari on iPhone", "mic_error": ""}` on connect and when the mic changes. A non-empty `mic_error` explains why there's no mic and the Microphone card shows it
-- `{"type": "offer", "sdp": "..."}`: a complete offer (every address gathered first, there's no trickle ICE) with one send-only video and one send-only audio transceiver. The page requests H.264 Constrained Baseline or Baseline with `packetization-mode=1` first (what the device's hardware encoder usually does), then VP8, the two codecs the desktop decodes. It sends a new offer after the connection fails, or remains disconnected for 5 seconds
+- `{"type": "offer", "sdp": "..."}`: a complete offer (every address gathered first, there's no trickle ICE) with one send-only video and one send-only audio transceiver. The page requests H.264 Constrained Baseline or Baseline with `packetization-mode=1` first (what the device's hardware encoder usually does), then VP8, the two codecs the desktop decodes. It sends a new offer after the connection fails, or remains disconnected for 5 seconds, or when a `config` brings a different `max_kbps` from the one the last answer used
 - `{"type": "stats", "width": 1280, "height": 720, "fps": 30, "limit": ""}` every 2 seconds: what the browser is sending and `cpu` or `bandwidth` when the browser reports that's holding it back
 
 Desktop to page:
 
 - `{"type": "config", "width": 1280, "height": 720, "fps": 30, "audio": false, "max_kbps": 4147, "camera": "Telescope #2"}` once on connect and whenever something changes. `camera` (the virtual camera it streams to) is left out while there's none
-- `{"type": "answer", "sdp": "..."}` for each offer, or `{"type": "rtc_error", "message": "..."}` when it couldn't answer
+- `{"type": "answer", "sdp": "...", "max_kbps": 4147}` for each offer (the bitrate cap it was answered with), or `{"type": "rtc_error", "message": "..."}` when it couldn't answer
 
 The answer has no STUN or TURN server. Only the two devices' own addresses are tried and nothing outside the local network is contacted. Its video codecs get `x-google-start-bitrate` and `x-google-max-bitrate`. Without the first Chrome starts at 300 kbps and takes about half a minute to get sharp. `max_kbps` is width × height × fps × 0.15 bits, between 1500 and 12000 kbps.
 

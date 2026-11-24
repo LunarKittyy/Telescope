@@ -1,4 +1,4 @@
-<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: 277bbbf1a -->
+<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: 88de924b5 -->
 # Packaging and CI
 
 How the desktop app is packaged and what each workflow does. [Building](building.md) covers building and trying a change.
@@ -77,7 +77,7 @@ These run on pull requests without publishing. `release.yml` calls them for the 
 | Workflow | Runs for | What it does |
 |---|---|---|
 | `build-apk.yml` | `android/**` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed and keeps its R8 `mapping.txt` for 90 days as the `android-mapping-<build>` artifact, to read crash traces from that build |
-| `rust.yml` | `rust/**` | The `linux` and `windows` checks: builds the workspace and runs its tests with `cargo nextest`, and any compiler warning fails them. The `linux` check also runs the Python tests of the fake phone (`rust/tools/test_fake_*.py`). Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml` and doesn't start a second time |
+| `rust.yml` | `rust/**` | The `linux` and `windows` checks: each runs its tests with `cargo nextest` in two halves (`linux (1/2)` and `linux (2/2)`, the check named `linux` is green when both pass), and any compiler warning fails them. The `linux` check also runs the Python tests of the fake phone (`rust/tools/test_fake_*.py`). Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml` and doesn't start a second time |
 | `rust-package.yml` | `rust/tools/**`, `rust/windows/**`, `installer/**` | Builds both FFmpegs and both packages and an AppImage and runs `check_package.py` on them. On pull requests it also builds a quick `TelescopeSetup.exe` and checks the installer, update and uninstall paths and an unzipped copy moving to the installed one. A release does those on the setup it publishes, in `release.yml` |
 | `docs.yml` | every pull request | Lists the docs whose code changed since they were checked in the job summary (it never fails on that) and fails when a doc mentions a file that doesn't exist. See [Keeping docs fresh](../../CONTRIBUTING.md#keeping-docs-fresh) |
 

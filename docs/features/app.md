@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys* rust/crates/system/src/shortcuts.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray* rust/crates/system/src/single_instance.rs rust/crates/system/src/mcp*.rs rust/crates/shell/src/keys.rs rust/crates/shell/src/tray.rs rust/crates/shell/src/settings.rs rust/crates/shell/src/plugins_tab.rs rust/crates/outputs/src/wait_screen.rs; checked: 0d35dc883 -->
+<!-- covers: rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys* rust/crates/system/src/shortcuts.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray* rust/crates/system/src/single_instance.rs rust/crates/system/src/mcp*.rs rust/crates/shell/src/keys.rs rust/crates/shell/src/tray.rs rust/crates/shell/src/settings.rs rust/crates/shell/src/plugins_tab.rs rust/crates/outputs/src/wait_screen.rs; checked: 88de924b5 -->
 # The desktop app
 
 System integration, keyboard shortcuts, the MCP server and plugins.
