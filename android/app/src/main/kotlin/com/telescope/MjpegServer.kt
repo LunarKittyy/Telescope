@@ -34,6 +34,9 @@ class MjpegServer(
     val stopAudio: () -> Unit = {},
     // What /v1/sensors streams; null answers it 404 like a phone from before it.
     val sensors: SensorFeed? = null,
+    // Read on every connection: while true, only a USB (loopback) peer is served, whatever address the socket is bound to.
+    private val localOnly: () -> Boolean = { false },
+    private val isUsbPeer: (Socket) -> Boolean = { it.inetAddress?.isLoopbackAddress == true },
     private val requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
     private val pending: PendingLimiter = PendingLimiter(),
     // TLS in the app (PhoneTls); plain sockets only in tests.
@@ -61,6 +64,7 @@ class MjpegServer(
     private val h264Clients = CopyOnWriteArrayList<H264Client>()
     private val udpClients = CopyOnWriteArrayList<UdpVideoClient>()
     @Volatile private var h264Config: ByteArray? = null
+    private val configLock = Any()
     // Dynamic bitrate: short socket buffers and a short backlog, so a full link shows up as a queue here right away.
     @Volatile var dynamicH264 = false
     private var encodedBytes = 0L         // since the last link sample that went to Dynamic; the encoder's thread only
@@ -115,6 +119,10 @@ class MjpegServer(
             while (running.get()) {
                 try {
                     val socket = serverSocket?.accept() ?: break
+                    if (localOnly() && !isUsbPeer(socket)) {
+                        try { socket.close() } catch (_: Exception) {}
+                        continue
+                    }
                     val address = socket.inetAddress?.hostAddress.orEmpty()
                     if (!pending.tryAcquire(address)) {
                         try { socket.close() } catch (_: Exception) {}
@@ -150,8 +158,10 @@ class MjpegServer(
     // Non-config packets already end with the delimiter
     fun sendH264(packet: ByteArray, key: Boolean, config: Boolean) {
         if (config) {
-            h264Config = packet
-            h264Clients.forEach { it.queue.offerConfig(packet) }
+            synchronized(configLock) {
+                h264Config = packet
+                h264Clients.forEach { it.queue.offerConfig(packet) }
+            }
             return
         }
         frameRate.tick()
@@ -292,8 +302,11 @@ class MjpegServer(
                     trackViewer(socket, true)
                     try {
                         val client = H264Client(socket, request)
-                        h264Config?.let { client.queue.offerConfig(it) }
-                        h264Clients.add(client)
+                        // Together with a config being published: a viewer joining mid-rebuild gets the old or the new, never neither
+                        synchronized(configLock) {
+                            h264Config?.let { client.queue.offerConfig(it) }
+                            h264Clients.add(client)
+                        }
                         onVideoClient(H264Stream.CODEC_H264, HttpWire.bearerToken(request), socket.inetAddress.isLoopbackAddress)
                         requestKeyFrame()        // a decoder can only start at one
                         client.stream()

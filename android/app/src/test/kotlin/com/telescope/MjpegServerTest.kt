@@ -62,6 +62,27 @@ class MjpegServerTest {
     }
 
     @Test
+    fun `local only drops a peer that is not on USB even when bound to every address`() {
+        var local = true
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            localOnly = { local }, isUsbPeer = { false })
+        server.start()
+        try {
+            val port = actualPort(server)
+            val closed = Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 2_000
+                socket.getOutputStream().write("GET /v1/state HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n".toByteArray())
+                socket.getInputStream().readBytes().isEmpty()
+            }
+            assertTrue(closed)
+            local = false
+            assertEquals(200, authGet(port, "/v1/state", "t").status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `v1 state endpoint returns UTF-8 JSON with length and no CORS header when authorized`() {
         val body = "{\"camera\":\"télé\"}"
         val server = MjpegServer(0, { body }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") })
