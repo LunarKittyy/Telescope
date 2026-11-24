@@ -1245,9 +1245,12 @@ class CameraSessionController(
                 android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$fps)")
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
             }
-            if (currentIso != null && currentShutterNs != null && cam != null && cam.supportsManualSensor) {
-                val iso = CameraRequestSelection.clamp(currentIso!!, cam.isoMin, cam.isoMax)
-                val sht = CameraRequestSelection.clamp(currentShutterNs!!, cam.shutterMinNs, cam.shutterMaxNs)
+            // Read once: Auto can clear either from another thread between the check and the use
+            val manualIso = currentIso
+            val manualShutter = currentShutterNs
+            if (manualIso != null && manualShutter != null && cam != null && cam.supportsManualSensor) {
+                val iso = CameraRequestSelection.clamp(manualIso, cam.isoMin, cam.isoMax)
+                val sht = CameraRequestSelection.clamp(manualShutter, cam.shutterMinNs, cam.shutterMaxNs)
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
                 set(CaptureRequest.SENSOR_SENSITIVITY,   iso)
                 set(CaptureRequest.SENSOR_EXPOSURE_TIME, sht)
@@ -1517,6 +1520,8 @@ class CameraSessionController(
         if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusPoint = null }  // another sensor
         meterPoint = null
         dropFrameRate()  // its rungs came from the old lens's ranges; the next link sample builds the new lens's
+        // What the old lens last measured isn't this lens's: its colour matrix, gains and metered exposure
+        lastResult = null; lastCCM = null; lastMeasuredGains = null
         currentCamera = entry
         // The heat's smaller size may not exist on this lens, or may now: the reader is rebuilt if the size moves
         val (w, h) = effectiveSize()

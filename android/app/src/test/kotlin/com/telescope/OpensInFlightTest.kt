@@ -50,4 +50,15 @@ class OpensInFlightTest {
         open.end()
         assertEquals(1, stops)
     }
+
+    @Test
+    fun `two waiting stops both run when the open settles`() {
+        val opens = OpensInFlight()
+        val open = opens.begin()
+        var stops = 0
+        opens.whenSettled { stops++ }
+        opens.whenSettled { stops++ }
+        open.end()
+        assertEquals(2, stops)
+    }
 }
