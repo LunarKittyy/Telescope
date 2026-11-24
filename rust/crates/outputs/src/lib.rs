@@ -435,11 +435,11 @@ fn filter_probe(slot: u32) -> Option<wait_screen::FilterProbe> {
             wincam::FilterProbe::Shared => Arc::new(move || {
                 Some(Box::new(move || mf::open_shared(slot).is_some()) as Box<dyn Fn() -> bool + Send>)
             }),
-            // An app's filter makes the shared image when it opens the camera; until then every send goes nowhere
+            // An app's filter makes the mutex when it opens the camera; until then every send goes nowhere
             wincam::FilterProbe::Image => Arc::new(move || {
                 let num = wincam::uc_filter_for(&wincam::System, &wininstall::unitycapture_dir(), slot)?;
-                let name = wincam::uc_object_name("Data", num);
-                Some(Box::new(move || win::mapping_exists(&name)) as Box<dyn Fn() -> bool + Send>)
+                let name = wincam::uc_object_name("Mutx", num);
+                Some(Box::new(move || win::mutex_exists(&name)) as Box<dyn Fn() -> bool + Send>)
             }),
         })
     }

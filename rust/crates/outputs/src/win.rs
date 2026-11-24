@@ -12,6 +12,8 @@ pub const FILE_MAP_WRITE: u32 = 0x0002;
 pub const FILE_MAP_READ: u32 = 0x0004;
 pub const SYNCHRONIZE: u32 = 0x0010_0000;
 pub const EVENT_MODIFY_STATE: u32 = 0x0002;
+const PAGE_READWRITE: u32 = 0x04;
+const ERROR_ALREADY_EXISTS: u32 = 183;
 pub const WAIT_OBJECT_0: u32 = 0;
 pub const WAIT_ABANDONED: u32 = 0x80;
 
@@ -47,6 +49,8 @@ struct OsVersionInfo {
 extern "system" {
     fn GetSystemDirectoryW(buffer: *mut u16, size: u32) -> u32;
     fn OpenFileMappingW(access: u32, inherit: i32, name: *const u16) -> Handle;
+    fn CreateFileMappingW(file: Handle, attributes: *mut c_void, protect: u32, high: u32, low: u32, name: *const u16) -> Handle;
+    fn GetLastError() -> u32;
     fn MapViewOfFile(map: Handle, access: u32, high: u32, low: u32, bytes: usize) -> *mut c_void;
     fn UnmapViewOfFile(address: *const c_void) -> i32;
     fn VirtualQuery(address: *const c_void, info: *mut MemoryInfo, length: usize) -> usize;
@@ -124,9 +128,26 @@ unsafe impl Send for View {}
 impl View {
     pub fn open(name: &str, access: u32) -> Option<View> {
         let n = wide(name);
-        // SAFETY: plain Win32 calls on a name we own; the view's size comes from VirtualQuery
+        // SAFETY: plain Win32 call on a name we own
+        let map = unsafe { Owned::new(OpenFileMappingW(access, 0, n.as_ptr()))? };
+        View::map(map, access)
+    }
+
+    /// Makes the mapping of that many bytes, or opens it if it exists. True if it was made here.
+    pub fn create(name: &str, bytes: usize) -> Option<(View, bool)> {
+        let n = wide(name);
+        // SAFETY: plain Win32 calls; the error code is read straight after the call that sets it
+        let (map, made) = unsafe {
+            let handle = CreateFileMappingW(usize::MAX as Handle, std::ptr::null_mut(), PAGE_READWRITE, (bytes as u64 >> 32) as u32, bytes as u32, n.as_ptr());
+            let made = GetLastError() != ERROR_ALREADY_EXISTS;
+            (Owned::new(handle)?, made)
+        };
+        Some((View::map(map, FILE_MAP_WRITE)?, made))
+    }
+
+    fn map(map: Owned, access: u32) -> Option<View> {
+        // SAFETY: plain Win32 calls; the view's size comes from VirtualQuery
         unsafe {
-            let map = Owned::new(OpenFileMappingW(access, 0, n.as_ptr()))?;
             let address = MapViewOfFile(map.0, access, 0, 0, 0);
             if address.is_null() {
                 return None;
@@ -153,11 +174,9 @@ impl Drop for View {
     }
 }
 
-/// Whether a named mapping exists right now.
-pub fn mapping_exists(name: &str) -> bool {
-    let n = wide(name);
-    // SAFETY: open and close straight away
-    unsafe { Owned::new(OpenFileMappingW(FILE_MAP_READ, 0, n.as_ptr())).is_some() }
+/// Whether a named mutex exists right now.
+pub fn mutex_exists(name: &str) -> bool {
+    open_mutex(name).is_some()
 }
 
 pub fn open_event(name: &str, access: u32) -> Option<Owned> {
