@@ -189,9 +189,9 @@ fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
     adapters.iter().map(|a| { let i = a.get_info(); gpu_pick::Info { vendor: i.vendor, device: i.device, driver: i.driver, driver_info: i.driver_info } }).collect()
 }
 
-/// The adapters to try for the window, best first. WGPU_POWER_PREF set: wgpu's own pick for it. Otherwise real GPUs first, Vulkan before DX12
-/// as in 5.1.0, and software or odd adapters last; wgpu's no-preference request would take whatever is listed first, software
-/// adapters included.
+/// The adapters to try for the window, best first. WGPU_POWER_PREF set: wgpu's own pick for it. Otherwise real GPUs first, Vulkan before
+/// DX12 unless Settings asks for DirectX 12 first on Windows (`gpu_pick::order`), and software or odd adapters last; wgpu's no-preference
+/// request would take whatever is listed first, software adapters included.
 fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPreference>) -> Vec<(wgpu::Adapter, Card)> {
     let listed = gpu_marker::marked_while(&gpu_marker::probe_card(), || block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY)));
     let all = infos_of(&listed);
@@ -246,6 +246,13 @@ fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPref
     ordered
 }
 
+/// The card's limits, but with a small binding count: DX12 sizes its shader-visible descriptor heap from it.
+fn window_limits(adapter: &wgpu::Adapter) -> wgpu::Limits {
+    let mut limits = adapter.limits();
+    limits.max_non_sampler_bindings = limits.max_non_sampler_bindings.min(16384);
+    limits
+}
+
 /// Looks for a graphics card the window can draw on and opens it. `select` gets the configuration to hand Slint, and says whether it took.
 fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result<(), String>) -> Result<(wgpu::Device, wgpu::Queue), String> {
     (|| {
@@ -267,7 +274,7 @@ fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result
                 let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                     label: Some("telescope window"),
             required_features: surface_features(&adapter),
-                    required_limits: adapter.limits(),
+                    required_limits: window_limits(&adapter),
                     memory_hints: wgpu::MemoryHints::Manual { suballocated_device_memory_block_size: (4 << 20)..(8 << 20) },
                     ..Default::default()
                 })).map_err(|e| e.to_string())?;
@@ -277,7 +284,7 @@ fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result
             })();
             match tried {
                 Ok(opened) => {
-                    gpu_pick::set_opened(&info.name, &gpu_pick::card_id(info.vendor, info.device));
+                    gpu_pick::set_opened(&info.name, &gpu_pick::card_id(info.vendor, info.device), if info.backend == wgpu::Backend::Dx12 { Api::Dx12 } else { Api::Vulkan });
                     return Ok(opened);
                 }
                 Err(e) => {
@@ -299,7 +306,7 @@ fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope window"),
                     required_features: surface_features(&adapter),
-            required_limits: adapter.limits(),
+            required_limits: window_limits(&adapter),
             memory_hints: wgpu::MemoryHints::Manual { suballocated_device_memory_block_size: (4 << 20)..(8 << 20) },
             ..Default::default()
         })).map_err(|e| e.to_string())?;

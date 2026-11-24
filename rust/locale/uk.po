@@ -1485,6 +1485,9 @@ msgstr "Не вдалося встановити: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Напрямок"
 
@@ -2164,6 +2167,9 @@ msgstr "Сервер Google повернув помилку {code}. Спробу
 
 msgid "Grain size"
 msgstr "Розмір зерна"
+
+msgid "Graphics API"
+msgstr ""
 
 msgid "Graphics card"
 msgstr ""
@@ -4492,10 +4498,10 @@ msgstr "Перезапустіть Telescope, щоб застосувати зм
 msgid "Restart Telescope to switch to the new language."
 msgstr "Перезапустіть Telescope, щоб перемкнутися на нову мову."
 
-msgid "Restart Telescope to use the graphics card you picked."
+msgid "Restart Telescope to use the graphics choices you made."
 msgstr ""
 
-msgid "Restart Telescope with the graphics card you picked."
+msgid "Restart Telescope with the graphics choices you made."
 msgstr ""
 
 msgid "Restart now"
@@ -6926,6 +6932,9 @@ msgstr "Мікрофон цієї камери не проходить чере�
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Це може тривати хвилину, поки Windows виконує перевірку безпеки."
 
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
+
 msgid "This computer"
 msgstr "Цей комп'ютер"
 
@@ -7486,6 +7495,14 @@ msgstr ""
 msgid "Using {card}"
 msgstr ""
 
+#, python-brace-format
+msgid "Using {card} with DirectX 12"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with Vulkan"
+msgstr ""
+
 msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
 msgstr "Потрібен VB-Audio Virtual Cable. Це безкоштовний віртуальний аудіокабель від VB-Audio."
 
@@ -7561,6 +7578,12 @@ msgstr ""
 
 msgid "Vision download required"
 msgstr "Потрібне завантаження Vision"
+
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
 
 msgid "W"
 msgstr ""
@@ -7710,6 +7733,9 @@ msgstr "Чи світиться табличка «В ефірі» просто 
 
 msgid "Which device to stream from"
 msgstr "З якого пристрою транслювати"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8170,6 +8196,10 @@ msgstr "затримка таймаут бездіяльність секунд�
 
 msgctxt "search"
 msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+msgctxt "search"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

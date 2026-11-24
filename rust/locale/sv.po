@@ -1481,6 +1481,9 @@ msgstr "Installerades inte: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Riktning"
 
@@ -2160,6 +2163,9 @@ msgstr "Googles server returnerade fel {code}. Försök igen senare."
 
 msgid "Grain size"
 msgstr "Kornstorlek"
+
+msgid "Graphics API"
+msgstr ""
 
 msgid "Graphics card"
 msgstr ""
@@ -4482,10 +4488,10 @@ msgstr "Starta om Telescope för att verkställa ändringarna."
 msgid "Restart Telescope to switch to the new language."
 msgstr "Starta om Telescope för att byta till det nya språket."
 
-msgid "Restart Telescope to use the graphics card you picked."
+msgid "Restart Telescope to use the graphics choices you made."
 msgstr ""
 
-msgid "Restart Telescope with the graphics card you picked."
+msgid "Restart Telescope with the graphics choices you made."
 msgstr ""
 
 msgid "Restart now"
@@ -6907,6 +6913,9 @@ msgstr "Den här kamerans mikrofon går inte genom Telescope. Välj den i ställ
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Det kan ta en minut medan Windows gör en säkerhetskontroll."
 
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
+
 msgid "This computer"
 msgstr "Den här datorn"
 
@@ -7467,6 +7476,14 @@ msgstr ""
 msgid "Using {card}"
 msgstr ""
 
+#, python-brace-format
+msgid "Using {card} with DirectX 12"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with Vulkan"
+msgstr ""
+
 msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
 msgstr "VB-Audio Virtual Cable krävs. Det är en gratis virtuell ljudkabel från VB-Audio."
 
@@ -7542,6 +7559,12 @@ msgstr ""
 
 msgid "Vision download required"
 msgstr "Vision-nedladdning krävs"
+
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
 
 msgid "W"
 msgstr ""
@@ -7691,6 +7714,9 @@ msgstr "Om skylten är On Air just nu"
 
 msgid "Which device to stream from"
 msgstr "Vilken enhet det ska strömmas från"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8150,6 +8176,10 @@ msgstr "fördröjning tidsgräns timeout overksam inaktiv sekunder minuter hur l
 
 msgctxt "search"
 msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+msgctxt "search"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

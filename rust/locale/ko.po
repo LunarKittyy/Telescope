@@ -1479,6 +1479,9 @@ msgstr "설치되지 않음: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "방향"
 
@@ -2158,6 +2161,9 @@ msgstr "Google 서버에서 오류 {code}을(를) 반환했어요. 나중에 다
 
 msgid "Grain size"
 msgstr "그레인 크기"
+
+msgid "Graphics API"
+msgstr ""
 
 msgid "Graphics card"
 msgstr ""
@@ -4474,10 +4480,10 @@ msgstr "변경 사항을 적용하려면 Telescope를 다시 시작하세요."
 msgid "Restart Telescope to switch to the new language."
 msgstr "새 언어로 전환하려면 Telescope를 다시 시작하세요."
 
-msgid "Restart Telescope to use the graphics card you picked."
+msgid "Restart Telescope to use the graphics choices you made."
 msgstr ""
 
-msgid "Restart Telescope with the graphics card you picked."
+msgid "Restart Telescope with the graphics choices you made."
 msgstr ""
 
 msgid "Restart now"
@@ -6890,6 +6896,9 @@ msgstr "이 카메라의 마이크는 Telescope를 거치지 않아요. 대신 �
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Windows에서 보안 검사를 실행하는 동안 1분 정도 걸릴 수 있어요."
 
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
+
 msgid "This computer"
 msgstr "이 컴퓨터"
 
@@ -7450,6 +7459,14 @@ msgstr ""
 msgid "Using {card}"
 msgstr ""
 
+#, python-brace-format
+msgid "Using {card} with DirectX 12"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with Vulkan"
+msgstr ""
+
 msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
 msgstr "VB-Audio Virtual Cable이 필요해요. VB-Audio에서 제공하는 무료 가상 오디오 케이블이에요."
 
@@ -7525,6 +7542,12 @@ msgstr ""
 
 msgid "Vision download required"
 msgstr "Vision 다운로드 필요"
+
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
 
 msgid "W"
 msgstr ""
@@ -7674,6 +7697,9 @@ msgstr "현재 표시가 온에어 상태인지 여부"
 
 msgid "Which device to stream from"
 msgstr "스트리밍할 기기 선택"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8132,6 +8158,10 @@ msgstr "지연 대기 시간 타임아웃 유휴 초 분 유예 기간 자동 �
 
 msgctxt "search"
 msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+msgctxt "search"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

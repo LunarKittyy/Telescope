@@ -1485,6 +1485,9 @@ msgstr "Не удалось установить: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Направление"
 
@@ -2164,6 +2167,9 @@ msgstr "Сервер Google вернул ошибку {code}. Попробуй �
 
 msgid "Grain size"
 msgstr "Размер зерна"
+
+msgid "Graphics API"
+msgstr ""
 
 msgid "Graphics card"
 msgstr ""
@@ -4492,10 +4498,10 @@ msgstr "Перезапусти Telescope, чтобы применить изме
 msgid "Restart Telescope to switch to the new language."
 msgstr "Перезапусти Telescope, чтобы переключиться на новый язык."
 
-msgid "Restart Telescope to use the graphics card you picked."
+msgid "Restart Telescope to use the graphics choices you made."
 msgstr ""
 
-msgid "Restart Telescope with the graphics card you picked."
+msgid "Restart Telescope with the graphics choices you made."
 msgstr ""
 
 msgid "Restart now"
@@ -6926,6 +6932,9 @@ msgstr "Микрофон этой камеры не проходит через 
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Это может занять минуту, пока Windows выполняет проверку безопасности."
 
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
+
 msgid "This computer"
 msgstr "Этот компьютер"
 
@@ -7486,6 +7495,14 @@ msgstr ""
 msgid "Using {card}"
 msgstr ""
 
+#, python-brace-format
+msgid "Using {card} with DirectX 12"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with Vulkan"
+msgstr ""
+
 msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
 msgstr "Требуется VB-Audio Virtual Cable. Это бесплатный виртуальный аудиокабель от VB-Audio."
 
@@ -7561,6 +7578,12 @@ msgstr ""
 
 msgid "Vision download required"
 msgstr "Требуется скачать Vision"
+
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
 
 msgid "W"
 msgstr ""
@@ -7710,6 +7733,9 @@ msgstr "Включена ли табличка «В эфире» прямо се
 
 msgid "Which device to stream from"
 msgstr "С какого устройства вести трансляцию"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8170,6 +8196,10 @@ msgstr "задержка таймаут простой секунды минут
 
 msgctxt "search"
 msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+msgctxt "search"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

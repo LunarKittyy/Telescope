@@ -183,6 +183,10 @@ export component VideoSettings inherits Card {
     in-out property <int> gpu-current;
     in property <bool> gpu-restart;
     in property <string> gpu-line;
+    in property <bool> mode-shown;
+    in property <[string]> mode-items;
+    in-out property <int> mode-current;
+    in property <bool> mode-locked;
     in-out property <bool> saving-checked;
     in-out property <string> zoom-text: "10×";
     in property <[string]> canvas-items;
@@ -199,6 +203,7 @@ export component VideoSettings inherits Card {
     in property <string> canvas-command;
     callback hw-toggled(bool);
     callback gpu-picked(int, string);
+    callback mode-picked(int);
     callback restart-clicked;
     callback saving-toggled(bool);
     callback zoom-committed(string);
@@ -254,6 +259,29 @@ export component VideoSettings inherits Card {
                 picked(i) => { root.gpu-current = i; root.gpu-picked(i, root.gpu-items[i]); }
             }
         }
+        Unfolding {
+            open: mode-shown;
+            RailRow {
+                icon: Icons.gauge;
+                label: @tr("Graphics API");
+                tip: @tr("Which graphics API is tried first");
+                tip-detail: mode-locked ? @tr("This choice has no effect on Intel graphics.") : @tr("Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart.");
+                named: true;
+                hue: root.hue;
+                enabled: !mode-locked;
+                keywords: @tr("search" => "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows");
+                ChoiceField {
+                    preferred-width: Theme.control-w;
+                    min-width: Theme.control-min;
+                    max-width: Theme.control-w;
+                    compact: true;
+                    name: @tr("Graphics API");
+                    items: root.mode-items;
+                    current <=> root.mode-current;
+                    picked(i) => { root.mode-current = i; root.mode-picked(i); }
+                }
+            }
+        }
         StatusRow { text: gpu-line; kind: "status_dim"; detail: gpu-line; }
         Unfolding {
             open: gpu-restart;
@@ -261,14 +289,14 @@ export component VideoSettings inherits Card {
                 has-icon: false;
                 HorizontalLayout {
                     spacing: Theme.gap;
-                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to use the graphics card you picked."); kind: "warn"; horizontal: "end"; }
+                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to use the graphics choices you made."); kind: "warn"; horizontal: "end"; }
                     Button {
                         text: @tr("Restart now");
                         has-icon: true;
                         icon: Icons.repeat;
                         icon-tint: Theme.ink2;
                         tip: @tr("Restart");
-                        tip-detail: @tr("Restart Telescope with the graphics card you picked.");
+                        tip-detail: @tr("Restart Telescope with the graphics choices you made.");
                         clicked => { root.restart-clicked(); }
                     }
                 }

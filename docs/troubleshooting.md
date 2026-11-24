@@ -198,6 +198,9 @@ The next start shows a banner on Linux and a message box on Windows. The last st
 **Telescope uses the other graphics card on Windows**
 Pick the card yourself under **Graphics card** in Video settings and restart. With **Automatic** Telescope follows the graphics setting for its own app in Windows Settings > System > Display > Graphics. It uses the high performance card, which on a laptop with two is the discrete one, with no setting or with **Let Windows decide**. **Power saving** runs everything on the integrated card, hardware decode included. Try it when a laptop with two cards runs hot or drains the battery. The log shows which setting Telescope found.
 
+**The window or the picture looks wrong on Windows**
+Telescope tries Vulkan first on Windows. If the window or the picture looks wrong, or effects use a lot of processor, open Video settings, pick **DirectX 12 first** under **Graphics API** and restart. DirectX 12 lets the graphics card pass the decoded picture to effects without a copy through memory. How much that helps depends on the card and driver. A plain stream can use about the same processor either way. Intel cards ignore the choice. Their window always draws on Vulkan and their pictures are made on DirectX 12. A stream with no effects converts on the processor on Windows. `setx TELESCOPE_PLAIN_ON_CARD 1` makes the graphics card do it instead, which on some cards uses more processor.
+
 ## Camera controls
 
 **A control is greyed out or does nothing**

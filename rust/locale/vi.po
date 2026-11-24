@@ -1479,6 +1479,9 @@ msgstr "Không thể cài đặt: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Hướng"
 
@@ -2158,6 +2161,9 @@ msgstr "Máy chủ của Google đã trả về lỗi {code}. Hãy thử lại s
 
 msgid "Grain size"
 msgstr "Cỡ hạt"
+
+msgid "Graphics API"
+msgstr ""
 
 msgid "Graphics card"
 msgstr ""
@@ -4474,10 +4480,10 @@ msgstr "Khởi động lại Telescope để áp dụng các thay đổi."
 msgid "Restart Telescope to switch to the new language."
 msgstr "Khởi động lại Telescope để chuyển sang ngôn ngữ mới."
 
-msgid "Restart Telescope to use the graphics card you picked."
+msgid "Restart Telescope to use the graphics choices you made."
 msgstr ""
 
-msgid "Restart Telescope with the graphics card you picked."
+msgid "Restart Telescope with the graphics choices you made."
 msgstr ""
 
 msgid "Restart now"
@@ -6890,6 +6896,9 @@ msgstr "Micrô của camera này không đi qua Telescope. Thay vào đó, hãy 
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Quá trình này có thể mất một phút trong khi Windows chạy quét bảo mật."
 
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
+
 msgid "This computer"
 msgstr "Máy tính này"
 
@@ -7450,6 +7459,14 @@ msgstr ""
 msgid "Using {card}"
 msgstr ""
 
+#, python-brace-format
+msgid "Using {card} with DirectX 12"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with Vulkan"
+msgstr ""
+
 msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
 msgstr "Yêu cầu VB-Audio Virtual Cable. Đây là cáp âm thanh ảo miễn phí của VB-Audio."
 
@@ -7525,6 +7542,12 @@ msgstr ""
 
 msgid "Vision download required"
 msgstr "Cần tải về gói thị giác"
+
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
 
 msgid "W"
 msgstr ""
@@ -7674,6 +7697,9 @@ msgstr "Liệu biển báo có đang lên sóng ngay bây giờ hay không"
 
 msgid "Which device to stream from"
 msgstr "Thiết bị dùng để truyền phát"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8132,6 +8158,10 @@ msgstr "độ trễ thời gian chờ không hoạt động giây phút bao lâu
 
 msgctxt "search"
 msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+msgctxt "search"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

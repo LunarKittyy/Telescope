@@ -1482,6 +1482,9 @@ msgstr "Échec de l'installation : {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Direction"
 
@@ -2161,6 +2164,9 @@ msgstr "Le serveur de Google a renvoyé l'erreur {code}. Réessayez plus tard."
 
 msgid "Grain size"
 msgstr "Taille du grain"
+
+msgid "Graphics API"
+msgstr ""
 
 msgid "Graphics card"
 msgstr ""
@@ -4483,10 +4489,10 @@ msgstr "Redémarrez Telescope pour appliquer vos modifications."
 msgid "Restart Telescope to switch to the new language."
 msgstr "Redémarrez Telescope pour appliquer la nouvelle langue."
 
-msgid "Restart Telescope to use the graphics card you picked."
+msgid "Restart Telescope to use the graphics choices you made."
 msgstr ""
 
-msgid "Restart Telescope with the graphics card you picked."
+msgid "Restart Telescope with the graphics choices you made."
 msgstr ""
 
 msgid "Restart now"
@@ -6908,6 +6914,9 @@ msgstr "Le microphone de cette caméra ne passe pas par Telescope. Choisissez-le
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Cette opération peut prendre une minute pendant que Windows effectue une analyse de sécurité."
 
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
+
 msgid "This computer"
 msgstr "Cet ordinateur"
 
@@ -7468,6 +7477,14 @@ msgstr ""
 msgid "Using {card}"
 msgstr ""
 
+#, python-brace-format
+msgid "Using {card} with DirectX 12"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with Vulkan"
+msgstr ""
+
 msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
 msgstr "VB-Audio Virtual Cable requis. Il s'agit d'un câble audio virtuel gratuit développé par VB-Audio."
 
@@ -7543,6 +7560,12 @@ msgstr ""
 
 msgid "Vision download required"
 msgstr "Téléchargement Vision requis"
+
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
 
 msgid "W"
 msgstr ""
@@ -7692,6 +7715,9 @@ msgstr "Indique si l'indicateur est actuellement allumé"
 
 msgid "Which device to stream from"
 msgstr "Depuis quel appareil diffuser"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8151,6 +8177,10 @@ msgstr "délai délai d'attente inactif secondes minutes durée période de grâ
 
 msgctxt "search"
 msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+msgctxt "search"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

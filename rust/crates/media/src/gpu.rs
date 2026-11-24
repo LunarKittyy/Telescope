@@ -219,8 +219,8 @@ fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
 }
 
 /// The adapters of one instance in the order to try them. WGPU_POWER_PREF set: wgpu's own pick for it. Otherwise real GPUs first, Vulkan
-/// before DX12 as in 5.1.0, and software or odd adapters last; wgpu's no-preference request would take whatever is listed first,
-/// software adapters included.
+/// before DX12 unless Settings asks for DirectX 12 first on Windows (`gpu_pick::order`), and software or odd adapters last; wgpu's no-preference
+/// request would take whatever is listed first, software adapters included.
 fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preference: Option<wgpu::PowerPreference>) -> Vec<(wgpu::Adapter, Card)> {
     let listed = gpu_marker::marked_while(&gpu_marker::probe_card(), || pollster::block_on(instance.enumerate_adapters(backends)));
     let all = infos_of(&listed);
