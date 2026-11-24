@@ -9,8 +9,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
-import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -76,16 +74,7 @@ class WaitingService : Service() {
         val state = CameraStreamService.instance?.state
         val live = state != null && state != StreamState.Idle && state != StreamState.Failed && state != StreamState.Stopping
         val n = buildNotification(this, streaming = live)
-        // Camera, and the mic once it's allowed (Android refuses a type whose permission is missing). Before Android 11
-        // the manifest types apply and a background service may use the camera anyway.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
-                (if (withMic) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
-            startForeground(NOTIF_ID, n, types)
-        } else {
-            startForeground(NOTIF_ID, n)
-        }
-        hasMic = withMic || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+        hasMic = Foreground.promote(this, NOTIF_ID, n, withMic)
         covering = true
     }
 
