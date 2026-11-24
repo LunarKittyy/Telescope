@@ -231,6 +231,11 @@ impl FakeLink {
         self.log.lock().unwrap().iter().filter(|l| l.as_str() == what).count()
     }
 
+    /// How many logged calls start with this (for the ones that end in a route's details).
+    pub fn logged_starting(&self, what: &str) -> usize {
+        self.log.lock().unwrap().iter().filter(|l| l.starts_with(what)).count()
+    }
+
     pub fn answers_recovery(&self, id: &str, res: Resolution) {
         self.recovery.lock().unwrap().insert(id.into(), res);
     }
@@ -661,7 +666,8 @@ pub struct Rig {
 impl Drop for Rig {
     fn drop(&mut self) {
         // Threads asking these phones about their state stop now, not on the next test's window
-        self.link.controls.lock().unwrap().values().for_each(|c| c.close());
+        // A test that panicked may have poisoned the lock, and a second panic here would abort the whole run
+        self.link.controls.lock().unwrap_or_else(|e| e.into_inner()).values().for_each(|c| c.close());
         window::forget();
         offscreen::drop_jobs();
     }
@@ -865,7 +871,10 @@ impl Rig {
     }
 
     pub fn flag(&self, name: &str) -> bool {
-        self.w.ui.get_property(name) == Ok(SValue::Bool(true))
+        match self.w.ui.get_property(name) {
+            Ok(SValue::Bool(b)) => b,
+            other => panic!("{name} is {other:?}, not a flag"),
+        }
     }
 
     /// The rows of a window property, each as (field, value) text by name.
