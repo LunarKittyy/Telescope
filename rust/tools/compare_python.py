@@ -67,7 +67,9 @@ def run_row(row, args, mode):
             env["TELESCOPE_DEV_RESUME"] = "1"
         if args.vision_pack:
             env["TELESCOPE_VISION_PACK"] = args.vision_pack
+            # A dev profile keeps the Rust app's vision pack inside it
             (profile / "vision").mkdir()
+            (profile / "vision" / Path(args.vision_pack).name).symlink_to(Path(args.vision_pack).resolve())
         cmd, cwd = command(row, args, mode)
         measure = [sys.executable, str(TOOLS / "measure.py"), mode, "--camera", args.camera]
         measure += ["--runs", str(args.runs)] if mode == "startup" else ["--warmup", "10", "--seconds", "30"]

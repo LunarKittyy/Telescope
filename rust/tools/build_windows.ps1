@@ -47,7 +47,9 @@ Copy-Item $exe "$Out\TelescopeDesktop.exe"
 # The window's .slint files and icons are read at run time (telescope_ui_kit::library_path)
 Copy-Item -Recurse crates\ui-kit\ui "$Out\ui-kit"
 foreach ($dll in 'avcodec', 'avutil', 'swresample', 'swscale') {
-    Copy-Item "$env:FFMPEG_DIR\bin\$dll-*.dll" $Out
+    $found = @(Get-ChildItem "$env:FFMPEG_DIR\bin\$dll-*.dll")
+    if (-not $found) { throw "No $dll-*.dll in $env:FFMPEG_DIR\bin" }
+    Copy-Item $found $Out
 }
 Copy-Item -Recurse "$rust\windows\unitycapture" "$Out\unitycapture"
 Copy-Item "$work\build\Release\TelescopeCamera.dll" "$Out\virtualcamera\"
