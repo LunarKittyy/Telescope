@@ -42,7 +42,7 @@ def parse_cameras(text: str) -> list[Lens]:
             lens.max_size = (int(size.group(1)), int(size.group(2)))
         if fps := re.search(r"fps ((?:\d+-\d+ ?)+)", rest):
             lens.fps = [int(r.split("-")[1]) for r in fps.group(1).split()]
-        if zooms := re.search(r"lenses at ([\d.x, ]+?)(?:, [a-z]|$)", rest):
+        if zooms := re.search(r"lenses at ([\d.x, ]+?)(?:, [A-Za-z]|$)", rest):
             lens.lens_zooms = zooms.group(1).strip()
         if manual := re.search(r"manual ([a-zA-Z/]+)", rest):
             lens.manual = set(manual.group(1).split("/"))
