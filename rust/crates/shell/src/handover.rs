@@ -33,6 +33,10 @@ const SKIP: usize = 4;
 /// A frame's crop tag is the share sent when their zooms are this close (as a log) and their centres this close (of the whole view): the camera rounds the crop to whole pixels.
 const TAG_ZOOM: f64 = 0.01;
 const TAG_CENTRE: f64 = 0.004;
+/// A share the camera never matches (it rounds the crop to its own steps) is taken to have arrived once two tags this far past the send agree with each other (seconds).
+const SETTLE_TAGS_S: f64 = 0.5;
+/// Untagged frames held back after a reconnect, while the first tag is waited for.
+const AWAIT_TAG_FRAMES: u32 = 3;
 
 /// Whether a frame tagged with `tag` shows `share`.
 fn shows(tag: &PhoneZoom, share: &PhoneZoom) -> bool {
@@ -51,6 +55,10 @@ struct Tags {
     known: Option<PhoneZoom>,
     /// When the last tag came.
     tag_at: Option<f64>,
+    /// The last tag and when it came, for telling that a camera has settled on a crop that isn't the one sent.
+    last_tag: Option<(PhoneZoom, f64)>,
+    /// Untagged frames still to hold back after a reconnect: the phone keeps its zoom through one, and which it has is only known from a tag.
+    awaiting: u32,
     /// The crop the last frame shown was taken to have.
     showing: Option<PhoneZoom>,
     /// When the share was sent, while it is on its way: until a frame shows it, or for HANDOVER_S (a camera may settle on another crop, or ignore it).
@@ -403,21 +411,21 @@ impl ViewGate {
             entry.1 += 1;
             // A tag from the lens before says nothing of a frame from this one, and neither does the crop it put in place
             if inner.source.as_deref() == Some(source) {
-                (inner.tags.known, inner.tags.showing, inner.shown) = (None, None, None);
+                (inner.tags.known, inner.tags.showing, inner.tags.last_tag, inner.shown) = (None, None, None, None);
             }
         }
     }
 
-    /// The worker opened a new connection to `source`'s phone, before its first frame: the phone starts it at its whole view, and what the
-    /// frames before said about the crop says nothing of the next ones. The window may hear of it later or earlier, so the share it sent stays.
+    /// The worker opened a new connection to `source`'s phone, before its first frame: the phone may have kept its zoom or gone back to its whole
+    /// view, and what the frames before said about the crop says nothing of the next ones, so the first tag is waited for (a few frames at most). The window may hear of it later or earlier, so the share it sent stays.
     pub fn connection_reset(&self, source: &str) {
         let mut inner = self.0.lock().unwrap();
         if inner.source.as_deref() != Some(source) {
             return;
         }
-        let neutral = inner.tags.target.as_ref().map(|_| PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 });
         let tags = &mut inner.tags;
-        (tags.known, tags.showing, tags.compare, tags.misses) = (neutral, None, None, 0);
+        (tags.known, tags.showing, tags.compare, tags.misses, tags.last_tag) = (None, None, None, 0, None);
+        tags.awaiting = if tags.tagged { AWAIT_TAG_FRAMES } else { 0 };
         (inner.last, inner.shown) = (None, None);
     }
 
@@ -625,8 +633,11 @@ impl ViewGate {
         let tags = &mut inner.tags;
         let (crop, unsure) = match frame.phone_share {
             Some(tag) => {
-                (tags.known, tags.tag_at, tags.misses) = (Some(tag), Some(now), 0);
-                if shows(&tag, &sent) {
+                let before_tag = tags.last_tag.replace((tag, now));
+                (tags.known, tags.tag_at, tags.misses, tags.awaiting) = (Some(tag), Some(now), 0, 0);
+                // The camera has settled on a crop of its own when two tags well after the send agree
+                let settled = tags.pending.zip(before_tag).is_some_and(|(at, (prev, prev_at))| prev_at - at >= SETTLE_TAGS_S && shows(&tag, &prev));
+                if shows(&tag, &sent) || settled {
                     tags.pending = None;
                 }
                 // How much frames differ from one to the next, for telling a cut from the picture's own movement
@@ -637,6 +648,13 @@ impl ViewGate {
                 let calm = tags.calm;
                 tags.compare = tags.pending.map(|_| Handover::comparing(tag, sent, thumb, calm, now));
                 (tag, false)
+            }
+            None if tags.awaiting > 0 => {
+                tags.awaiting -= 1;
+                if replaced {
+                    inner.shown = None;
+                }
+                return None;
             }
             None if tags.pending.is_none() => (tags.known.unwrap_or(sent), false),
             None => {
@@ -1046,12 +1064,52 @@ mod tests {
         gate.for_frame_checked("a", &tagged(Some(sent), &surface), 0.0, false);
         gate.connection_reset("other");
         assert_eq!(gate.for_frame_checked("a", &tagged(None, &surface), 0.03, false).unwrap().crop, Some(phone_window(Some(&sent))));
-        // The worker reconnected and its first frame lost its tag: the phone starts a connection at its whole view
+        // The worker reconnected and the first frames lost their tags: the phone may have kept its zoom, so they are held back rather than given the whole view
         gate.connection_reset("a");
-        let checked = gate.for_frame_checked("a", &tagged(None, &surface), 5.0, false).unwrap();
-        let neutral = PhoneZoom { crop: 1.0, ..sent };
-        assert_eq!(checked.crop, Some(phone_window(Some(&neutral))));
-        assert!((total(&checked.changed.unwrap()) - 6.0).abs() < 1e-4);
+        for k in 0..AWAIT_TAG_FRAMES {
+            assert_eq!(gate.for_frame_checked("a", &tagged(None, &surface), 5.0 + k as f64 * 0.03, false), None);
+        }
+        // Past those, the share sent is the best guess
+        let checked = gate.for_frame_checked("a", &tagged(None, &surface), 5.2, false).unwrap();
+        assert_eq!(checked.crop, Some(phone_window(Some(&sent))));
+    }
+
+    #[test]
+    fn a_reconnect_to_a_phone_that_kept_its_zoom_is_not_shown_at_the_whole_view() {
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let (gate, _) = aimed(sent);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(sent), &surface), 0.0, false);
+        gate.connection_reset("a");
+        assert_eq!(gate.for_frame_checked("a", &tagged(None, &surface), 0.1, false), None);
+        // The first tag ends the wait, and says the zoom was kept
+        let checked = gate.for_frame_checked("a", &tagged(Some(sent), &surface), 0.13, false).unwrap();
+        assert_eq!(checked.crop, Some(phone_window(Some(&sent))));
+        let next = gate.for_frame_checked("a", &tagged(None, &surface), 0.16, false).unwrap();
+        assert_eq!(next.crop, Some(phone_window(Some(&sent))));
+    }
+
+    #[test]
+    fn a_camera_that_never_matches_the_share_stops_it_being_waited_for_once_its_tags_agree() {
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let got = PhoneZoom { crop: 1.8, ..sent };
+        let (gate, framing) = aimed(sent);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), 0.0, false);
+        gate.begin(got, sent, (View { zoom: 3.0, ..View::default() }, View { zoom: 3.0, ..View::default() }), &framing, 0.1);
+        let mut at = 0.13;
+        while at < 0.1 + SETTLE_TAGS_S {
+            gate.for_frame_checked("a", &tagged(Some(got), &surface), at, false);
+            assert!(gate.waiting(), "not yet, a camera may still be on its way at {at}");
+            at += 0.03;
+        }
+        // One more past it for the first tag counted, then the one that agrees with it
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), at, false);
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), at + 0.03, false);
+        assert!(!gate.waiting(), "well before HANDOVER_S");
+        let copies = surface.1.load(std::sync::atomic::Ordering::Relaxed);
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), at + 0.06, false);
+        assert_eq!(surface.1.load(std::sync::atomic::Ordering::Relaxed), copies, "frames are no longer copied off the card");
     }
 
     #[test]
