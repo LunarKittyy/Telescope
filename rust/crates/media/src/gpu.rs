@@ -240,13 +240,13 @@ fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preferen
             wgpu::DeviceType::Cpu => Kind::Cpu,
             wgpu::DeviceType::Other => Kind::Other,
         };
-        Some(Candidate { api, kind, index, vendor: info.vendor, device: info.device })
+        Some(Candidate { api, kind, index, vendor: info.vendor, device: info.device, windows: cfg!(windows) })
     }).collect();
     let names: Vec<String> = listed.iter().map(|a| a.get_info().name).collect();
     gpu_pick::note_listed(&candidates, &names);
     let choice = gpu_pick::choice();
     let wanted = gpu_pick::chosen(&candidates, &choice);
-    let mut by_choice = gpu_pick::with_choice(gpu_pick::order(&candidates, gpu_pick::system_preference()), &candidates, &choice);
+    let mut by_choice = gpu_pick::with_choice(gpu_pick::order(&candidates, gpu_pick::system_preference(), gpu_pick::Role::Pipeline), &candidates, &choice);
     if !wanted.is_empty() {
         log::info!("Graphics card chosen in Settings: {}", names[wanted[0]]);
         if let Some(power_preference) = preference {
@@ -299,8 +299,21 @@ impl Gpu {
         }).clone()
     }
 
-    /// Use the window's connection for new pipelines; existing streams keep their own device.
+    /// Use the window's connection for new pipelines; existing streams keep their own device. Not when the pipeline wants another API on this
+    /// card (Intel in Windows: the window draws on Vulkan, the pipeline opens its own DX12 device to share decoded pictures on the card).
     pub fn share_with_streams(gpu: Arc<Gpu>) {
+        let info = gpu.device.adapter_info();
+        let api = match info.backend {
+            wgpu::Backend::Vulkan => Api::Vulkan,
+            wgpu::Backend::Dx12 => Api::Dx12,
+            wgpu::Backend::Metal => Api::Metal,
+            _ => Api::Gl,
+        };
+        let window = Candidate { api, kind: Kind::Other, index: 0, vendor: info.vendor, device: info.device, windows: cfg!(windows) };
+        if !gpu_pick::window_serves_pipeline(&window) {
+            log::info!("The pipeline opens its own graphics device, the window's {:?} one can't share decoded pictures on the card", info.backend);
+            return;
+        }
         if std::env::var_os("TELESCOPE_NO_GPU").is_none() {
             *SHARED_GPU.lock().unwrap_or_else(|e| e.into_inner()) = Some(Some(gpu));
         }

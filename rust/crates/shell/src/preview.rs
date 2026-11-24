@@ -211,13 +211,13 @@ fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPref
             wgpu::DeviceType::Cpu => Kind::Cpu,
             wgpu::DeviceType::Other => Kind::Other,
         };
-        Some(Candidate { api, kind, index, vendor: info.vendor, device: info.device })
+        Some(Candidate { api, kind, index, vendor: info.vendor, device: info.device, windows: cfg!(windows) })
     }).collect();
     let names: Vec<String> = listed.iter().map(|a| a.get_info().name).collect();
     gpu_pick::note_listed(&candidates, &names);
     let choice = gpu_pick::choice();
     let wanted = gpu_pick::chosen(&candidates, &choice);
-    let mut by_choice = gpu_pick::with_choice(gpu_pick::order(&candidates, gpu_pick::system_preference()), &candidates, &choice);
+    let mut by_choice = gpu_pick::with_choice(gpu_pick::order(&candidates, gpu_pick::system_preference(), gpu_pick::Role::Window), &candidates, &choice);
     if !wanted.is_empty() {
         log::info!("Graphics card chosen in Settings: {}", names[wanted[0]]);
         if let Some(power_preference) = preference {
