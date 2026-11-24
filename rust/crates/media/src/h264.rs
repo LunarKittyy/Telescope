@@ -545,6 +545,8 @@ struct Candidate {
     /// Pictures it has given, and when the first came (for how fast it decodes once going).
     pictures: u64,
     first_picture: Option<Instant>,
+    /// When the latest came: pictures still arriving, only behind, say it is slow and not stuck.
+    last_picture: Option<Instant>,
 }
 
 /// Software has the stream to be judged against the card that looked too slow.
@@ -851,7 +853,7 @@ impl H264 {
         if let Some(ask) = &self.ask_keyframe {
             ask();
         }
-        self.candidate = Some(Candidate { engine, hw, plan, began: slow::now(), primed: false, sent: 0, reported: 0, keyframe_seen: false, started: false, ready: false, pictures: 0, first_picture: None });
+        self.candidate = Some(Candidate { engine, hw, plan, began: slow::now(), primed: false, sent: 0, reported: 0, keyframe_seen: false, started: false, ready: false, pictures: 0, first_picture: None, last_picture: None });
         Ok(())
     }
 
@@ -888,6 +890,7 @@ impl H264 {
                     (cand.started, cand.ready) = (true, true);
                     cand.pictures += 1;
                     cand.first_picture.get_or_insert(now);
+                    cand.last_picture = Some(now);
                 }
                 Report::Fault(why) => {
                     self.candidate_failed(cand, &why);
@@ -925,6 +928,13 @@ impl H264 {
                 let (fed, span) = (now.saturating_duration_since(cand.began), now.saturating_duration_since(first));
                 self.candidate_slower(cand, span, fed);
                 return;
+            }
+            // A card that gave clean pictures up to a moment ago and can't catch up with the stream is too slow for it, not broken: software keeps the stream and the card gets another go after a wait (a smaller stream may suit it)
+            if let (Plan::Card(hw), Some(last)) = (&cand.plan, cand.last_picture) {
+                if now.saturating_duration_since(last) < slow::STILL_GIVING {
+                    self.card_too_slow(*hw, &cand);
+                    return;
+                }
             }
             let limit = slow::START_LIMIT.as_secs();
             // Software that was given a keyframe and made nothing of it has lost its trial. A card that decoded from one and gave no picture has failed;
@@ -996,6 +1006,18 @@ impl H264 {
             hw.name(),
             per_second(cand.pictures.saturating_sub(1), span),
             per_second(cand.sent, fed),
+            wait.as_secs() / 60
+        );
+    }
+
+    /// The card started beside software gave pictures but fell behind the stream: it isn't marked as failed, and software keeps the stream for the usual wait.
+    fn card_too_slow(&mut self, hw: Hw, cand: &Candidate) {
+        let wait = self.policy.lock().unwrap().cooldown.fell(slow::now());
+        log::warn!(
+            "Hardware decoding ({}) gave pictures but couldn't keep up with the stream ({} of {} pieces answered); decoding in software for {} minutes, then trying it again",
+            hw.name(),
+            cand.reported,
+            cand.sent,
             wait.as_secs() / 60
         );
     }
@@ -2648,6 +2670,29 @@ pub(crate) mod tests {
         assert!(!hardware_failed(), "a slow decoder was counted as a broken one");
         let policy = dec.policy.lock().unwrap();
         assert!(policy.lost.active() && !policy.cooldown.active(), "the card wasn't kept with the usual wait");
+    }
+
+    #[test]
+    fn a_card_that_gives_pictures_but_cannot_keep_up_is_too_slow_not_failed_for_the_whole_run() {
+        let Some(packets) = testenc::h264(&[80; 40], 64, 48, 100) else { return };
+        let _turn = card_test();
+        let mut dec = software();
+        dec.feed(&packets[0]);
+        dec.retry_hw = Some(Hw::Cuda);
+        dec.feed(&packets[1]);
+        let cand = dec.candidate.as_mut().expect("a card started beside software");
+        // Clean pictures right up to now, but 40 of the 90 pieces it was given are still unanswered when its time is up
+        let now = slow::now();
+        cand.began = now - slow::START_LIMIT;
+        (cand.first_picture, cand.last_picture) = (Some(now - Duration::from_secs(6)), Some(now - Duration::from_millis(200)));
+        (cand.pictures, cand.sent, cand.reported, cand.started, cand.ready, cand.keyframe_seen) = (50, 90, 50, true, false, true);
+        if let Engine::Inline { reports, .. } = &mut cand.engine {
+            reports.clear();
+        }
+        dec.poll_candidate();
+        assert!(dec.candidate.is_none());
+        assert!(!hardware_failed(), "a slow card was counted as a broken one for the rest of the run");
+        assert!(dec.policy.lock().unwrap().cooldown.active(), "software doesn't keep the stream for the usual wait");
     }
 
     #[test]

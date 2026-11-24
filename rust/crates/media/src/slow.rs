@@ -81,6 +81,9 @@ pub const START_LIMIT: Duration = Duration::from_secs(8);
 /// Software must deliver this much more than the card, new pictures a second, to be called better: the same rate is a tie, and a tie goes to the card.
 pub const RATE_MARGIN: f64 = 1.05;
 
+/// A decoder beside the running one whose latest picture is newer than this is still giving them, so if it is behind it is slow and not stuck.
+pub const STILL_GIVING: Duration = Duration::from_secs(2);
+
 /// A decoder beside the running one has to be timed this long once it gives pictures, and given this many, before it's called behind.
 const BEHIND_SPAN: Duration = Duration::from_secs(2);
 const BEHIND_PICTURES: u64 = 5;
