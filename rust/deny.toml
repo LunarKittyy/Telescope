@@ -14,6 +14,7 @@ ignore = [
     { id = "RUSTSEC-2026-0371", reason = "zbus_names via accesskit_unix, waits for accesskit to use zbus 6" },
     { id = "RUSTSEC-2026-0372", reason = "zvariant_derive via accesskit_unix, waits for accesskit to use zbus 6" },
     { id = "RUSTSEC-2026-0441", reason = "pin-utils via slint-macros, build time only" },
+    { id = "RUSTSEC-2026-0543", reason = "chrono via i-slint-core, unmaintained with no safe upgrade yet" },
 ]
 
 [licenses]
