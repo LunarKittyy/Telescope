@@ -22,6 +22,10 @@ pub(crate) struct SurfacePicture(pub(crate) Arc<dyn DecodedSurface>);
 
 impl CardPicture for SurfacePicture {
     fn land(&self) -> Frame {
+        static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        if N.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 3 {
+            log::info!("DIAG a kept picture landed whole (backtrace {})", std::backtrace::Backtrace::force_capture().to_string().lines().filter(|l| l.contains("telescope")).take(6).collect::<Vec<_>>().join(" | "));
+        }
         self.0.ram().clone()
     }
 

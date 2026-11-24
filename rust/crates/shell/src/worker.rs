@@ -994,6 +994,10 @@ impl Shared {
         self.newest_arrival.store(arrived, Ordering::Relaxed);
         // The one place a card picture is read back for the readers of the slot: here, on this thread, before the lock they take
         if self.slot.ram_wanted() {
+            static TOLD: AtomicBool = AtomicBool::new(false);
+            if !TOLD.swap(true, Ordering::Relaxed) {
+                log::info!("DIAG a reader wants the stream's pictures in memory");
+            }
             out.land_until(&|| self.stopped());
         }
         // A frame made while Stop waited isn't published after it
