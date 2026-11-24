@@ -814,12 +814,17 @@ class CameraSessionController(
         PhoneStats.shared.realtimeStamps, Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
         (SystemClock.elapsedRealtimeNanos() - System.nanoTime()) / 1000)
 
+    // The open lens's clock, for the crop tags and the Stats delay: it differs from lens to lens, and an encoder outlives a same-size lens switch
+    private fun refreshCropClock() {
+        PhoneStats.shared.realtimeStamps = stampsAreRealtime()
+        CropLog.shared.begin(sensorOffsetsUs())
+    }
+
     // The camera's stream output at the current size: the JPEG reader, or the H.264 encoder's
     // Surface. An encoder that won't start falls back to JPEG and reports it.
     private fun buildOutputs() {
         if (codec == H264Stream.CODEC_H264) {
-            PhoneStats.shared.realtimeStamps = stampsAreRealtime()
-            CropLog.shared.begin(sensorOffsetsUs())
+            refreshCropClock()
             try {
                 lateinit var built: H264Encoder
                 // Queued behind a size change, a report from the old encoder must not count against the new one
@@ -1573,6 +1578,7 @@ class CameraSessionController(
                     open.end()
                     cameraDevice = camera
                     if (outputSurface() == null) buildOutputs()  // a reopen this switch overtook had released them
+                    else if (codec == H264Stream.CODEC_H264) refreshCropClock()  // the encoder stays, but this lens may stamp on another clock
                     createSession(camera, physId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
