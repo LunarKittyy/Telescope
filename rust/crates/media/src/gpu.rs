@@ -175,6 +175,12 @@ fn uniform_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     }
 }
 
+/// Experiment switches for the preview paint, from LEAK_SKIP (comma list: paint, up, conv, uni, poll).
+fn leak_skip() -> &'static str {
+    static S: OnceLock<String> = OnceLock::new();
+    S.get_or_init(|| std::env::var("LEAK_SKIP").unwrap_or_default())
+}
+
 fn chroma(n: u32) -> u32 {
     n.div_ceil(2)
 }
@@ -631,6 +637,17 @@ impl Gpu {
     }
 
     fn uniform(&self, bytes: &[u8]) -> wgpu::Buffer {
+        if leak_skip().contains("uni") {
+            static CACHE: Mutex<Vec<(Vec<u8>, wgpu::Buffer)>> = Mutex::new(Vec::new());
+            let mut cache = CACHE.lock().unwrap();
+            if let Some((_, b)) = cache.iter().find(|(k, _)| k == bytes) {
+                return b.clone();
+            }
+            let b = self.device.create_buffer(&wgpu::BufferDescriptor { label: None, size: (bytes.len().max(16) as u64).div_ceil(16) * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+            self.queue.write_buffer(&b, 0, bytes);
+            cache.push((bytes.to_vec(), b.clone()));
+            return b;
+        }
         let buf = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: (bytes.len().max(16) as u64).div_ceil(16) * 16,
@@ -1290,13 +1307,34 @@ impl Gpu {
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || out_w == 0 || out_h == 0 {
             return Err(format!("can't scale {:?} to {out_w}x{out_h}", frame.format));
         }
+        let skip = leak_skip();
+        if skip.contains("paint") {
+            return Ok(());
+        }
         let mut used = Vec::new();
         let mut enc = self.device.create_command_encoder(&Default::default());
-        let planes = self.upload(frame, &mut used);
+        let planes = if skip.contains("up") {
+            static KEPT: Mutex<Option<([wgpu::TextureView; 3], u32, u32, Vec<wgpu::Texture>)>> = Mutex::new(None);
+            let mut kept = KEPT.lock().unwrap();
+            if kept.is_none() {
+                let mut own = Vec::new();
+                let p = self.upload(frame, &mut own);
+                *kept = Some((p.views.clone(), p.width, p.height, own));
+            }
+            let k = kept.as_ref().unwrap();
+            Planes { views: k.0.clone(), mode: if matches!(frame.format, PixelFormat::Nv12) { Mode::Nv12 } else { Mode::I420 }, width: k.1, height: k.2 }
+        } else {
+            self.upload(frame, &mut used)
+        };
         transfers::preview_up();
         let taps = (frame.width.div_ceil(out_w)).max(frame.height.div_ceil(out_h)).clamp(1, 8);
-        self.convert_pass(&mut enc, &planes.views, planes.mode, target, taps, (planes.width, planes.height));
+        if !skip.contains("conv") {
+            self.convert_pass(&mut enc, &planes.views, planes.mode, target, taps, (planes.width, planes.height));
+        }
         self.queue.submit([enc.finish()]);
+        if skip.contains("poll") {
+            let _ = self.device.poll(wgpu::PollType::Poll);
+        }
         self.give_back(used);
         Ok(())
     }
