@@ -4,6 +4,7 @@
 use crate::convert::{fit_frame, i420_to_rgba_flipped_into, rgb_to_i420};
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::output::VideoOutput;
+use std::time::Instant;
 
 /// The biggest picture the filter makes room for: 4K at four 16-bit channels. Must match the filter's own limit, or it resets the picture it finds in the primed image.
 pub const MAX_SHARED_IMAGE_SIZE: usize = 3840 * 2160 * 4 * 2;
@@ -57,12 +58,50 @@ pub trait Target: Send {
     fn primes(&self) -> bool {
         false
     }
-    /// Leaves the picture where the filter finds it the moment an app opens the camera, so that app's first frames aren't black.
-    fn prime(&mut self, _rgba: &[u8], _width: u32, _height: u32) {}
+    /// Leaves the picture where the filter finds it the moment an app opens the camera, so that app's first frames aren't black. False if it wasn't written (the filter held the image, say), so it must be tried again.
+    fn prime(&mut self, _rgba: &[u8], _width: u32, _height: u32) -> bool {
+        true
+    }
+}
+
+/// When each camera's filter last asked for a frame, as noted by whoever took the signal. The Want event resets itself when a waiter takes it, so
+/// the sender and the watcher each take some of the signals: both note what they took and read what the other noted, so neither mistakes the other's for silence.
+static ASKS: std::sync::Mutex<Vec<(u32, std::time::Instant)>> = std::sync::Mutex::new(Vec::new());
+
+/// Notes that the filter of camera num just asked for a frame.
+pub fn note_ask(num: u32) {
+    let mut asks = ASKS.lock().unwrap_or_else(|e| e.into_inner());
+    let now = std::time::Instant::now();
+    match asks.iter_mut().find(|(n, _)| *n == num) {
+        Some(entry) => entry.1 = now,
+        None => asks.push((num, now)),
+    }
+}
+
+/// When the filter of camera num last asked for a frame, by anyone's note.
+pub fn last_ask(num: u32) -> Option<std::time::Instant> {
+    ASKS.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(n, _)| *n == num).map(|(_, at)| *at)
+}
+
+/// Whether the filter asked for a frame: this waiter took a signal (`took`, which it notes), or the other waiter took one within `within`.
+pub fn asked(num: u32, took: bool, within: std::time::Duration) -> bool {
+    if took {
+        note_ask(num);
+        return true;
+    }
+    last_ask(num).is_some_and(|at| at.elapsed() < within)
+}
+
+/// How far back an ask counts for a wait of `timeout` that really lasted `waited`: the timer can run a wait over (a Windows tick is longer than a short wait), and an ask taken meanwhile still counts.
+pub fn ask_window(timeout: std::time::Duration, waited: std::time::Duration) -> std::time::Duration {
+    timeout.max(waited)
 }
 
 /// How often the picture waiting for an app to open the camera is refreshed.
 const PRIME_EVERY: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// How soon a picture that couldn't be written is tried again.
+const PRIME_RETRY: std::time::Duration = std::time::Duration::from_millis(50);
 
 /// The picture last made, and what it was made from: the same pixels again (a wait screen showing one picture) need no new conversion.
 struct Made {
@@ -115,12 +154,16 @@ impl VideoOutput for UcCamera {
             self.rgba = Vec::new();
             self.made = None;
             if self.target.primes() && self.primed.is_none_or(|at| at.elapsed() >= self.prime_every) {
-                self.primed = Some(std::time::Instant::now());
+                self.primed = Some(Instant::now());
                 if !self.primed_from.as_ref().is_some_and(|m| m.is_of(frame)) {
                     let mut picture = Vec::new();
                     if picture_into(frame, self.width, self.height, &mut picture).is_ok() {
-                        self.target.prime(&picture, self.width, self.height);
-                        self.primed_from = Some(Made::of(frame));
+                        // Only a picture that was written counts as primed: a skipped write is tried again soon, not left to the next refresh
+                        if self.target.prime(&picture, self.width, self.height) {
+                            self.primed_from = Some(Made::of(frame));
+                        } else {
+                            self.primed = Instant::now().checked_sub(self.prime_every.saturating_sub(PRIME_RETRY));
+                        }
                     }
                 }
             }
@@ -207,27 +250,28 @@ impl Shared {
     /// Makes the Want event and the shared image before any app opens the camera, with the picture in it. The filter shows what it
     /// finds there at once, where a new image that nobody has written to yet makes its first frames black. After an app closed the
     /// camera it replaces what the image shows, so the next one to open it doesn't start on an old picture.
-    fn prime_image(&mut self, rgba: &[u8], width: u32, height: u32) {
+    fn prime_image(&mut self, rgba: &[u8], width: u32, height: u32) -> bool {
         use crate::wincam::uc_object_name as name;
         if let Some((mutex, _, _, view)) = self.open.as_mut() {
-            if crate::win::wait(mutex, LOCK_WAIT_MS) {
-                write_frame(view.buf(), rgba, width, height);
-                crate::win::release_mutex(mutex);
+            if !crate::win::wait(mutex, LOCK_WAIT_MS) {
+                return false;
             }
-            return;
+            let written = write_frame(view.buf(), rgba, width, height);
+            crate::win::release_mutex(mutex);
+            return written;
         }
         if self.want.is_none() {
             self.want = crate::win::create_event(&name("Want", self.num));
         }
         if self.primed.is_none() {
             if self.create_failed.is_some_and(|at| at.elapsed() < CREATE_RETRY) {
-                return;
+                return false;
             }
             match crate::win::View::create(&name("Data", self.num), HEADER + MAX_SHARED_IMAGE_SIZE + IMAGE_SLACK) {
                 // Someone else made it, so a filter is already running: the frames go the usual way once it's opened
                 Some((_, false)) | None => {
                     self.create_failed = Some(std::time::Instant::now());
-                    return;
+                    return false;
                 }
                 Some((mut view, true)) => {
                     view.buf()[0..4].copy_from_slice(&(MAX_SHARED_IMAGE_SIZE as u32).to_le_bytes());
@@ -237,11 +281,9 @@ impl Shared {
         }
         // The filter makes its mutex when an app opens the camera and holds it while it copies the picture: a write now would tear it
         if crate::win::mutex_exists(&name("Mutx", self.num)) {
-            return;
+            return false;
         }
-        if let Some(view) = self.primed.as_mut() {
-            write_frame(view.buf(), rgba, width, height);
-        }
+        self.primed.as_mut().is_some_and(|view| write_frame(view.buf(), rgba, width, height))
     }
 
     fn try_open(&mut self) -> bool {
@@ -283,9 +325,13 @@ impl Target for Shared {
         }
         // The filter signals Want for every frame it takes. Nothing for a while means the app closed the camera, and pictures
         // made meanwhile would be thrown away: the next sign of an app is the moment to start making them again.
+        // The watcher takes some of the signals too (they reset on being taken), and notes the ones it took
         let (_, want, _, _) = self.open.as_ref().unwrap();
-        if crate::win::wait(want, 0) {
-            self.asked = std::time::Instant::now();
+        if asked(self.num, crate::win::wait(want, 0), ASK_TIMEOUT) {
+            // Never moved back: a note from before this reader opened is older than the time it was given when it did
+            if let Some(at) = last_ask(self.num) {
+                self.asked = self.asked.max(at);
+            }
         }
         self.asked.elapsed() < ASK_TIMEOUT
     }
@@ -294,8 +340,8 @@ impl Target for Shared {
         self.open.is_none() || self.asked.elapsed() >= ASK_TIMEOUT
     }
 
-    fn prime(&mut self, rgba: &[u8], width: u32, height: u32) {
-        self.prime_image(rgba, width, height);
+    fn prime(&mut self, rgba: &[u8], width: u32, height: u32) -> bool {
+        self.prime_image(rgba, width, height)
     }
 
     fn send(&mut self, rgba: &[u8], width: u32, height: u32) -> Result<(), String> {
@@ -395,8 +441,9 @@ mod tests {
         fn primes(&self) -> bool {
             true
         }
-        fn prime(&mut self, rgba: &[u8], _width: u32, _height: u32) {
+        fn prime(&mut self, rgba: &[u8], _width: u32, _height: u32) -> bool {
             self.0.lock().unwrap().push(rgba.to_vec());
+            true
         }
     }
 
@@ -430,6 +477,67 @@ mod tests {
         let primed = primed.lock().unwrap();
         assert_eq!(primed.len(), 2, "not left to the next refresh");
         assert!(primed[1][0] < 150, "the hidden picture, not the clear one");
+    }
+
+    /// A target nobody has opened whose writes are skipped (the filter holds its image) until the test lets them through.
+    struct Skipping(std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>>, std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+    impl Target for Skipping {
+        fn send(&mut self, _rgba: &[u8], _width: u32, _height: u32) -> Result<(), String> {
+            Ok(())
+        }
+        fn ready(&mut self) -> bool {
+            false
+        }
+        fn primes(&self) -> bool {
+            true
+        }
+        fn prime(&mut self, rgba: &[u8], _width: u32, _height: u32) -> bool {
+            let written = self.1.load(std::sync::atomic::Ordering::SeqCst);
+            if written {
+                self.0.lock().unwrap().push(rgba.to_vec());
+            }
+            written
+        }
+    }
+
+    #[test]
+    fn a_hidden_picture_whose_write_was_skipped_is_written_again_with_the_same_pixels() {
+        let primed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let open = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut cam = UcCamera::new(4, 4, "cam".into(), Box::new(Skipping(primed.clone(), open.clone())), Box::new(|| false));
+        let hidden = grey(4, 4, 100);
+        cam.send_now(&hidden).unwrap();
+        assert!(primed.lock().unwrap().is_empty());
+        assert!(cam.primed_from.is_none(), "a skipped write was taken for a primed picture");
+        open.store(true, std::sync::atomic::Ordering::SeqCst);
+        std::thread::sleep(PRIME_RETRY + std::time::Duration::from_millis(30));
+        cam.send(&hidden).unwrap();
+        assert_eq!(primed.lock().unwrap().len(), 1, "the same pixels weren't tried again");
+        assert!(primed.lock().unwrap()[0][0] < 150);
+        cam.send(&hidden).unwrap();
+        assert_eq!(primed.lock().unwrap().len(), 1, "written once it went through");
+    }
+
+    #[test]
+    fn a_signal_one_waiter_of_the_want_event_took_counts_for_the_other() {
+        let second = std::time::Duration::from_secs(1);
+        assert!(!asked(4242, false, second), "nothing was asked yet");
+        assert!(asked(4242, true, second), "taken here");
+        assert!(asked(4242, false, second), "taken by the other waiter a moment ago");
+        assert!(!asked(4242, false, std::time::Duration::ZERO), "too long ago for the wait it is asked for");
+        assert!(!asked(4243, false, second), "another camera's filter");
+    }
+
+    #[test]
+    fn an_ask_taken_while_a_wait_ran_over_still_counts_for_it() {
+        let short = std::time::Duration::from_millis(5);
+        note_ask(4344);
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        assert!(!asked(4344, false, short), "an ask older than the wait it is asked for");
+        let ran_over = std::time::Duration::from_secs(10);
+        assert!(asked(4344, false, ask_window(short, ran_over)), "an ask from while the wait ran over was lost");
+        assert_eq!(ask_window(ran_over, short), ran_over, "a wait that ended early looks no further back than it was asked to");
     }
 
     #[test]

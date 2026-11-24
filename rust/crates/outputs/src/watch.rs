@@ -301,12 +301,15 @@ impl telescope_core::output::Held for CameraWatch {
 }
 
 #[cfg(windows)]
-pub struct WinWant(pub crate::win::Owned);
+pub struct WinWant(pub crate::win::Owned, pub u32);
 
 #[cfg(windows)]
 impl WantEvent for WinWant {
     fn wait(&self, timeout: Duration) -> bool {
-        crate::win::wait(&self.0, timeout.as_millis() as u32)
+        // The sender takes signals from the same event, so one it took meanwhile counts as well
+        let began = std::time::Instant::now();
+        let took = crate::win::wait(&self.0, timeout.as_millis() as u32);
+        crate::unitycapture::asked(self.1, took, crate::unitycapture::ask_window(timeout, began.elapsed()))
     }
 }
 

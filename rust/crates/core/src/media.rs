@@ -581,13 +581,13 @@ pub struct DecodingStatus {
 /// Hands the newest packet from a stream's reader to its decoders (stream._Newest): one nobody took in time is
 /// dropped, so a slow decoder skips frames instead of letting them queue up as lag.
 pub struct Newest<T> {
-    item: std::sync::Mutex<(std::collections::VecDeque<(std::time::Instant, T)>, bool)>,
+    item: std::sync::Mutex<(std::collections::VecDeque<(std::time::Instant, T)>, bool, Option<std::time::Duration>)>,
     ready: std::sync::Condvar,
 }
 
 impl<T> Default for Newest<T> {
     fn default() -> Self {
-        Newest { item: std::sync::Mutex::new((std::collections::VecDeque::new(), false)), ready: std::sync::Condvar::new() }
+        Newest { item: std::sync::Mutex::new((std::collections::VecDeque::new(), false, None)), ready: std::sync::Condvar::new() }
     }
 }
 
@@ -603,6 +603,7 @@ impl<T> Newest<T> {
     pub fn put_keeping(&self, item: T, kept: usize, max_age: Option<std::time::Duration>) -> usize {
         let now = std::time::Instant::now();
         let mut st = self.item.lock().unwrap();
+        st.2 = max_age;
         let mut dropped = 0;
         while max_age.is_some_and(|age| st.0.front().is_some_and(|(at, _)| now.duration_since(*at) > age)) {
             st.0.pop_front();
@@ -626,13 +627,24 @@ impl<T> Newest<T> {
 
     /// The oldest item waiting (the only one unless put_keeping kept more), waiting for one; None once finished and nothing is left.
     pub fn take(&self) -> Option<T> {
+        self.take_counting().0
+    }
+
+    /// `take`, and how many items it dropped because they had waited longer than the `max_age` of the last put_keeping: nothing newer came to push them out (the feed stalled or ended), and they are never handed out late.
+    pub fn take_counting(&self) -> (Option<T>, usize) {
         let mut st = self.item.lock().unwrap();
+        let mut dropped = 0;
         loop {
+            let now = std::time::Instant::now();
+            while st.2.is_some_and(|age| st.0.front().is_some_and(|(at, _)| now.duration_since(*at) > age)) {
+                st.0.pop_front();
+                dropped += 1;
+            }
             if let Some((_, item)) = st.0.pop_front() {
-                return Some(item);
+                return (Some(item), dropped);
             }
             if st.1 {
-                return None;
+                return (None, dropped);
             }
             st = self.ready.wait(st).unwrap();
         }
@@ -663,6 +675,20 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(30));
         assert_eq!(q.put_keeping(3, 3, Some(std::time::Duration::from_millis(10))), 2, "both stale pictures go at once");
         assert_eq!(q.take(), Some(3));
+    }
+
+    #[test]
+    fn newest_never_hands_out_what_waited_too_long_for_a_taker_even_when_nothing_newer_came() {
+        let q = Newest::default();
+        q.put_keeping(1, 3, Some(std::time::Duration::from_millis(10)));
+        q.put_keeping(2, 3, Some(std::time::Duration::from_millis(10)));
+        std::thread::sleep(std::time::Duration::from_millis(40));
+        q.finish();
+        assert_eq!(q.take_counting(), (None, 2), "stale pictures were drained after the feed ended");
+        let q = Newest::default();
+        q.put_keeping(1, 3, Some(std::time::Duration::from_secs(60)));
+        q.finish();
+        assert_eq!(q.take_counting(), (Some(1), 0), "a picture within its time is handed out as before");
     }
 
     /// A scaler that only knows rgb, as most do.

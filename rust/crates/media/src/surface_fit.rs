@@ -29,8 +29,14 @@ impl SurfacePicture {
         Self { surface, fitted: Mutex::new(None) }
     }
 
+    /// What was scaled for this size already. Never waits: a scaling holds the lock across the card's readback, and the window's thread asks this too.
     fn kept(&self, width: u32, height: u32) -> Option<Frame> {
-        self.fitted.lock().unwrap_or_else(|e| e.into_inner()).as_ref().filter(|(size, _)| *size == (width, height)).map(|(_, frame)| frame.clone())
+        let kept = match self.fitted.try_lock() {
+            Ok(kept) => kept,
+            Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => return None,
+        };
+        kept.as_ref().filter(|(size, _)| *size == (width, height)).map(|(_, frame)| frame.clone())
     }
 }
 
@@ -113,6 +119,50 @@ mod tests {
         fn as_any(&self) -> &dyn std::any::Any {
             self
         }
+    }
+
+    /// Scales to a grey picture, but only once the test lets it (a card backed up with readbacks).
+    #[derive(Debug)]
+    struct Backed(Frame, std::sync::Mutex<std::sync::mpsc::Receiver<()>>, std::sync::mpsc::Sender<()>);
+    impl DecodedSurface for Backed {
+        fn ram(&self) -> &Frame {
+            &self.0
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn can_fit(&self, _width: u32, _height: u32) -> bool {
+            true
+        }
+        fn fitted(&self, width: u32, height: u32) -> Option<Frame> {
+            self.2.send(()).unwrap();
+            let _ = self.1.lock().unwrap().recv_timeout(std::time::Duration::from_secs(10));
+            Some(Frame::dark(width, height, telescope_core::frame::PixelFormat::I420))
+        }
+    }
+
+    #[test]
+    fn asking_for_the_scaled_copy_never_waits_for_a_scaling_that_is_running() {
+        let (release, released) = std::sync::mpsc::channel();
+        let (started, running) = std::sync::mpsc::channel();
+        let picture = Arc::new(SurfacePicture::new(Arc::new(Backed(Frame::dark(8, 8, telescope_core::frame::PixelFormat::I420), std::sync::Mutex::new(released), started))));
+        let scaling = std::thread::spawn({
+            let picture = picture.clone();
+            move || picture.land_fitted(4, 4, &|| false)
+        });
+        running.recv_timeout(std::time::Duration::from_secs(5)).expect("the scaling began");
+        // The window's thread asks while the scaling holds the lock: the answer is "not yet", at once
+        let (asked, answer) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn({
+            let picture = picture.clone();
+            move || asked.send(picture.landed_fitted(4, 4).is_none()).unwrap()
+        });
+        let waited = answer.recv_timeout(std::time::Duration::from_secs(2));
+        release.send(()).unwrap();
+        assert_eq!(waited, Ok(true), "landed_fitted waited for the card");
+        reader.join().unwrap();
+        assert!(scaling.join().unwrap().is_some());
+        assert!(picture.landed_fitted(4, 4).is_some(), "the scaled copy isn't kept once it is made");
     }
 
     #[test]
