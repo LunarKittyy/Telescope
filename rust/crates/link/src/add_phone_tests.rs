@@ -206,7 +206,7 @@ fn post_pairing(offer: &Offer, phone_id: &str) -> u16 {
     reply.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0)
 }
 
-const PIXEL: &str = "serial-1 device product:p model:Pixel_7 device:d";
+const PIXEL: &str = "serial-1 device usb:1-1 product:p model:Pixel_7 device:d";
 
 fn adb_words(serial: &str, words: &[&str]) -> Vec<String> {
     ["adb", "-s", serial].iter().chain(words).map(|w| w.to_string()).collect()
@@ -238,7 +238,7 @@ fn browser_camera_sits_beside_android_and_picking_it_ends_the_pairing() {
 
 #[test]
 fn an_unauthorized_phone_asks_for_the_debugging_prompt() {
-    let mut r = Rig::open(&["serial-1 unauthorized"]);
+    let mut r = Rig::open(&["serial-1 unauthorized usb:1-1"]);
     r.add_phone();
     assert!(r.text("usb-text").contains("Allow USB debugging"), "{}", r.text("usb-text"));
     assert_eq!(r.broadcasts(0), Vec::<String>::new());
@@ -257,7 +257,7 @@ fn a_plugged_in_phone_waits_to_be_picked() {
 #[test]
 fn buttons_name_the_phone_as_it_names_itself() {
     // adb devices -l turns SM-G975F into SM_G975F
-    let mut r = Rig::open(&["serial-1 device model:SM_G975F", "serial-2 device model:Pixel_7"]);
+    let mut r = Rig::open(&["serial-1 device usb:1-1 model:SM_G975F", "serial-2 device usb:1-2 model:Pixel_7"]);
     r.adb.models.lock().unwrap().insert("serial-1".into(), "SM-G975F".into());
     r.add_phone();
     assert_eq!(r.picks(), ["Pair SM-G975F", "Pair Pixel 7"]);
@@ -293,7 +293,7 @@ fn a_picked_phone_gets_the_pairing_offer_over_usb() {
 
 #[test]
 fn with_several_phones_plugged_in_only_the_picked_one_pairs() {
-    let mut r = Rig::open(&[PIXEL, "serial-2 device", "serial-3 unauthorized"]);
+    let mut r = Rig::open(&[PIXEL, "serial-2 device usb:1-2", "serial-3 unauthorized usb:1-3"]);
     r.add_phone();
     assert_eq!(r.picks(), ["Pair Pixel 7", "Pair serial-2"]);
     r.ui("pick", vec![json!("serial-2")]);
@@ -350,4 +350,14 @@ fn closing_stops_the_pairing_server() {
     r.ui("add-closed", vec![]);
     assert!(r.plugin.add.is_none());
     assert_ne!(post_pairing(&held, "phone-1"), 200);
+}
+
+#[test]
+fn closing_right_after_a_phone_paired_keeps_that_pairing() {
+    let mut r = Rig::open(&[]);
+    r.add_phone();
+    let offer = r.offer();
+    assert_eq!(post_pairing(&offer, "phone-1"), 200); // the phone saved its token on the 200
+    r.ui("add-closed", vec![]); // before the next poll
+    assert_eq!(r.shared.phones().iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), ["phone-1"]);
 }
