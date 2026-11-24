@@ -910,7 +910,8 @@ fn a_stream_that_wants_its_cut_out_gets_the_keys_matte_as_alpha_and_nothing_else
     let mut rig = Rig::new(false);
     assert!(cut_step(&mut rig).is_none(), "off");
     keying(&mut rig);
-    assert!(cut_step(&mut rig).is_none(), "on, and nobody wants a cut-out");
+    let idle = cut_step(&mut rig).expect("on: the step is there before anyone asks");
+    assert_eq!(idle.touch(&Stream("phone")), Touch::Nothing, "and does nothing until then");
     rig.event(Event::CutOutWanted { source_id: "phone".into(), on: true });
     assert!(rig.host.calls.iter().filter(|c| *c == "refresh_frame_step").count() >= 2, "the stream is given the step");
     let mut step = cut_step(&mut rig).expect("the matte's step");
@@ -933,7 +934,7 @@ fn a_stream_that_wants_its_cut_out_gets_the_keys_matte_as_alpha_and_nothing_else
     assert!(Arc::ptr_eq(taken.alpha().unwrap(), &first));
     // not wanted any more, or not keying any more
     rig.event(Event::CutOutWanted { source_id: "phone".into(), on: false });
-    assert!(cut_step(&mut rig).is_none());
+    assert_eq!(cut_step(&mut rig).expect("still there").touch(&Stream("phone")), Touch::Nothing);
     rig.event(Event::CutOutWanted { source_id: "phone".into(), on: true });
     rig.ui("switch-toggled-by-hand", vec![json!(false)]);
     assert!(cut_step(&mut rig).is_none());

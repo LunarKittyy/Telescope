@@ -206,9 +206,12 @@ struct Hub {
 struct HubState {
     look: Arc<Look>,
     grab: Option<Grab>,
-    mailbox: Vec<Taken>,
+    /// What was taken, with the stream and view it was taken from, for the plugin to check against what is shown when it gets here.
+    mailbox: Vec<(Taken, String, Option<View>)>,
     /// The stream the panels show: the room and the pose are its own
     focused: String,
+    /// The view the panels show, as the plugin last heard it.
+    view: Option<View>,
     /// A new stream size has been reported once already
     stale_sent: bool,
     poster: Option<Arc<dyn Poster>>,
@@ -222,6 +225,11 @@ pub(crate) struct Runner {
 }
 
 impl Runner {
+    /// Drops what the effect remembers of the pictures before (a trail, slit-scan frames): the next frame starts it afresh. The room and clones are in the look, so they stay.
+    fn forget(&mut self) {
+        (self.name, self.effect) = (None, None);
+    }
+
     /// Starts the effect afresh when the look names another one, or has been reset.
     fn pick(&mut self, look: &Look) {
         let id = (look.effect.clone(), look.reset);
@@ -283,6 +291,14 @@ impl CpuStep for FunStep {
     fn keeps_geometry(&self) -> bool {
         keeps_cut_out(&self.frozen.effect)
     }
+
+    fn forget_history(&mut self, source: &str) {
+        if self.hub.state.lock().unwrap().focused == source {
+            self.hub.runner.lock().unwrap().forget();
+        } else {
+            self.own.forget();
+        }
+    }
 }
 
 /// Whether an effect leaves every pixel where it was, so a cut-out stays true. Light painting only brightens each place from its own history; every other one resamples, warps, shifts, redraws or composes the picture.
@@ -313,7 +329,8 @@ impl FunStep {
             if taken.is_some_and(|t| t != size) && !s.stale_sent {
                 // a new stream size: what was taken no longer lines up
                 s.stale_sent = true;
-                s.mailbox.push(Taken::Reshaped);
+                let view = s.view.clone();
+                s.mailbox.push((Taken::Reshaped, ctx.source_id().to_string(), view));
                 s.post();
             }
             grab = s.grab.take();
@@ -340,7 +357,8 @@ impl FunStep {
                     }
                 };
                 let mut s = self.hub.state.lock().unwrap();
-                s.mailbox.push(taken);
+                let view = s.view.clone();
+                s.mailbox.push((taken, ctx.source_id().to_string(), view));
                 s.post();
             }
         }
@@ -399,7 +417,7 @@ impl Default for FunPackPlugin {
 impl FunPackPlugin {
     pub fn new() -> FunPackPlugin {
         let hub = Arc::new(Hub {
-            state: Mutex::new(HubState { look: Arc::new(Look::default()), grab: None, mailbox: Vec::new(), focused: String::new(), stale_sent: false, poster: None }),
+            state: Mutex::new(HubState { look: Arc::new(Look::default()), grab: None, mailbox: Vec::new(), focused: String::new(), view: None, stale_sent: false, poster: None }),
             runner: Mutex::new(Runner::default()),
         });
         FunPackPlugin {
@@ -548,9 +566,13 @@ impl FunPackPlugin {
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {
-        self.hub.state.lock().unwrap().focused = host.focused_source_id().unwrap_or_default();
-        if self.hub.state.lock().unwrap().poster.is_none() {
-            self.hub.state.lock().unwrap().poster = host.poster();
+        {
+            let mut s = self.hub.state.lock().unwrap();
+            s.focused = host.focused_source_id().unwrap_or_default();
+            s.view = Some(host.view());
+            if s.poster.is_none() {
+                s.poster = host.poster();
+            }
         }
         if self.pending {
             self.pending = false;
@@ -804,9 +826,12 @@ impl Plugin for FunPackPlugin {
             e if vision_row::changes_it(e) => self.show(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_TICK => self.tick(host),
             Event::Posted { owner, token, .. } if owner == NAME && token == T_TAKEN => {
-                let taken: Vec<Taken> = std::mem::take(&mut self.hub.state.lock().unwrap().mailbox);
-                for t in taken {
-                    self.on_taken(host, t);
+                let taken = std::mem::take(&mut self.hub.state.lock().unwrap().mailbox);
+                for (t, source, view) in taken {
+                    // What a step took from a camera or a view that isn't the one shown now would be labelled with the wrong one
+                    if source == host.focused_source_id().unwrap_or_default() && view.as_ref().is_none_or(|v| *v == host.view()) {
+                        self.on_taken(host, t);
+                    }
                 }
             }
             _ => {}

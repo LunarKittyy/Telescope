@@ -354,6 +354,31 @@ fn the_card_way_tells_the_preview_its_warp_as_the_cpu_way_does() {
 }
 
 #[test]
+fn a_warp_made_for_another_camera_or_an_older_sheet_is_not_used() {
+    let mut r = Rig::new(true);
+    r.config(json!({"on": true, "corners": corners_json(), "shape": "fill"}));
+    r.host.focused = Some("shown".into());
+    let Some(FrameStep::Either(_, mut step)) = r.plugin.frame_step() else { panic!("a step") };
+    step.touch(&Ctx);
+    step.card_uniforms(W as u32, H as u32);
+    let (_, made) = r.host.posted.lock().unwrap().drain(..).next().expect("a post");
+    // the step worked on a stream that isn't the one shown
+    let mut other = made.clone();
+    other["source"] = json!("behind");
+    r.event(Event::Posted { owner: NAME.into(), token: T_WARP.into(), data: other });
+    assert!(r.host.warp.is_none(), "a warp for a camera behind the panels");
+    let mut older = made.clone();
+    older["source"] = json!("shown");
+    older["key"] = json!(1);
+    r.event(Event::Posted { owner: NAME.into(), token: T_WARP.into(), data: older });
+    assert!(r.host.warp.is_none(), "a warp of a sheet that has since changed");
+    let mut current = made;
+    current["source"] = json!("shown");
+    r.event(Event::Posted { owner: NAME.into(), token: T_WARP.into(), data: current });
+    assert!(r.host.warp.is_some());
+}
+
+#[test]
 fn a_frame_too_small_to_hold_a_sheet_passes_through() {
     let mut r = Rig::new(true);
     r.config(json!({"on": true, "corners": corners_json()}));

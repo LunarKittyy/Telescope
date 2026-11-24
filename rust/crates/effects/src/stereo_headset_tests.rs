@@ -617,3 +617,23 @@ fn headset_speed() {
         }
     }
 }
+
+#[test]
+fn a_picture_made_before_a_hiding_step_came_on_is_never_sent() {
+    let feed = open_feed();
+    let store = Arc::new(Store::new());
+    store.epoch.store(1, Ordering::SeqCst);
+    feed.watch_epochs(store);
+    // the worker hasn't woken to replace it yet: the headset keeps what it has instead of getting the old picture or a dark frame
+    feed.publish(Message::Jpeg(Arc::new(vec![0xFF, 0xD8, 1, 2, 3])), 0);
+    let handler = Headset(feed.clone());
+    let (socket, sent, _typed) = pipe(64);
+    let upgrade = handler.upgrade(&ws_request(TOKEN), &stats()).expect("an upgrade");
+    let viewer = std::thread::spawn(move || (upgrade.run)(socket));
+    std::thread::sleep(Duration::from_millis(100));
+    feed.publish(Message::Jpeg(Arc::new(vec![0xFF, 0xD8, 9])), 1);
+    let (opcode, payload) = message(&sent);
+    assert_eq!((opcode, payload.as_slice()), (BINARY, [0xFF, 0xD8, 9].as_slice()));
+    feed.close();
+    viewer.join().unwrap();
+}
