@@ -344,10 +344,10 @@ fn the_app_id_matches_the_installer_script() {
 }
 
 #[test]
-fn the_installer_clears_a_trial_and_old_exe_a_crashed_migration_left() {
+fn the_installer_clears_a_trial_a_failed_mark_and_old_exe_a_crashed_migration_left() {
     let iss = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../installer/Telescope.iss")).unwrap();
     let section = iss.split("[InstallDelete]").nth(1).expect("an [InstallDelete] section").split("\n[").next().unwrap();
-    for name in [update_guard::JOURNAL, ".update.json.tmp", update_guard::OLD_EXE_NAME] {
+    for name in [update_guard::JOURNAL, ".update.json.tmp", update_guard::OLD_EXE_NAME, update_guard::FAILED] {
         assert!(section.contains(&format!("Name: \"{{app}}\\{name}\"")), "{name}");
     }
 }

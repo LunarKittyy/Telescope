@@ -98,8 +98,10 @@ Filename: "{win}\explorer.exe"; Parameters: """{app}\{#AppExe}"""; Flags: nowait
 
 #ifdef Rust
 [InstallDelete]
-; A started trial journal and the old exe left by a migration that crashed would have the next start restore the version before it over this install
+; A started trial journal and the old exe left by a migration that crashed would have the next start restore the version before it over this install.
+; A build marked failed by a roll-back would otherwise never get its leftovers cleaned up once this setup installs that same build
 Type: files; Name: "{app}\.update.json"
+Type: files; Name: "{app}\.update-failed"
 Type: files; Name: "{app}\.update.json.tmp"
 Type: files; Name: "{app}\TelescopeDesktop.old.exe"
 #endif
@@ -179,6 +181,12 @@ begin
     end;
 end;
 
+// Whether Dir is where the Telescope camera goes
+function IsCameraFolder(Dir: String): Boolean;
+begin
+  Result := (CompareText(Dir, ExpandConstant('{commonpf64}\Telescope')) = 0) or (CompareText(Dir, ExpandConstant('{commonpf32}\Telescope')) = 0);
+end;
+
 // The folder page: not the camera's folder, and a folder with other things in it gets a Telescope folder of its own inside it
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
@@ -189,8 +197,9 @@ begin
   if (CurPageID <> wpSelectDir) or WizardSilent() then
     Exit;
   Dir := RemoveBackslash(WizardDirValue);
-  if (CompareText(Dir, ExpandConstant('{commonpf64}\Telescope')) = 0) or (CompareText(Dir, ExpandConstant('{commonpf32}\Telescope')) = 0) then
+  if IsCameraFolder(Dir) or (DirExists(Dir) and FolderHasFiles(Dir) and not FileExists(Dir + '\{#AppExe}') and IsCameraFolder(Dir + '\Telescope')) then
   begin
+    // Also for Program Files itself, whose Telescope folder it would offer
     MsgBox('Program Files\Telescope is where the Telescope camera goes. Please pick another folder.', mbError, MB_OK);
     Result := False;
   end
