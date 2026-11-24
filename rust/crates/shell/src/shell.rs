@@ -2070,7 +2070,6 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use telescope_core::plugin::ConfigRejected;
     use telescope_core::testing::scratch_dir;
     use std::sync::Mutex;
@@ -2355,15 +2354,14 @@ mod tests {
         let mut s = state();
         s.file.save(&mut json!({}));
         let notes = |s: &State| s.effects.iter().filter(|e| matches!(e, Effect::Notify { title, .. } if title == "Telescope - Save failed")).count();
-        // A folder where the save writes its copy first
-        let in_the_way = PathBuf::from(format!("{}.tmp", s.file.path().display()));
-        std::fs::create_dir(&in_the_way).unwrap();
+        // The save is refused
+        s.file.refuse_saves(true);
         assert!(!s.save_now());
         assert!(!s.save_now());
         assert_eq!(notes(&s), 1);
-        std::fs::remove_dir(&in_the_way).unwrap();
+        s.file.refuse_saves(false);
         assert!(s.save_now());
-        std::fs::create_dir(&in_the_way).unwrap();
+        s.file.refuse_saves(true);
         assert!(!s.save_now());
         assert_eq!(notes(&s), 2);
     }
@@ -2604,12 +2602,11 @@ mod tests {
         s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"id": "old"}]}},
                                 "devices": {"old": {"plugin_configs": {"transforms": {"zoom": 4}}}}, "output_slots": {"old": 2}}));
         s.apply_saved_config();
-        // A folder where the temporary file goes makes the copy's save fail
-        let blocker = s.file.path().with_file_name("telescope_config.json.tmp");
-        std::fs::create_dir(&blocker).unwrap();
+        // The copy's save fails
+        s.file.refuse_saves(true);
         s.move_device_settings("old", "new");
         assert!(s.file.load()["devices"].get("new").is_none(), "the copy didn't land");
-        std::fs::remove_dir(&blocker).unwrap();
+        s.file.refuse_saves(false);
         s.with_plugin(0, |p| p.set_config(&json!({"phones": [{"id": "new"}]})).unwrap());
         assert!(s.save_now());
         let saved = s.file.load();
@@ -2626,13 +2623,12 @@ mod tests {
         s.file.save(&mut json!({"plugin_configs": {"connection": {"phones": [{"id": "old"}]}},
                                 "devices": {"old": {"plugin_configs": {"transforms": {"zoom": 4}}}}}));
         s.apply_saved_config();
-        let blocker = s.file.path().with_file_name("telescope_config.json.tmp");
-        std::fs::create_dir(&blocker).unwrap();
+        s.file.refuse_saves(true);
         s.move_device_settings("old", "new");
         s.with_plugin(0, |p| p.set_config(&json!({"phones": [{"id": "new"}]})).unwrap());
         assert!(!s.save_now());
         assert_eq!(s.file.load()["devices"]["old"]["plugin_configs"]["transforms"]["zoom"], 4);
-        std::fs::remove_dir(&blocker).unwrap();
+        s.file.refuse_saves(false);
         assert!(s.save_now());
         assert_eq!(s.file.load()["devices"]["new"]["plugin_configs"]["transforms"]["zoom"], 4);
     }
@@ -2721,15 +2717,6 @@ mod tests {
         assert!(matches!(s.bus.next(), Some(Event::DeviceChanged { source_id }) if source_id == "B"));
     }
 
-    /// Makes saving fail by putting a folder where the file is written first, until the returned path is removed.
-    fn block_saving(s: &State) -> std::path::PathBuf {
-        let mut name = s.file.path().file_name().unwrap().to_os_string();
-        name.push(".tmp");
-        let tmp = s.file.path().with_file_name(name);
-        std::fs::create_dir(&tmp).unwrap();
-        tmp
-    }
-
     #[test]
     fn a_phone_left_while_saving_fails_is_saved_later_and_handed_back_if_it_returns_first() {
         let mut s = state();
@@ -2737,7 +2724,7 @@ mod tests {
         s.file.save(&mut json!({"devices": {"B": {"plugin_configs": {"transforms": {"zoom": 7}}}}}));
         s.selected = Some("A".into());
         s.with_plugin(0, |p| p.set_config(&json!({"zoom": 5})).unwrap());
-        let blocked = block_saving(&s);
+        s.file.refuse_saves(true);
         s.switch_device(Some("A"), Some("B"));
         assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 7);
         assert!(s.effects.iter().any(|e| matches!(e, Effect::Notify { .. })), "the save-failure notice");
@@ -2746,7 +2733,7 @@ mod tests {
         assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 5);
         s.with_plugin(0, |p| p.set_config(&json!({"zoom": 6})).unwrap());
         s.switch_device(Some("A"), Some("B"));
-        std::fs::remove_dir(&blocked).unwrap();
+        s.file.refuse_saves(false);
         assert!(s.save_now(), "the next save takes the kept settings along");
         let devices = s.file.load()["devices"].clone();
         assert_eq!(devices["A"]["plugin_configs"]["transforms"]["zoom"], 6);
@@ -2826,7 +2813,7 @@ mod tests {
         s.file.save(&mut json!({}));
         let pack = Arc::new(Pack::default());
         s.vision = Some(pack.clone());
-        std::fs::create_dir(s.file.path().with_extension("json.tmp")).unwrap();
+        s.file.refuse_saves(true);
         s.bus.emit(Event::VisionDownloadFinished { error: String::new(), switch_on: "framing".into() });
         s.deliver_events();
         let (error, plugin) = pack.0.lock().unwrap().clone();

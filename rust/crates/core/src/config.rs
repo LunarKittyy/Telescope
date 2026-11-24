@@ -106,6 +106,8 @@ struct SetAside {
     unread: bool,
     /// A reset wrote the file and the app is about to restart, so nothing saves over it.
     discarding: bool,
+    /// Saves fail on purpose, so a test can see what the app does when the disk refuses.
+    refusing: bool,
 }
 
 /// How a read treats a file that stays unreadable: an error, an empty start, or an empty start that closes saving.
@@ -230,6 +232,9 @@ impl ConfigFile {
             log::info!("Not saving to {}: a reset is waiting for the restart", self.path.display());
             return Ok(());
         }
+        if with_set_aside(&self.path, |s| s.refusing) {
+            return Err(io::Error::other("saving is refused on purpose"));
+        }
         if let Value::Object(map) = cfg {
             map.insert("version".into(), CONFIG_VERSION.into());
         }
@@ -278,6 +283,12 @@ impl ConfigFile {
     /// Every save to this path (by any ConfigFile) does nothing and counts as done until resume_saves(), so a reset that is restarting isn't written over on the way out.
     pub fn discard_saves(&self) {
         with_set_aside(&self.path, |s| s.discarding = true);
+    }
+
+    /// Makes every save to this path fail until `refuse_saves(false)`; for tests that need a failing disk on any OS.
+    #[doc(hidden)]
+    pub fn refuse_saves(&self, on: bool) {
+        with_set_aside(&self.path, |s| s.refusing = on);
     }
 
     /// Saving works again after discard_saves().
