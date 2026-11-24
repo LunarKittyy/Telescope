@@ -55,7 +55,8 @@ pub fn params(shape: Shape) -> [(&'static str, String); 4] {
         ("devices", labels.len().to_string()),
         ("video_nr", (10..10 + labels.len()).map(|n| n.to_string()).collect::<Vec<_>>().join(",")),
         ("card_label", labels.join(",")),
-        ("exclusive_caps", "1".into()),
+        // One value per node: the driver reads a list, and a node without one keeps both capture and output, which some apps' pickers skip
+        ("exclusive_caps", vec!["1"; labels.len()].join(",")),
     ]
 }
 
@@ -253,7 +254,7 @@ impl Setup<'_> {
         if !self.sys.which("v4l2loopback-ctl") {
             return failed(tr("This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again."));
         }
-        let mut steps: Vec<Step> = labels.iter().map(|l| Step::Run(format!("v4l2loopback-ctl add -n {}", quote(l)))).collect();
+        let mut steps: Vec<Step> = labels.iter().map(|l| Step::Run(format!("v4l2loopback-ctl add -x 1 -n {}", quote(l)))).collect();
         steps.extend(self.refresh_steps(Shape::Extras));
         let r = self.privileged(&steps, 60, &tr("v4l2loopback-ctl add failed"));
         if r.ok { ok(labels.join(", ")) } else { r }
@@ -482,9 +483,9 @@ mod tests {
     #[test]
     fn the_two_shapes_name_the_cameras_like_windows_does() {
         assert_eq!(options_line(Shape::Base),
-                   "options v4l2loopback devices=2 video_nr=10,11 card_label=\"OBS Virtual Camera,Telescope\" exclusive_caps=1\n");
+                   "options v4l2loopback devices=2 video_nr=10,11 card_label=\"OBS Virtual Camera,Telescope\" exclusive_caps=1,1\n");
         assert_eq!(options_line(Shape::Extras),
-                   "options v4l2loopback devices=5 video_nr=10,11,12,13,14 card_label=\"OBS Virtual Camera,Telescope,Telescope #2,Telescope #3,Telescope #4\" exclusive_caps=1\n");
+                   "options v4l2loopback devices=5 video_nr=10,11,12,13,14 card_label=\"OBS Virtual Camera,Telescope,Telescope #2,Telescope #3,Telescope #4\" exclusive_caps=1,1,1,1,1\n");
         assert_eq!((old_slot_label(0), old_slot_label(3)), ("Phone Camera".to_string(), "Phone Camera 4".to_string()));
     }
 
@@ -564,7 +565,7 @@ mod tests {
         for (_, v) in params(Shape::Base) {
             assert!(cmd[3].contains(&v));
         }
-        assert!(cmd[3].contains("card_label=OBS Virtual Camera,Telescope exclusive_caps=1") || cmd[3].contains("card_label='OBS Virtual Camera,Telescope'"));
+        assert!(cmd[3].contains("card_label=OBS Virtual Camera,Telescope exclusive_caps=1,1") || cmd[3].contains("card_label='OBS Virtual Camera,Telescope'"));
         assert_eq!(timeout, 90);
     }
 
@@ -693,7 +694,7 @@ mod tests {
         let labels = vec!["Telescope #2".to_string(), "Telescope #3".to_string()];
         assert_eq!(setup(&f).add_devices(&labels), ok("Telescope #2, Telescope #3"));
         assert_eq!(f.calls().len(), 1);
-        assert!(f.calls()[0].0.last().unwrap().contains("v4l2loopback-ctl add -n 'Telescope #2' && v4l2loopback-ctl add -n 'Telescope #3'"));
+        assert!(f.calls()[0].0.last().unwrap().contains("v4l2loopback-ctl add -x 1 -n 'Telescope #2' && v4l2loopback-ctl add -x 1 -n 'Telescope #3'"));
     }
 
     // test_platform_linux.py::test_adding_cameras_without_the_tool_says_what_to_install
@@ -845,7 +846,7 @@ mod tests {
         let f = with_boot_file(options_line(Shape::Extras).trim_end());
         assert_eq!(setup(&f).boot_shape(), Shape::Extras);
         assert!(setup(&f).reload().ok);
-        assert!(script_of(&f).contains("modprobe v4l2loopback devices=5 video_nr=10,11,12,13,14 card_label='OBS Virtual Camera,Telescope,Telescope #2,Telescope #3,Telescope #4' exclusive_caps=1"));
+        assert!(script_of(&f).contains("modprobe v4l2loopback devices=5 video_nr=10,11,12,13,14 card_label='OBS Virtual Camera,Telescope,Telescope #2,Telescope #3,Telescope #4' exclusive_caps=1,1,1,1,1"));
         let f = with_boot_file(options_line(Shape::Extras).trim_end());
         assert!(setup(&f).setup(false).ok);
         assert!(script_of(&f).contains("devices=5"));

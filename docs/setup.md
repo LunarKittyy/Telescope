@@ -34,7 +34,7 @@ Once it's installed Telescope loads the module when you start streaming. A dialo
 
 ```bash
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
-  card_label="OBS Virtual Camera,Telescope" exclusive_caps=1
+  card_label="OBS Virtual Camera,Telescope" exclusive_caps=1,1
 ```
 
 Setups from before the camera was renamed still call it **Phone Camera** until you click **Unload** and then **Load** under Virtual camera & phone in Settings. Apps like Discord sometimes need the camera picked again afterwards.
@@ -57,7 +57,7 @@ Switch on **Load when the computer starts** under Virtual camera & phone in Sett
 <summary><b>The same thing by hand (Fedora, Nobara and other dracut distros)</b></summary>
 
 ```bash
-echo 'options v4l2loopback devices=2 video_nr=10,11 card_label="OBS Virtual Camera,Telescope" exclusive_caps=1' \
+echo 'options v4l2loopback devices=2 video_nr=10,11 card_label="OBS Virtual Camera,Telescope" exclusive_caps=1,1' \
   | sudo tee /etc/modprobe.d/98-v4l2loopback.conf
 
 sudo rm -f /etc/modprobe.d/v4l2loopback.conf
