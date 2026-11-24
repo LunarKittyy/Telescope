@@ -422,7 +422,7 @@ enum Work {
 
 /// How a Rig is run: on a thread, which is how it runs for real, or (tests) at once on the caller's.
 enum Engine {
-    Thread { send: Option<mpsc::Sender<Work>>, reports: mpsc::Receiver<Report>, thread: Option<std::thread::JoinHandle<Rig>> },
+    Thread { send: Option<mpsc::Sender<Work>>, reports: mpsc::Receiver<Report>, thread: Option<std::thread::JoinHandle<Rig>>, stop: Arc<AtomicBool> },
     #[cfg(test)]
     Inline { rig: Option<Box<Rig>>, reports: VecDeque<Report> },
 }
@@ -436,10 +436,16 @@ impl Engine {
         let (send, work) = mpsc::channel::<Work>();
         let (report, reports) = mpsc::channel();
         let mut rig = rig;
+        let stop = Arc::new(AtomicBool::new(false));
+        let quit = stop.clone();
         let thread = std::thread::Builder::new()
             .name("decoder-beside".into())
             .spawn(move || {
                 while let Ok(job) = work.recv() {
+                    // A decoder given up on drops what is queued instead of decoding it
+                    if quit.load(Ordering::Relaxed) {
+                        break;
+                    }
                     match job {
                         Work::Piece(data, damaged) => {
                             if report.send(rig.work(&data, damaged)).is_err() {
@@ -453,7 +459,7 @@ impl Engine {
                 rig
             })
             .map_err(|e| format!("no thread for it: {e}"))?;
-        Ok(Engine::Thread { send: Some(send), reports, thread: Some(thread) })
+        Ok(Engine::Thread { send: Some(send), reports, thread: Some(thread), stop })
     }
 
     fn send(&mut self, job: Work) {
@@ -508,6 +514,15 @@ impl Engine {
     }
 }
 
+impl Drop for Engine {
+    fn drop(&mut self) {
+        #[allow(irrefutable_let_patterns)]
+        if let Engine::Thread { stop, .. } = self {
+            stop.store(true, Ordering::Relaxed);
+        }
+    }
+}
+
 /// A decoder started beside the running one and fed the same stream. The stream moves to it only when it has given a picture with no errors in
 /// it, from a keyframe it started at, and has caught up with the running decoder; until then the running decoder keeps the picture going,
 /// so a switch never leaves a gap, a dark frame or a picture shown twice.
@@ -527,6 +542,9 @@ struct Candidate {
     started: bool,
     /// Gave a picture with no errors since it started.
     ready: bool,
+    /// Pictures it has given, and when the first came (for how fast it decodes once going).
+    pictures: u64,
+    first_picture: Option<Instant>,
 }
 
 /// Software has the stream to be judged against the card that looked too slow.
@@ -833,7 +851,7 @@ impl H264 {
         if let Some(ask) = &self.ask_keyframe {
             ask();
         }
-        self.candidate = Some(Candidate { engine, hw, plan, began: slow::now(), primed: false, sent: 0, reported: 0, keyframe_seen: false, started: false, ready: false });
+        self.candidate = Some(Candidate { engine, hw, plan, began: slow::now(), primed: false, sent: 0, reported: 0, keyframe_seen: false, started: false, ready: false, pictures: 0, first_picture: None });
         Ok(())
     }
 
@@ -866,7 +884,11 @@ impl H264 {
             match report {
                 Report::Waiting | Report::Damaged => (cand.started, cand.ready) = (false, false),
                 Report::Quiet => cand.started = true,
-                Report::Picture => (cand.started, cand.ready) = (true, true),
+                Report::Picture => {
+                    (cand.started, cand.ready) = (true, true);
+                    cand.pictures += 1;
+                    cand.first_picture.get_or_insert(now);
+                }
                 Report::Fault(why) => {
                     self.candidate_failed(cand, &why);
                     return;
@@ -889,7 +911,21 @@ impl H264 {
             self.take_over(cand, now);
             return;
         }
+        // Software that decodes but can't keep up with the stream never catches up to take over: that is its answer, and waiting out the limit only burns processor
+        if let (Plan::Trial { .. }, Some(first)) = (&cand.plan, cand.first_picture) {
+            let (fed, span) = (now.saturating_duration_since(cand.began), now.saturating_duration_since(first));
+            if slow::falling_behind(cand.pictures, span, cand.sent, fed, cand.sent - cand.reported) {
+                self.candidate_slower(cand, span, fed);
+                return;
+            }
+        }
         if now.saturating_duration_since(cand.began) >= slow::START_LIMIT {
+            if let (Plan::Trial { .. }, Some(first)) = (&cand.plan, cand.first_picture) {
+                // It did give pictures, just not enough: that is a speed, and not a broken decoder
+                let (fed, span) = (now.saturating_duration_since(cand.began), now.saturating_duration_since(first));
+                self.candidate_slower(cand, span, fed);
+                return;
+            }
             let limit = slow::START_LIMIT.as_secs();
             // Software that was given a keyframe and made nothing of it has lost its trial. A card that decoded from one and gave no picture has failed;
             // one whose keyframe was damaged or never came says nothing about the card, and another is started
@@ -947,6 +983,21 @@ impl H264 {
                 log::info!("Going back to hardware decoding ({}), which has the picture after {after} ms", hw.name());
             }
         }
+    }
+
+    /// Software decoded pictures beside the card but slower than the stream came: the card keeps the stream, with the same wait as when software wasn't better.
+    fn candidate_slower(&mut self, cand: Candidate, span: Duration, fed: Duration) {
+        let Plan::Trial { hw, .. } = cand.plan else { return };
+        self.end_trying();
+        let wait = self.policy.lock().unwrap().lost.fell(slow::now());
+        let per_second = |n: u64, d: Duration| if d.is_zero() { 0.0 } else { n as f64 / d.as_secs_f64() };
+        log::warn!(
+            "Software decoding was slower than real time beside {} ({:.1} pictures a second against {:.1} coming in); staying on the card, whose speed isn't judged again for {} minutes",
+            hw.name(),
+            per_second(cand.pictures.saturating_sub(1), span),
+            per_second(cand.sent, fed),
+            wait.as_secs() / 60
+        );
     }
 
     /// The candidate errored or gave no picture although it had a keyframe: the running decoder keeps the stream.
@@ -2573,6 +2624,50 @@ pub(crate) mod tests {
         cand.reported = cand.sent - 1;
         dec.poll_candidate();
         assert!(dec.candidate.is_none() && hardware_failed());
+    }
+
+    #[test]
+    fn software_decoding_slower_than_the_stream_ends_the_trial_early_as_a_speed_verdict() {
+        let Some(packets) = rising(120, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.feed(&packets[0]);
+        card_that_took(&mut dec, 45.0);
+        dec.feed(&packets[1]);
+        let cand = dec.candidate.as_mut().expect("a trial started");
+        // 25 pictures in 2 s of a 30 a second stream, with a second or more of it still unanswered
+        let now = slow::now();
+        cand.began = now - Duration::from_secs(3);
+        cand.first_picture = Some(now - Duration::from_secs(2));
+        (cand.pictures, cand.sent, cand.reported, cand.started, cand.ready) = (25, 90, 30, true, true);
+        if let Engine::Inline { reports, .. } = &mut cand.engine {
+            reports.clear();
+        }
+        dec.poll_candidate();
+        assert!(dec.candidate.is_none(), "the trial ran on although software was clearly too slow");
+        assert!(!hardware_failed(), "a slow decoder was counted as a broken one");
+        let policy = dec.policy.lock().unwrap();
+        assert!(policy.lost.active() && !policy.cooldown.active(), "the card wasn't kept with the usual wait");
+    }
+
+    #[test]
+    fn a_trial_that_gave_no_picture_at_all_still_counts_as_failed() {
+        let Some(packets) = rising(120, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.feed(&packets[0]);
+        card_that_took(&mut dec, 45.0);
+        dec.feed(&packets[1]);
+        let cand = dec.candidate.as_mut().expect("a trial started");
+        cand.began = slow::now() - slow::START_LIMIT;
+        (cand.keyframe_seen, cand.pictures) = (true, 0);
+        if let Engine::Inline { reports, .. } = &mut cand.engine {
+            reports.clear();
+        }
+        cand.sent = cand.reported + 3;
+        dec.poll_candidate();
+        assert!(dec.candidate.is_none());
+        assert!(dec.policy.lock().unwrap().lost.active());
     }
 
     #[test]
