@@ -9,7 +9,7 @@ use crate::pairing::{PairingResult, PairingServer};
 use crate::phone_client::ControlClient;
 use crate::phones::{auth_of, RouteResolver, UsbTunnels, STREAM_PORT};
 use crate::sensors::SensorHub;
-use crate::session_client::PING_PORT;
+use crate::session_client::{OLD_PING_PORT, PING_PORT};
 use crate::shared::Shared;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -45,11 +45,18 @@ struct PresenceSearch {
     checked_generation: Option<u64>,
     last_check: f64,
     last_udp: Option<f64>,
+    /// The app version its last presence announcement named.
+    version: String,
     addresses: Vec<String>,
     token: String,
 }
 
 impl PresenceSearch {
+    /// The version the phone announced if it was heard lately, for a check that couldn't reach it over HTTPS.
+    fn announced_version(&self, now: f64) -> Option<&str> {
+        self.last_udp.filter(|at| now - at < 120.0).and(Some(self.version.as_str())).filter(|v| !v.is_empty())
+    }
+
     fn udp_recent(&self, now: f64) -> bool {
         self.capable && self.last_udp.is_some_and(|at| now - at < 120.0)
     }
@@ -97,6 +104,7 @@ impl LinkService {
                 let search = searches.get_mut(&phone_id)?;
                 search.generation = search.generation.wrapping_add(1);
                 search.last_udp = Some(self.shared.now());
+                search.version = version.clone();
                 search.addresses = crate::net::presence_addresses(std::iter::once(address.clone()).chain(addresses.iter().cloned()));
                 self.shared.presence_version(&phone_id, &version);
                 Some(PresenceUpdate::Reachable { phone_id, address, addresses })
@@ -104,6 +112,17 @@ impl LinkService {
             crate::presence::PresenceEvent::Degraded(why) => Some(PresenceUpdate::Degraded(why)),
             crate::presence::PresenceEvent::Restored => Some(PresenceUpdate::Restored),
         }).collect()
+    }
+
+    /// A check that couldn't reach the phone keeps the version it announced: the check that follows an announcement mustn't wipe it.
+    fn with_announced_version(&self, phone: &PairedPhone, mut res: Resolution) -> Resolution {
+        if res.status == PhoneStatus::Unreachable && res.phone_version.is_empty() {
+            let now = self.shared.now();
+            let searches = self.searches.lock().unwrap();
+            let announced = searches.get(&phone.id).filter(|s| s.token == phone.token).and_then(|s| s.announced_version(now));
+            res.phone_version = announced.unwrap_or_default().to_string();
+        }
+        res
     }
 
     fn checked_capability(&self, phone: &PairedPhone, res: &Resolution) {
@@ -176,6 +195,8 @@ fn adb_tunnels(adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> UsbTunnels {
     })
     // A check, the start after it and the next check all use the session port: one forward serves them
     .with_linger(PING_PORT, PING_FORWARD_LINGER)
+    // A phone with the app closed is checked on its old port too, every time
+    .with_linger(OLD_PING_PORT, PING_FORWARD_LINGER)
     .with_blocking_unforward(move |serial, local| adb_now().unforward(local, Some(serial)))
 }
 
@@ -266,7 +287,7 @@ impl Link for LinkService {
                 }
             }
         }
-        let res = mark_offline(self.resolver().resolve(&hinted, preference), || self.network_up());
+        let res = self.with_announced_version(phone, mark_offline(self.resolver().resolve(&hinted, preference), || self.network_up()));
         self.presence.checked(phone, res.status == PhoneStatus::Unreachable);
         self.checked_capability(phone, &res);
         res
@@ -762,6 +783,27 @@ mod tests {
         }]);
         assert!(matches!(&updates[..], [PresenceUpdate::Reachable { phone_id, .. }] if phone_id == "p"));
         assert_eq!(link.shared.conn().resolution, Some(Resolution { phone_version: "5.1.4".into(), ..original }));
+    }
+
+    #[test]
+    fn an_unreachable_check_keeps_the_version_the_phone_just_announced() {
+        let link = LinkService::with_discovery(LanDiscovery::default());
+        let phone = PairedPhone { id: "p".into(), name: "Phone".into(), token: "token".into(), ips: vec![], active_ip: None, cert_sha256: String::new() };
+        link.configure_presence("desktop", "5.2.0", std::slice::from_ref(&phone));
+        let unreachable = || Resolution::new(PhoneStatus::Unreachable);
+        assert_eq!(link.with_announced_version(&phone, unreachable()).phone_version, "");
+        link.apply_presence_events(vec![crate::presence::PresenceEvent::Reachable {
+            phone_id: "p".into(), address: "192.168.1.2".into(), addresses: vec![], version: "5.2.1".into(),
+        }]);
+        assert_eq!(link.with_announced_version(&phone, unreachable()).phone_version, "5.2.1");
+        // Only an unreachable check borrows it, and a version the check found itself stands
+        let ready = Resolution { phone_version: "5.2.0".into(), ..Resolution::new(PhoneStatus::Ready) };
+        assert_eq!(link.with_announced_version(&phone, ready.clone()), ready);
+        let other = PairedPhone { token: "repaired".into(), ..phone.clone() };
+        assert_eq!(link.with_announced_version(&other, unreachable()).phone_version, "");
+        // Not once the phone has been quiet for the presence timeout
+        link.searches.lock().unwrap().get_mut("p").unwrap().last_udp = Some(link.shared.now() - 121.0);
+        assert_eq!(link.with_announced_version(&phone, unreachable()).phone_version, "");
     }
 
     #[test]

@@ -173,6 +173,22 @@ class SessionServerTest {
     }
 
     @Test
+    fun `the old ports the app opens follow Local only as the real port does`() {
+        var localOnly = true
+        val server = SessionServer.forOldPort(0, { computersOf("t") }, FakeCommands(), javax.net.ServerSocketFactory.getDefault(),
+            localOnly = { localOnly }, onOldPortContact = {}, isUsbPeer = { false })
+        server.start()
+        try {
+            val port = actualPort(server)
+            assertEquals(403, get(port, "/v1/hello", null).status)
+            localOnly = false
+            assertEquals(200, get(port, "/v1/hello", null).status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `a dev build leaves the old ports to the real app`() {
         assertEquals(SessionServer.OLD_PORTS, SessionServer.oldPortsFor("release"))
         assertEquals(SessionServer.OLD_PORTS, SessionServer.oldPortsFor("debug"))

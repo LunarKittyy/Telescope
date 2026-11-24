@@ -200,12 +200,12 @@ object SessionEndpoint {
             if (oldServers[port]?.listening == true) continue
             oldServers.remove(port)?.stop()
             val old = try {
-                SessionServer(
+                SessionServer.forOldPort(
                     port = port,
                     computers = { PairedComputers.list(app) },
                     commands = ServiceSessionCommands(app),
                     socketFactory = PhoneTls.identity(app).serverSocketFactory(),
-                    oldPort = true,
+                    localOnly = { StreamPrefs.localOnly(app) },
                     onOldPortContact = { oldComputer.knocked(it) },
                 ).also { it.start() }
             } catch (e: Exception) {

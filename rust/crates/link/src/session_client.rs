@@ -6,6 +6,8 @@ use serde_json::{json, Map, Value};
 use std::time::Duration;
 
 pub const PING_PORT: u16 = 7480;
+/// Where the phone's session port was before the move to 7480: a phone not yet updated still listens only here.
+pub const OLD_PING_PORT: u16 = 8766;
 /// Shape of the phone's session API (its SessionServer.PROTOCOL_VERSION); both apps must match.
 /// 3: TLS on both of the phone's ports, pinned to the certificate fingerprint it gave at pairing.
 pub const SESSION_PROTOCOL: i64 = 3;

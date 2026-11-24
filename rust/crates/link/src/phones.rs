@@ -6,7 +6,7 @@
 
 use crate::https::{is_fingerprint, PhoneAuth};
 use crate::net;
-use crate::session_client::{Hello, HelloStatus, PingStatus, SessionApi, SessionClient, PING_PORT, SESSION_PROTOCOL};
+use crate::session_client::{Hello, HelloStatus, PingStatus, SessionApi, SessionClient, OLD_PING_PORT, PING_PORT, SESSION_PROTOCOL};
 use crate::util::clean_name;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -232,6 +232,19 @@ fn version_mismatch(hello: &Hello, route: RouteSpec) -> Option<Resolution> {
     Some(Resolution { route: Some(route), phone_version: hello.app_version.clone(), ..Resolution::new(status) })
 }
 
+/// Whether client, at the old session port, is a phone app from before the port move that still has the session API there.
+/// An updated phone keeps answering hello on its old port but turns every ping away with 426, so only a real ping answer
+/// (even a 401) tells the two apart. Its app version, empty when it is too old to say.
+fn old_port_phone(client: &dyn SessionApi, phone: &PairedPhone, timeout: Duration) -> Option<String> {
+    let hello = client.hello(timeout);
+    let version = match hello.status {
+        HelloStatus::Ok if hello.phone_id == phone.id => hello.app_version,
+        HelloStatus::Missing | HelloStatus::UsbOnly => String::new(),
+        _ => return None,
+    };
+    (client.ping().status != PingStatus::Unreachable).then_some(version)
+}
+
 fn ready(route: RouteSpec, hello: &Hello, ping: &crate::session_client::Ping) -> Resolution {
     Resolution { route: Some(route), streaming: ping.streaming, busy: ping.busy, streaming_for: ping.streaming_for.clone().unwrap_or_default(),
                  phone_version: hello.app_version.clone(), udp_dynamic: ping.udp_dynamic, presence: ping.presence && !ping.local_only, ..Resolution::new(PhoneStatus::Ready) }
@@ -322,8 +335,8 @@ impl RouteResolver {
         let route = RouteSpec::Usb { serial: serial.to_string() };
         let client = (self.client)(&format!("https://127.0.0.1:{local}"), auth_of(phone));
         let hello = client.hello(crate::session_client::REQUEST_TIMEOUT);
-        if hello.status == HelloStatus::Missing {
-            // Too old to say who it is
+        if hello.status == HelloStatus::Missing || (hello.status == HelloStatus::None && self.old_port_phone_on_usb(phone, serial)) {
+            // Too old to say who it is, or still on the session port from before the port move
             old_app.get_or_insert_with(|| serial.to_string());
             return None;
         }
@@ -348,6 +361,15 @@ impl RouteResolver {
         }
     }
 
+    /// Whether the phone on this cable still has its session API on the old port, so it needs the update, not the cable pulled out.
+    fn old_port_phone_on_usb(&self, phone: &PairedPhone, serial: &str) -> bool {
+        let Some(local) = self.tunnels.acquire(serial, OLD_PING_PORT) else { return false };
+        let client = (self.client)(&format!("https://127.0.0.1:{local}"), auth_of(phone));
+        let found = old_port_phone(&*client, phone, crate::session_client::REQUEST_TIMEOUT).is_some();
+        self.tunnels.release(serial, OLD_PING_PORT);
+        found
+    }
+
     pub fn wifi_candidates(&self, phone: &PairedPhone) -> Vec<String> {
         let mut ordered: Vec<String> = (self.discover)(&phone.id);
         ordered.extend(phone.active_ip.iter().cloned());
@@ -366,6 +388,7 @@ impl RouteResolver {
     fn probe_wifi(client_of: &ClientFactory, timeout: Duration, phone: &PairedPhone, ip: &str) -> Option<Resolution> {
         let client = client_of(&format!("https://{ip}:{PING_PORT}"), auth_of(phone));
         let route = RouteSpec::Network { address: ip.to_string() };
+        let started = std::time::Instant::now();
         let hello = client.hello(timeout);
         match hello.status {
             HelloStatus::Missing => return Some(Resolution { route: Some(route), ..Resolution::new(PhoneStatus::PhoneOutdated) }),
@@ -383,6 +406,14 @@ impl RouteResolver {
             return Some(Resolution { other_telescope: true, ..Resolution::new(PhoneStatus::Unreachable) });
         }
         if !hello.ok() {
+            // Refused at once means the phone is up with nothing on this port: one not yet updated is on the old one. An address
+            // that stayed silent for most of the wait isn't asked again, so a dead one doesn't take twice as long
+            if hello.status == HelloStatus::None && started.elapsed() < timeout / 2 {
+                let old = client_of(&format!("https://{ip}:{OLD_PING_PORT}"), auth_of(phone));
+                if let Some(version) = old_port_phone(&*old, phone, timeout) {
+                    return Some(Resolution { route: Some(route), phone_version: version, ..Resolution::new(PhoneStatus::PhoneOutdated) });
+                }
+            }
             return None;
         }
         if let Some(mismatch) = version_mismatch(&hello, route.clone()) {
@@ -568,10 +599,12 @@ pub(crate) mod tests {
     pub fn resolver(net: &FakeNet, states: &[(&str, &str)], adb: bool, discovered: &[&str]) -> (RouteResolver, Arc<Mutex<HashMap<String, u16>>>) {
         let ports: Arc<Mutex<HashMap<String, u16>>> = Arc::default();
         let held = ports.clone();
-        let tunnels = UsbTunnels::new(move |serial, _remote| {
+        let tunnels = UsbTunnels::new(move |serial, remote| {
             let mut ports = held.lock().unwrap();
-            let next = 40000 + ports.len() as u16;
-            Some(*ports.entry(serial.to_string()).or_insert(next))
+            // The old session port gets its own local port, so a test can tell the two apart
+            let same_port = ports.keys().filter(|k| k.ends_with(&format!("/{remote}"))).count() as u16;
+            let next = if remote == OLD_PING_PORT { 41000 } else { 40000 } + same_port;
+            Some(*ports.entry(format!("{serial}/{remote}")).or_insert(next))
         }, |_, _| {});
         let states: Vec<(String, String)> = states.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
         let discovered: Vec<String> = discovered.iter().map(|s| s.to_string()).collect();
@@ -711,6 +744,52 @@ pub(crate) mod tests {
         assert!(net.pinged.lock().unwrap().is_empty());
     }
 
+    const WIFI_OLD: &str = "https://192.168.1.40:8766";
+    const USB0_OLD: &str = "https://127.0.0.1:41000";
+
+    #[test]
+    fn a_phone_not_yet_updated_past_the_port_move_is_named_outdated_on_wifi() {
+        let net = FakeNet::new(&[(WIFI_OLD, answers("ph-1", PingStatus::Paired, false))]);
+        let res = resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
+        assert_eq!((res.status, res.route, res.phone_version.as_str()), (PhoneStatus::PhoneOutdated, wifi("192.168.1.40"), "1.0"));
+    }
+
+    #[test]
+    fn a_phone_not_yet_updated_is_named_outdated_over_usb_and_keeps_its_serial() {
+        let net = FakeNet::new(&[(USB0_OLD, answers("ph-1", PingStatus::Paired, false))]);
+        let res = resolver(&net, &[("SER", "device")], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
+        assert_eq!((res.status, res.route), (PhoneStatus::PhoneOutdated, Some(RouteSpec::Usb { serial: "SER".into() })));
+    }
+
+    #[test]
+    fn an_updated_phones_old_port_does_not_make_it_outdated() {
+        // Its old port answers hello and turns every ping away (426), which the client reports as unreachable
+        let net = FakeNet::new(&[(WIFI_OLD, answers("ph-1", PingStatus::Unreachable, false)), (USB0_OLD, answers("ph-1", PingStatus::Unreachable, false))]);
+        let res = resolver(&net, &[("SER", "device")], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
+        assert_eq!((res.status, res.usb_note), (PhoneStatus::Unreachable, Some(UsbNote::AppClosed)));
+    }
+
+    #[test]
+    fn the_old_port_of_another_phone_is_not_ours_to_call_outdated() {
+        let net = FakeNet::new(&[(WIFI_OLD, answers("someone-else", PingStatus::Paired, false))]);
+        assert_eq!(resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto).status, PhoneStatus::Unreachable);
+    }
+
+    #[test]
+    fn the_new_port_answering_wins_over_the_old_one() {
+        let net = FakeNet::new(&[(WIFI, answers("ph-1", PingStatus::Paired, false)), (WIFI_OLD, answers("ph-1", PingStatus::Paired, false))]);
+        assert_eq!(resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto).status, PhoneStatus::Ready);
+    }
+
+    #[test]
+    fn a_silent_address_is_not_asked_a_second_time_on_the_old_port() {
+        let mut net = FakeNet::new(&[(WIFI_OLD, answers("ph-1", PingStatus::Paired, false))]);
+        net.delays = [(WIFI.to_string(), Duration::from_millis(80))].into();
+        let res = resolver(&net, &[], true, &[]).0.resolve(&phone(), RoutePreference::Auto);
+        assert_eq!(res.status, PhoneStatus::Unreachable);
+        assert_eq!(net.auths.lock().unwrap().len(), 1);
+    }
+
     #[test]
     fn a_newer_phone_app_asks_for_a_desktop_update() {
         let net = FakeNet::new(&[(WIFI, Answer::Phone("ph-1", PingStatus::Paired, false, SESSION_PROTOCOL + 1))]);
@@ -810,11 +889,15 @@ pub(crate) mod tests {
     fn lingering_resolver(net: &FakeNet, ports: Vec<u16>) -> (RouteResolver, Arc<Mutex<usize>>) {
         let forwards: Arc<Mutex<usize>> = Arc::default();
         let counted = forwards.clone();
-        let tunnels = UsbTunnels::new(move |_, _| {
+        let tunnels = UsbTunnels::new(move |_, remote| {
+            // Only the session port's forwards are counted; the old port's (asked when nothing answers) leads nowhere
+            if remote == OLD_PING_PORT {
+                return Some(1);
+            }
             let mut n = counted.lock().unwrap();
             *n += 1;
             ports.get(*n - 1).or(ports.last()).copied()
-        }, |_, _| {}).with_linger(PING_PORT, Duration::from_secs(30));
+        }, |_, _| {}).with_linger(PING_PORT, Duration::from_secs(30)).with_linger(OLD_PING_PORT, Duration::from_secs(30));
         (RouteResolver {
             adb_available: Box::new(|| true),
             adb_device_states: Box::new(|| vec![("SER".to_string(), "device".to_string())]),
