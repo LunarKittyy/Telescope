@@ -199,14 +199,19 @@ class H264ClientQueue(
 
 /**
  * The crop the camera reported for each recent frame, by its sensor time in microseconds, for the encoder to tag the frame
- * with. A frame gets the crop whose time is nearest its own within half a frame, so a clock offset sampled a little off or
- * a time cut to microseconds still finds it. The camera's result usually comes a few ms before the encoded frame, now and
- * then a few ms after it, so [take] waits a little, but only while that frame's result is the next one due.
+ * with. A frame gets the crop logged at its own time, give or take TOLERANCE_US (a time cut to microseconds, an offset between
+ * clocks sampled a little off), which is far less than a frame at any rate, so it never gets its neighbour's. The encoder's
+ * time is on one of a few clocks ([begin]): the likeliest is tried first and waited for a little, as the camera's result now
+ * and then comes a few ms after the frame; a clock that keeps matching when the likeliest doesn't becomes the likeliest.
  */
 class CropLog(private val capacity: Int = 64) {
     private val lock = ReentrantLock()
     private val arrived = lock.newCondition()
     private val shares = java.util.TreeMap<Long, FloatArray>()
+    // What to add to an encoder time to put it on the camera's clock, likeliest first
+    private var offsets = longArrayOf(0L)
+    // Frames in a row found on a clock other than the likeliest
+    private var elsewhere = 0
 
     fun put(timeUs: Long, share: FloatArray) = lock.withLock {
         shares[timeUs] = share
@@ -214,50 +219,78 @@ class CropLog(private val capacity: Int = 64) {
         arrived.signalAll()
     }
 
+    /** A new encoder, whose times are on the camera's clock once [offsetsUs] (likeliest first) is added. */
+    fun begin(offsetsUs: LongArray) = lock.withLock {
+        shares.clear()
+        offsets = offsetsUs.distinct().toLongArray().takeIf { it.isNotEmpty() } ?: longArrayOf(0L)
+        elsewhere = 0
+    }
+
     /**
-     * The crop of the frame taken at the first of [timesUs] that has one, the clocks the encoder's time may be on with the
-     * likeliest first; null when none came. Only the first waits, up to [waitMs], and only while no later frame's result
-     * has come and its own is the next one due, so a time on the wrong clock never holds the caller.
+     * The crop of the frame the encoder stamped [encoderUs], or null when its result hasn't come. Waits up to [waitMs], only
+     * while that frame's result on the likeliest clock is the next one due, so a lost result or a wrong clock never holds the caller long.
      */
-    fun take(timesUs: LongArray, waitMs: Long): FloatArray? = lock.withLock {
-        val first = timesUs.firstOrNull() ?: return null
+    fun take(encoderUs: Long, waitMs: Long): FloatArray? = lock.withLock {
         val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitMs)
-        while (true) {
-            nearest(first)?.let { return it }
-            val newest = if (shares.isEmpty()) null else shares.lastKey()
-            val due = newest != null && (first > newest && first - newest <= 2 * interval())
+        var share = find(encoderUs)
+        while (share == null && due(encoderUs)) {
             val left = deadline - System.nanoTime()
-            if (!due || left <= 0) break
+            if (left <= 0) break
             arrived.awaitNanos(left)
+            share = find(encoderUs)
         }
-        for (i in 1 until timesUs.size) nearest(timesUs[i])?.let { return it }
-        null
+        share
     }
 
-    fun take(timeUs: Long, waitMs: Long): FloatArray? = take(longArrayOf(timeUs), waitMs)
-
-    fun clear() = lock.withLock { shares.clear() }
-
-    // The crop logged within half a frame of timeUs, the nearer of the two either side
-    private fun nearest(timeUs: Long): FloatArray? {
-        val tolerance = interval() / 2
-        val below = shares.floorEntry(timeUs)
-        val above = shares.ceilingEntry(timeUs)
-        val best = listOfNotNull(below, above).minByOrNull { kotlin.math.abs(it.key - timeUs) } ?: return null
-        return best.value.takeIf { kotlin.math.abs(best.key - timeUs) <= tolerance }
+    private fun find(encoderUs: Long): FloatArray? {
+        for (i in offsets.indices) {
+            val share = at(encoderUs + offsets[i]) ?: continue
+            found(i)
+            return share
+        }
+        return null
     }
 
-    // The time between the last two frames logged (us), within reason; a default before there are two
-    private fun interval(): Long {
-        if (shares.size < 2) return DEFAULT_INTERVAL_US
-        val last = shares.lastKey()
-        return (last - shares.lowerKey(last)).coerceIn(MIN_INTERVAL_US, MAX_INTERVAL_US)
+    // The frame's result on the likeliest clock hasn't come and is the next one due
+    private fun due(encoderUs: Long): Boolean {
+        if (shares.isEmpty()) return false
+        val first = encoderUs + offsets[0]
+        val newest = shares.lastKey()
+        return first > newest && first - newest <= MAX_GAP_US
+    }
+
+    // The frame matched on clock i: three in a row on the same other clock make that one the likeliest
+    private fun found(i: Int) {
+        if (i == 0) { elsewhere = 0; return }
+        if (++elsewhere < PROMOTE) return
+        val o = offsets[i]; offsets[i] = offsets[0]; offsets[0] = o
+        elsewhere = 0
+    }
+
+    // The crop logged within TOLERANCE_US of timeUs
+    private fun at(timeUs: Long): FloatArray? {
+        val best = listOfNotNull(shares.floorEntry(timeUs), shares.ceilingEntry(timeUs)).minByOrNull { kotlin.math.abs(it.key - timeUs) } ?: return null
+        return best.value.takeIf { kotlin.math.abs(best.key - timeUs) <= TOLERANCE_US }
     }
 
     companion object {
-        private const val DEFAULT_INTERVAL_US = 33_333L
-        private const val MIN_INTERVAL_US = 4_000L
-        private const val MAX_INTERVAL_US = 100_000L
+        // Well under a frame at 240 fps (4.2 ms)
+        const val TOLERANCE_US = 1_000L
+        // A result this far past the newest one is still the next due: a frame at the slowest rate a camera runs (a few fps)
+        private const val MAX_GAP_US = 500_000L
+        private const val PROMOTE = 3
+
+        /**
+         * The offsets for [begin]: an encoder's times are on the monotonic clock unless the camera stamps on the realtime one
+         * ([realtime]) and the encoder's output is set to keep the sensor's own clock ([sensorBase], Android 13 on), in which case
+         * they are its own. The camera's results are on its own clock, ahead of the monotonic one by the time asleep ([asleepUs]).
+         * The other clock comes second, for a camera that does otherwise.
+         */
+        fun offsetsUs(realtime: Boolean?, sensorBase: Boolean, asleepUs: Long): LongArray = when {
+            realtime == false -> longArrayOf(0L)
+            realtime == true && !sensorBase -> longArrayOf(asleepUs, 0L)
+            else -> longArrayOf(0L, asleepUs)
+        }
 
         // One camera streams H.264 at a time: its session writes here and its encoder reads
         val shared = CropLog()

@@ -809,23 +809,17 @@ class CameraSessionController(
         } catch (_: Exception) { null }
     }
 
-    // What to add to an encoder timestamp (us) to put it on the clock the camera's results use, likeliest first. A camera on the
-    // realtime clock has its frames moved to the monotonic one on their way into an encoder, so its results are ahead by the time
-    // the phone has slept. Worked out once per encoder; the other clock is a fallback only when the two are too far apart to mix up.
-    private fun sensorOffsetsUs(): LongArray {
-        val asleepUs = (SystemClock.elapsedRealtimeNanos() - System.nanoTime()) / 1000
-        val likely = if (PhoneStats.shared.realtimeStamps == true) asleepUs else 0L
-        val other = if (likely == 0L) asleepUs else 0L
-        return if (kotlin.math.abs(asleepUs) > 10_000_000L) longArrayOf(likely, other) else longArrayOf(likely)
-    }
+    // What to add to an encoder timestamp (us) to put it on the clock the camera's results use, likeliest first (CropLog.begin).
+    private fun sensorOffsetsUs(): LongArray = CropLog.offsetsUs(
+        PhoneStats.shared.realtimeStamps, Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+        (SystemClock.elapsedRealtimeNanos() - System.nanoTime()) / 1000)
 
     // The camera's stream output at the current size: the JPEG reader, or the H.264 encoder's
     // Surface. An encoder that won't start falls back to JPEG and reports it.
     private fun buildOutputs() {
         if (codec == H264Stream.CODEC_H264) {
             PhoneStats.shared.realtimeStamps = stampsAreRealtime()
-            CropLog.shared.clear()
-            val offsets = sensorOffsetsUs()
+            CropLog.shared.begin(sensorOffsetsUs())
             try {
                 lateinit var built: H264Encoder
                 // Queued behind a size change, a report from the old encoder must not count against the new one
@@ -844,7 +838,7 @@ class CameraSessionController(
                         if (!keep && previewRecovery.requestKeyframe(SystemClock.uptimeMillis())) built.requestKeyFrame()
                         keep
                     },
-                    cropFor = { ptsUs, waitMs -> CropLog.shared.take(LongArray(offsets.size) { ptsUs + offsets[it] }, waitMs) },
+                    cropFor = { ptsUs, waitMs -> CropLog.shared.take(ptsUs, waitMs) },
                     onPacket = onH264, onError = { e -> post { if (encoder === built) encoderFailed(e) } },
                     onReorder = { post { if (encoder === built && codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
                 encoder = built
