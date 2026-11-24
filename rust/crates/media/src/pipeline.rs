@@ -509,6 +509,9 @@ impl Pipeline {
             }
         }
         // Still the decoder's picture and nothing touched it: it is landed when the camera asks, scaled to the camera's size if it can
+        if keep_fit && picture.is_none() {
+            log::info!("DIAG kept a picture for the camera: pending {}, withheld {}, surface {}", chain.pending(), chain.withheld, frame.surface().is_some());
+        }
         if picture.is_none() && keep_fit && !chain.pending() && !chain.withheld {
             if let Some(surface) = frame.surface().cloned() {
                 picture = Some(Arc::new(SurfacePicture(surface)) as Arc<dyn telescope_core::media::CardPicture>);
@@ -745,7 +748,10 @@ impl Pipeline {
     }
 
     fn note_surface_wish(&self) {
-        self.surface_wish.store(self.starts_on_card() || self.fit_wanted(), Ordering::Relaxed);
+        let (card, fit) = (self.starts_on_card(), self.fit_wanted());
+        if self.surface_wish.swap(card || fit, Ordering::Relaxed) != (card || fit) {
+            log::info!("DIAG surface wish now {} (card {card}, fit {fit}, steps run {}, camera {:?}, source {:?})", card || fit, !self.no_steps_run(), self.camera_size(), self.size);
+        }
     }
 
     /// The size the camera takes while it is open.

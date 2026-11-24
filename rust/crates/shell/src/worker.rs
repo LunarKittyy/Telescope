@@ -1663,7 +1663,9 @@ impl Shared {
     /// Tells the pipeline what size the camera takes (None once it is closed), which decides whether the card scales a plain stream's pictures before they come down.
     fn set_camera_fit(&self, size: Option<(u32, u32)>) {
         if let Some(cell) = &self.camera_fit {
-            cell.store(size.map_or(0, telescope_core::media::pack_camera_fit), Ordering::Relaxed);
+            if cell.swap(size.map_or(0, telescope_core::media::pack_camera_fit), Ordering::Relaxed) != size.map_or(0, telescope_core::media::pack_camera_fit) {
+                log::info!("DIAG camera fit now {size:?}");
+            }
         }
     }
 

@@ -621,7 +621,13 @@ impl DecodedSurface for Surface {
             download.as_mut().unwrap().fit_surface(source.0, (width, height)).map_err(|e| format!("{e:?}"))
         })();
         match tried {
-            Ok(frame) => Some(frame),
+            Ok(frame) => {
+                if !self.stream.fit_failed.load(Ordering::Relaxed) && self.ram.get().is_none() {
+                    static SAID: std::sync::Once = std::sync::Once::new();
+                    SAID.call_once(|| log::info!("DIAG first picture scaled on the card to {width}x{height}"));
+                }
+                Some(frame)
+            }
             Err(why) => {
                 *download = None;
                 if !self.stream.fit_failed.swap(true, Ordering::AcqRel) {

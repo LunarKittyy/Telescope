@@ -250,6 +250,9 @@ impl Codec {
                 }
             }
         }
+        if self.defer_surfaces != (wish && (self.surface_room || self.fit_room)) {
+            log::info!("DIAG decoder defers surfaces: {} (wish {wish}, room {} {})", wish && (self.surface_room || self.fit_room), self.surface_room, self.fit_room);
+        }
         self.defer_surfaces = wish && (self.surface_room || self.fit_room);
     }
 
