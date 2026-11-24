@@ -159,12 +159,17 @@ pub struct Codec {
     /// What to fail on purpose, and how many pictures have been good so far.
     pub forced: Option<(Forced, u32)>,
     pictures: u32,
+    /// A picture came out with decode errors FFmpeg covered up (concealment, missing references) since take_damaged last said so.
+    damaged: bool,
     /// Tests: each picture's copy off the card, first and then again with the decoder surely done, in nanoseconds.
     #[cfg(test)]
     pub copy_ns: Option<Vec<(u64, u64)>>,
     /// Tests: this many pictures are refused as a card that can't take the stream would.
     #[cfg(test)]
     pub refusals: u32,
+    /// Tests: how long each decode call and each copy off the card seem to take on the speed check's clock.
+    #[cfg(test)]
+    pub delays: (std::time::Duration, std::time::Duration),
     // A JPEG decoder: JFIF pictures are always full range BT.601, whatever the frame says (OpenCV decodes them so)
     jpeg: bool,
     converter: yuv::Converter,
@@ -276,10 +281,13 @@ impl Codec {
                 card_gives_i420: false,
                 forced: if hw.is_some() { Forced::asked() } else { None },
                 pictures: 0,
+                damaged: false,
                 #[cfg(test)]
                 copy_ns: None,
                 #[cfg(test)]
                 refusals: 0,
+                #[cfg(test)]
+                delays: Default::default(),
                 jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
                 converter: yuv::Converter::default(),
                 sws_out: Padded::default(),
@@ -429,11 +437,18 @@ impl Codec {
             }
             ff::av_frame_unref(self.frame);
             ff::av_frame_move_ref(self.frame, self.held);
+            #[cfg(test)]
+            crate::slow::advance(self.delays.1);
             let began = monotonic_ns();
             let taken = self.take_frame()?;
             span("take_frame", began);
             Ok(Some(taken))
         }
+    }
+
+    /// Whether any picture since the last call carried errors FFmpeg concealed, which makes it a picture that isn't the stream's.
+    pub fn take_damaged(&mut self) -> bool {
+        std::mem::take(&mut self.damaged)
     }
 
     /// Lets go of the picture decode_newest kept.
@@ -454,6 +469,8 @@ impl Codec {
             Some(Forced::Silent) => return Ok(0),
             _ => {}
         }
+        #[cfg(test)]
+        crate::slow::advance(self.delays.0);
         let mut count = 0;
         let input = padded(&mut self.unit_buf, unit).as_ptr();
         // SAFETY: the packet points at a padded copy of unit for the length of send_packet, which copies it (the packet
@@ -491,6 +508,10 @@ impl Codec {
                     return Err(Fault::Broken(err_text(r)));
                 }
                 count += 1;
+                // SAFETY (the read): frame was just filled by receive_frame
+                if (*self.frame).decode_error_flags != 0 || (*self.frame).flags & ff::AV_FRAME_FLAG_CORRUPT != 0 {
+                    self.damaged = true;
+                }
                 match done.as_mut() {
                     Some(done) => {
                         let began = monotonic_ns();
@@ -1443,6 +1464,33 @@ pub(crate) mod decode_bench {
                 println!("{name:11} as {}: copy {:.2} ms waiting on the decoder, {:.2} ms with it done; {} pictures", if i420 { "I420" } else { "NV12" },
                          ms(times.iter().map(|t| t.0).collect()), ms(times.iter().map(|t| t.1).collect()), r.frames.len());
             }
+        }
+    }
+
+    /// Where a VA-API card's decoding time shows up: in the decode call, or in the copy that waits for the picture (the second copy has nothing to wait for).
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture where_a_cards_decoding_time_shows_up
+    #[test]
+    #[ignore = "a measurement, needs the clips and a VA-API card"]
+    fn where_a_cards_decoding_time_shows_up() {
+        for name in ["p1080.h264", "p4k.h264"] {
+            let Some(packets) = packets(name) else { continue };
+            let mut codec = Codec::h264(Some(Hw::Vaapi)).expect("VA-API");
+            codec.copy_ns = Some(Vec::new());
+            let mut decode_ms = Vec::new();
+            for p in &packets {
+                let began = Instant::now();
+                let mut count = 0;
+                codec.parse(p, |c, unit| count += c.decode_newest(unit).unwrap());
+                if count > 0 {
+                    decode_ms.push(began.elapsed().as_secs_f64() * 1000.0);
+                    codec.take_newest().unwrap();
+                }
+            }
+            let copies = codec.copy_ns.take().unwrap();
+            let first: Vec<f64> = copies[30..].iter().map(|t| t.0 as f64 / 1e6).collect();
+            let again: Vec<f64> = copies[30..].iter().map(|t| t.1 as f64 / 1e6).collect();
+            println!("{name:11}: decode call {:.2} ms, first copy {:.2} ms, same copy again {:.2} ms (medians over {} pictures)",
+                     pct(&decode_ms[30..], 0.5), pct(&first, 0.5), pct(&again, 0.5), first.len());
         }
     }
 
