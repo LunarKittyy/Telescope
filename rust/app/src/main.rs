@@ -533,7 +533,46 @@ fn use_window_apartment() {
     unsafe { OleInitialize(std::ptr::null_mut()) };
 }
 
+/// Experiment: with LEAK_HEAPS=<file>, appends every process heap's allocated and committed bytes there every 20 s.
+#[cfg(windows)]
+fn log_heaps_later() {
+    #[repr(C)]
+    struct Summary { cb: u32, allocated: usize, committed: usize, reserved: usize, max_reserve: usize }
+    extern "system" {
+        fn GetProcessHeaps(n: u32, heaps: *mut *mut core::ffi::c_void) -> u32;
+        fn HeapSummary(heap: *mut core::ffi::c_void, flags: u32, summary: *mut Summary) -> i32;
+    }
+    let Some(path) = std::env::var_os("LEAK_HEAPS") else { return };
+    std::thread::spawn(move || {
+        let start = std::time::Instant::now();
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(20));
+            let mut heaps = [std::ptr::null_mut(); 256];
+            // SAFETY: the buffer holds 256 handles and the call writes at most that many
+            let n = unsafe { GetProcessHeaps(256, heaps.as_mut_ptr()) } as usize;
+            let mut line = format!("t={}", start.elapsed().as_secs());
+            let (mut a, mut c) = (0usize, 0usize);
+            for (i, h) in heaps.iter().take(n.min(256)).enumerate() {
+                let mut s = Summary { cb: std::mem::size_of::<Summary>() as u32, allocated: 0, committed: 0, reserved: 0, max_reserve: 0 };
+                // SAFETY: h came from GetProcessHeaps and s is a valid HEAP_SUMMARY with cb set
+                if unsafe { HeapSummary(*h, 0, &mut s) } != 0 {
+                    a += s.allocated;
+                    c += s.committed;
+                    line += &format!(" h{i}={}/{}", s.allocated >> 10, s.committed >> 10);
+                }
+            }
+            line += &format!(" total_kb={a}/{c} heaps={n}\n");
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+                use std::io::Write;
+                let _ = f.write_all(line.as_bytes());
+            }
+        }
+    });
+}
+
 fn main() {
+    #[cfg(windows)]
+    log_heaps_later();
     telescope_core::system::leave_appimage_environment();
     // Before any thread: it sets environment variables for libgphoto2
     telescope_outputs::webcam_capture::prepare_gphoto_environment();
