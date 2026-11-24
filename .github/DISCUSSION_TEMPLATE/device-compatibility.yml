@@ -10,7 +10,7 @@ body:
     id: phone-diagnostics
     attributes:
       label: Phone diagnostics
-      description: In the Telescope app on the phone, open About and tap **Copy diagnostics**, then paste here. Or just write the phone model, Android version and app version.
+      description: In the Telescope app on the phone, open About and tap **Copy diagnostics**, then paste it here. It lists the phone's lenses and what each one can do, which fills in most of the row. If you can't get it, write the phone model, Android version and app version.
       render: text
     validations:
       required: true
@@ -30,19 +30,13 @@ body:
       label: What worked
       description: "`OK` worked, `PARTIAL` worked with caveats (add a note), `FAIL` didn't work, `-` didn't try."
       value: |
-        USB pairing: -
-        Wi-Fi pairing: -
-        Lens selection (all lenses show up, switching changes the picture): -
-        Zoom on the Auto lens (switches to telephoto when zoomed in): -
-        Manual ISO / shutter: -
-        Manual white balance: -
-        Manual focus / click to focus: -
-        OIS toggle: -
-        H.264: -
+        Lenses (each one in the picker changes the picture, and name any lens the phone has that's missing): -
+        Zoom on the Auto lens (switches to the telephoto when zoomed in): -
+        Highest frame rate that streamed smoothly: -
+        Manual ISO / shutter, white balance and focus: -
+        Light format (H.264): -
+        Photos card (saves a photo, and is RAW in the Format list?): -
         Microphone: -
-        Reconnect after unplugging or dropping Wi-Fi: -
-        Battery / temperature readouts: -
-        Start and stop from the desktop: -
     validations:
       required: true
 

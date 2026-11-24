@@ -1013,7 +1013,7 @@ impl Pipeline {
         // The card failed the small picture: this frame goes on the CPU from here, as for a failed readback, with no second wait on the card
         let small = match small {
             Small::Failed => return None,
-            Small::Made(small) => Some(small),
+            Small::Made(small) => Some(*small),
             Small::Whole => None,
         };
         let vision = small.as_ref().map(|small| SmallVision { inner: ctx, small });
@@ -1078,7 +1078,7 @@ impl Pipeline {
                 small.geometry = frame.geometry.clone();
                 small.mask_space = frame.mask_space;
                 small.number = frame.number;
-                Small::Made(small)
+                Small::Made(Box::new(small))
             }
             Err(why) => {
                 self.read_failed(&why, chain, frame, ctx, &gpu);
@@ -1214,7 +1214,7 @@ fn vision_size(w: u32, h: u32) -> Option<(u32, u32)> {
 /// What the card gave for a step that only needs the person mask.
 enum Small {
     /// The small picture.
-    Made(Frame),
+    Made(Box<Frame>),
     /// None was made and nothing was lost: the picture comes down whole.
     Whole,
     /// The card failed and the frame has been dealt with as for a failed readback.

@@ -155,6 +155,8 @@ class MainActivity : LookActivity() {
             StreamPrefs.setLocalOnly(this, checked)
             SessionEndpoint.refreshAnnouncement()
             checkPermissions()
+            // Reaches a service MainActivity never bound (a remote start), where the accept check can't see a viewer already connected
+            if (checked) CameraStreamService.instance?.dropWifiViewers()
             val svc = service
             // Any live session, not just a settled stream: a lens or size change in flight is still bound to the old address
             if (svc != null && svc.state.holdsSession) {

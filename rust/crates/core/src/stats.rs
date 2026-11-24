@@ -297,6 +297,8 @@ pub struct SourceStats {
     /// Where this stream's frame steps that can run either way ran last: STEPS_UNKNOWN, STEPS_ON_CARD or STEPS_ON_CPU.
     steps_on: AtomicU8,
     steps: Timers,
+    /// Goes up whenever this stream's frame steps change.
+    steps_epoch: AtomicU64,
     meta: Mutex<Meta>,
 }
 
@@ -314,6 +316,7 @@ impl SourceStats {
             fps: AtomicU32::new(0),
             steps_on: AtomicU8::new(STEPS_UNKNOWN),
             steps: Timers::new(detailed),
+            steps_epoch: AtomicU64::new(0),
             meta: Mutex::new(Meta { source_id: source_id.into(), slot, url: String::new(), plugin_source: false, target_fps: 0, transport: None }),
         }
     }
@@ -334,6 +337,11 @@ impl SourceStats {
     #[inline]
     pub fn decoded(&self, frames: u64) {
         self.decoded.fetch_add(frames, Ordering::Relaxed);
+    }
+
+    /// This stream's frame steps changed, which changes how many frames get through.
+    pub fn steps_changed(&self) {
+        self.steps_epoch.fetch_add(1, Ordering::Relaxed);
     }
 
     /// A new frame went to the virtual camera.
@@ -452,6 +460,11 @@ pub fn note_decoded(frames: u64) {
 /// How many new frames this thread's stream has sent to the virtual camera so far, or None on a thread no stream is bound to.
 pub fn delivered_total() -> Option<u64> {
     BOUND.try_with(|b| b.try_borrow().ok().and_then(|b| b.as_deref().map(|s| s.delivered.load(Ordering::Relaxed)))).ok().flatten()
+}
+
+/// How many times this thread's stream's frame steps have changed, or None on a thread no stream is bound to.
+pub fn steps_epoch() -> Option<u64> {
+    BOUND.try_with(|b| b.try_borrow().ok().and_then(|b| b.as_deref().map(|s| s.steps_epoch.load(Ordering::Relaxed)))).ok().flatten()
 }
 
 /// The feed on this thread's stream carries its video this way now, whatever its URL said.

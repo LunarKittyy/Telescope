@@ -210,6 +210,31 @@ class CropRectTest {
         org.junit.jupiter.api.Assertions.assertEquals(SensorBox(2000, 375, 2000, 1125), crop(2f, 1f, 0f))
         org.junit.jupiter.api.Assertions.assertEquals(SensorBox(0, 1500, 2000, 1125), crop(2f, -3f, 5f))
     }
+
+    private fun share(rect: SensorBox?, ratio: Float = 1f) = CameraRequestSelection.shareOf(array, rect, ratio, 1920, 1080).toList()
+
+    private fun near(want: List<Float>, got: List<Float>) =
+        org.junit.jupiter.api.Assertions.assertTrue(want.zip(got).all { (a, b) -> kotlin.math.abs(a - b) < 1e-3f }, "$want vs $got")
+
+    @org.junit.jupiter.api.Test
+    fun `a reported crop reads back as the zoom it was asked with`() {
+        for ((zoom, x, y) in listOf(Triple(1f, 0.5f, 0.5f), Triple(2f, 0.5f, 0.5f), Triple(1.43f, 0.3f, 0.62f), Triple(3.7f, 0.9f, 0.1f))) {
+            val rect = crop(zoom, x, y)
+            // Where the crop had to stay inside the picture, its centre is where it ended up
+            val cx = (rect.left + rect.width / 2f) / 4000f
+            val cy = (rect.top + rect.height / 2f - 375f) / 2250f
+            near(listOf(1f, zoom, cx, cy), share(rect))
+        }
+        near(listOf(1f, 2f, 0.75f, 0.25f), share(crop(2f, 1f, 0f)))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `the whole sensor or no crop at all reads as no crop, at the ratio it came with`() {
+        near(listOf(1f, 1f, 0.5f, 0.5f), share(array))
+        near(listOf(2f, 1f, 0.5f, 0.5f), share(null, 2f))
+        // A camera that ignores the crop above a zoom ratio of 1 reports the whole array
+        near(listOf(3.7f, 1f, 0.5f, 0.5f), share(array, 3.7f))
+    }
 }
 
 class LensZoomsTest {

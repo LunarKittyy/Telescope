@@ -44,6 +44,8 @@ pub struct Frame {
     /// When the camera took the picture, on this computer's monotonic clock (crate::time::monotonic_ns), for a stream whose phone says so and whose
     /// clock offset is known; None otherwise. Every step that makes a new frame from another keeps it.
     pub capture_ns: Option<u64>,
+    /// The share of its view the phone's camera says this picture shows (the crop tag in the stream), for a phone that says so; None otherwise. Copies made before the view's crop keep it.
+    pub phone_share: Option<crate::view::PhoneZoom>,
     /// The view in full source coordinates, for remapping a held person mask; None is the unchanged source.
     pub geometry: Option<Box<crate::view::Geometry>>,
     /// Source field of view and any geometry that cannot be remapped in camera coordinates.
@@ -236,7 +238,7 @@ impl Frame {
     pub fn from_surface(width: u32, height: u32, format: PixelFormat, surface: Arc<dyn DecodedSurface>) -> Frame {
         let data = Arc::new(Vec::new());
         let decoded = Some(Decoded { of: Arc::downgrade(&data), picture: None, surface: Some(surface), size: (width, height, format) });
-        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded, alpha: None, copied: Copied::default() }
+        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, phone_share: None, geometry: None, mask_space: MaskSpace::default(), decoded, alpha: None, copied: Copied::default() }
     }
 
     /// A flat dark picture: black luma and neutral chroma for the YUV formats, opaque black for the others.
@@ -251,7 +253,7 @@ impl Frame {
 
     /// The frame's size, format and stamps with no pixels and no hold on a decoder surface, for a record of a picture that is kept elsewhere.
     pub fn without_pixels(&self) -> Frame {
-        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, geometry: self.geometry.clone(), mask_space: self.mask_space, decoded: None, alpha: self.alpha.clone(), copied: Copied::default() }
+        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, phone_share: self.phone_share, geometry: self.geometry.clone(), mask_space: self.mask_space, decoded: None, alpha: self.alpha.clone(), copied: Copied::default() }
     }
 
     /// The surface while the frame still names the decoder's original picture.
@@ -274,7 +276,7 @@ impl Frame {
     pub fn materialise(&self) -> Frame {
         let Some(surface) = self.surface() else { return self.clone() };
         let mut frame = surface.ram().clone();
-        (frame.number, frame.time_ns, frame.capture_ns) = (self.number, self.time_ns, self.capture_ns);
+        (frame.number, frame.time_ns, frame.capture_ns, frame.phone_share) = (self.number, self.time_ns, self.capture_ns, self.phone_share);
         frame.geometry = self.geometry.clone();
         frame.mask_space = self.mask_space;
         frame.alpha = self.alpha.clone();
@@ -283,7 +285,7 @@ impl Frame {
 
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
-        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded: None, alpha: None, copied: Copied::default() }
+        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, phone_share: None, geometry: None, mask_space: MaskSpace::default(), decoded: None, alpha: None, copied: Copied::default() }
     }
 
     /// The alpha plane, while it is the size of the picture: one left behind by a step that changed the size reads as none.

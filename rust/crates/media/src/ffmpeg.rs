@@ -159,6 +159,8 @@ pub struct Codec {
     /// What to fail on purpose, and how many pictures have been good so far.
     pub forced: Option<(Forced, u32)>,
     pictures: u32,
+    /// A picture came out with decode errors FFmpeg covered up (concealment, missing references) since take_damaged last said so.
+    damaged: bool,
     /// Tests: each picture's copy off the card, first and then again with the decoder surely done, in nanoseconds.
     #[cfg(test)]
     pub copy_ns: Option<Vec<(u64, u64)>>,
@@ -292,6 +294,7 @@ impl Codec {
                 card_gives_i420: false,
                 forced: if hw.is_some() { Forced::asked() } else { None },
                 pictures: 0,
+                damaged: false,
                 #[cfg(test)]
                 copy_ns: None,
                 #[cfg(test)]
@@ -462,6 +465,11 @@ impl Codec {
         }
     }
 
+    /// Whether any picture since the last call carried errors FFmpeg concealed, which makes it a picture that isn't the stream's.
+    pub fn take_damaged(&mut self) -> bool {
+        std::mem::take(&mut self.damaged)
+    }
+
     /// Lets go of the picture decode_newest kept.
     pub fn drop_newest(&mut self) {
         // SAFETY: held is this codec's own frame
@@ -519,6 +527,10 @@ impl Codec {
                     return Err(Fault::Broken(err_text(r)));
                 }
                 count += 1;
+                // SAFETY (the read): frame was just filled by receive_frame
+                if (*self.frame).decode_error_flags != 0 || (*self.frame).flags & ff::AV_FRAME_FLAG_CORRUPT != 0 {
+                    self.damaged = true;
+                }
                 match done.as_mut() {
                     Some(done) => {
                         let began = monotonic_ns();

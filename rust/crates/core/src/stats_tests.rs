@@ -393,6 +393,16 @@ fn the_delivered_total_is_the_bound_streams_own() {
 }
 
 #[test]
+fn the_steps_epoch_counts_the_bound_streams_step_changes() {
+    let (_hub, stats, _) = running();
+    assert_eq!(steps_epoch(), None);
+    let _counting = bind(&stats);
+    assert_eq!(steps_epoch(), Some(0));
+    stats.steps_changed();
+    assert_eq!(steps_epoch(), Some(1));
+}
+
+#[test]
 fn the_rate_is_there_without_the_lock() {
     let (_hub, stats, _) = running();
     assert_eq!(stats.target_fps(), 0);

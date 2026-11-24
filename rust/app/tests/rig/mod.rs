@@ -51,6 +51,8 @@ pub struct Control {
     pub stalled: AtomicBool,
     /// Asks by the checks a test drives; the two below count on threads of their own, so they aren't mixed up with them.
     pub asked: AtomicU32,
+    /// Those asks whose answer was read, just before it goes back.
+    pub answered: AtomicU32,
     /// The ask a moment after a stream began, on a clock of its own.
     pub fetched: AtomicU32,
     /// The ask after the panels came back to a stream.
@@ -85,7 +87,9 @@ impl PhoneControl for Control {
         if std::thread::current().name() == Some("state-refresh") {
             return self.refresh_answer.lock().unwrap().clone();
         }
-        self.state.lock().unwrap().clone()
+        let answer = self.state.lock().unwrap().clone();
+        self.answered.fetch_add(1, Ordering::SeqCst);
+        answer
     }
     fn retarget(&self, stream_base: &str) {
         self.retargeted.lock().unwrap().push(stream_base.into());

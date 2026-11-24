@@ -283,6 +283,8 @@ class PreviewActivity : LookActivity() {
         }
     }
 
+    private val opens = OpensInFlight()
+
     private fun startStandalone(surface: Surface) {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         cameras = CameraCatalog.enumerate(manager)
@@ -317,10 +319,12 @@ class PreviewActivity : LookActivity() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         val openId = cam.logicalId ?: cam.id
         val physId = if (cam.logicalId != null) cam.id else null
+        val open = opens.begin()
         try {
             @Suppress("MissingPermission")
             manager.openCamera(openId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
+                    open.end()
                     if (myGeneration != standaloneGeneration) { camera.close(); return }
                     cameraDevice = camera
                     // The camera can be taken back (a stream starting) between here and the session: close, don't crash.
@@ -328,15 +332,18 @@ class PreviewActivity : LookActivity() {
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
+                    open.end()
                     // A stream started from the computer took the camera: leave rather than freeze, so a lens tap can't take it back
                     if (myGeneration == standaloneGeneration) { cameraDevice = null; lostCamera(null) }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
+                    open.end()
                     if (myGeneration == standaloneGeneration) { cameraDevice = null; lostCamera(null) }
                 }
             }, handler)
         } catch (e: Exception) {
+            open.end()
             // Camera in use or disabled, or permission taken back: say so, the lens buttons stay for another try
             android.util.Log.w(TAG, "Preview could not open camera ${cam.id}", e)
             Toast.makeText(this, getString(R.string.preview_session_failed), Toast.LENGTH_SHORT).show()
@@ -390,9 +397,13 @@ class PreviewActivity : LookActivity() {
         captureSession = null
         cameraDevice = null
         if (!keepThread) {
-            handlerThread?.quitSafely()
+            val thread = handlerThread
+            val h = handler
             handlerThread = null
             handler = null
+            // A camera still opening answers on this thread and has to be closed there, so it stays up until that happens
+            opens.whenSettled { thread?.quitSafely() }
+            h?.postDelayed({ opens.giveUp() }, OPEN_SETTLE_MS)
         }
     }
 
@@ -565,6 +576,7 @@ class PreviewActivity : LookActivity() {
         private const val TAG = "PreviewActivity"
         private const val FOLLOW_MS = 500L
         private const val MAX_TRANSFORM_RETRIES = 3
+        private const val OPEN_SETTLE_MS = 5_000L  // how long closing waits for a camera still opening
         private const val TRANSFORM_RETRY_DELAY_MS = 150L
         private val ATTACHABLE = setOf(
             StreamState.OpeningCamera, StreamState.ConfiguringSession, StreamState.Streaming, StreamState.Recovering)
