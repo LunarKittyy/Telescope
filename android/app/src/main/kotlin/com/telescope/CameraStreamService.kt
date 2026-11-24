@@ -424,7 +424,8 @@ class CameraStreamService : Service() {
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true
                 val lensZooms = if (multiLens && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
                     CameraRequestSelection.lensZooms(equivalentFocal(chars),
-                        chars.physicalCameraIds.map { equivalentFocal(manager.getCameraCharacteristics(it)) },
+                        // A child that can't be read (an unlisted one, before Android 10) is left out, not the whole entry
+                        chars.physicalCameraIds.mapNotNull { runCatching { equivalentFocal(manager.getCameraCharacteristics(it)) }.getOrNull() },
                         zoomRatioMax)
                 else emptyList()
 
@@ -542,6 +543,7 @@ class CameraStreamService : Service() {
 
     // Camera catalogue
     private var allCameras: List<CameraEntry> = emptyList()
+    private var keepSavedSelection = false  // a temporary fallback is streaming: the saved lens stays until the user picks one
     private var allCamerasComplete = true  // false when a lens was left out because reading it failed
     private val startedAt = System.currentTimeMillis()
     // Checked once: whether this phone has a hardware H.264 encoder at all.
@@ -675,6 +677,7 @@ class CameraStreamService : Service() {
 
     // A lens that doesn't list the current size gets the closest one it does, or its session would fail
     private fun selectCamera(ctrl: CameraSessionController, entry: CameraEntry) {
+        keepSavedSelection = false
         val size = ctrl.getAskedSize()
         val (w, h) = fitSize(entry, size.width, size.height)
         ctrl.switchTo(entry)
@@ -684,6 +687,7 @@ class CameraStreamService : Service() {
 
     // Saved only once it streams, so a lens or size that can't work isn't reopened on every later start
     private fun rememberSelection() {
+        if (keepSavedSelection) return
         val ctrl = controller ?: return
         val cam = ctrl.snapshot().currentCamera ?: return
         val size = ctrl.getAskedSize()
@@ -757,6 +761,7 @@ class CameraStreamService : Service() {
             return START_NOT_STICKY
         }
         started = true
+        keepSavedSelection = false
         run++
         val cameraId  = intent?.getStringExtra(EXTRA_CAMERA_ID)  ?: "0"
         val logicalId = intent?.getStringExtra(EXTRA_LOGICAL_ID) ?: ""
@@ -764,7 +769,8 @@ class CameraStreamService : Service() {
         streamHeight  = intent?.getIntExtra(EXTRA_HEIGHT, 1080)  ?: 1080
         val initialOis = intent?.getBooleanExtra(EXTRA_OIS,        true)  ?: true
         initialFps    = intent?.getIntExtra(EXTRA_FPS, 30)?.coerceIn(1, 120) ?: 30
-        val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
+        // The saved choice counts too: a start queued before the switch was flipped carries the old value
+        val localOnly = (intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false) || StreamPrefs.localOnly(this)
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
         remoteStartNotice.started(startedRemotely)
@@ -793,11 +799,14 @@ class CameraStreamService : Service() {
         // Keep session reachable after MainActivity loses focus (idempotent refcount)
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_SERVICE)
 
+        var failedOp = "enumerateCameras"
         try {
             enumerateAllCameras()
+            failedOp = "startServer"
+            startServer()
         } catch (e: Exception) {
-            // e.g. EADDRINUSE if a just-stopped instance's port hasn't been released yet.
-            setState(StreamState.Failed, "startServer", e)
+            // A start failure is e.g. EADDRINUSE if a just-stopped instance's port hasn't been released yet.
+            setState(StreamState.Failed, failedOp, e)
             stopForeground(STOP_FOREGROUND_REMOVE)
             // onDestroy can wait on a bound activity, so give back the endpoint and the waiting notification now
             SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
@@ -819,6 +828,7 @@ class CameraStreamService : Service() {
                 "camera $cameraId at ${streamWidth}x$streamHeight unavailable, using ${initialEntry.id} at ${fitW}x$fitH"))
             streamWidth = fitW; streamHeight = fitH
             // A lens missing from a list that couldn't read every lens may just have failed to read, so the saved choice stays
+            keepSavedSelection = found == null && !allCamerasComplete
             if (found != null || allCamerasComplete) StreamPrefs.updateSelection(this) {
                 it.copy(cameraId = initialEntry.id, logicalId = initialEntry.logicalId ?: "", width = fitW, height = fitH)
             }
@@ -904,7 +914,6 @@ class CameraStreamService : Service() {
                 stillCapsRead.add(cam.id)
             }
         }
-        startServer()
     }
 
     private fun startServer() {
@@ -914,6 +923,7 @@ class CameraStreamService : Service() {
             getCamerasJson = ::buildCamerasJson,
             handleControl  = ::handleControlCommand,
             bindAddr       = bindAddr,
+            localOnly      = { StreamPrefs.localOnly(this) },
             tokens         = { PairedComputers.tokens(this) },
             onVideoClient  = ::onVideoClient,
             requestKeyFrame = { controller?.requestKeyFrame() },
