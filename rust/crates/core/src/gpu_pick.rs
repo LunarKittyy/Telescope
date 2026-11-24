@@ -183,7 +183,7 @@ pub fn less_memory() -> bool {
     less_memory_set() && std::env::var_os("WGPU_BACKEND").is_none_or(|v| v.is_empty())
 }
 
-/// Whether the card the window opened is Intel's, which stays on DX12 whatever Settings says (`order`).
+/// Whether the card the window opened is Intel's, whose API Settings' choice doesn't change (`order`).
 pub fn opened_is_intel() -> bool {
     OPENED_VENDOR.load(std::sync::atomic::Ordering::Relaxed) == VENDOR_INTEL
 }

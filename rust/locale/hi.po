@@ -2539,9 +2539,6 @@ msgstr "इंस्टॉल हो रहा है…"
 msgid "Instant"
 msgstr ""
 
-msgid "Intel graphics always uses DirectX 12. This choice has no effect on it."
-msgstr ""
-
 msgid "Invisibility cloak"
 msgstr "अदृश्य चोगा"
 
@@ -6919,6 +6916,9 @@ msgstr "इस कैमरे का माइक्रोफ़ोन Telescop
 #. added under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Windows के सुरक्षा स्कैन करने तक इसमें एक मिनट लग सकता है।"
+
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
 
 msgid "This computer"
 msgstr "यह कंप्यूटर"

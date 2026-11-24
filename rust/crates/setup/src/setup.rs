@@ -418,7 +418,7 @@ impl SetupPlugin {
         telescope_core::gpu_pick::less_memory_for(&self.graphics_mode, telescope_core::machine::total_memory_gb())
     }
 
-    /// Intel's cards stay on DX12 (their Vulkan driver crashes), so the choice can't do anything once one is open.
+    /// Intel's cards pick their own API (see `gpu_pick::order`), so the choice can't do anything once one is open.
     fn graphics_mode_locked(&self) -> bool {
         telescope_core::gpu_pick::opened_is_intel()
     }

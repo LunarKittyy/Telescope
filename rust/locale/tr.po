@@ -2539,9 +2539,6 @@ msgstr "Yükleniyor…"
 msgid "Instant"
 msgstr ""
 
-msgid "Intel graphics always uses DirectX 12. This choice has no effect on it."
-msgstr ""
-
 msgid "Invisibility cloak"
 msgstr "Görünmezlik pelerini"
 
@@ -6919,6 +6916,9 @@ msgstr "Bu kameranın mikrofonu Telescope üzerinden geçmez. Bunun yerine kamer
 #. added under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Windows bir güvenlik taraması gerçekleştirirken bu işlem bir dakika kadar sürebilir."
+
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
 
 msgid "This computer"
 msgstr "Bu bilgisayar"

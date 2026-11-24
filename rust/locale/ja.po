@@ -2536,9 +2536,6 @@ msgstr "インストール中…"
 msgid "Instant"
 msgstr ""
 
-msgid "Intel graphics always uses DirectX 12. This choice has no effect on it."
-msgstr ""
-
 msgid "Invisibility cloak"
 msgstr "透明マント"
 
@@ -6901,6 +6898,9 @@ msgstr "このカメラのマイクはTelescopeを経由しません。代わり
 #. added under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Windowsのセキュリティ スキャン実行中は1分ほどかかる場合があります。"
+
+msgid "This choice has no effect on Intel graphics."
+msgstr ""
 
 msgid "This computer"
 msgstr "このコンピューター"
