@@ -438,6 +438,8 @@ struct Shared {
     hardware_default: bool,
     /// Set by the pipeline while its first step runs on the card, which is the only time the decoder may leave a picture there.
     surface_wish: Option<Arc<AtomicBool>>,
+    /// Where the pipeline reads the size the camera takes while it is open (FramePipeline::camera_fit), so a plain stream's pictures can be scaled to it on the card.
+    camera_fit: Option<Arc<AtomicU64>>,
     plugin_source: bool,
     size: Mutex<(Option<u32>, Option<u32>)>,
     fps: AtomicU32,
@@ -626,6 +628,7 @@ impl StreamWorker {
         pipeline.set_stats(stats.clone());
         pipeline.set_steps(setup.steps);
         let surface_wish = pipeline.surface_wish();
+        let camera_fit = pipeline.camera_fit();
         let tap = media.packet_tap();
         let view_epoch = setup.vision.as_ref().map_or(0, |f| f.service.view_epoch());
         let shared = Arc::new(Shared {
@@ -635,7 +638,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), nudge: Flag::default(), retry_pace: Mutex::new(drop_retry_delay), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), surface_wish, publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
+            photo_until: Mutex::new(None), surface_wish, camera_fit, publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -1657,6 +1660,13 @@ impl Shared {
         fit_for_camera(src, cards, want, &|| self.stopped())
     }
 
+    /// Tells the pipeline what size the camera takes (None once it is closed), which decides whether the card scales a plain stream's pictures before they come down.
+    fn set_camera_fit(&self, size: Option<(u32, u32)>) {
+        if let Some(cell) = &self.camera_fit {
+            cell.store(size.map_or(0, telescope_core::media::pack_camera_fit), Ordering::Relaxed);
+        }
+    }
+
     /// Open the virtual camera at the current size and fps and feed it until a stop or a restart. False if it failed.
     fn run_vcam(&self, reader_done: &Flag) -> bool {
         let Some((picture, _)) = self.slot.latest_picture() else { return false };
@@ -1682,6 +1692,7 @@ impl Shared {
         let shown_as = self.outputs.slots().into_iter().find(|s| s.slot == self.slot_number).map(|s| s.name)
             .unwrap_or_else(|| cam.device());
         *self.camera_size.lock().unwrap() = Some((cam_w, cam_h));
+        self.set_camera_fit(Some(cam.fit_size().unwrap_or((cam_w, cam_h))));
         (self.events)(WorkerEvent::VcamOpened(cam_w, cam_h));
         let size = format!("{cam_w} × {cam_h}");
         self.status("ok", &fill(&tr("Streaming {size} at {fps} fps to {camera}"),
@@ -1790,6 +1801,7 @@ impl Shared {
                 let want = cam.fit_size().unwrap_or((cam_w, cam_h));
                 if want != told_fit {
                     told_fit = want;
+                    self.set_camera_fit(Some(want));
                     (self.events)(WorkerEvent::CameraFit(want.0, want.1));
                 }
                 let (src, fresh_at) = match next {
@@ -1903,6 +1915,7 @@ impl Shared {
         // A requested reopen takes frame periods too, so the count carries over unless the camera was let go on purpose
         let parked = self.parked.load(Ordering::SeqCst);
         *self.sent_through.lock().unwrap() = Some(if parked { CAUGHT_UP } else { published_then });
+        self.set_camera_fit(None);
         drop(cam);
         self.vcam_free.set();
         ok

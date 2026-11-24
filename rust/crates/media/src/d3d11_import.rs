@@ -151,6 +151,8 @@ pub(crate) struct Stream {
     disabled: AtomicBool,
     live: AtomicUsize,
     download: Mutex<Option<crate::ffmpeg::Codec>>,
+    /// Scaling pictures on the card failed once: the camera gets whole pictures from then on.
+    fit_failed: AtomicBool,
     slots: Mutex<Vec<Slot>>,
     fence: Mutex<Option<Arc<Fence>>>,
     #[cfg(test)]
@@ -597,6 +599,38 @@ impl DecodedSurface for Surface {
     }
 
     fn as_any(&self) -> &dyn std::any::Any { self }
+
+    fn landed(&self) -> Option<&Frame> {
+        self.ram.get()
+    }
+
+    fn can_fit(&self, width: u32, height: u32) -> bool {
+        self.stream.enabled() && !self.stream.fit_failed.load(Ordering::Acquire) && crate::surface_fit::scales_to(self.size, (width, height))
+    }
+
+    fn fitted(&self, width: u32, height: u32) -> Option<Frame> {
+        if !self.can_fit(width, height) {
+            return None;
+        }
+        let source = self.frame.lock().unwrap_or_else(|e| e.into_inner());
+        let mut download = self.stream.download.lock().unwrap_or_else(|e| e.into_inner());
+        let tried = (|| {
+            if download.is_none() {
+                *download = Some(crate::ffmpeg::Codec::h264(None).map_err(|e| format!("{e:?}"))?);
+            }
+            download.as_mut().unwrap().fit_surface(source.0, (width, height)).map_err(|e| format!("{e:?}"))
+        })();
+        match tried {
+            Ok(frame) => Some(frame),
+            Err(why) => {
+                *download = None;
+                if !self.stream.fit_failed.swap(true, Ordering::AcqRel) {
+                    log::warn!("Couldn't scale a picture to the camera on the graphics card ({why}); the processor copies whole pictures from now on");
+                }
+                None
+            }
+        }
+    }
 }
 
 impl Drop for Surface {

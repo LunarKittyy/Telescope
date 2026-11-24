@@ -293,6 +293,16 @@ pub enum StandIn {
     Dark,
 }
 
+/// The camera's size as FramePipeline::camera_fit holds it (width in the high half), 0 while the camera isn't open.
+pub fn pack_camera_fit((width, height): (u32, u32)) -> u64 {
+    (u64::from(width) << 32) | u64::from(height)
+}
+
+/// The size pack_camera_fit stored, None for 0.
+pub fn unpack_camera_fit(packed: u64) -> Option<(u32, u32)> {
+    (packed != 0).then_some(((packed >> 32) as u32, packed as u32))
+}
+
 /// A media-owned card picture; landing and its cache belong to the implementation.
 pub trait CardPicture: Send + Sync {
     fn land(&self) -> Frame;
@@ -431,6 +441,11 @@ pub trait FramePipeline: Send {
     /// Set while the first step to run does it on the graphics card: the only frames a decoder may leave on the card are the ones this wants.
     /// None for a pipeline that never takes one.
     fn surface_wish(&self) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        None
+    }
+    /// Where the stream's camera says what size it takes, (width << 32 | height) while it is open and 0 while it isn't, so a plain stream's
+    /// pictures can be scaled to it on the card. None for a pipeline that never does.
+    fn camera_fit(&self) -> Option<Arc<std::sync::atomic::AtomicU64>> {
         None
     }
 }
