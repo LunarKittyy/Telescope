@@ -85,17 +85,26 @@ pub fn adb_exe() -> Option<PathBuf> {
 
 /// Runs a command, never failing: a program that's missing, can't run or hangs comes back as a failed outcome.
 pub fn run(cmd: &[String], timeout: Duration, input: Option<&[u8]>) -> Outcome {
-    if input.is_none() && is_plain_devices(cmd) && server_socket_allowed() {
+    if let (None, Some(long), true) = (input, plain_devices(cmd), server_socket_allowed()) {
         ensure_adb_server();
-        if let Some(list) = server_port().and_then(|port| devices_from_server(port, timeout.min(Duration::from_secs(5)))) {
+        if let Some(list) = server_port().and_then(|port| devices_from_server(port, timeout.min(Duration::from_secs(5)), long)) {
             return (0, list, String::new());
         }
     }
     server_first(cmd, &ensure_adb_server, &|cmd| execute(cmd, timeout, input))
 }
 
-fn is_plain_devices(cmd: &[String]) -> bool {
-    matches!(cmd, [program, sub] if sub == "devices" && Path::new(program).file_stem().is_some_and(|s| s.eq_ignore_ascii_case("adb")))
+/// Some(long) for `adb devices` (long: with -l) and nothing else.
+fn plain_devices(cmd: &[String]) -> Option<bool> {
+    let (program, args) = cmd.split_first()?;
+    if !Path::new(program).file_stem().is_some_and(|s| s.eq_ignore_ascii_case("adb")) {
+        return None;
+    }
+    match args {
+        [sub] if sub == "devices" => Some(false),
+        [sub, flag] if sub == "devices" && flag == "-l" => Some(true),
+        _ => None,
+    }
 }
 
 /// The local port adb's server listens on, read the way adb reads its environment (ADB_SERVER_SOCKET, else
@@ -126,14 +135,14 @@ fn server_socket_allowed() -> bool {
     std::env::var_os("TELESCOPE_ADB").is_none_or(|v| v.is_empty()) || std::env::var_os("ANDROID_ADB_SERVER_PORT").is_some()
 }
 
-/// `adb devices` asked of the running server over its socket, which saves starting a process. None when no server
-/// answers (the caller then runs adb, which starts one).
-pub fn devices_from_server(port: u16, timeout: Duration) -> Option<String> {
+/// `adb devices` (long: with -l) asked of the running server over its socket, which saves starting a process. None when
+/// no server answers (the caller then runs adb, which starts one).
+pub fn devices_from_server(port: u16, timeout: Duration, long: bool) -> Option<String> {
     use std::io::{Read, Write};
     let mut socket = std::net::TcpStream::connect_timeout(&([127, 0, 0, 1], port).into(), Duration::from_millis(300)).ok()?;
     socket.set_read_timeout(Some(timeout)).ok()?;
     socket.set_write_timeout(Some(timeout)).ok()?;
-    let request = "host:devices";
+    let request = if long { "host:devices-l" } else { "host:devices" };
     socket.write_all(format!("{:04x}{request}", request.len()).as_bytes()).ok()?;
     let mut status = [0u8; 4];
     socket.read_exact(&mut status).ok()?;
@@ -227,9 +236,14 @@ pub fn adb_server_running(port: u16) -> bool {
     std::net::TcpStream::connect_timeout(&([127, 0, 0, 1], port).into(), Duration::from_millis(300)).is_ok()
 }
 
+/// Whether adb's server is up where adb will look (port: server_port()); one on another machine is not ours to start.
+fn server_up(port: Option<u16>, probe: &dyn Fn(u16) -> bool) -> bool {
+    port.is_none_or(probe)
+}
+
 /// Windows: starts adb's server as this app's child unless one is up already.
 pub fn ensure_adb_server() {
-    ensure_server_with(OWN_ADB_SERVER, &|| adb_server_running(ADB_PORT), &|exe| server_command(exe).spawn().ok(), &|child| {
+    ensure_server_with(OWN_ADB_SERVER, &|| server_up(server_port(), &adb_server_running), &|exe| server_command(exe).spawn().ok(), &|child| {
         // A crash then takes the server along too, so its folder isn't left locked
         crate::winjob::kill_with_us(child);
     }, &adb_exe);
@@ -319,32 +333,31 @@ impl Adb {
         }
     }
 
-    /// (serial, state) for everything adb sees: "device" (usable), "unauthorized", "offline", ...
-    pub fn device_states(&self) -> Vec<(String, String)> {
-        let (rc, out, _) = self.run(None, &["devices"], RUN_TIMEOUT);
-        if rc != 0 {
-            return Vec::new();
-        }
-        out.lines().skip(1).filter_map(|line| {
-            let parts: Vec<&str> = line.trim().split('\t').collect();
-            (parts.len() == 2).then(|| (parts[0].to_string(), parts[1].to_string()))
-        }).collect()
-    }
-
-    /// (serial, state, model) for everything adb sees; model is what `adb devices -l` names it, or "".
-    pub fn device_models(&self) -> Vec<(String, String, String)> {
+    /// (serial, state, model) for each phone on a cable (or an emulator) in `adb devices -l`: wireless debugging has no
+    /// `usb:` entry. model is what adb names it, or "".
+    fn cable_devices(&self) -> Vec<(String, String, String)> {
         let (rc, out, _) = self.run(None, &["devices", "-l"], RUN_TIMEOUT);
         if rc != 0 {
             return Vec::new();
         }
         out.lines().skip(1).filter_map(|line| {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() < 2 {
+            if parts.len() < 2 || !(parts[0].starts_with("emulator-") || parts[2..].iter().any(|p| p.starts_with("usb:"))) {
                 return None;
             }
             let model = parts[2..].iter().find_map(|p| p.strip_prefix("model:")).unwrap_or("");
             Some((parts[0].to_string(), parts[1].to_string(), model.replace('_', " ")))
         }).collect()
+    }
+
+    /// (serial, state) for everything on a cable adb sees: "device" (usable), "unauthorized", "offline", ...
+    pub fn device_states(&self) -> Vec<(String, String)> {
+        self.cable_devices().into_iter().map(|(serial, state, _)| (serial, state)).collect()
+    }
+
+    /// (serial, state, model) for everything on a cable adb sees; model is what `adb devices -l` names it, or "".
+    pub fn device_models(&self) -> Vec<(String, String, String)> {
+        self.cable_devices()
     }
 
     /// The phone's own model name, which `adb devices -l` mangles; "" if adb can't say.
@@ -431,15 +444,15 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
-    fn serve_once(reply: &'static [u8]) -> u16 {
+    fn serve_once(request: &'static [u8], reply: &'static [u8]) -> u16 {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         std::thread::spawn(move || {
             use std::io::{Read, Write};
             let (mut socket, _) = listener.accept().unwrap();
-            let mut request = [0u8; 16];
-            socket.read_exact(&mut request).unwrap();
-            assert_eq!(&request, b"000chost:devices");
+            let mut asked = vec![0u8; request.len()];
+            socket.read_exact(&mut asked).unwrap();
+            assert_eq!(asked, request);
             socket.write_all(reply).unwrap();
         });
         port
@@ -447,19 +460,35 @@ mod tests {
 
     #[test]
     fn devices_are_asked_of_the_server_without_a_process() {
-        let port = serve_once(b"OKAY0024FAKE0001\tdevice\nSECOND\tunauthorized\n");
-        let list = devices_from_server(port, Duration::from_secs(2)).unwrap();
+        let reply = b"OKAY0052FAKE0001 device usb:1-1 transport_id:1\nSECOND unauthorized usb:1-2 transport_id:2\n";
+        let port = serve_once(b"000ehost:devices-l", reply);
+        let list = devices_from_server(port, Duration::from_secs(2), true).unwrap();
         let adb = Adb { exe: Some("adb".into()), runner: Box::new(move |_, _, _| (0, list.clone(), String::new())) };
         assert_eq!(adb.device_states(), vec![("FAKE0001".into(), "device".into()), ("SECOND".into(), "unauthorized".into())]);
+        assert!(devices_from_server(serve_once(b"000chost:devices", b"OKAY0000"), Duration::from_secs(2), false).is_some());
     }
 
     #[test]
     fn a_refusing_or_absent_server_means_run_adb_instead() {
-        assert!(devices_from_server(serve_once(b"FAIL0000"), Duration::from_secs(2)).is_none());
+        assert!(devices_from_server(serve_once(b"000chost:devices", b"FAIL0000"), Duration::from_secs(2), false).is_none());
         let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        assert!(devices_from_server(closed, Duration::from_secs(1)).is_none());
-        assert!(is_plain_devices(&["/usr/bin/adb".into(), "devices".into()]));
-        assert!(!is_plain_devices(&["adb".into(), "devices".into(), "-l".into()]));
+        assert!(devices_from_server(closed, Duration::from_secs(1), false).is_none());
+        assert_eq!(plain_devices(&words(&["/usr/bin/adb", "devices"])), Some(false));
+        assert_eq!(plain_devices(&words(&["adb", "devices", "-l"])), Some(true));
+        assert_eq!(plain_devices(&words(&["adb", "-s", "x", "devices"])), None);
+    }
+
+    #[test]
+    fn the_server_checked_is_the_one_adb_will_use() {
+        let asked = std::cell::RefCell::new(Vec::new());
+        let probe = |port: u16| {
+            asked.borrow_mut().push(port);
+            false
+        };
+        assert!(!server_up(Some(5039), &probe));
+        assert_eq!(*asked.borrow(), [5039]);
+        assert!(server_up(None, &probe), "another machine's server isn't ours to start");
+        assert_eq!(asked.borrow().len(), 1);
     }
 
     #[test]
@@ -599,8 +628,20 @@ mod tests {
 
     #[test]
     fn adb_devices_returns_only_authorized_serials() {
-        let (adb, _) = fake((0, "List of devices attached\nphone-1\tdevice\nphone-2\tunauthorized\nemulator-5554\tdevice\nnoise\n".into(), String::new()));
+        let (adb, _) = fake((0, "List of devices attached\nphone-1 device usb:1-1 transport_id:1\nphone-2 unauthorized usb:1-2 transport_id:2\nemulator-5554 device transport_id:3\nnoise\n".into(), String::new()));
         assert_eq!(adb.devices(), ["phone-1", "emulator-5554"]);
+    }
+
+    #[test]
+    fn wireless_debugging_is_not_a_cable() {
+        let output = "List of devices attached\n\
+            cable-1                device usb:1-1 product:p model:Pixel_7 transport_id:1\n\
+            192.168.1.9:5555       device product:p model:Pixel_7 transport_id:2\n\
+            adb-ABC123-xyz._adb-tls-connect._tcp device product:p model:Pixel_7 transport_id:3\n";
+        let (adb, _) = fake((0, output.into(), String::new()));
+        assert_eq!(adb.devices(), ["cable-1"]);
+        assert_eq!(adb.device_states(), [("cable-1".to_string(), "device".to_string())]);
+        assert_eq!(adb.device_models().len(), 1);
     }
 
     #[test]
