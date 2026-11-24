@@ -307,7 +307,9 @@ pub struct WinWant(pub crate::win::Owned, pub u32);
 impl WantEvent for WinWant {
     fn wait(&self, timeout: Duration) -> bool {
         // The sender takes signals from the same event, so one it took meanwhile counts as well
-        crate::unitycapture::asked(self.1, crate::win::wait(&self.0, timeout.as_millis() as u32), timeout)
+        let began = std::time::Instant::now();
+        let took = crate::win::wait(&self.0, timeout.as_millis() as u32);
+        crate::unitycapture::asked(self.1, took, crate::unitycapture::ask_window(timeout, began.elapsed()))
     }
 }
 

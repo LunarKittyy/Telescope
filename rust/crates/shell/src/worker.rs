@@ -475,6 +475,8 @@ struct Shared {
     steps_replaced: AtomicBool,
     /// The frame that was out when steps that hide things came in on the window's thread and a dark one went out in its place, until the real run of those steps on it is done or a newer frame comes.
     replay: Mutex<Option<telescope_core::media::PipelineFrame>>,
+    /// Hiding was asked for on a frame with nothing of it in memory to hide from, so the picture out is still the clear one until the real run on it is published or a newer frame comes: the camera sends nothing meanwhile and keeps the frame it has.
+    hiding_owed: AtomicBool,
     /// A frame took steps that came in (the frame path of installing them), so the hiding count goes up with that frame's publish, as hide_cached's does with its own.
     installed: AtomicBool,
     /// How many times steps were handed over to hide_cached: a replay of an earlier hand-over gives up its wait on the card and publishes nothing.
@@ -652,7 +654,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), nudge: Flag::default(), retry_pace: Mutex::new(drop_retry_delay), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), surface_wish, camera_fit, plain_steps, scaled_ns: AtomicU64::new(0), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
+            photo_until: Mutex::new(None), surface_wish, camera_fit, plain_steps, scaled_ns: AtomicU64::new(0), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), hiding_owed: AtomicBool::new(false), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -1043,6 +1045,8 @@ impl Shared {
             // stamped with the epoch it was made under, not the one it comes out in
             self.slot.publish_picture_at(out, entered);
             *published += 1;
+            // Made under the steps, so what the camera takes next is hidden
+            self.hiding_owed.store(false, Ordering::SeqCst);
         }
         publish.1 = seq;
         true
@@ -1096,6 +1100,12 @@ impl Shared {
                     *self.replay.lock().unwrap() = Some(cached);
                     self.handed.fetch_add(1, Ordering::SeqCst);
                     self.slot.forget_history();
+                    {
+                        // Under the lock the camera sends under: what it queued is from before and goes nowhere, and the clear picture it has isn't sent again until the hidden one is out
+                        let _published = self.published.lock().unwrap();
+                        self.hidings.fetch_add(1, Ordering::SeqCst);
+                        self.hiding_owed.store(true, Ordering::SeqCst);
+                    }
                     self.start_replay();
                     return;
                 }
@@ -1132,6 +1142,7 @@ impl Shared {
             self.hidings.fetch_add(1, Ordering::SeqCst);
             self.slot.publish_picture_at(out, entered);
             *published += 1;
+            self.hiding_owed.store(false, Ordering::SeqCst);
         }
         if changed {
             *self.replay.lock().unwrap() = Some(cached);
@@ -1202,7 +1213,10 @@ impl Shared {
             return;
         }
         // The dark frame stays out unless there is something better, and nothing is published after Stop
-        let Some(out) = hidden.filter(|_| !self.stopped()) else { return };
+        let out = hidden.filter(|_| !self.stopped());
+        // Hidden, or nothing to hide after all: either way the frame out is the one to send
+        self.hiding_owed.store(false, Ordering::SeqCst);
+        let Some(out) = out else { return };
         self.hidings.fetch_add(1, Ordering::SeqCst);
         self.slot.publish_at(out, entered);
         *published += 1;
@@ -1870,6 +1884,11 @@ impl Shared {
             }
             // Only what is queued or shown can be fitted again
             fitted_on_card.retain(|(n, _)| queued.iter().any(|(f, _)| f.number == *n) || shown.as_ref().is_some_and(|f| f.number == *n));
+            // Hiding was asked for and there was nothing in memory to hide from yet: nothing goes out, the camera keeps the frame it has, until the hidden one is made
+            if self.hiding_owed.load(Ordering::SeqCst) {
+                self.slot.wait_newer(seen, Duration::from_millis(5));
+                continue;
+            }
             let next = match pacer.pick(Instant::now(), &mut queued, fitted.is_some()) {
                 Pick::Wait => continue,
                 Pick::New(frame, at) => Some((*frame, at)),
@@ -1914,7 +1933,7 @@ impl Shared {
                 let began = telescope_core::time::monotonic_ns();
                 // Fitting and converting took time: a hiding published meanwhile is looked for again under the lock it is published under, and the send is made under it, so a clear frame never goes out after a hiding was published
                 let published = self.published.lock().unwrap();
-                if self.hidings.load(Ordering::SeqCst) != hidings {
+                if self.hidings.load(Ordering::SeqCst) != hidings || self.hiding_owed.load(Ordering::SeqCst) {
                     continue;
                 }
                 let sent = if urgent { cam.send_now(fitted.as_ref().unwrap()) } else { cam.send(fitted.as_ref().unwrap()) };
@@ -4206,8 +4225,8 @@ mod tests {
         assert!(fits.load(Ordering::SeqCst) >= 3, "every frame is scaled once, on its way in");
     }
 
-    /// A picture on the card with only its copy scaled to the camera in memory; reading the whole one back waits for the gate (a backed-up card).
-    struct OnlyScaled(Arc<AtomicBool>);
+    /// A picture on the card with only its copy scaled to the camera in memory (when the bool is set; else nothing of it is); reading the whole one back waits for the gate (a backed-up card).
+    struct OnlyScaled(Arc<AtomicBool>, bool);
 
     impl telescope_core::media::CardPicture for OnlyScaled {
         fn land(&self) -> Frame {
@@ -4229,7 +4248,7 @@ mod tests {
             true
         }
         fn landed_fitted(&self, width: u32, height: u32) -> Option<Frame> {
-            Some(grey(width, height, 200))
+            self.1.then(|| grey(width, height, 200))
         }
         fn land_fitted(&self, width: u32, height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
             Some(grey(width, height, 200))
@@ -4237,7 +4256,7 @@ mod tests {
     }
 
     /// Makes `OnlyScaled` pictures, and hides by halving the luma of the pixels it is given.
-    struct HalvesOnlyScaled(Arc<AtomicBool>, Arc<AtomicU64>);
+    struct HalvesOnlyScaled(Arc<AtomicBool>, Arc<AtomicU64>, bool);
 
     impl FramePipeline for HalvesOnlyScaled {
         fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
@@ -4245,7 +4264,7 @@ mod tests {
             frame
         }
         fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
-            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(OnlyScaled(self.0.clone()))))
+            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(OnlyScaled(self.0.clone(), self.2))))
         }
         fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
             Some(grey(frame.width, frame.height, frame.data[0] / 2))
@@ -4266,7 +4285,7 @@ mod tests {
         let _opens_gate = OpensOnDrop(gate.clone());
         let media = WithPipeline(Box::new({
             let (gate, cell) = (gate.clone(), cell.clone());
-            move || Box::new(HalvesOnlyScaled(gate.clone(), cell.clone()))
+            move || Box::new(HalvesOnlyScaled(gate.clone(), cell.clone(), true))
         }));
         let setup = WorkerSetup { canvas: (Some(4), Some(4)), ..setup(opener) };
         // A slot that wants no pixels in memory, so the stream doesn't read the whole picture back
@@ -4278,6 +4297,32 @@ mod tests {
         // The card is still backed up, so nothing but the scaled copy can be hidden: the camera must not stay on the clear one
         wait_for(|| cams.sent.lock().unwrap().last() == Some(&100));
         gate.store(true, Ordering::SeqCst);
+        w.stop();
+    }
+
+    #[test]
+    fn a_stalled_picture_with_nothing_of_it_in_memory_is_not_sent_clear_again_while_its_hiding_waits_for_the_card() {
+        let cams = Arc::new(Cams::default());
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10), Step::Pause(Duration::from_secs(30))])]);
+        let (gate, cell) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicU64::new(0)));
+        let _opens_gate = OpensOnDrop(gate.clone());
+        let media = WithPipeline(Box::new({
+            let (gate, cell) = (gate.clone(), cell.clone());
+            move || Box::new(HalvesOnlyScaled(gate.clone(), cell.clone(), false))
+        }));
+        let setup = WorkerSetup { canvas: (Some(4), Some(4)), ..setup(opener) };
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(Arc::new(Mutex::new(None)), Arc::new(Mutex::new(Vec::new()))));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(setup, Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        w.set_steps(privacy_step());
+        // Neither the whole picture nor the scaled copy is in memory and the card is backed up: nothing is sent, not even the picture it has again, for many resend periods
+        std::thread::sleep(Duration::from_millis(100));
+        let before = cams.sent.lock().unwrap().len();
+        std::thread::sleep(Duration::from_millis(500));
+        assert_eq!(cams.sent.lock().unwrap().len(), before, "the clear picture went to the camera again before its hiding was ready");
+        gate.store(true, Ordering::SeqCst);
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&100));
         w.stop();
     }
 

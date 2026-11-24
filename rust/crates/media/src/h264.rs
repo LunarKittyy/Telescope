@@ -929,9 +929,9 @@ impl H264 {
                 self.candidate_slower(cand, span, fed);
                 return;
             }
-            // A card that gave clean pictures up to a moment ago and can't catch up with the stream is too slow for it, not broken: software keeps the stream and the card gets another go after a wait (a smaller stream may suit it)
+            // A card that gave clean pictures up to a moment ago and can't catch up with the stream (pieces still unanswered) is too slow for it, not broken: software keeps the stream and the card gets another go after a wait (a smaller stream may suit it). One that answered everything and was cut short by a damaged piece says nothing of its speed
             if let (Plan::Card(hw), Some(last)) = (&cand.plan, cand.last_picture) {
-                if now.saturating_duration_since(last) < slow::STILL_GIVING {
+                if cand.reported < cand.sent && now.saturating_duration_since(last) < slow::STILL_GIVING {
                     self.card_too_slow(*hw, &cand);
                     return;
                 }
@@ -2693,6 +2693,29 @@ pub(crate) mod tests {
         assert!(dec.candidate.is_none());
         assert!(!hardware_failed(), "a slow card was counted as a broken one for the rest of the run");
         assert!(dec.policy.lock().unwrap().cooldown.active(), "software doesn't keep the stream for the usual wait");
+    }
+
+    #[test]
+    fn a_card_that_kept_up_but_met_a_damaged_piece_at_the_end_is_not_called_too_slow() {
+        let Some(packets) = testenc::h264(&[80; 40], 64, 48, 100) else { return };
+        let _turn = card_test();
+        let mut dec = software();
+        dec.feed(&packets[0]);
+        dec.retry_hw = Some(Hw::Cuda);
+        dec.feed(&packets[1]);
+        let cand = dec.candidate.as_mut().expect("a card started beside software");
+        // Clean pictures and every piece answered, then a damaged one just before its time is up
+        let now = slow::now();
+        cand.began = now - slow::START_LIMIT;
+        (cand.first_picture, cand.last_picture) = (Some(now - Duration::from_secs(6)), Some(now - Duration::from_millis(200)));
+        (cand.pictures, cand.sent, cand.reported, cand.started, cand.ready, cand.keyframe_seen) = (50, 50, 49, true, true, true);
+        if let Engine::Inline { reports, .. } = &mut cand.engine {
+            *reports = VecDeque::from([Report::Damaged]);
+        }
+        dec.poll_candidate();
+        assert!(dec.candidate.is_none());
+        assert!(!hardware_failed(), "a card that kept up was counted as a broken one");
+        assert!(!dec.policy.lock().unwrap().cooldown.active(), "a card that kept up was put on the wait for slow ones");
     }
 
     #[test]

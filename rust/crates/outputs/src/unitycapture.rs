@@ -92,6 +92,11 @@ pub fn asked(num: u32, took: bool, within: std::time::Duration) -> bool {
     last_ask(num).is_some_and(|at| at.elapsed() < within)
 }
 
+/// How far back an ask counts for a wait of `timeout` that really lasted `waited`: the timer can run a wait over (a Windows tick is longer than a short wait), and an ask taken meanwhile still counts.
+pub fn ask_window(timeout: std::time::Duration, waited: std::time::Duration) -> std::time::Duration {
+    timeout.max(waited)
+}
+
 /// How often the picture waiting for an app to open the camera is refreshed.
 const PRIME_EVERY: std::time::Duration = std::time::Duration::from_secs(1);
 
@@ -323,7 +328,10 @@ impl Target for Shared {
         // The watcher takes some of the signals too (they reset on being taken), and notes the ones it took
         let (_, want, _, _) = self.open.as_ref().unwrap();
         if asked(self.num, crate::win::wait(want, 0), ASK_TIMEOUT) {
-            self.asked = last_ask(self.num).unwrap_or_else(std::time::Instant::now);
+            // Never moved back: a note from before this reader opened is older than the time it was given when it did
+            if let Some(at) = last_ask(self.num) {
+                self.asked = self.asked.max(at);
+            }
         }
         self.asked.elapsed() < ASK_TIMEOUT
     }
@@ -519,6 +527,17 @@ mod tests {
         assert!(asked(4242, false, second), "taken by the other waiter a moment ago");
         assert!(!asked(4242, false, std::time::Duration::ZERO), "too long ago for the wait it is asked for");
         assert!(!asked(4243, false, second), "another camera's filter");
+    }
+
+    #[test]
+    fn an_ask_taken_while_a_wait_ran_over_still_counts_for_it() {
+        let short = std::time::Duration::from_millis(5);
+        note_ask(4344);
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        assert!(!asked(4344, false, short), "an ask older than the wait it is asked for");
+        let ran_over = std::time::Duration::from_secs(10);
+        assert!(asked(4344, false, ask_window(short, ran_over)), "an ask from while the wait ran over was lost");
+        assert_eq!(ask_window(ran_over, short), ran_over, "a wait that ended early looks no further back than it was asked to");
     }
 
     #[test]
