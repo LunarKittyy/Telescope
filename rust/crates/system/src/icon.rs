@@ -1,4 +1,4 @@
-//! The app's mark, drawn: widgets/common.py's create_app_icon (an accent disc with a dark centre) and _tray_pixmap (that disc with
+//! The app's mark, drawn: the window icon (an accent disc with a dark centre) and the tray icon (that disc with
 //! what's streaming on it). Everything that shows the icon comes from here, in straight RGBA rows.
 
 /// theme.ACCENT, theme.BG and theme.ERR.

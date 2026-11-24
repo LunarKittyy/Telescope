@@ -1,4 +1,4 @@
-//! The Windows app's Start menu id and the warning for running from inside a zip (platform/windows.py).
+//! The Windows app's Start menu id and the warning for running from inside a zip.
 
 use std::path::Path;
 
@@ -79,7 +79,6 @@ mod tests {
         assert!(!left_its_folder(&app, "stable"));
     }
 
-    // test_platform_windows.py::test_running_from_archive_spots_zip_tools_temp_folders
     #[test]
     fn running_from_archive_spots_zip_tools_temp_folders() {
         for (inside, archived) in [
@@ -96,7 +95,6 @@ mod tests {
         }
     }
 
-    // test_platform_windows.py::test_running_from_archive_ignores_folders_outside_temp
     #[test]
     fn running_from_archive_ignores_folders_outside_temp() {
         let root = scratch_dir("archive");
@@ -115,7 +113,6 @@ mod tests {
         }
     }
 
-    // test_platform_windows.py::test_only_the_installed_copy_takes_the_start_menu_entrys_app_id
     #[test]
     fn only_the_installed_copy_takes_the_start_menu_entrys_app_id() {
         // Unzipped: no uninstaller, so no shortcut with the id

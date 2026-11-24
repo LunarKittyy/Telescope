@@ -1,4 +1,4 @@
-//! A plugin's own catalogs, kept in step with its code (scripts/i18n.py --plugin): `plugin-texts extract`, `new <lang>` and `status`.
+//! A plugin's own catalogs, kept in step with its code: `plugin-texts extract`, `new <lang>` and `status`.
 //! Texts come from tr(), trn() and N_() calls with literal strings in its .lua files and from @tr() in its .slint files.
 
 use crate::i18n::{read_po, write_po, PoEntry, LOCALE};
@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 const DEFAULT_PLURAL: &str = "nplurals=2; plural=(n != 1);";
 
-/// Languages whose plural rule isn't English's (scripts/i18n.py's PLURALS).
+/// Languages whose plural rule isn't English's.
 const PLURALS: &[(&str, &str)] = &[
     ("fr", "nplurals=2; plural=(n > 1);"),
     ("pt_BR", "nplurals=2; plural=(n > 1);"),

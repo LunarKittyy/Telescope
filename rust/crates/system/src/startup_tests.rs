@@ -141,7 +141,6 @@ impl Rig {
 
 // ── Starting when the phone is ready ──────────────────────────────────
 
-// test_startup.py::test_off_by_default_and_never_starts
 #[test]
 fn off_by_default_and_never_starts() {
     let mut r = Rig::new();
@@ -149,7 +148,6 @@ fn off_by_default_and_never_starts() {
     assert!(r.starts().is_empty());
 }
 
-// test_startup.py::test_starts_once_per_arrival_without_asking
 #[test]
 fn starts_once_per_arrival_without_asking() {
     let mut r = Rig::new();
@@ -166,7 +164,6 @@ fn starts_once_per_arrival_without_asking() {
     assert_eq!(r.starts(), [false, false]);
 }
 
-// test_startup.py::test_stop_sticks_until_the_phone_goes_away
 #[test]
 fn stop_sticks_until_the_phone_goes_away() {
     let mut r = Rig::new();
@@ -179,7 +176,6 @@ fn stop_sticks_until_the_phone_goes_away() {
     assert_eq!(r.starts(), [false]);
 }
 
-// test_startup.py::test_switching_phones_is_a_new_arrival
 #[test]
 fn switching_phones_is_a_new_arrival() {
     let mut r = Rig::new();
@@ -190,7 +186,6 @@ fn switching_phones_is_a_new_arrival() {
     assert_eq!(r.starts(), [false, false]);
 }
 
-// test_startup.py::test_not_while_a_start_is_waking_the_phone
 #[test]
 fn not_while_a_start_is_waking_the_phone() {
     let mut r = Rig::new();
@@ -200,7 +195,6 @@ fn not_while_a_start_is_waking_the_phone() {
     assert!(r.starts().is_empty() && !r.plugin.starting_own);
 }
 
-// test_startup.py::test_not_while_streaming
 #[test]
 fn not_while_streaming() {
     let mut r = Rig::new();
@@ -210,7 +204,6 @@ fn not_while_streaming() {
     assert!(r.starts().is_empty());
 }
 
-// test_startup.py::test_the_two_old_checkboxes_carry_over
 #[test]
 fn the_two_old_checkboxes_carry_over() {
     let cases = [
@@ -228,7 +221,6 @@ fn the_two_old_checkboxes_carry_over() {
     }
 }
 
-// test_startup.py::test_config_round_trip_and_bad_values
 #[test]
 fn config_round_trip_and_bad_values() {
     let mut r = Rig::new();
@@ -250,7 +242,6 @@ fn config_round_trip_and_bad_values() {
     assert_eq!(r.plugin.stop_delay_s, 15);
 }
 
-// test_startup.py::test_diagnostics_say_what_is_on_and_who_owns_the_stream
 #[test]
 fn diagnostics_say_what_is_on_and_who_owns_the_stream() {
     let mut r = Rig::new();
@@ -269,7 +260,6 @@ fn diagnostics_say_what_is_on_and_who_owns_the_stream() {
     assert_eq!(r.plugin.diagnostics(), lines.into_iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<Vec<_>>());
 }
 
-// test_startup.py::test_ready_starts_from_the_tray
 #[test]
 fn ready_starts_from_the_tray() {
     // Opened at sign-in straight to the tray, the window is never shown, and the phone arriving still starts
@@ -280,7 +270,6 @@ fn ready_starts_from_the_tray() {
     assert_eq!(r.starts(), [false]);
 }
 
-// test_startup.py::test_ready_asks_for_the_phone_to_be_checked_with_the_window_hidden
 #[test]
 fn ready_asks_for_the_phone_to_be_checked_with_the_window_hidden() {
     let mut r = Rig::new();
@@ -290,7 +279,6 @@ fn ready_asks_for_the_phone_to_be_checked_with_the_window_hidden() {
     assert_eq!(r.wanted(), [(true, false), (false, false), (true, false)]);
 }
 
-// test_startup.py::test_ready_says_when_only_the_phone_leaving_matters
 #[test]
 fn ready_says_when_only_the_phone_leaving_matters() {
     // Started (or stopped) for this arrival: checks only need to notice the phone going away, so they can be slow
@@ -308,7 +296,6 @@ fn ready_says_when_only_the_phone_leaving_matters() {
 
 // ── Streaming while an app uses the camera ────────────────────────────
 
-// test_startup.py::test_with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone
 #[test]
 fn with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone() {
     // The phone isn't checked while the window is hidden, so the ready it said before is no reason to start
@@ -320,7 +307,6 @@ fn with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone() {
     assert_eq!(r.starts(), [false]);
 }
 
-// test_startup.py::test_with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left
 #[test]
 fn with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left() {
     let mut r = Rig::watching();
@@ -330,7 +316,6 @@ fn with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left() {
     assert!(r.starts().is_empty());
 }
 
-// test_startup.py::test_an_app_opening_the_camera_just_after_the_window_comes_back_waits_for_a_fresh_check
 #[test]
 fn an_app_opening_the_camera_just_after_the_window_comes_back_waits_for_a_fresh_check() {
     // Hidden, the phone wasn't checked: the ready from before it was hidden says nothing about now
@@ -343,7 +328,6 @@ fn an_app_opening_the_camera_just_after_the_window_comes_back_waits_for_a_fresh_
     assert_eq!(r.starts(), [false]);
 }
 
-// test_startup.py::test_watching_is_off_by_default
 #[test]
 fn watching_is_off_by_default() {
     let mut r = Rig::new();
@@ -352,7 +336,6 @@ fn watching_is_off_by_default() {
     assert!(r.starts().is_empty());
 }
 
-// test_startup.py::test_starts_when_an_app_reads_the_camera_and_stops_after_it_lets_go
 #[test]
 fn starts_when_an_app_reads_the_camera_and_stops_after_it_lets_go() {
     let mut r = Rig::watching();
@@ -366,7 +349,6 @@ fn starts_when_an_app_reads_the_camera_and_stops_after_it_lets_go() {
     assert_eq!(r.stops(), 1);
 }
 
-// test_startup.py::test_an_app_coming_back_in_time_keeps_the_stream
 #[test]
 fn an_app_coming_back_in_time_keeps_the_stream() {
     let mut r = Rig::watching();
@@ -378,7 +360,6 @@ fn an_app_coming_back_in_time_keeps_the_stream() {
     assert_eq!(r.starts(), [false]);
 }
 
-// test_startup.py::test_waits_for_the_phone_when_an_app_reads_first
 #[test]
 fn waits_for_the_phone_when_an_app_reads_first() {
     let mut r = Rig::new();
@@ -391,7 +372,6 @@ fn waits_for_the_phone_when_an_app_reads_first() {
     assert_eq!(r.starts(), [false]);
 }
 
-// test_startup.py::test_never_stops_a_stream_it_did_not_start
 #[test]
 fn never_stops_a_stream_it_did_not_start() {
     let mut r = Rig::watching();
@@ -402,7 +382,6 @@ fn never_stops_a_stream_it_did_not_start() {
     assert!(r.starts().is_empty() && r.stops() == 0);
 }
 
-// test_startup.py::test_a_start_already_waking_is_not_claimed
 #[test]
 fn a_start_already_waking_is_not_claimed() {
     let mut r = Rig::watching();
@@ -414,7 +393,6 @@ fn a_start_already_waking_is_not_claimed() {
     assert!(r.starts().is_empty() && !r.counting());
 }
 
-// test_startup.py::test_stop_sticks_until_the_app_lets_go
 #[test]
 fn stop_sticks_until_the_app_lets_go() {
     let mut r = Rig::watching();
@@ -428,7 +406,6 @@ fn stop_sticks_until_the_app_lets_go() {
     assert_eq!(r.starts(), [false, false]);
 }
 
-// test_startup.py::test_a_reconnect_keeps_the_stream_its_own
 #[test]
 fn a_reconnect_keeps_the_stream_its_own() {
     let mut r = Rig::watching();
@@ -444,7 +421,6 @@ fn a_reconnect_keeps_the_stream_its_own() {
     assert_eq!(r.stops(), 1);
 }
 
-// test_startup.py::test_an_app_leaving_while_the_phone_wakes_still_stops_it
 #[test]
 fn an_app_leaving_while_the_phone_wakes_still_stops_it() {
     let mut r = Rig::watching();
@@ -455,7 +431,6 @@ fn an_app_leaving_while_the_phone_wakes_still_stops_it() {
     assert_eq!(r.stops(), 1);
 }
 
-// test_startup.py::test_switching_it_off_hands_the_stream_to_the_user
 #[test]
 fn switching_it_off_hands_the_stream_to_the_user() {
     let mut r = Rig::watching();
@@ -468,7 +443,6 @@ fn switching_it_off_hands_the_stream_to_the_user() {
 
 // ── Stopping once nothing reads the camera ────────────────────────────
 
-// test_startup.py::test_a_manual_stream_stops_only_under_any
 #[test]
 fn a_manual_stream_stops_only_under_any() {
     let mut r = Rig::new();
@@ -487,7 +461,6 @@ fn a_manual_stream_stops_only_under_any() {
     assert_eq!(r.host.notifications, [("Telescope stopped streaming".to_string(), "No app used the camera for 15 s.".to_string(), false)]);
 }
 
-// test_startup.py::test_waits_the_chosen_time
 #[test]
 fn waits_the_chosen_time() {
     let mut r = Rig::new();
@@ -497,7 +470,6 @@ fn waits_the_chosen_time() {
     assert_eq!(r.wait_ms(), 300_000);
 }
 
-// test_startup.py::test_changing_the_wait_mid_count_restarts_it
 #[test]
 fn changing_the_wait_mid_count_restarts_it() {
     let mut r = Rig::new();
@@ -512,7 +484,6 @@ fn changing_the_wait_mid_count_restarts_it() {
     assert_eq!(r.wait_ms(), 10_000);
 }
 
-// test_startup.py::test_no_notice_when_it_is_switched_off
 #[test]
 fn no_notice_when_it_is_switched_off() {
     let mut r = Rig::new();
@@ -524,7 +495,6 @@ fn no_notice_when_it_is_switched_off() {
     assert!(r.stops() == 1 && r.host.notifications.is_empty());
 }
 
-// test_startup.py::test_never_stops_before_the_watch_has_reported
 #[test]
 fn never_stops_before_the_watch_has_reported() {
     let mut r = Rig::new();
@@ -535,7 +505,6 @@ fn never_stops_before_the_watch_has_reported() {
     assert!(r.counting());
 }
 
-// test_startup.py::test_an_app_opening_the_camera_cancels_the_wait
 #[test]
 fn an_app_opening_the_camera_cancels_the_wait() {
     let mut r = Rig::new();
@@ -546,7 +515,6 @@ fn an_app_opening_the_camera_cancels_the_wait() {
     assert!(!r.counting());
 }
 
-// test_startup.py::test_the_wait_ending_checks_again_before_stopping
 #[test]
 fn the_wait_ending_checks_again_before_stopping() {
     let mut r = Rig::new();
@@ -558,7 +526,6 @@ fn the_wait_ending_checks_again_before_stopping() {
     assert_eq!(r.stops(), 0);
 }
 
-// test_startup.py::test_a_restart_never_stops_or_shortens
 #[test]
 fn a_restart_never_stops_or_shortens() {
     let mut r = Rig::new();
@@ -572,7 +539,6 @@ fn a_restart_never_stops_or_shortens() {
     assert!(r.counting() && r.stops() == 0);
 }
 
-// test_startup.py::test_switching_the_stop_off_cancels_the_wait
 #[test]
 fn switching_the_stop_off_cancels_the_wait() {
     let mut r = Rig::new();
@@ -583,7 +549,6 @@ fn switching_the_stop_off_cancels_the_wait() {
     assert!(!r.counting());
 }
 
-// test_startup.py::test_a_failed_start_does_not_mark_the_next_manual_stream
 #[test]
 fn a_failed_start_does_not_mark_the_next_manual_stream() {
     let mut r = Rig::watching();
@@ -595,7 +560,6 @@ fn a_failed_start_does_not_mark_the_next_manual_stream() {
     assert!(!r.counting() && r.stops() == 0);
 }
 
-// test_startup.py::test_phone_ready_start_with_idle_stop_stays_stopped
 #[test]
 fn phone_ready_start_with_idle_stop_stays_stopped() {
     let mut r = Rig::new();
@@ -613,7 +577,6 @@ fn phone_ready_start_with_idle_stop_stays_stopped() {
     assert_eq!(r.starts(), [false, false]);
 }
 
-// test_startup.py::test_watch_start_without_idle_stop_keeps_streaming
 #[test]
 fn watch_start_without_idle_stop_keeps_streaming() {
     let mut r = Rig::watching();
@@ -624,7 +587,6 @@ fn watch_start_without_idle_stop_keeps_streaming() {
     assert!(!r.counting() && r.stops() == 0);
 }
 
-// test_startup.py::test_an_idle_stop_lets_the_next_app_start_it_again
 #[test]
 fn an_idle_stop_lets_the_next_app_start_it_again() {
     let mut r = Rig::watching();
@@ -637,7 +599,6 @@ fn an_idle_stop_lets_the_next_app_start_it_again() {
     assert_eq!(r.starts(), [false, false]);
 }
 
-// test_startup.py::test_once_a_second_camera_streamed_nothing_stops_by_itself_until_all_stop
 #[test]
 fn once_a_second_camera_streamed_nothing_stops_by_itself_until_all_stop() {
     let mut r = Rig::watching();
@@ -655,7 +616,6 @@ fn once_a_second_camera_streamed_nothing_stops_by_itself_until_all_stop() {
     assert!(!r.plugin.several); // one camera again after a full stop
 }
 
-// test_startup.py::test_an_outside_stop_while_an_app_reads_holds_the_watch_start
 #[test]
 fn an_outside_stop_while_an_app_reads_holds_the_watch_start() {
     let mut r = Rig::watching();
@@ -668,7 +628,6 @@ fn an_outside_stop_while_an_app_reads_holds_the_watch_start() {
 
 // ── With the phone mic on, only the camera turns off ──────────────────
 
-// test_startup.py::test_with_the_mic_on_the_idle_stop_turns_only_the_camera_off
 #[test]
 fn with_the_mic_on_the_idle_stop_turns_only_the_camera_off() {
     let mut r = Rig::watching();
@@ -683,7 +642,6 @@ fn with_the_mic_on_the_idle_stop_turns_only_the_camera_off() {
     assert!(r.host.notifications.is_empty()); // the tray icon shows it, no notification
 }
 
-// test_startup.py::test_the_camera_comes_back_when_an_app_opens_it_again
 #[test]
 fn the_camera_comes_back_when_an_app_opens_it_again() {
     let mut r = Rig::watching();
@@ -700,7 +658,6 @@ fn the_camera_comes_back_when_an_app_opens_it_again() {
     assert!(r.counting());
 }
 
-// test_startup.py::test_a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it
 #[test]
 fn a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it() {
     let mut r = Rig::watching();
@@ -713,7 +670,6 @@ fn a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it() {
 
 // ── The settings window ───────────────────────────────────────────────
 
-// test_startup.py::test_sign_in_switch_opens_telescope_at_sign_in
 #[test]
 fn sign_in_switch_opens_telescope_at_sign_in() {
     let mut r = Rig::new();
@@ -736,7 +692,6 @@ fn sign_in_switch_opens_telescope_at_sign_in() {
     assert!(r.host.calls.iter().any(|c| c == "clear_issue Some(\"startup\")"));
 }
 
-// test_startup.py::test_settings_sections_go_in_general_and_streaming
 #[test]
 fn settings_sections_go_in_general_and_streaming() {
     let mut r = Rig::new();
@@ -752,7 +707,6 @@ fn settings_sections_go_in_general_and_streaming() {
     }
 }
 
-// test_startup.py::test_start_and_stop_choices_reflect_and_change_the_settings
 #[test]
 fn start_and_stop_choices_reflect_and_change_the_settings() {
     let mut r = Rig::new();
@@ -783,7 +737,6 @@ fn start_and_stop_choices_reflect_and_change_the_settings() {
     assert_eq!(r.shown("automatic", "notify-checked"), json!(false));
 }
 
-// test_startup.py::test_wait_fields_read_and_write_the_wait
 #[test]
 fn wait_fields_read_and_write_the_wait() {
     let mut r = Rig::new();

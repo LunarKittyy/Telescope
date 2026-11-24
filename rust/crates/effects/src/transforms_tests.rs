@@ -285,7 +285,7 @@ fn a_preset_is_applied_at_once() {
     assert!(r.host.view.zoom == 2.0 && r.host.view.rotation == Some(180));
 }
 
-// test_shortcuts.py::test_plain_button_clicks: the card's Reset button as a key
+// The card's Reset button as a key
 #[test]
 fn a_plain_button_takes_no_settings_and_clicks() {
     let mut r = Rig::new();

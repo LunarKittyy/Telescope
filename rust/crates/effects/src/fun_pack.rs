@@ -1,4 +1,4 @@
-//! The Fun pack plugin (plugins/fun_pack.py): silly effects on the picture. Game Boy is a shader (game_boy.wgsl). The others work
+//! The Fun pack plugin: silly effects on the picture. Game Boy is a shader (game_boy.wgsl). The others work
 //! the picture over in a CPU step (fun_effects): they keep a trail, a few frames back or a mask between frames, or draw lines, which
 //! a shader can't, and Python does them with OpenCV on the stream's thread too. Datamosh changes the phone's H.264 packets (mosh.rs).
 //!

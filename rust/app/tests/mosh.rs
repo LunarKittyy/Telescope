@@ -1,4 +1,4 @@
-//! Datamosh through a real H.264 encoder and decoder (test_h264_mosh.py): the Mosher drops keyframes and renumbers the frames after
+//! Datamosh through a real H.264 encoder and decoder: the Mosher drops keyframes and renumbers the frames after
 //! them, and what the decoder makes of that is checked on a stream with a moving square. Skipped where this build has no encoder.
 
 use std::sync::{Arc, Mutex};

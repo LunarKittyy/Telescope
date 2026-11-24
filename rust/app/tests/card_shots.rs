@@ -15,7 +15,7 @@ use telescope_effects::stargazer::StargazerPlugin;
 use telescope_setup::monitoring::MonitoringPlugin;
 use telescope_shell::offscreen;
 use telescope_shell::plugins::camera_control::CameraControl;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 fn width() -> f32 {
     std::env::var("CARD_SHOTS_WIDTH").ok().and_then(|w| w.parse().ok()).unwrap_or(406.0)

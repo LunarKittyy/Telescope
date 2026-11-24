@@ -1,4 +1,4 @@
-//! test_composite.py's editor tests, by the same names. The window reports the pointer in px of a picture this big.
+//! The Composite plugin's editor tests. The window reports the pointer in px of a picture this big.
 
 use super::*;
 use crate::composite::{DEFAULT_MAX_ZOOM, MAX_NAME};

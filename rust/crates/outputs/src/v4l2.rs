@@ -1,5 +1,5 @@
 //! The Linux virtual camera: v4l2loopback as an output device, fed packed I420 with plain write() calls (what
-//! pyvirtualcam does for vcam.py, minus the BGR to I420 conversion the Python app needs first), and the slots' nodes.
+//! pyvirtualcam does, minus the BGR to I420 conversion the Python app needed first), and the slots' nodes.
 
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -243,7 +243,6 @@ mod tests {
         dir
     }
 
-    // test_vcam.py::test_extra_slots_are_found_by_their_label
     #[test]
     fn extra_slots_are_found_by_their_label() {
         let dir = sysfs(&[("video11", "Telescope", ""), ("video20", "Telescope #3", ""), ("video21", "Other", "")]);
@@ -305,7 +304,7 @@ mod tests {
         assert_eq!(slot_device_in(&old_only.to_string_lossy(), 1).as_deref(), Some("/dev/video20"));
     }
 
-    // test_stream.py::test_another_slot_opens_its_own_camera, the Linux half
+    // The Linux half
     #[test]
     fn another_slot_opens_its_own_device() {
         let dir = sysfs(&[("video9942", "Telescope #3", "")]);
@@ -315,7 +314,6 @@ mod tests {
         assert!(why.starts_with("/dev/video9942:"), "{why}");
     }
 
-    // test_vcam.py::test_locked_size_reads_the_drivers_format
     #[test]
     fn locked_size_reads_the_drivers_format() {
         for (text, size) in [("YU12:1280x720@30", Some((1280, 720))), ("", None), ("garbage", None), ("YU12:axb@30", None)] {
@@ -341,7 +339,6 @@ mod tests {
         assert!(why.contains("8x4"), "{why}");
     }
 
-    // test_vcam.py::test_camera_holders_skips_this_process
     #[test]
     fn camera_holders_skips_this_process() {
         let me = std::process::id();

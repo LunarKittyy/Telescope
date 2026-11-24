@@ -1,4 +1,4 @@
-// The Camera card drawn with the kit's real widgets (test_camera_control.py's slider reset).
+// The Camera card drawn with the kit's real widgets.
 use i_slint_backend_testing::ElementHandle;
 use slint::platform::{PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};

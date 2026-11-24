@@ -1,4 +1,4 @@
-//! The Several cameras plugin (plugins/composite.py): puts the running streams on one canvas, which goes out on the
+//! The Several cameras plugin: puts the running streams on one canvas, which goes out on the
 //! Telescope camera.
 //!
 //! The picture is drawn in the frame steps of the stream going to the Telescope camera (slot 0, what call apps watch), from

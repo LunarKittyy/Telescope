@@ -1,4 +1,4 @@
-// test_background.py with the real picture reader on real files, and the real card: what can't be done from the effects crate,
+// With the real picture reader on real files, and the real card: what can't be done from the effects crate,
 // which mustn't know about media.
 use i_slint_backend_testing::ElementHandle;
 use image::codecs::png::PngEncoder;
@@ -15,7 +15,7 @@ use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_core::vision;
 use telescope_effects::background::BackgroundPlugin;
 use telescope_effects::shared::{picture_reader, PictureReader};
-use telescope_shell::source::to_slint;
+use telescope_shell::slint_source::to_slint;
 
 fn reader() -> PictureReader {
     picture_reader(Arc::new(telescope_media::FfmpegMedia))
@@ -27,7 +27,6 @@ fn write_png(path: &Path, w: u32, h: u32, rgb: [u8; 3]) {
     std::fs::write(path, bytes).unwrap();
 }
 
-// test_background.py::test_a_picture_with_a_non_ascii_path_opens
 #[test]
 fn a_picture_with_a_non_ascii_path_opens() {
     let dir = scratch_dir("background-pictures");
@@ -82,7 +81,6 @@ fn pixels(frame: &Frame, x0: usize, x1: usize) -> Vec<[u8; 3]> {
     frame.data.chunks(4).enumerate().filter(|(i, _)| (x0..x1).contains(&(i % w))).map(|(_, p)| [p[0], p[1], p[2]]).collect()
 }
 
-// test_background.py::test_picture_mode_puts_the_picture_behind_and_survives_a_bad_file
 #[test]
 fn picture_mode_puts_the_picture_behind_and_survives_a_bad_file() {
     let (mut plugin, mut host) = ready();
@@ -107,7 +105,6 @@ fn picture_mode_puts_the_picture_behind_and_survives_a_bad_file() {
     assert_eq!(last, Some(json!("Can't open that picture")));
 }
 
-// test_background.py::test_settings_round_trip_and_damaged_ones_fall_back
 #[test]
 fn settings_round_trip_and_damaged_ones_fall_back() {
     i_slint_backend_testing::init_no_event_loop();

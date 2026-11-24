@@ -1,4 +1,4 @@
-//! The Colour grading plugin (plugins/colour_grading.py): wheels, curves and LUT files for the look of the picture. It hands the
+//! The Colour grading plugin: wheels, curves and LUT files for the look of the picture. It hands the
 //! colour pipeline its grade baked into a lattice (and into exact per-channel tables when each channel only depends on itself).
 
 use telescope_core::i18n::Fields;

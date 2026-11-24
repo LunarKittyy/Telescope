@@ -1,4 +1,4 @@
-// test_settings_window.py on the real settings window: what's drawn, not just the list it's drawn from.
+// On the real settings window: what's drawn, not just the list it's drawn from.
 use i_slint_backend_testing::ElementHandle;
 use serde_json::json;
 use slint::ComponentHandle;
@@ -26,7 +26,6 @@ impl Plugin for Sections {
     }
 }
 
-// test_settings_window.py::test_sections_sit_in_order_then_registration_order
 #[test]
 fn sections_sit_in_order_then_registration_order() {
     i_slint_backend_testing::init_no_event_loop();

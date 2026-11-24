@@ -1,4 +1,4 @@
-//! The Auto framing plugin (plugins/framing.py): zooms and pans to keep the people in the picture framed, through the window's view.
+//! The Auto framing plugin: zooms and pans to keep the people in the picture framed, through the window's view.
 
 use crate::peek;
 use crate::shared::Paired;

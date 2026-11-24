@@ -1,4 +1,4 @@
-//! The Cinema tools plugin (plugins/cinema.py): focus peaking, zebras, false colour, scopes, framing guides and a level on the
+//! The Cinema tools plugin: focus peaking, zebras, false colour, scopes, framing guides and a level on the
 //! preview, for judging focus, exposure, framing and a straight horizon. They are drawn on the preview only, so apps never see
 //! them. The pixel work is in `cinema_tools`, the scopes' maths in `scopes` and what is drawn over the picture in `cinema_paint`.
 

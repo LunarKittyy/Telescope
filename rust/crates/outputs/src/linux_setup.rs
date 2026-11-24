@@ -1,4 +1,4 @@
-//! Setting up v4l2loopback (platform/linux.py): loading it with Telescope's settings, at boot too if asked, adding and
+//! Setting up v4l2loopback: loading it with Telescope's settings, at boot too if asked, adding and
 //! removing the extra cameras, each behind one password prompt. Nothing here runs as root by itself: pkexec asks, sudo
 //! is only tried where it can't ask, and otherwise the command to paste into a terminal comes back.
 
@@ -410,7 +410,6 @@ mod tests {
     use super::*;
     use std::cell::RefCell;
 
-    // test_setup.py::test_refresh_persist_status
     #[test]
     fn either_boot_file_counts_as_persisted() {
         for (existing, persisted) in [(vec![PERSIST_MODPROBE_CONF], true), (vec![PERSIST_MODULES_CONF], true), (vec![], false)] {
@@ -467,7 +466,6 @@ mod tests {
         Setup { sys: f }
     }
 
-    // test_platform_linux.py::test_options_line_contains_every_runtime_parameter
     #[test]
     fn options_line_contains_every_runtime_parameter() {
         for shape in [Shape::Base, Shape::Extras] {
@@ -488,7 +486,6 @@ mod tests {
         assert_eq!((old_slot_label(0), old_slot_label(3)), ("Phone Camera".to_string(), "Phone Camera 4".to_string()));
     }
 
-    // test_platform_linux.py::test_module_loaded
     #[test]
     fn module_loaded() {
         for (rc, out, expected) in [(0, "v4l2loopback 123 0\n", true), (0, "other 123 0\n", false), (1, "v4l2loopback", false)] {
@@ -497,7 +494,6 @@ mod tests {
         }
     }
 
-    // test_platform_linux.py::test_device_and_combined_loaded_checks
     #[test]
     fn device_and_combined_loaded_checks() {
         let f = Fake { lsmod: Some((0, "v4l2loopback".into())), existing: vec![PHONE_DEV.into()], ..Fake::default() };
@@ -506,7 +502,6 @@ mod tests {
         assert!(!setup(&f).is_loaded());
     }
 
-    // test_platform_linux.py::test_pkexec_runs_the_whole_operation_behind_one_prompt
     #[test]
     fn pkexec_runs_the_whole_operation_behind_one_prompt() {
         let f = Fake::with(&["pkexec", "sudo"], &[(0, "", "")]);
@@ -514,7 +509,6 @@ mod tests {
         assert_eq!(f.calls(), [(vec!["pkexec".into(), "sh".into(), "-c".into(), "modprobe -r v4l2loopback".into()], 30)]);
     }
 
-    // test_platform_linux.py::test_cancelling_the_prompt_is_not_an_error_to_explain
     #[test]
     fn cancelling_the_prompt_is_not_an_error_to_explain() {
         let f = Fake::with(&["pkexec", "sudo"], &[(126, "", "")]);
@@ -522,7 +516,6 @@ mod tests {
         assert_eq!(f.calls().len(), 1);
     }
 
-    // test_platform_linux.py::test_no_polkit_agent_tries_cached_sudo_then_hands_back_the_command
     #[test]
     fn no_polkit_agent_tries_cached_sudo_then_hands_back_the_command() {
         let f = Fake::with(&["pkexec", "sudo"], &[(127, "", "no agent"), (1, "", "sudo: a password is required")]);
@@ -534,7 +527,6 @@ mod tests {
         assert!(setup(&f).unload().ok);
     }
 
-    // test_platform_linux.py::test_sudo_is_never_run_where_it_could_ask_for_a_password
     #[test]
     fn sudo_is_never_run_where_it_could_ask_for_a_password() {
         let f = Fake::with(&["sudo"], &[(1, "", "sudo: a password is required")]);
@@ -546,7 +538,6 @@ mod tests {
         assert!(f.calls().is_empty());
     }
 
-    // test_platform_linux.py::test_other_failures_pass_through
     #[test]
     fn other_failures_pass_through() {
         let f = Fake::with(&["pkexec"], &[(1, "", "")]);
@@ -554,7 +545,6 @@ mod tests {
         assert_eq!(setup(&f).reload(), failed("reload failed"));
     }
 
-    // test_platform_linux.py::test_reload_uses_shared_parameters
     #[test]
     fn reload_uses_shared_parameters() {
         let f = Fake::with(&["pkexec"], &[(0, "", "")]);
@@ -568,7 +558,6 @@ mod tests {
         assert_eq!(timeout, 90);
     }
 
-    // test_platform_linux.py::test_load_refuses_existing_module_or_conflicting_device
     #[test]
     fn load_refuses_existing_module_or_conflicting_device() {
         let f = Fake { lsmod: Some((0, "v4l2loopback".into())), ..Fake::default() };
@@ -578,7 +567,6 @@ mod tests {
         assert_eq!(setup(&f).setup(false), failed("/dev/video10 already exists and is not a v4l2loopback device."));
     }
 
-    // test_platform_linux.py::test_load_invokes_modprobe_and_handles_failure
     #[test]
     fn load_invokes_modprobe_and_handles_failure() {
         let f = Fake::with(&["pkexec"], &[(0, "", "")]);
@@ -592,7 +580,6 @@ mod tests {
         assert!(setup(&f).setup(false).message.contains("isn't installed"));
     }
 
-    // test_platform_linux.py::test_setup_with_persist_writes_the_boot_config_in_the_same_prompt
     #[test]
     fn setup_with_persist_writes_the_boot_config_in_the_same_prompt() {
         let f = Fake::with(&["pkexec"], &[(0, "", "")]);
@@ -603,7 +590,6 @@ mod tests {
         assert!(s.find("printf").unwrap() < s.find("modprobe v4l2loopback").unwrap());
     }
 
-    // test_platform_linux.py::test_persist_script_writes_the_exact_boot_config
     #[cfg(unix)]
     #[test]
     fn persist_script_writes_the_exact_boot_config() {
@@ -619,7 +605,6 @@ mod tests {
         assert_eq!(std::fs::read_to_string(dir.join("b-99-telescope-v4l2loopback.conf")).unwrap(), "v4l2loopback\n");
     }
 
-    // test_platform_linux.py::test_setup_leaves_someone_elses_boot_config_alone
     #[test]
     fn setup_leaves_someone_elses_boot_config_alone() {
         let mut f = Fake::with(&["pkexec"], &[(0, "", "")]);
@@ -628,14 +613,12 @@ mod tests {
         assert!(!f.calls()[0].0[3].contains("printf"));
     }
 
-    // test_platform_linux.py::test_persist_status_reports_each_file
     #[test]
     fn persist_status_reports_each_file() {
         let f = Fake { existing: vec![PERSIST_MODPROBE_CONF.into()], ..Fake::default() };
         assert_eq!(setup(&f).persist_status(), (true, false));
     }
 
-    // test_platform_linux.py::test_find_conflicting_configs_skips_ours_comments_and_read_errors
     #[test]
     fn find_conflicting_configs_skips_ours_comments_and_read_errors() {
         let f = Fake {
@@ -650,7 +633,6 @@ mod tests {
         assert_eq!(setup(&f).conflicting_confs(), ["/etc/modprobe.d/conflict.conf"]);
     }
 
-    // test_platform_linux.py::test_persist_enable_is_idempotent_and_refuses_conflicts
     #[test]
     fn persist_enable_is_idempotent_and_refuses_conflicts() {
         let f = Fake { existing: vec![PERSIST_MODPROBE_CONF.into()], ..Fake::default() };
@@ -660,7 +642,6 @@ mod tests {
         assert!(!r.ok && r.message.contains("/etc/conflict.conf"));
     }
 
-    // test_platform_linux.py::test_persist_enable_writes_both_files_and_surfaces_errors
     #[test]
     fn persist_enable_writes_both_files_and_surfaces_errors() {
         let f = Fake::with(&["pkexec"], &[(0, "", "")]);
@@ -671,7 +652,6 @@ mod tests {
         assert_eq!(setup(&f).persist_enable(false), failed("Failed to write persistence files"));
     }
 
-    // test_platform_linux.py::test_persist_disable_noop_remove_and_error
     #[test]
     fn persist_disable_noop_remove_and_error() {
         let f = Fake::default();
@@ -686,7 +666,6 @@ mod tests {
         assert_eq!(setup(&f).persist_disable(), failed("denied"));
     }
 
-    // test_platform_linux.py::test_adding_cameras_runs_one_privileged_script
     #[test]
     fn adding_cameras_runs_one_privileged_script() {
         let f = Fake::with(&["pkexec", "v4l2loopback-ctl"], &[(0, "", "")]);
@@ -696,7 +675,6 @@ mod tests {
         assert!(f.calls()[0].0.last().unwrap().contains("v4l2loopback-ctl add -n 'Telescope #2' && v4l2loopback-ctl add -n 'Telescope #3'"));
     }
 
-    // test_platform_linux.py::test_adding_cameras_without_the_tool_says_what_to_install
     #[test]
     fn adding_cameras_without_the_tool_says_what_to_install() {
         let f = Fake::default();
@@ -704,7 +682,6 @@ mod tests {
         assert!(!r.ok && r.message.contains("v4l2loopback-utils"));
     }
 
-    // test_platform_linux.py::test_removing_cameras_deletes_each_in_one_privileged_script
     #[test]
     fn removing_cameras_deletes_each_in_one_privileged_script() {
         let f = Fake::with(&["pkexec", "v4l2loopback-ctl"], &[(0, "", "")]);

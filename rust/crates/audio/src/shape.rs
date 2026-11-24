@@ -637,7 +637,7 @@ pub(crate) mod tests {
         assert!(after[after.len() - RATE / 2..].iter().zip(plain).all(|(a, p)| (a - p as f32).abs() <= 1.0));
     }
 
-    // Noise reduction (test_denoise.py)
+    // Noise reduction
 
     /// A denoiser that scales everything by gain and, like RNNoise, hands it back 20 ms late.
     struct Lagging {

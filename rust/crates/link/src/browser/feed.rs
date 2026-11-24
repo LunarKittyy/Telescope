@@ -1,4 +1,4 @@
-//! What one browser sends (BrowserFeed in browser_server.py), a feed per browser (BrowserHub), and the two ends the
+//! What one browser sends, a feed per browser (BrowserHub), and the two ends the
 //! stream reads them from: the video as a VideoFeed and the mic as an AudioFeed.
 //!
 //! Python kept only the newest decoded frame, since aiortc had decoded it already. Here the frames are still encoded

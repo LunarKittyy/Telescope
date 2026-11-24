@@ -1,4 +1,4 @@
-//! The QR pairing server (pairing.py): binds a port, makes a nonce and bearer token, waits for the phone's POST at
+//! The QR pairing server: binds a port, makes a nonce and bearer token, waits for the phone's POST at
 //! /pair/<nonce> proving it read the token, and hands back the phone that paired.
 
 use crate::net::{self, PairingAddress};

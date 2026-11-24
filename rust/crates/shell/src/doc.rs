@@ -8,9 +8,9 @@
 
 use telescope_core::i18n::Fields;
 use crate::layout::{Mode, Panels, Region, WIDTH_THREE_COL, WIDTH_TWO_COL};
-use crate::source::{quote, Interface};
+use crate::slint_source::{quote, Interface};
 
-/// Spacing between cards in a column and between columns (app.py _build_body).
+/// Spacing between cards in a column and between columns.
 const GAP: f32 = 14.0;
 /// Between columns: the same as the window's margins, so every gap across the window is one width.
 const COLUMN_GAP: f32 = MARGIN_RIGHT;
@@ -41,7 +41,7 @@ pub struct Piece {
 pub struct CardPlace {
     pub piece: Piece,
     pub region: Region,
-    /// "<plugin>/<title in English>" (collapse.py's key).
+    /// "<plugin>/<title in English>".
     pub fold_key: String,
     /// The plugin group, for its colour.
     pub category: String,
@@ -623,7 +623,7 @@ const BODY_BOTTOM: &str = r#"        }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::scan;
+    use crate::slint_source::scan;
     use slint_interpreter::{ComponentHandle, Value};
 
     const STAGE: &str = r#"

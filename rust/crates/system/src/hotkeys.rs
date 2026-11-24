@@ -1,4 +1,4 @@
-//! Global shortcuts: keys that work while another app has focus (platform/hotkeys.py).
+//! Global shortcuts: keys that work while another app has focus.
 //!
 //! Windows lets an app claim a key outright (RegisterHotKey, hotkeys_windows.rs); on Linux the GlobalShortcuts portal
 //! does it (hotkeys_portal.rs), where the desktop asks the user to confirm and may bind another key. Elsewhere there's

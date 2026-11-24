@@ -1,4 +1,4 @@
-//! The level meter's state (widgets/level_meter.py without the painting): peak and RMS bars that sink, a held peak
+//! The level meter's state: peak and RMS bars that sink, a held peak
 //! marker, and clip and limiter lights that latch for a while. The card draws it from these numbers.
 
 use serde_json::{json, Value};

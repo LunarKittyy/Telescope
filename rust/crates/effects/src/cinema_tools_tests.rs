@@ -1,4 +1,4 @@
-//! The pixel tools and the level maths of tests/test_cinema.py.
+//! The pixel tools and the level maths.
 
 use super::*;
 

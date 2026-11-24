@@ -41,7 +41,7 @@ impl Default for Pace {
     }
 }
 
-// The app's colours (theme.py)
+// The app's colours
 const BG: [u8; 3] = [0x0f, 0x12, 0x16];
 const SURFACE: [u8; 3] = [0x16, 0x1a, 0x20];
 const SURFACE_SUNK: [u8; 3] = [0x0a, 0x0c, 0x0f];
@@ -806,7 +806,6 @@ int main(int, char** argv) {
         resource().map(|r| ("this app's", r)).into_iter().collect()
     }
 
-    // test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads
     #[test]
     fn the_header_is_the_one_the_dll_reads() {
         let fields = header_fields();
@@ -823,7 +822,6 @@ int main(int, char** argv) {
         }
     }
 
-    // test_camera_wait_screen.py::test_the_cmake_resource_id_is_the_one_the_dll_loads
     #[test]
     fn the_cmake_resource_id_is_the_one_the_dll_loads() {
         assert!(read("wait_screen.h").contains("kWaitScreenResource = 101;"));
@@ -838,7 +836,7 @@ int main(int, char** argv) {
         }).collect()
     }
 
-    // test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app, with this app's screen as the one to match
+    // With this app's screen as the one to match
     #[test]
     fn the_dll_lays_it_out_like_the_app() {
         let Some(_) = compiler() else { return };
@@ -873,7 +871,6 @@ int main(int, char** argv) {
         }
     }
 
-    // test_camera_wait_screen.py::test_the_dll_turns_down_a_cut_short_resource
     #[test]
     fn the_dll_turns_down_a_cut_short_resource() {
         let (Some(mut resource), Some(_)) = (resource(), compiler()) else { return };
@@ -1003,7 +1000,6 @@ mod tests {
         }
     }
 
-    // test_vcam.py::test_holds_the_camera_until_stopped
     #[test]
     fn holds_the_camera_until_stopped() {
         let (s, log, _g) = screen(Setup::default());
@@ -1015,7 +1011,6 @@ mod tests {
         assert!(log.cams()[0].closed.load(Ordering::SeqCst) && !s.running());
     }
 
-    // test_vcam.py::test_a_wait_screen_that_failed_to_prepare_starts_again_when_asked
     #[test]
     fn a_wait_screen_that_failed_to_prepare_starts_again_when_asked() {
         let calls = Arc::new(Mutex::new(0));
@@ -1054,7 +1049,6 @@ mod tests {
         assert!(log.cams().is_empty());
     }
 
-    // test_vcam.py::test_mirror_flips_the_screen_left_to_right
     #[test]
     fn mirror_flips_the_screen_left_to_right() {
         let loader: Loader = Arc::new(|_p, w, h| {
@@ -1077,7 +1071,6 @@ mod tests {
         assert!(left < right, "the white half is on the right now");
     }
 
-    // test_vcam.py::test_opens_at_the_size_a_reader_holds_the_camera_at
     #[test]
     fn opens_at_the_size_a_reader_holds_the_camera_at() {
         let (s, log, _g) = screen(Setup { locked: Arc::new(|| Some((640, 480))), ..Setup::default() });
@@ -1088,7 +1081,6 @@ mod tests {
         assert_eq!(log.cams()[0].sent.lock().unwrap()[0].width, 640);
     }
 
-    // test_vcam.py::test_linux_sends_the_cameras_own_format_prepared_once
     #[test]
     fn sends_the_cameras_own_format_prepared_once() {
         let (s, log, _g) = screen(Setup::default());
@@ -1099,7 +1091,7 @@ mod tests {
         assert_eq!(log.cams()[0].sent.lock().unwrap()[0].data.len(), 64 * 36 * 3 / 2);
     }
 
-    // test_vcam.py::test_odd_sizes_and_windows_send_rgb (Windows' cameras here take I420 too)
+    // Windows' cameras here take I420 too
     #[test]
     fn odd_sizes_send_rgba() {
         let (s, log, _g) = screen(Setup::default());
@@ -1109,7 +1101,6 @@ mod tests {
         assert_eq!(log.cams()[0].fmt, PixelFormat::Rgba);
     }
 
-    // test_vcam.py::test_sends_rarely_until_someone_watches
     #[test]
     fn sends_rarely_until_someone_watches() {
         let pace = Pace { idle: Duration::from_millis(300), ..Pace::default() };
@@ -1134,7 +1125,6 @@ mod tests {
         s.stop();
     }
 
-    // test_vcam.py::test_windows_sends_the_moment_an_app_opens_the_camera
     #[test]
     fn sends_the_moment_an_app_opens_the_camera() {
         let polls = Arc::new(Mutex::new(0));
@@ -1157,7 +1147,6 @@ mod tests {
         s.stop();
     }
 
-    // test_vcam.py::test_a_filter_never_found_still_gets_the_idle_pace
     #[test]
     fn a_filter_never_found_still_gets_the_idle_pace() {
         let filter: FilterProbe = Arc::new(|| Some(Box::new(|| false) as Box<dyn Fn() -> bool + Send>));
@@ -1168,7 +1157,6 @@ mod tests {
         s.stop();
     }
 
-    // test_vcam.py::test_a_camera_that_wont_open_is_tried_again
     #[test]
     fn a_camera_that_wont_open_is_tried_again() {
         let pace = Pace { retry_open: Duration::from_millis(10), ..Pace::default() };
@@ -1179,7 +1167,6 @@ mod tests {
         assert_eq!(log.attempts.lock().unwrap().len(), 3);
     }
 
-    // test_vcam.py::test_showing_the_same_thing_again_keeps_the_camera_open
     #[test]
     fn showing_the_same_thing_again_keeps_the_camera_open() {
         let (s, log, _g) = screen(Setup::default());
@@ -1194,7 +1181,6 @@ mod tests {
         assert_eq!(log.cams()[1].size, (16, 16));
     }
 
-    // test_vcam.py::test_lets_go_for_a_driver_reload_and_takes_it_back
     #[test]
     fn lets_go_for_a_driver_reload_and_takes_it_back() {
         let (s, log, gate) = screen(Setup::default());
@@ -1210,7 +1196,6 @@ mod tests {
         s.stop();
     }
 
-    // test_vcam.py::test_a_stopped_screen_stays_stopped_after_a_reload
     #[test]
     fn a_stopped_screen_stays_stopped_after_a_reload() {
         let (s, log, gate) = screen(Setup::default());
@@ -1222,7 +1207,6 @@ mod tests {
         assert_eq!(log.cams().len(), 1);
     }
 
-    // test_vcam.py::test_the_wait_screen_moves_to_a_camera_installed_while_it_runs
     #[test]
     fn the_wait_screen_moves_to_a_camera_installed_while_it_runs() {
         let outdated = Arc::new(AtomicBool::new(false));
@@ -1238,7 +1222,6 @@ mod tests {
         s.stop();
     }
 
-    // test_vcam.py::test_no_image_is_the_default_screen_at_the_camera_size
     #[test]
     fn no_image_is_the_default_screen_at_the_camera_size() {
         let frames = load_frames(None, 320, 180);
@@ -1253,7 +1236,6 @@ mod tests {
         assert_eq!(&frames[0].0.data[..3], &BG);
     }
 
-    // test_vcam.py::test_an_image_that_wont_load_falls_back_to_the_default
     #[test]
     fn an_image_that_wont_load_falls_back_to_the_default() {
         let dir = telescope_core::testing::scratch_dir("wait");
@@ -1267,7 +1249,6 @@ mod tests {
         assert_eq!(frames[0].0, default_screen(64, 36));
     }
 
-    // test_vcam.py::test_read_image_frames_is_empty_for_an_image_that_wont_load
     #[test]
     fn read_image_frames_is_empty_for_an_image_that_wont_load() {
         let dir = telescope_core::testing::scratch_dir("wait");
@@ -1277,7 +1258,6 @@ mod tests {
         assert!(read_image_frames("/nonexistent/picture.png", 64, 36).is_empty());
     }
 
-    // test_vcam.py::test_a_photo_over_qts_allocation_limit_still_loads
     #[test]
     fn a_big_photo_still_loads_fitted_to_the_camera() {
         let dir = telescope_core::testing::scratch_dir("wait");
@@ -1374,7 +1354,7 @@ mod tests {
         }
     }
 
-    // 8x4, three frames: red 100 ms, blue 300 ms, green 50 ms (test_vcam.py's _GIF)
+    // 8x4, three frames: red 100 ms, blue 300 ms, green 50 ms
     const WAIT_GIF: &[u8] = b"\x47\x49\x46\x38\x39\x61\x08\x00\x04\x00\x81\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x21\xff\x0b\x4e\x45\x54\x53\x43\x41\x50\x45\x32\x2e\x30\x03\x01\x00\x00\x00\x21\xf9\x04\x00\x0a\x00\x00\x00\x2c\x00\x00\x00\x00\x08\x00\x04\x00\x00\x08\x0c\x00\x01\x08\x1c\x48\xb0\xa0\xc1\x83\x04\x03\x02\x00\x21\xf9\x04\x01\x1e\x00\x01\x00\x2c\x00\x00\x00\x00\x08\x00\x04\x00\x81\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x0c\x00\x01\x08\x1c\x48\xb0\xa0\xc1\x83\x04\x03\x02\x00\x21\xf9\x04\x01\x05\x00\x01\x00\x2c\x00\x00\x00\x00\x08\x00\x04\x00\x81\x00\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x0c\x00\x01\x08\x1c\x48\xb0\xa0\xc1\x83\x04\x03\x02\x00\x3b";
     // 8x4, two frames: red 100 ms, blue 300 ms
     const WAIT_WEBP: &[u8] = b"\x52\x49\x46\x46\x84\x00\x00\x00\x57\x45\x42\x50\x56\x50\x38\x58\x0a\x00\x00\x00\x02\x00\x00\x00\x07\x00\x00\x03\x00\x00\x41\x4e\x49\x4d\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x41\x4e\x4d\x46\x28\x00\x00\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x03\x00\x00\x64\x00\x00\x02\x56\x50\x38\x4c\x0f\x00\x00\x00\x2f\x07\xc0\x00\x00\x07\x10\xfd\x8f\xfe\x07\x22\xa2\xff\x01\x00\x41\x4e\x4d\x46\x28\x00\x00\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x03\x00\x00\x2c\x01\x00\x00\x56\x50\x38\x4c\x0f\x00\x00\x00\x2f\x07\xc0\x00\x00\x07\x10\xd1\xff\xfe\x07\x22\xa2\xff\x01\x00";
@@ -1390,7 +1370,6 @@ mod tests {
         picture.data[at..at + 3].try_into().unwrap()
     }
 
-    // test_vcam.py::test_an_animation_keeps_its_frames_and_timing_fitted_to_the_camera
     #[test]
     fn an_animation_keeps_its_frames_and_timing_fitted_to_the_camera() {
         let frames = load_frames(Some(&wait_gif()), 16, 16);
@@ -1413,7 +1392,6 @@ mod tests {
         assert!(pixel(&frames[1].0, 8, 8)[2] > 250);
     }
 
-    // test_vcam.py::test_a_long_animation_is_thinned_to_the_memory_budget
     #[test]
     fn a_long_animation_is_thinned_to_the_memory_budget() {
         let path = wait_gif();
@@ -1449,7 +1427,7 @@ mod tests {
         assert_eq!(read_image_frames(&path, 1920, 1080).len(), 11);
     }
 
-    // test_vcam.py::test_convert_runs_on_each_frame_as_it_loads (frames are made in the camera's format as they're prepared)
+    // Frames are made in the camera's format as they're prepared
     #[test]
     fn frames_are_prepared_in_the_cameras_format_with_their_timing() {
         let loader: Loader = Arc::new(|_p, w, h| {

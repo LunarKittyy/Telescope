@@ -1,4 +1,4 @@
-//! The update check for added plugins as the window runs it (widgets/plugin_updater.py): a while after start, then hourly to see whether a
+//! The update check for added plugins as the window runs it: a while after start, then hourly to see whether a
 //! day has passed. With the auto-update switch on it also installs a newer release of a plugin that's on and switches it on again, from the
 //! next start. The asking and downloading happen on a thread; installing happens in poll(), on the caller's thread.
 

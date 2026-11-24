@@ -1,4 +1,4 @@
-//! Histogram, waveform, RGB parade and vectorscope maths for the Cinema tools' scopes (scopes.py), with the counts the numbers
+//! Histogram, waveform, RGB parade and vectorscope maths for the Cinema tools' scopes, with the counts the numbers
 //! come to and the BGRA pictures made of them. Every number follows numpy and OpenCV, down to which side a half rounds to and
 //! the order floats are added in, so the Python app's scope and this one agree byte for byte.
 //!

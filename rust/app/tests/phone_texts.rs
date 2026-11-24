@@ -1,5 +1,5 @@
 // Texts the phone words in English next to a code: the desktop words them itself, and still shows the English from a phone that sends no
-// code or one it doesn't know (tests/test_phone_texts.py, docs/development/protocol.md "Texts the desktop words itself"). Swedish is the real catalog.
+// code or one it doesn't know. Swedish is the real catalog.
 use serde_json::json;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -30,7 +30,6 @@ impl Drop for Swedish {
     }
 }
 
-// test_phone_texts.py::test_lens_label_from_fields_matches_the_one_cut_from_the_english_label
 #[test]
 fn lens_label_from_fields_matches_the_one_cut_from_the_english_label() {
     let new = json!({"facing": "back", "focalMm": 24, "hasOis": true, "lensKind": "auto", "label": "Back ~24mm OIS [auto]"});
@@ -44,7 +43,6 @@ fn lens_label_from_fields_matches_the_one_cut_from_the_english_label() {
     assert_eq!(lens_label(&json!({"facing": "back", "focalMm": 13, "hasOis": false, "lensKind": "physical"})), "~13mm");
 }
 
-// test_phone_texts.py::test_lens_names_are_worded_in_the_language_but_keep_their_english_key
 #[test]
 fn lens_names_are_worded_in_the_language_but_keep_their_english_key() {
     let _sv = swedish();
@@ -54,7 +52,6 @@ fn lens_names_are_worded_in_the_language_but_keep_their_english_key() {
     assert_eq!(lens_name("F/~25mm"), "Fram ~25mm");
 }
 
-// test_phone_texts.py::test_codec_error_is_worded_from_the_code_and_size
 #[test]
 fn codec_error_is_worded_from_the_code_and_size() {
     let _sv = swedish();
@@ -63,7 +60,6 @@ fn codec_error_is_worded_from_the_code_and_size() {
     assert_eq!(codec_error_text(&json!({"codec_error": "The phone's H.264 encoder stopped", "codec_error_code": "encoder_stopped"})), "Telefonens H.264-kodare slutade fungera");
 }
 
-// test_phone_texts.py::test_codec_error_falls_back_to_the_english_text
 #[test]
 fn codec_error_falls_back_to_the_english_text() {
     let _sv = swedish();
@@ -72,7 +68,6 @@ fn codec_error_falls_back_to_the_english_text() {
     assert_eq!(codec_error_text(&json!({"codec_error": "No size", "codec_error_code": "camera_stopped"})), "No size");
 }
 
-// test_phone_texts.py::test_camera_error_is_worded_from_the_code
 #[test]
 fn camera_error_is_worded_from_the_code() {
     let _sv = swedish();
@@ -100,7 +95,6 @@ fn refused_with(body: serde_json::Value) -> String {
     }
 }
 
-// test_phone_texts.py::test_mic_refusal_is_worded_from_the_code
 #[test]
 fn mic_refusal_is_worded_from_the_code() {
     let _sv = swedish();

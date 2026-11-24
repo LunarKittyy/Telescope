@@ -226,7 +226,6 @@ fn a_card_header_switch_offers_a_shortcut() {
     let _ = w.hide();
 }
 
-// test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu
 #[test]
 fn controls_that_come_later_still_get_the_menu() {
     telescope_shell::offscreen::install();

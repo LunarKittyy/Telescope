@@ -1,4 +1,4 @@
-//! Everything a plugin may call on the host (HostServices in plugin.py), split the same way. Arguments and results are plain data.
+//! Everything a plugin may call on the host, split the same way. Arguments and results are plain data.
 
 use crate::event::Event;
 use crate::frame::{Frame, StreamFrame};

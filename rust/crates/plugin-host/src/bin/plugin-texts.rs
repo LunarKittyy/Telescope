@@ -1,4 +1,4 @@
-//! plugin-texts: a plugin's translation catalogs, like scripts/i18n.py --plugin does for Python plugins.
+//! plugin-texts: a plugin's translation catalogs.
 //!   plugin-texts extract FOLDER     finds the texts and writes locale/<plugin>.pot, updating every .po
 //!   plugin-texts new LANG FOLDER    starts locale/<lang>.po
 //!   plugin-texts status FOLDER      how far each language is

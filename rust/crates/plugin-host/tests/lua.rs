@@ -708,7 +708,7 @@ fn stream_alerts_needs_its_permission() {
     assert!(t.call("on_event", vec![lost]).unwrap_err().contains("\"notifications\""));
 }
 
-// ── check-plugin (test_check_plugin.py) ─────────────────────────────────────
+// ── check-plugin ─────────────────────────────────────
 
 /// check-plugin run as an author runs it: its exit code and everything it printed.
 fn checker(folder: &Path) -> (Option<i32>, String) {
@@ -794,7 +794,7 @@ fn preview_messages_use_the_plugins_identity_and_can_be_cleared() {
     assert!(t.host.preview_messages.is_empty());
 }
 
-// ── The plugin API, frozen (test_plugin_api.py) ─────────────────────────────
+// ── The plugin API, frozen ─────────────────────────────
 
 /// Every hook GuestPlugin really calls when Telescope uses it as a Plugin: (hook, how many arguments, whether the host is there).
 fn hooks_called() -> Vec<(String, usize, bool)> {

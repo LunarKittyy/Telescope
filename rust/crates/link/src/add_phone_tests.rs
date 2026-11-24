@@ -1,4 +1,4 @@
-//! tests/test_connection_dialogs.py: Add device with the real pairing server and the real adb commands, only the adb program itself
+//! Add device with the real pairing server and the real adb commands, only the adb program itself
 //! stood in for. What's in plugin.rs's tests drives the card through a stand-in offer.
 
 use super::*;

@@ -1,5 +1,5 @@
-//! What the Plugins tab needs from the plugins people add and from the switches that turn plugins on and off (plugin_loader.py and
-//! plugin_updater.py). The plugin host implements it and the binary hands it to the shell, which never names the plugin host.
+//! What the Plugins tab needs from the plugins people add and from the switches that turn plugins on and off (loading, updating and the
+//! plugin updating). The plugin host implements it and the binary hands it to the shell, which never names the plugin host.
 //!
 //! The methods for added plugins and updates have do-nothing defaults, so a stand-in only has to say how the switches are kept.
 

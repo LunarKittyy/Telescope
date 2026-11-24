@@ -5,7 +5,7 @@ use serde_json::json;
 use slint_interpreter::{Compiler, ComponentHandle, ComponentInstance, Value};
 use std::path::Path;
 use telescope_shell::offscreen;
-use telescope_shell::source::from_json;
+use telescope_shell::slint_source::from_json;
 
 fn spin_on<F: std::future::Future>(f: F) -> F::Output {
     let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
@@ -33,7 +33,7 @@ fn window(doc: &str) -> ComponentInstance {
     w
 }
 
-// test_connection_dialogs.py::test_qr_widget_builds_matrix_and_renders, and the card's half of test_success_shows_the_phone_and_hands_the_result_over
+// The QR code is a square of real cells, and the card shows the phone and hands the result over
 #[test]
 fn the_code_is_a_square_of_real_cells_and_goes_once_paired() {
     let (cells, size) = telescope_link::plugin::qr("hello");

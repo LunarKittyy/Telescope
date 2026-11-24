@@ -1,5 +1,5 @@
 //! The points and areas plugins ask for on the preview, and the warp a plugin moving the picture tells it about
-//! (overlays.py's picks and set_warp). The window hands it the mouse and keys on the preview card's stage and draws the
+//! . The window hands it the mouse and keys on the preview card's stage and draws the
 //! pick under way from pick_drawing(); results go out on the bus as PreviewPickChanged and PreviewPicked.
 
 use telescope_core::bus::EventBus;

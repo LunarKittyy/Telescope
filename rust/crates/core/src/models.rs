@@ -282,7 +282,6 @@ mod tests {
         base
     }
 
-    // test_models.py::test_camera_capabilities_from_dict_round_trips_all_fields
     #[test]
     fn camera_capabilities_from_dict_round_trips_all_fields() {
         let cam = CameraCapabilities::from_value(&camera()).unwrap();
@@ -294,20 +293,17 @@ mod tests {
         assert_eq!((cam.shutter_max_ns, cam.ae_comp_min, cam.ae_comp_step), (1_000_000_000, -8, 0.167));
     }
 
-    // test_models.py::test_camera_capabilities_rejects_missing_field
     #[test]
     fn camera_capabilities_rejects_missing_field() {
         assert_eq!(CameraCapabilities::from_value(&without(camera(), "isoMin")), Err(PhoneStateError("camera entry: missing 'isoMin'".into())));
     }
 
-    // test_models.py::test_camera_capabilities_rejects_wrong_type
     #[test]
     fn camera_capabilities_rejects_wrong_type() {
         let bad = with(camera(), json!({"isoMin": "50"})); // must be an int, not a string
         assert_eq!(CameraCapabilities::from_value(&bad), Err(PhoneStateError("camera entry: 'isoMin' has wrong type (str)".into())));
     }
 
-    // test_models.py::test_camera_capabilities_rejects_bool_where_int_expected
     #[test]
     fn camera_capabilities_rejects_bool_where_int_expected() {
         let bad = with(camera(), json!({"isoMin": true}));
@@ -318,7 +314,6 @@ mod tests {
         assert!(CameraCapabilities::from_value(&with(camera(), json!({"isoMax": 3200.0}))).is_err());
     }
 
-    // test_models.py::test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them
     #[test]
     fn camera_capabilities_reads_phone_zoom_fields_and_defaults_them() {
         let cam = CameraCapabilities::from_value(&with(camera(), json!({"zoomRatioMax": 10.0, "cropZoomMax": 4, "freeformCrop": true, "lensZooms": [3.7]}))).unwrap();
@@ -332,7 +327,6 @@ mod tests {
         assert_eq!((flags.supports_focus_point, flags.supports_meter_point), (true, false));
     }
 
-    // test_models.py::test_camera_capabilities_rejects_lens_zooms_that_arent_numbers
     #[test]
     fn camera_capabilities_rejects_lens_zooms_that_arent_numbers() {
         assert!(CameraCapabilities::from_value(&with(camera(), json!({"lensZooms": ["3.7"]}))).is_err());
@@ -340,7 +334,6 @@ mod tests {
         assert!(CameraCapabilities::from_value(&with(camera(), json!({"logicalId": 3}))).is_err());
     }
 
-    // test_models.py::test_phone_state_empty_dict_is_not_an_error
     #[test]
     fn phone_state_empty_dict_is_not_an_error() {
         let decoded = PhoneState::from_value(&json!({})).unwrap();
@@ -351,7 +344,6 @@ mod tests {
         assert_eq!(PhoneState::from_value(&json!([1])), Err(PhoneStateError("state is not an object (list)".into())));
     }
 
-    // test_models.py::test_phone_state_decodes_full_valid_payload
     #[test]
     fn phone_state_decodes_full_valid_payload() {
         let decoded = PhoneState::from_value(&state()).unwrap();
@@ -362,7 +354,6 @@ mod tests {
         assert_eq!(decoded.raw, state());
     }
 
-    // test_models.py::test_phone_state_rejects_missing_required_field
     #[test]
     fn phone_state_rejects_missing_required_field() {
         for key in ["auto", "wb_manual", "battery", "focus_mode"] {
@@ -370,21 +361,18 @@ mod tests {
         }
     }
 
-    // test_models.py::test_phone_state_rejects_non_list_cameras
     #[test]
     fn phone_state_rejects_non_list_cameras() {
         let bad = with(state(), json!({"cameras": "not-a-list"}));
         assert_eq!(PhoneState::from_value(&bad), Err(PhoneStateError("state: 'cameras' has wrong type (str)".into())));
     }
 
-    // test_models.py::test_phone_state_rejects_malformed_camera_entry
     #[test]
     fn phone_state_rejects_malformed_camera_entry() {
         assert!(PhoneState::from_value(&with(state(), json!({"cameras": [{"id": "0"}]}))).is_err());
         assert_eq!(PhoneState::from_value(&with(state(), json!({"cameras": [5]}))), Err(PhoneStateError("camera entry is not an object (int)".into())));
     }
 
-    // test_models.py::test_phone_state_optional_iso_and_shutter_default_to_none
     #[test]
     fn phone_state_optional_iso_and_shutter_default_to_none() {
         let decoded = PhoneState::from_value(&state()).unwrap();

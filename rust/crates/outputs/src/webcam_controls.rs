@@ -1,4 +1,4 @@
-//! A webcam's own picture settings (webcam_controls.py): exposure, white balance, focus and the like, for the Webcam
+//! A webcam's own picture settings: exposure, white balance, focus and the like, for the Webcam
 //! card. Only what the camera reports is offered, with its own range, step and default. Linux asks V4L2 directly.
 
 use crate::webcams::{put_u32, u32_at, Ioctl};
@@ -678,7 +678,6 @@ pub(crate) mod tests {
         }
     }
 
-    // test_webcam_controls.py::test_v4l2_controls_are_read_under_our_names_and_auto_exposure_is_a_switch
     #[test]
     fn v4l2_controls_are_read_under_our_names_and_auto_exposure_is_a_switch() {
         let fake = FakeV4l2::new();
@@ -693,7 +692,6 @@ pub(crate) mod tests {
         assert_eq!(got["anti_flicker"].menu, [0, 1, 2]);
     }
 
-    // test_webcam_controls.py::test_setting_auto_exposure_writes_the_cameras_own_auto_mode_or_manual
     #[test]
     fn setting_auto_exposure_writes_the_cameras_own_auto_mode_or_manual() {
         let fake = FakeV4l2::new();
@@ -725,26 +723,22 @@ pub(crate) mod tests {
         assert_eq!((ds_flags(true, 1), ds_flags(true, 0), ds_flags(false, 5)), (DS_AUTO, DS_MANUAL, DS_MANUAL));
     }
 
-    // test_webcam_controls.py::test_mains_frequency_comes_from_where_the_computer_is
     #[test]
     fn mains_frequency_comes_from_where_the_computer_is() {
         assert!(mains_hz("US") == 60 && mains_hz("se") == 50 && mains_hz("BR") == 60);
     }
 
-    // test_webcam_controls.py::test_auto_switches_are_applied_before_the_values_they_grey_out
     #[test]
     fn auto_switches_are_applied_before_the_values_they_grey_out() {
         assert_eq!(apply_order(&["exposure_time".into(), "gain".into(), "exposure_auto".into()])[0], "exposure_auto");
     }
 
-    // test_webcam_controls.py::test_values_are_kept_to_the_cameras_range_and_step
     #[test]
     fn values_are_kept_to_the_cameras_range_and_step() {
         let focus = Control::new("focus", "int", 0, 250, 5, 0, 0);
         assert_eq!((focus.clamp(-3), focus.clamp(12), focus.clamp(999)), (0, 10, 250));
     }
 
-    // test_webcam_controls.py::test_exposure_shows_as_a_shutter_speed
     #[test]
     fn exposure_shows_as_a_shutter_speed() {
         assert_eq!((shutter_text(1.0 / 60.0), shutter_text(0.5), shutter_text(2.0)), ("1/60".into(), "0.5 s".into(), "2 s".into()));

@@ -189,7 +189,7 @@ def fields(text: str) -> set:
 
 SKIP_DIRS = {"target", "tests", "fixtures", "example-plugins"}
 # The files that read or write the calls themselves, so their examples aren't texts
-READERS = {"source.rs", "texts.rs", "text.rs", "i18n.rs"}
+READERS = {"slint_source.rs", "texts.rs", "text.rs", "i18n.rs"}
 # What a call's arguments mean: which one is the English, the plural, the context
 SHAPES = {"tr": (0, None, None), "n_": (0, None, None), "tr_ctx": (1, None, 0), "tr_with": (0, None, 1),
           "trn": (0, 1, None), "trn_open": (0, 1, None), "trn_with": (0, 1, 3)}

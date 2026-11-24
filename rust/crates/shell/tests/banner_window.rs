@@ -1,4 +1,4 @@
-// test_banner.py on the real window: banners drawn from the state, real clicks on their buttons and the real dispatch behind them.
+// On the real window: banners drawn from the state, real clicks on their buttons and the real dispatch behind them.
 use i_slint_backend_testing::ElementHandle;
 use slint::platform::{PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};
@@ -128,7 +128,6 @@ fn click_label(w: &Rc<Window>, label: &str) {
     click(w, &found[0]);
 }
 
-// test_banner.py::test_keys_replace_and_clear
 #[test]
 fn keys_replace_and_clear() {
     let (w, _) = opened("banner-keys");
@@ -151,7 +150,6 @@ fn keys_replace_and_clear() {
     assert_eq!(w.ui.get_property("banners").map(|v| matches!(v, Value::Model(m) if slint::Model::row_count(&m) == 0)), Ok(true), "and its row goes after");
 }
 
-// test_banner.py::test_an_action_runs_and_takes_the_banner_with_it
 #[test]
 fn an_action_runs_and_takes_the_banner_with_it() {
     let (w, heard) = opened("banner-action");
@@ -176,7 +174,6 @@ fn a_button_of_an_added_plugins_banner_reaches_only_that_plugin() {
     assert_eq!(*bystander.lock().unwrap(), [("start".to_string(), "theirs".to_string())]);
 }
 
-// test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one
 #[test]
 fn an_action_that_replaces_the_issue_keeps_the_new_one() {
     let (w, _) = opened("banner-replace");
@@ -187,7 +184,6 @@ fn an_action_that_replaces_the_issue_keeps_the_new_one() {
     assert!(!drawn(&w, "New").is_empty() && drawn(&w, "Old").is_empty());
 }
 
-// test_banner.py::test_copy_keeps_the_banner_and_fills_the_clipboard
 #[test]
 fn copy_keeps_the_banner_and_fills_the_clipboard() {
     let (w, _) = opened("banner-copy");
@@ -202,7 +198,6 @@ fn copy_keeps_the_banner_and_fills_the_clipboard() {
     assert_eq!(keys(&w), ["start"]);
 }
 
-// test_banner.py::test_dismiss
 #[test]
 fn dismiss() {
     let (w, heard) = opened("banner-dismiss");
@@ -213,7 +208,6 @@ fn dismiss() {
     assert!(heard.lock().unwrap().is_empty(), "nobody asked to hear");
 }
 
-// test_banner.py::test_closing_tells_whoever_showed_it
 #[test]
 fn closing_tells_whoever_showed_it() {
     let (w, heard) = opened("banner-closing");
@@ -227,7 +221,6 @@ fn closing_tells_whoever_showed_it() {
     assert!(keys(&w).is_empty());
 }
 
-// test_banner.py::test_clearing_one_issue_leaves_a_newer_one_under_the_same_key
 #[test]
 fn clearing_one_issue_leaves_a_newer_one_under_the_same_key() {
     let (w, _) = opened("banner-newer");

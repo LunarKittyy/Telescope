@@ -1,4 +1,4 @@
-//! Installing Telescope's camera on Windows (platform/windows.py install_camera): the Windows 11 camera where it can be,
+//! Installing Telescope's camera on Windows: the Windows 11 camera where it can be,
 //! else UnityCapture, downloaded first when it isn't here yet. Either way the DLLs go into Program Files\Telescope as
 //! admin, are checked there against their hashes and registered from there, so nothing can swap one between the check
 //! and a later load. The admin side is a PowerShell script run through Windows' elevation prompt; the scripts are
@@ -648,7 +648,6 @@ mod tests {
         assert_eq!(install_camera(&cancelled, 1, false, &|_| {}), (false, "Registration failed (cancelled or denied?)".into()));
     }
 
-    // test_platform_windows.py::test_cameras_windows_wouldnt_change_stay_without_unitycapture_on_top
     #[test]
     fn cameras_windows_wouldnt_change_stay_without_unitycapture_on_top() {
         for access_off in [true, false] {
@@ -696,21 +695,18 @@ mod tests {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../windows/virtualcamera")
     }
 
-    // test_platform_windows.py::test_unitycapture_dir_frozen_and_source
     #[test]
     fn unitycapture_dir_frozen_and_source() {
         assert_eq!(unitycapture_dir_in(Path::new("/app")), Path::new("/app").join("unitycapture"));
         assert_eq!(unitycapture_dir(), std::env::current_exe().unwrap().parent().unwrap().join("unitycapture"));
     }
 
-    // test_platform_windows.py::test_mf_camera_dir_frozen_and_source
     #[test]
     fn mf_camera_dir_frozen_and_source() {
         assert_eq!(mf_camera_dir_in(Path::new("/app")), Path::new("/app").join("virtualcamera"));
         assert_eq!(mf_camera_dir(), std::env::current_exe().unwrap().parent().unwrap().join("virtualcamera"));
     }
 
-    // test_platform_windows.py::test_sha256_reads_entire_file
     #[test]
     fn sha256_reads_entire_file() {
         let dir = telescope_core::testing::scratch_dir("sha");
@@ -720,7 +716,6 @@ mod tests {
         assert_eq!(sha256_file(&dir.join("missing.bin")), None);
     }
 
-    // test_platform_windows.py::test_download_unitycapture_verifies_both_files
     #[test]
     fn download_unitycapture_verifies_both_files() {
         let fake = Fake { served: good_downloads(), ..fake() };
@@ -735,7 +730,6 @@ mod tests {
         assert_eq!(std::fs::read_dir(fake.uc_dir()).unwrap().count(), 2, "no part files left");
     }
 
-    // test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures
     #[test]
     fn download_unitycapture_handles_network_and_checksum_failures() {
         let offline = Fake { served: UC_SHA256.iter().map(|(n, _)| (n.to_string(), Serve::Refuse)).collect(), ..fake() };
@@ -751,7 +745,6 @@ mod tests {
         assert_eq!(std::fs::read_dir(wrong.uc_dir()).unwrap().count(), 0, "nothing is left behind");
     }
 
-    // test_platform_windows.py::test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over
     #[test]
     fn a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over() {
         let cut = Fake { served: UC_SHA256.iter().map(|(n, _)| (n.to_string(), Serve::CutOff)).collect(), ..fake() };
@@ -760,7 +753,6 @@ mod tests {
         assert_eq!(std::fs::read_dir(cut.uc_dir()).unwrap().count(), 0);
     }
 
-    // test_platform_windows.py::test_going_back_to_one_camera_unregisters_them_all_first
     #[test]
     fn going_back_to_one_camera_unregisters_them_all_first() {
         let fake = with_dlls(fake());
@@ -773,7 +765,6 @@ mod tests {
         assert!(!script.contains("UnityCaptureDevices"));
     }
 
-    // test_platform_windows.py::test_registering_more_cameras_asks_unitycapture_for_them
     #[test]
     fn registering_more_cameras_asks_unitycapture_for_them() {
         let fake = with_dlls(fake());
@@ -784,7 +775,6 @@ mod tests {
         assert!(elevated_script(&runs[1]).contains("'/s', '/i:UnityCaptureDevices=4', '\"/i:UnityCaptureName=Telescope\"'"));
     }
 
-    // test_platform_windows.py::test_register_invokes_elevated_powershell
     #[test]
     fn register_invokes_elevated_powershell() {
         // Run again as a child with Program Files pointed away: a test can't safely change its own process's variables
@@ -833,7 +823,6 @@ mod tests {
         assert_eq!(script.matches("\"/i:UnityCaptureName=Telescope\"").count(), 1, "once, inside the loop over both DLLs");
     }
 
-    // test_platform_windows.py::test_register_unitycapture_survives_an_apostrophe_in_the_folder
     #[test]
     fn register_unitycapture_survives_an_apostrophe_in_the_folder() {
         let fake = fake();
@@ -844,7 +833,6 @@ mod tests {
         assert_eq!(src_line, format!("$src = '{}'", fake.uc_dir().to_string_lossy().replace('\'', "''")));
     }
 
-    // test_platform_windows.py::test_register_drops_a_tampered_file_so_a_retry_downloads_it_again
     #[test]
     fn register_drops_a_tampered_file_so_a_retry_downloads_it_again() {
         let fake = fake();
@@ -855,7 +843,6 @@ mod tests {
         assert!(!path.exists());
     }
 
-    // test_platform_windows.py::test_register_refuses_missing_or_tampered_files
     #[test]
     fn register_refuses_missing_or_tampered_files() {
         let fake = fake();
@@ -864,7 +851,6 @@ mod tests {
         assert!(fake.runs.borrow().is_empty());
     }
 
-    // test_platform_windows.py::test_register_names_what_failed_as_admin
     #[test]
     fn register_names_what_failed_as_admin() {
         for (code, words) in [(2, "checksum"), (3, "regsvr32"), (4, "delete that folder"), (5, "hit an error")] {
@@ -874,7 +860,6 @@ mod tests {
         }
     }
 
-    // test_platform_windows.py::test_register_normalizes_process_failures
     #[test]
     fn register_normalizes_process_failures() {
         let cases: Vec<(Result<i32, RunFailure>, &str)> = vec![
@@ -904,7 +889,6 @@ mod tests {
         assert!(matches!(run_process(missing, Duration::from_secs(1)), Err(RunFailure::Failed(_))));
     }
 
-    // test_platform_windows.py::test_the_first_powershell_comes_from_the_system_folder
     #[test]
     fn the_first_powershell_comes_from_the_system_folder() {
         let system = Path::new("C:/Windows/System32");
@@ -914,7 +898,6 @@ mod tests {
         assert_eq!(powershell_path(None), "powershell");
     }
 
-    // test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture
     #[test]
     fn a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture() {
         let cases: Vec<(Result<i32, RunFailure>, String)> = vec![
@@ -930,7 +913,6 @@ mod tests {
         }
     }
 
-    // test_platform_windows.py::test_windows_10_installs_unitycapture
     #[test]
     fn windows_10_installs_unitycapture() {
         let fake = Fake { served: good_downloads(), ..fake() };
@@ -943,7 +925,6 @@ mod tests {
         assert!(elevated_script(&runs[0]).contains("'/s', '/u', $dll"), "going back to one camera unregisters first");
     }
 
-    // test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture
     #[test]
     fn windows_11_installs_its_own_camera_and_never_downloads_unitycapture() {
         let fake = windows_11(vec![]);
@@ -956,7 +937,6 @@ mod tests {
         assert!(elevated_script(&runs[0]).contains("'/s', '/n', '/i:4'"));
     }
 
-    // test_platform_windows.py::test_an_update_renames_a_loaded_dll_out_of_the_way
     #[test]
     fn an_update_renames_a_loaded_dll_out_of_the_way() {
         let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None);
@@ -997,7 +977,6 @@ mod tests {
         assert!(script.find("Get-Sha256 $target) -ne").unwrap() < restore);
     }
 
-    // test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy
     #[test]
     fn unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy() {
         let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, Some(Path::new("C:/app/unitycapture")));
@@ -1007,7 +986,6 @@ mod tests {
         assert!(!mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None).contains("$from"));
     }
 
-    // test_platform_windows.py::test_the_clsids_and_version_match_the_dll
     #[test]
     fn the_clsids_and_version_match_the_dll() {
         let dllmain = std::fs::read_to_string(virtualcamera().join("dllmain.cpp")).unwrap();

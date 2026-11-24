@@ -1,5 +1,5 @@
 //! A phone's video over TCP as media wants it: /v1/video.h264 in chunks as they arrive, /v1/video's multipart MJPEG one
-//! JPEG per packet (the reading half of h264_reader.py and mjpeg_reader.py; decoding is the media crate's).
+//! JPEG per packet.
 
 use crate::https::{Aborter, PhoneAuth, Request, Response};
 use std::io::Read;
@@ -279,7 +279,7 @@ mod tests {
         assert!(open_feed(&url, &PhoneAuth::new("wrong", ""), Duration::from_secs(3)).is_err());
     }
 
-    // test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only: _new_reader goes by the URL, as this does
+    // _new_reader goes by the URL, as this does
     #[test]
     fn a_feed_goes_by_what_the_url_asks_for() {
         // UDP that doesn't get going falls back to the same feed on .h264, so .udp asks for it here too

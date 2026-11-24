@@ -1,4 +1,4 @@
-//! Browser camera (plugins/browser_camera.py): stream from any device with a browser, no Telescope app on it.
+//! Browser camera: stream from any device with a browser, no Telescope app on it.
 //!
 //! "Browser camera" in the phone picker runs the server and shows this card with the code to scan. Each browser that
 //! connects is a StreamSource of its own, listed in the picker by its device while it's there, and starts streaming by

@@ -1,4 +1,4 @@
-//! The start-up splash's window on Windows (scripts/write_splash.py's picture and telescope.spec's text): a borderless 420x180 box in
+//! The start-up splash's window on Windows: a borderless 420x180 box in
 //! the middle of the screen with the app icon, "Telescope" and a status line, drawn with GDI on a thread of its own so it stays alive
 //! while the main thread loads.
 

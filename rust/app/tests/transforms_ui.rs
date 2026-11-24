@@ -15,7 +15,7 @@ use telescope_core::testing::FakeHost;
 use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_effects::transforms::TransformsPlugin;
 use telescope_shell::offscreen;
-use telescope_shell::source::from_json;
+use telescope_shell::slint_source::from_json;
 
 const HUE_CAMERA: [u8; 3] = [0x7f, 0xd3, 0xc4];
 const TEXT_DISABLED: [u8; 3] = [0x52, 0x5b, 0x67];

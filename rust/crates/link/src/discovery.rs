@@ -1,4 +1,4 @@
-//! Finds paired phones on the LAN by the _telescope._tcp announcement their app makes (discovery.py). The TXT "id"
+//! Finds paired phones on the LAN by the _telescope._tcp announcement their app makes. The TXT "id"
 //! is the phone id; the address is only a hint, since every connection still checks the pin.
 
 use mdns_sd::{ServiceDaemon, ServiceEvent};

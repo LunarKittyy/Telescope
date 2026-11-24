@@ -1,4 +1,4 @@
-// Plugins really are plugins (tests/test_plugin_removal.py): the window starts, streams and quits with any one of them left
+// Plugins really are plugins: the window starts, streams and quits with any one of them left
 // out, Connection aside. Every built-in plugin as main.rs lists them, with what reaches this computer stood in for.
 mod rig;
 
@@ -380,7 +380,7 @@ fn every_card_in_the_window_folds() {
         st.cards().into_iter().filter_map(|i| {
             let card = &st.slots[i].card.as_ref()?.ui;
             let SlintSource::Text(text) = &card.source else { return None };
-            telescope_shell::source::heading(text, &card.component)
+            telescope_shell::slint_source::heading(text, &card.component)
         }).collect()
     };
     assert!(titles.len() > 20, "{titles:?}");
@@ -519,7 +519,7 @@ fn every_built_in_plugin_says_what_it_is_for_the_plugins_tab() {
     assert_eq!(required, BTreeSet::from(["connection", "setup", "updates"]));
 }
 
-// test_settings_search.py: real queries against the real tabs of a window with every plugin
+// Real queries against the real tabs of a window with every plugin
 fn opened(name: &str) -> (Rc<Window>, Rc<telescope_shell::settings::Settings>) {
     let w = build(&telescope_core::testing::scratch_dir(name), None);
     telescope_shell::settings::open(&w, "general");

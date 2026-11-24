@@ -1,4 +1,4 @@
-//! Where the cards go as the window changes width (app.py _refresh_layout and _place_panel).
+//! Where the cards go as the window changes width.
 
 pub use telescope_core::config::CardLayout;
 use telescope_core::plugin::PLUGIN_CATEGORIES;

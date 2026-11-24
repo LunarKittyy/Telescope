@@ -1,5 +1,5 @@
 //! Transforms from the card to the picture, through the window's view controller and the frame steps it makes, on the graphics card
-//! (test_transforms.py's tests of what the view does to frames, on its 6 x 4 grid). Without a graphics card the pixels aren't checked.
+//! . Without a graphics card the pixels aren't checked.
 
 use serde_json::{json, Value};
 use telescope_core::event::Event;
@@ -41,7 +41,7 @@ fn run(view_steps: Vec<FrameStep>, frame: Frame) -> Frame {
     pipeline.process(frame, &Ctx)
 }
 
-/// test_transforms.py's _grid: 6 wide, 4 tall, 0 to 23.
+/// The grid: 6 wide, 4 tall, 0 to 23.
 fn grid() -> Frame {
     Frame::new(6, 4, PixelFormat::Rgba, (0..24u8).flat_map(|v| [v, v, v, 255]).collect())
 }

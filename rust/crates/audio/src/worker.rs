@@ -1,4 +1,4 @@
-//! Plays the phone's microphone into the virtual microphone (audio.py's AudioWorker). A reader fills the jitter
+//! Plays the phone's microphone into the virtual microphone. A reader fills the jitter
 //! buffer from the phone; a writer drains it into the output at the output's own pace.
 //!
 //! Each connection is read on a thread of its own, so a hand-over can switch to the new route at once even while a

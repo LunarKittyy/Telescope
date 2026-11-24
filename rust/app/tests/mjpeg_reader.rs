@@ -1,4 +1,4 @@
-// test_mjpeg_reader.py end to end: a real connection, link's feed and media's reader, down to the picture.
+// End to end: a real connection, link's feed and media's reader, down to the picture.
 use image::codecs::jpeg::JpegEncoder;
 use image::ExtendedColorType;
 use std::io::{BufRead, BufReader, Write};
@@ -74,7 +74,6 @@ fn close_to(pixels: &[u8], value: u8) -> bool {
     pixels.iter().all(|p| p.abs_diff(value) <= 2)
 }
 
-// test_mjpeg_reader.py::test_reads_authenticated_frames_in_order_then_reports_eof
 #[test]
 fn reads_authenticated_frames_in_order_then_reports_eof() {
     let url = serve("secret", vec![grey_jpeg(20), grey_jpeg(200)], None);
@@ -89,7 +88,6 @@ fn reads_authenticated_frames_in_order_then_reports_eof() {
     assert_eq!(reader.read().err(), Some(FeedEnd::Closed));
 }
 
-// test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one
 #[test]
 fn returns_a_frame_without_waiting_for_the_next_one() {
     let (release, hold) = channel();

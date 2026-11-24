@@ -1,4 +1,4 @@
-//! test_background.py, by name, and the pictures Python recorded (recorded from the Python app).
+//! Background tests, and the pictures recorded from the Python app.
 
 use super::*;
 use crate::imgops::blur_f32;

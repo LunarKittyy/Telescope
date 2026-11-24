@@ -1,4 +1,4 @@
-// test_stream.py on the real parts of a stream: the worker with media's own pipeline and frame store, and link's feed over a
+// On the real parts of a stream: the worker with media's own pipeline and frame store, and link's feed over a
 // real connection. Only the camera at the end is a stand-in.
 use image::codecs::jpeg::JpegEncoder;
 use image::ExtendedColorType;

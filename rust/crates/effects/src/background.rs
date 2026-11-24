@@ -1,4 +1,4 @@
-//! The Background plugin (plugins/background.py): blurs what's behind you or swaps it for a picture. It's a CPU step on purpose: the person mask only reaches a frame step through FrameContext, and a shader step has no way to ask for it.
+//! The Background plugin: blurs what's behind you or swaps it for a picture. It's a CPU step on purpose: the person mask only reaches a frame step through FrameContext, and a shader step has no way to ask for it.
 
 use crate::compositor::cover;
 use crate::cpu::Rgb;

@@ -1,4 +1,4 @@
-//! Windows job object that kills its processes when Telescope exits, however it exits (platform/winjob.py).
+//! Windows job object that kills its processes when Telescope exits, however it exits.
 //! A job with KILL_ON_JOB_CLOSE stands in for a parent-child lifetime; its handle lives in this process, so Windows
 //! kills everything in it when Telescope quits or crashes. Only processes added with kill_with_us() are in it.
 

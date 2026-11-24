@@ -1,4 +1,4 @@
-//! Several streams in one picture (telescope/composite.py): the layout, the maths the editor moves tiles with, and keeping
+//! Several streams in one picture: the layout, the maths the editor moves tiles with, and keeping
 //! layouts in settings. Drawing them is compositor.rs. Boxes are fractions of the picture (0..1) and borders and corners are
 //! pixels of a 1080-line picture, so a layout looks the same at any canvas size.
 

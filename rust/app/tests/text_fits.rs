@@ -1,4 +1,4 @@
-// Layout rule (tests/test_text_fits.py): widths come from the layout and text has to fit inside them. Qt's fixed-width push buttons could
+// Layout rule: widths come from the layout and text has to fit inside them. Qt's fixed-width push buttons could
 // clip a longer translation, which is what that file looks for; ui-kit's Button takes its minimum width from its own text up to a cap, past which
 // a longer text ends in an ellipsis instead of being cut off or pushing its row out of its place. This checks that for the buttons every card and dialog uses.
 use i_slint_backend_testing::{AccessibleRole, ElementHandle};
@@ -72,7 +72,7 @@ export component Measure inherits Window {
     }
 }
 
-// test_text_fits.py::test_automatic_streaming_fields_fit: the wait's number and its longest unit show whole, in English and in the pseudo language
+// The wait's number and its longest unit show whole, in English and in the pseudo language
 #[test]
 fn automatic_streaming_fields_fit() {
     i_slint_backend_testing::init_no_event_loop();

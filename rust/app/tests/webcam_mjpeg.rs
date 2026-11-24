@@ -1,4 +1,4 @@
-// A webcam's JPEG from the reader through the stream's real decoder (test_webcams.py's test_mjpeg_frames_are_decoded_by_the_streams_decoders).
+// A webcam's JPEG from the reader through the stream's real decoder.
 // Here because outputs may not use media: they only meet in the window.
 use std::sync::{Arc, Mutex};
 use telescope_core::media::{Codec, DecodeOptions, FeedStopper, Media, VideoFeed};

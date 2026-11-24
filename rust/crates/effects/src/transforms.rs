@@ -1,4 +1,4 @@
-//! The Transforms plugin (plugins/transforms.py): zoom, pan, flip, rotate and stretch the picture, and lens correction. The card keeps the manual
+//! The Transforms plugin: zoom, pan, flip, rotate and stretch the picture, and lens correction. The card keeps the manual
 //! view and hands it to the window (host.set_view); the window's view step does the pixels (core::view_step) and shares the zoom
 //! with the phone. What the card knows about the phone's lenses comes from the view_status events and the phone's state.
 

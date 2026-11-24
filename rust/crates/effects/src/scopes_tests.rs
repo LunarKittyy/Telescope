@@ -1,4 +1,4 @@
-//! tests/test_scopes.py, and the cv2 and numpy arithmetic it stands on.
+//! Scopes tests, and the cv2 and numpy arithmetic they stand on.
 
 use super::*;
 

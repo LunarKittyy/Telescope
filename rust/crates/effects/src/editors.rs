@@ -1,5 +1,5 @@
-//! What the Colour grading card's two hand-drawn controls do with the pointer and the keyboard (widgets/colour_wheel.py and
-//! widgets/curve_editor.py). The card draws them and hands over the pointer in pixels and keys by name; the answers here are
+//! What the Colour grading card's two hand-drawn controls do with the pointer and the keyboard (the colour wheel and
+//! the curve editor). The card draws them and hands over the pointer in pixels and keys by name; the answers here are
 //! the new puck or points.
 
 use crate::grade::{monotone_curve, periodic_curve};

@@ -184,7 +184,6 @@ fn png(path: &Path, color: [u8; 3], size: (u32, u32)) {
     image::RgbImage::from_pixel(size.0, size.1, image::Rgb(color)).save(path).unwrap();
 }
 
-// test_wait_screen.py::test_shows_the_default_screen_at_start_and_watches
 #[test]
 fn shows_the_default_screen_at_start_and_watches() {
     let r = Rig::new();
@@ -192,7 +191,6 @@ fn shows_the_default_screen_at_start_and_watches() {
     assert!(r.outputs.watch.started.load(Ordering::SeqCst));
 }
 
-// test_wait_screen.py::test_size_follows_the_canvas_then_the_last_stream
 #[test]
 fn size_follows_the_canvas_then_the_last_stream() {
     let mut r = Rig::new();
@@ -208,7 +206,6 @@ fn size_follows_the_canvas_then_the_last_stream() {
     assert_eq!(r.plugin.size(&r.host), (640, 480));
 }
 
-// test_wait_screen.py::test_gives_the_camera_to_the_stream_and_takes_it_back
 #[test]
 fn gives_the_camera_to_the_stream_and_takes_it_back() {
     let mut r = Rig::new();
@@ -222,7 +219,6 @@ fn gives_the_camera_to_the_stream_and_takes_it_back() {
     assert_eq!(r.shown(0).len(), 2);
 }
 
-// test_wait_screen.py::test_extra_cameras_show_it_while_nothing_streams_to_them
 #[test]
 fn extra_cameras_show_it_while_nothing_streams_to_them() {
     let mut r = Rig::new();
@@ -244,7 +240,6 @@ fn extra_cameras_show_it_while_nothing_streams_to_them() {
     assert_eq!((r.stops(1), r.stops(2)), (1, 2));
 }
 
-// test_wait_screen.py::test_the_main_camera_shows_it_while_only_extra_ones_stream
 #[test]
 fn the_main_camera_shows_it_while_only_extra_ones_stream() {
     let mut r = Rig::new();
@@ -262,7 +257,6 @@ fn the_main_camera_shows_it_while_only_extra_ones_stream() {
     r.plugin.shutdown(&mut r.host);
 }
 
-// test_wait_screen.py::test_takes_the_camera_back_while_the_stream_has_its_camera_off
 #[test]
 fn takes_the_camera_back_while_the_stream_has_its_camera_off() {
     let mut r = Rig::new();
@@ -294,7 +288,6 @@ fn a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen() {
     r.plugin.shutdown(&mut r.host);
 }
 
-// test_wait_screen.py::test_a_reader_is_passed_to_the_screen_and_the_bus
 #[test]
 fn a_reader_is_passed_to_the_screen_and_the_bus() {
     let mut r = Rig::new();
@@ -306,7 +299,6 @@ fn a_reader_is_passed_to_the_screen_and_the_bus() {
     assert_eq!(r.outputs.log.lock().unwrap().watched, [(0, true), (0, false)]);
 }
 
-// test_wait_screen.py::test_a_chosen_image_is_kept_next_to_the_config
 #[test]
 fn a_chosen_image_is_kept_next_to_the_config() {
     let mut r = Rig::new();
@@ -335,7 +327,6 @@ fn a_chosen_image_is_kept_next_to_the_config() {
     assert_eq!(r.saves(), 4);
 }
 
-// test_wait_screen.py::test_a_second_image_of_the_same_type_is_a_different_path
 #[test]
 fn a_second_image_of_the_same_type_is_a_different_path() {
     let mut r = Rig::new();
@@ -351,7 +342,6 @@ fn a_second_image_of_the_same_type_is_a_different_path() {
     assert_eq!(r.kept(), [Path::new(&second).file_name().unwrap().to_string_lossy().into_owned()]);
 }
 
-// test_wait_screen.py::test_a_copy_from_an_older_version_goes_on_the_next_pick
 #[test]
 fn a_copy_from_an_older_version_goes_on_the_next_pick() {
     let mut r = Rig::new();
@@ -364,7 +354,6 @@ fn a_copy_from_an_older_version_goes_on_the_next_pick() {
     assert_eq!(std::fs::read(r.plugin.image_path().unwrap()).unwrap(), b"new");
 }
 
-// test_wait_screen.py::test_a_failed_replacement_keeps_the_previous_image
 #[test]
 fn a_failed_replacement_keeps_the_previous_image() {
     let outputs = Arc::new(FakeOutputs::default());
@@ -399,7 +388,6 @@ fn a_failed_replacement_keeps_the_previous_image() {
     assert_eq!(outputs.log.lock().unwrap().shown.len(), shows);
 }
 
-// test_wait_screen.py::test_the_card_says_when_a_pick_failed_or_wont_load
 #[test]
 fn the_card_says_when_a_pick_failed_or_wont_load() {
     let mut r = Rig::new();
@@ -430,7 +418,6 @@ fn the_card_says_when_a_pick_failed_or_wont_load() {
     assert_eq!(r.card("default-enabled"), json!(false));
 }
 
-// test_wait_screen.py::test_config_round_trip_rejects_odd_sizes
 #[test]
 fn config_round_trip_rejects_odd_sizes() {
     let cases = [
@@ -451,7 +438,6 @@ fn config_round_trip_rejects_odd_sizes() {
     }
 }
 
-// test_wait_screen.py::test_config_rejects_a_bad_image
 #[test]
 fn config_rejects_a_bad_image() {
     let mut r = Rig::new();
@@ -462,7 +448,6 @@ fn config_rejects_a_bad_image() {
     assert_eq!(r.plugin.get_config(), json!({"image": null, "mirror": false, "last_size": null}));
 }
 
-// test_wait_screen.py::test_config_keeps_mirror_only_when_it_is_really_on
 #[test]
 fn config_keeps_mirror_only_when_it_is_really_on() {
     for (value, mirror) in [(json!(true), true), (json!(false), false), (json!("yes"), false), (json!(null), false)] {
@@ -472,7 +457,6 @@ fn config_keeps_mirror_only_when_it_is_really_on() {
     }
 }
 
-// test_wait_screen.py::test_mirror_is_off_by_default_and_reshows_when_toggled
 #[test]
 fn mirror_is_off_by_default_and_reshows_when_toggled() {
     let mut r = Rig::new();
@@ -494,7 +478,6 @@ fn a_mirror_set_from_outside_reshows_and_saves() {
     assert_eq!(r.saves(), 1, "nothing changed");
 }
 
-// test_wait_screen.py::test_shutdown_lets_go_for_good
 #[test]
 fn shutdown_lets_go_for_good() {
     let mut r = Rig::new();
@@ -505,7 +488,6 @@ fn shutdown_lets_go_for_good() {
     assert_eq!(r.shown(0).len(), 1);
 }
 
-// test_wait_screen.py::test_settings_section_goes_in_streaming_and_shows_the_wait_screen
 #[test]
 fn settings_section_goes_in_streaming_and_shows_the_wait_screen() {
     let mut r = Rig::new();
@@ -624,7 +606,6 @@ fn answers(host: &FakeHost) -> Vec<bool> {
     host.events.iter().filter_map(|e| match e { Event::StreamCovered { covered } => Some(*covered), _ => None }).collect()
 }
 
-// test_wait_screen.py::test_it_stands_in_for_the_streams_picture_when_asked
 #[test]
 fn it_stands_in_for_the_streams_picture_when_asked() {
     let mut r = Rig::new();
@@ -666,7 +647,6 @@ fn a_cover_can_carry_its_own_line_under_the_name_on_the_default_screen() {
     assert_eq!(covered(&mut r.plugin, &frame).data, plain.data);
 }
 
-// test_wait_screen.py::test_the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it
 #[test]
 fn the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it() {
     // Red on the left of a 4 x 2 picture
@@ -689,7 +669,6 @@ fn the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it() {
     assert_eq!(at(&out, 0), [0, 0, 0, 255]);
 }
 
-// test_wait_screen.py::test_a_slow_wait_screen_never_holds_up_the_stream
 #[test]
 fn a_slow_wait_screen_never_holds_up_the_stream() {
     let release = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
@@ -782,7 +761,6 @@ fn a_cover_that_is_made_when_nobody_asked_for_it_any_more_asks_for_nothing() {
     assert_eq!(r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count(), asked);
 }
 
-// test_wait_screen.py::test_a_wait_screen_that_wont_load_is_not_retried_on_every_frame
 #[test]
 fn a_wait_screen_that_wont_load_is_not_retried_on_every_frame() {
     let tries = Arc::new(Mutex::new(Vec::new()));

@@ -1,4 +1,4 @@
-//! Which Windows camera a slot goes to (platform/windows.py): the Windows 11 one (rust/windows/virtualcamera) where it's
+//! Which Windows camera a slot goes to: the Windows 11 one (rust/windows/virtualcamera) where it's
 //! registered and Windows really has it, else UnityCapture. The registry is behind a trait so this runs anywhere.
 
 /// MFCreateVirtualCamera arrived with Windows 11.
@@ -355,7 +355,6 @@ pub(crate) mod tests {
         }
     }
 
-    // test_vcam.py::test_windows_slots_need_their_numbered_registration
     #[test]
     fn windows_slots_need_their_numbered_registration() {
         let reg = FakeRegistry::uc(&[(0, "Telescope"), (2, "Telescope #2")]);
@@ -382,7 +381,6 @@ pub(crate) mod tests {
         assert_eq!(uc_filter_for(&reg, dir, 0), Some(3));
     }
 
-    // test_vcam.py::test_unitycapture_event_follows_the_camera_number
     #[test]
     fn unitycapture_objects_follow_the_camera_number() {
         let dir = Path::new("");
@@ -418,7 +416,6 @@ pub(crate) mod tests {
         reg.classes.lock().unwrap().insert((path.to_string(), String::new()), value.to_string());
     }
 
-    // test_platform_windows.py::test_the_windows_11_camera_needs_windows_11
     #[test]
     fn the_windows_11_camera_needs_windows_11() {
         for (build, forced, allowed) in [(22000, "", true), (26200, "", true), (19045, "", false), (0, "", false), (22621, "UnityCapture", false)] {
@@ -427,7 +424,6 @@ pub(crate) mod tests {
         }
     }
 
-    // test_platform_windows.py::test_it_installs_only_with_the_dll_bundled
     #[test]
     fn it_installs_only_with_the_dll_bundled() {
         let dir = telescope_core::testing::scratch_dir("mf-dll");
@@ -438,7 +434,6 @@ pub(crate) mod tests {
         assert!(!mf_installable(&FakeRegistry { build: 19045, ..FakeRegistry::default() }, &dir), "Windows 10 keeps UnityCapture");
     }
 
-    // test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered
     #[test]
     fn a_slot_streams_to_the_windows_11_camera_once_its_registered() {
         let mut reg = FakeRegistry::default().with_mf(&[1]);
@@ -458,7 +453,6 @@ pub(crate) mod tests {
         assert!(!use_mf(&reg, 1));
     }
 
-    // test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces
     #[test]
     fn the_cameras_windows_has_are_read_from_their_device_interfaces() {
         let ours = r"##?#SWD#VCAMDEVAPI#2B26#{e5323777-f976-4f5b-9b55-b94699c46e44}";
@@ -479,7 +473,6 @@ pub(crate) mod tests {
         assert!(mf_cameras(&reg).is_empty());
     }
 
-    // test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment
     #[test]
     fn protected_folder_comes_from_the_known_folder_not_the_environment() {
         let reg = FakeRegistry { env: Some("/somewhere/the/environment/says".into()), program_files: Some(PathBuf::from(r"D:\Programs")), ..FakeRegistry::default() };
@@ -488,7 +481,6 @@ pub(crate) mod tests {
         assert_eq!(protected_dir(&FakeRegistry::default(), "VirtualCamera"), PathBuf::from(r"C:\Program Files").join("Telescope").join("VirtualCamera"));
     }
 
-    // test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence
     #[test]
     fn uc_is_registered_scans_registry_and_handles_absence() {
         let uc = Path::new("/app/unitycapture");
@@ -513,7 +505,6 @@ pub(crate) mod tests {
         reg
     }
 
-    // test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page
     #[test]
     fn registered_name_reads_the_filter_key_and_skips_the_property_page() {
         let uc = Path::new("/app/unitycapture");
@@ -526,7 +517,6 @@ pub(crate) mod tests {
         assert_eq!(uc_registered_name(&filter_registry(&dll, None), uc).as_deref(), Some(UC_DEFAULT_NAME));
     }
 
-    // test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged
     #[test]
     fn a_registration_from_the_app_folder_is_flagged() {
         let (app, protected) = (PathBuf::from("/app/unitycapture"), PathBuf::from("/pf").join("Telescope").join("UnityCapture"));

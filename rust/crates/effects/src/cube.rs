@@ -1,4 +1,4 @@
-//! .cube LUT files (the second half of telescope/colour.py): reading Adobe's format plus Resolve's LUT_1D_INPUT_RANGE and
+//! .cube LUT files: reading Adobe's format plus Resolve's LUT_1D_INPUT_RANGE and
 //! shaper-then-cube files, and writing a 3D LUT for other apps.
 
 use telescope_core::i18n::Fields;

@@ -1,4 +1,4 @@
-//! Which Telescope this is (telescope/version.py). A release build gets TELESCOPE_BUILD, TELESCOPE_CHANNEL and TELESCOPE_COMMIT at compile time; anything else is channel "dev".
+//! Which Telescope this is. A release build gets TELESCOPE_BUILD, TELESCOPE_CHANNEL and TELESCOPE_COMMIT at compile time; anything else is channel "dev".
 
 pub const REPO: &str = "LunarKittyy/Telescope";
 

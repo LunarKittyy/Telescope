@@ -1,4 +1,4 @@
-//! What the Cinema tools judge and colour (plugins/cinema.py): false colour, focus peaking and zebras on the preview's copy of the
+//! What the Cinema tools judge and colour: false colour, focus peaking and zebras on the preview's copy of the
 //! picture, and the maths of the level guide (how the phone's tilt looks in the shown picture, and the filter that keeps it calm).
 //! The pixel work follows OpenCV and numpy to the last level, so the preview marks the same pixels the Python app does.
 

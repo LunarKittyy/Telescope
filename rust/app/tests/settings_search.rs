@@ -1,4 +1,4 @@
-// Using the search box (tests/test_settings_search.py), with a section of the test's own in a real settings window.
+// Using the search box, with a section of the test's own in a real settings window.
 mod rig;
 
 use rig::Rig;

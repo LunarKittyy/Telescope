@@ -1,5 +1,5 @@
 //! Whether added plugins have a newer version out, for those whose plugin.json "repo" is on GitHub and that publish their builds as
-//! GitHub Releases (plugin_updates.py). The network is a Fetch, so tests stand in for GitHub.
+//! GitHub Releases. The network is a Fetch, so tests stand in for GitHub.
 //!
 //! It only asks GitHub's API for each repo's latest release, at most once a day per repo, and keeps the answers (with their ETag, so asking
 //! again costs nothing against the rate limit when nothing changed) in plugin-updates.json next to the settings. Being offline or rate

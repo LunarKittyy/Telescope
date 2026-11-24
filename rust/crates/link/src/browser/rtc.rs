@@ -1,4 +1,4 @@
-//! The Browser camera's WebRTC side (browser_rtc.py): answers a page's offer and hands its video and mic on.
+//! The Browser camera's WebRTC side: answers a page's offer and hands its video and mic on.
 //!
 //! str0m does the WebRTC on UDP sockets and a thread of its own per browser. Python's aiortc decoded the video there;
 //! here the frames go on still encoded (H.264 as Annex B, or VP8), so the stream decodes them like a phone's, on the

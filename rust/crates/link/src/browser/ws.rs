@@ -1,4 +1,4 @@
-//! WebSocket framing (RFC 6455), just what a browser sends (browser_server.py's ws_* and _WsConnection).
+//! WebSocket framing (RFC 6455), just what a browser sends.
 
 use base64::Engine;
 use std::io::ErrorKind;

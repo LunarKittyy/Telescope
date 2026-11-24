@@ -15,7 +15,7 @@ use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::stereo_plugin::StereoPlugin;
 use telescope_shell::plugins::camera_control::CameraControl;
 use telescope_shell::offscreen;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 fn out() -> Option<PathBuf> {
     let dir = PathBuf::from(std::env::var("CARD_SHOTS").ok()?);

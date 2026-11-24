@@ -470,7 +470,6 @@ impl Outputs for Screens {
     }
 }
 
-// test_wait_screen.py::test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen
 #[test]
 fn a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen() {
     let screens = Arc::new(Screens::default());

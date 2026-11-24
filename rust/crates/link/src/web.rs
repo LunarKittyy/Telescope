@@ -1,4 +1,4 @@
-//! Pages for other devices over HTTPS (browser_server.py's ensure_certificate, TlsServer and PageHandler, behind core's Web):
+//! Pages for other devices over HTTPS:
 //! the self-signed certificate every such server shares, and a small HTTP/1.1 server on rustls with the same caps on
 //! connections and the same headers on every answer.
 

@@ -1,4 +1,4 @@
-//! test_composite.py's layout maths and saving, by the same names.
+//! The Composite plugin's layout maths and saving.
 
 use super::*;
 use serde_json::json;

@@ -1,4 +1,4 @@
-//! test_composite.py's drawing tests, by the same names. Frames are BGRA here, so a colour reads as the BGR Python's do.
+//! The Composite plugin's drawing tests. Frames are BGRA here, so a colour reads as the BGR Python's do.
 
 use super::*;
 use crate::composite::{big_and_small, grid, Stream, DEFAULT_BACKGROUND};

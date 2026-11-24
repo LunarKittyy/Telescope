@@ -1,4 +1,4 @@
-//! test_plugins.py's Monitoring tests, by the same names.
+//! Tests for the Monitoring plugin.
 
 use super::*;
 use telescope_core::host::BackgroundStream;
@@ -65,7 +65,7 @@ fn the_card_is_greyed_out_until_a_phone_is_paired() {
     assert_eq!(plugin.card().unwrap().ui.props["active"], json!(false));
     plugin.on_event(&mut host, &Event::PhonesChanged { count: 1 });
     assert_eq!(plugin.card().unwrap().ui.props["active"], json!(true));
-    // Stream output's half of test_plugins.py's parametrised test is in its tests.rs. A source that isn't a phone takes the card away
+    // Stream output's half of this test is in its tests.rs. A source that isn't a phone takes the card away
     plugin.on_event(&mut host, &Event::SourceSelected { source_id: "browser:1".into() });
     assert_eq!(plugin.card().unwrap().ui.props["phone-only-hidden"], json!(true));
 }
