@@ -153,6 +153,8 @@ pub(crate) struct Stream {
     download: Mutex<Option<crate::ffmpeg::Codec>>,
     slots: Mutex<Vec<Slot>>,
     fence: Mutex<Option<Arc<Fence>>>,
+    /// Whether the log already says this stream shares pictures on the card.
+    announced: AtomicBool,
     #[cfg(test)]
     forced: Mutex<Option<&'static str>>,
     /// How often a shared texture was opened on the pipeline's device.
@@ -345,6 +347,9 @@ impl Surface {
                     texture
                 }
             };
+            if !self.stream.announced.swap(true, Ordering::Relaxed) {
+                log::info!("D3D11 surface sharing is on ({backend:?}); decoded pictures stay on the card");
+            }
             Ok(Some(Imported { texture, backend, wait, _slot: guard }))
         })
     }

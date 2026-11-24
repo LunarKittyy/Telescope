@@ -1,0 +1,5 @@
+wgpu-hal 30.0.1 from crates.io with one change, in src/vulkan/descriptor.rs (search for "Telescope patch"): a descriptor pool that would have no pool sizes gets one small sampler entry.
+
+Why: wgpu 30 makes such a pool while it opens a device, and Vulkan only allows that since 1.3.215. Intel's Windows driver (igvk64.dll) crashes on it, so Telescope kept Intel cards off Vulkan on Windows (gfx-rs/wgpu#9845).
+
+Drop the folder and the [patch] in Cargo.toml once a wgpu release has gfx-rs/wgpu#10124, the same fix (merged on trunk in September 2026, missing from 30.0.2).

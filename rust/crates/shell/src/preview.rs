@@ -217,7 +217,7 @@ fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPref
     gpu_pick::note_listed(&candidates, &names);
     let choice = gpu_pick::choice();
     let wanted = gpu_pick::chosen(&candidates, &choice);
-    let mut by_choice = gpu_pick::with_choice(gpu_pick::order(&candidates, gpu_pick::system_preference()), &candidates, &choice);
+    let mut by_choice = gpu_pick::with_choice(gpu_pick::order(&candidates, gpu_pick::system_preference(), gpu_pick::Role::Window), &candidates, &choice);
     if !wanted.is_empty() {
         log::info!("Graphics card chosen in Settings: {}", names[wanted[0]]);
         if let Some(power_preference) = preference {
@@ -277,7 +277,7 @@ fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result
             })();
             match tried {
                 Ok(opened) => {
-                    gpu_pick::set_opened(&info.name);
+                    gpu_pick::set_opened(&info.name, &gpu_pick::card_id(info.vendor, info.device));
                     return Ok(opened);
                 }
                 Err(e) => {
