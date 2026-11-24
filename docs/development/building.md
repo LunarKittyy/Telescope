@@ -1,4 +1,4 @@
-<!-- covers: rust/Cargo.toml rust/app/src/dev.rs rust/crates/media/build.rs android/build.gradle android/app/build.gradle rust/tools/build_windows.ps1 rust/tools/fake_phone.py rust/tools/measure.py rust/tools/stress rust/windows/virtualcamera rust/crates/outputs/src/wincam.rs rust/crates/link/tests/page_harness.js; checked: 1cbb8644b -->
+<!-- covers: rust/Cargo.toml rust/app/src/dev.rs rust/crates/media/build.rs android/build.gradle android/app/build.gradle rust/tools/build_windows.ps1 rust/tools/fake_phone.py rust/tools/measure.py rust/tools/stress rust/windows/virtualcamera rust/crates/outputs/src/wincam.rs rust/crates/link/tests/page_harness.js; checked: 88de924b5 -->
 # Building
 
 ## Build the Android app

@@ -1,4 +1,4 @@
-<!-- covers: rust/Cargo.toml android/app/src/main/AndroidManifest.xml rust/crates/*/src/lib.rs rust/windows/virtualcamera rust/crates/core/src/config.rs rust/crates/link/src/feeds.rs rust/crates/link/src/net.rs rust/crates/link/src/plugin.rs rust/crates/media/src/mjpeg.rs rust/crates/outputs/src/v4l2.rs rust/crates/outputs/src/wincam.rs rust/crates/shell/src/window.rs rust/crates/shell/src/worker.rs rust/crates/ui-kit/ui/theme.slint; checked: 0d35dc883 -->
+<!-- covers: rust/Cargo.toml android/app/src/main/AndroidManifest.xml rust/crates/*/src/lib.rs rust/windows/virtualcamera rust/crates/core/src/config.rs rust/crates/link/src/feeds.rs rust/crates/link/src/net.rs rust/crates/link/src/plugin.rs rust/crates/media/src/mjpeg.rs rust/crates/outputs/src/v4l2.rs rust/crates/outputs/src/wincam.rs rust/crates/shell/src/window.rs rust/crates/shell/src/worker.rs rust/crates/ui-kit/ui/theme.slint; checked: 88de924b5 -->
 # Architecture
 
 How Telescope fits together, for contributors. The wire format is in [protocol.md](protocol.md) and the desktop's crates and plugin rules in [rust/ARCHITECTURE.md](../../rust/ARCHITECTURE.md).
@@ -72,7 +72,7 @@ Windows 11 added `MFCreateVirtualCamera`, which registers a camera backed by a m
 
 ## The phone app
 
-On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, each with its reason and an Allow button (plus Microphone once a desktop asks for it). The app doesn't ask for any of them unprompted.
+On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, each with its reason and an Allow button (plus Local network on Android 17 and newer while **Local only** is off, and Microphone once a desktop asks for it). The app doesn't ask for any of them unprompted.
 
 ### Servers
 
@@ -111,6 +111,8 @@ Tapping the version line five times in phone Settings reveals a developer **Came
 | `WAKE_LOCK` | Keep the CPU active with the screen off |
 | `POST_NOTIFICATIONS` | The persistent streaming notification |
 | `ACCESS_NETWORK_STATE` | Show the device IP in the UI |
+| `ACCESS_LOCAL_NETWORK` | Android 17 and newer block Wi-Fi traffic to the computer without it. USB doesn't need it |
+| `POST_PROMOTED_NOTIFICATIONS` | Ask Android to show the streaming notification as a live one |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | The Battery step of Get set up |
 | `REQUEST_INSTALL_PACKAGES` | Installing its own updates |
 

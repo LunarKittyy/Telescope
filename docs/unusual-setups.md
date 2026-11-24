@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/effects/src/stargazer* rust/crates/effects/src/phototrap* rust/crates/effects/src/photos* rust/crates/effects/src/desk* rust/crates/effects/src/notes* rust/crates/effects/src/cinema* rust/crates/effects/src/qr_reader* rust/crates/effects/src/stereo_plugin* rust/crates/system/src/mcp*.rs rust/crates/shell/src/plugins/presets.rs; checked: d369c8664 -->
+<!-- covers: rust/crates/effects/src/stargazer* rust/crates/effects/src/phototrap* rust/crates/effects/src/photos* rust/crates/effects/src/desk* rust/crates/effects/src/notes* rust/crates/effects/src/cinema* rust/crates/effects/src/qr_reader* rust/crates/effects/src/stereo_plugin* rust/crates/system/src/mcp*.rs rust/crates/shell/src/plugins/presets.rs; checked: 88de924b5 -->
 # Things to try with Telescope
 
 This page is for the ideas that don't come to mind first, from a phone on the other side of the world to a camera pointed at the night sky. Each one is a few steps and some are for fun. The optional plugins are switched on under **Plugins** in Settings and need a restart, see [Switching plugins on and off](features/plugins.md#switching-plugins-on-and-off).
@@ -8,7 +8,7 @@ This page is for the ideas that don't come to mind first, from a phone on the ot
 Telescope doesn't care where the phone is as long as the two can reach each other. [Tailscale](https://tailscale.com) is the easy way to get there. It gives every device an address that works from anywhere and Telescope already knows how to use it.
 
 1. Install Tailscale on the phone and the computer and sign in to the same tailnet.
-2. Open Telescope on both and press **Add phone**.
+2. Open Telescope on both and press **Add device**.
 3. Scan the code. The stream, the effects and the virtual camera work the same.
 
 Some things to do with that:
@@ -46,7 +46,7 @@ Clip the phone to a telescope's eyepiece (an actual one, not the name of the pro
 
 1. Switch on **Stargazer** under **Camera** and restart.
 2. Start the stream with the phone on the eyepiece. Turn the focuser until the **Focus** number on the card is as high as it goes. **Low light** on the Camera card makes each frame catch more light in the dark.
-3. Pick **Lucky imaging** for the moon and planets, **Live stack** for faint things or **Star trails**, then press **Start**. For a faint sky, set **Frames from** to **Photos** to stack long photos instead of video frames.
+3. Pick **Lucky** (lucky imaging) for the moon and planets, **Live** for faint things or **Trails** for star trails, then press **Start**. For a faint sky, set **Frames from** to **Photos** to stack long photos instead of video frames.
 4. The finished stack is saved as a PNG in Pictures/Telescope/Stargazer. **Show the stack on the camera** also sends it to the virtual camera.
 
 More in [Stargazer](features/effects.md#stargazer).

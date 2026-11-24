@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs rust/crates/core/src/gpu_marker.rs; checked: 0d35dc883 -->
+<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs rust/crates/core/src/gpu_marker.rs; checked: 88de924b5 -->
 # Troubleshooting
 
 Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), or open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report if something is broken.
@@ -57,7 +57,7 @@ OBS or another app still holds the device. Telescope keeps the old size and star
 The driver isn't registered. Open **Virtual camera & phone** in Settings and reinstall it.
 
 **Windows 11: an app doesn't list Telescope**
-Open **Virtual camera & phone** in Settings. If the Driver row shows **Some apps can't see it** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) don't see. Click **Update**. An app that was already open can need restarting before it lists the new camera.
+Open **Virtual camera & phone** in Settings. If the Driver row shows **Some apps can't see the camera** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) don't see. Click **Update**. An app that was already open can need restarting before it lists the new camera.
 
 **Windows 11: the camera shows Telescope's lens while Telescope is closed**
 Telescope isn't running, or it's still starting. The camera is in every app's list even with Telescope closed and shows the default wait screen without that line until Telescope sends it something. Open Telescope and your wait screen or your phone appears in its place.
@@ -77,7 +77,7 @@ Click **Retry**. If it fails again open an issue with your **Copy diagnostics** 
 ## Pairing and connecting
 
 **QR pairing fails ("Couldn't reach your computer.")**
-The phone and computer aren't on the same network, or the computer's firewall blocks port 7479. The dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is). Or plug the phone in and pair over USB.
+The phone and computer aren't on the same network, or the computer's firewall blocks port 7479. The dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add device dialog is still open (the pairing server only runs while it is). Or plug the phone in and pair over USB.
 
 **"Update Telescope on <computer> to keep using this phone with it" or "Update the Telescope app on <phone> to connect"**
 The two apps are on different versions from before Telescope moved its ports (they were 8765 to 8768 and are now 7479 to 7482). Update the one the message names, or both. Telescope on the computer and on the phone has to be the same version.
@@ -92,10 +92,10 @@ Those networks usually block devices from talking to each other. There is no way
 The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same. With Tailscale you don't need to pause it, see [Things to try](unusual-setups.md#use-a-phone-from-far-away).
 
 **Plugged in but USB pairing doesn't happen**
-Click the phone's **Pair** button under USB in the Add phone dialog first. A plugged-in phone isn't paired until you do. The USB line names which of these is in the way if it still doesn't (adb isn't installed, USB debugging isn't allowed on the phone or the app isn't on screen). Install `adb` (Linux) or click **get from Google** in that line (Windows), [enable Developer options](https://developer.android.com/studio/debug/dev-options#enable) on the phone and turn on [USB debugging](https://developer.android.com/studio/debug/dev-options#Enable-debugging) in them, accept the prompt it shows and leave Telescope open there.
+Click the **Pair** button with your phone's name on it under USB in the Add device dialog first. A plugged-in phone isn't paired until you do. The USB line names which of these is in the way if it still doesn't (adb isn't installed, USB debugging isn't allowed on the phone or the app isn't on screen). Install `adb` (Linux) or click **Get adb from Google** in that line (Windows), [enable Developer options](https://developer.android.com/studio/debug/dev-options#enable) on the phone and turn on [USB debugging](https://developer.android.com/studio/debug/dev-options#Enable-debugging) in them, accept the prompt it shows and leave Telescope open there.
 
-**"Google wouldn't send adb to this computer" (Windows)**
-Google blocks these downloads in some countries. Get Google's platform-tools for Windows another way, then click **pick one you already have** in Add phone (or **Use my own adb…** under Virtual camera & phone in Settings) and choose `adb.exe` or the zip. Wi-Fi works without adb.
+**"Google refused the download" (Windows)**
+Google blocks these downloads in some countries. Get Google's platform-tools for Windows another way, then click **Pick an adb you already have** in Add device (or **Use my own adb…** under Virtual camera & phone in Settings) and choose `adb.exe` or the zip. Wi-Fi works without adb.
 
 **It streams over Wi-Fi although the phone is plugged in**
 Hover the status line of the Connection panel and its tooltip names the reason (Telescope isn't open on the phone, USB debugging isn't allowed yet or the cable has a different phone on it). Fix that and the next connect uses USB. To never use Wi-Fi set **Connect via** to USB only.
@@ -104,7 +104,7 @@ Hover the status line of the Connection panel and its tooltip names the reason (
 Telescope isn't open on the phone, or the phone is on another network and not plugged in. Open Telescope on the phone and leave it on screen.
 
 **"Can't reach the phone" after reinstalling the phone app**
-A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. A banner asks whether it's the same phone and **Yes** moves the old settings and presets over to it and takes the old entry out of the list. If you answer **No**, or remove the old entry yourself first, its settings go with it.
+A reinstall (or Clear data) gives the phone a new identity. Click **Add device** and pair again. A banner asks whether it's the same phone and **Yes** moves the old settings and presets over to it and takes the old entry out of the list. If you answer **No**, or remove the old entry yourself first, its settings go with it.
 
 **"Can't reach <phone>" banner while streaming**
 The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If the stream is still running the picture returns without you doing anything. Otherwise click **Start streaming**.
@@ -112,8 +112,8 @@ The phone app was closed or killed, or the phone left the network. Open Telescop
 **The stream stops after a while with the phone's screen off**
 Android's power saving closed Telescope. Tap **Allow** next to Battery in the phone app's Get set up card if it's still there (that turns battery optimisation off for Telescope). Some phones close apps anyway and on those it helps to leave Telescope on screen and tap **Black screen** next to Preview instead of turning the screen off.
 
-**"Needs pairing again"**
-The phone removed this computer. It remains in the list here with its settings. Click **Add phone** and pair again. Settings only go when you remove the phone from the list on the computer.
+**"Pairing required"**
+The phone removed this computer. It remains in the list here with its settings. Click **Add device** and pair again. Settings only go when you remove the phone from the list on the computer.
 
 **"Another app on the phone is using the camera"**
 Android gives the camera to the app on screen (the Camera app, a video call). Close or switch away from it and the stream picks back up.

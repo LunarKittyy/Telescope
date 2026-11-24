@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/effects/src/framing* rust/crates/effects/src/auto_* rust/crates/effects/src/background* rust/crates/effects/src/face_exposure* rust/crates/effects/src/privacy_blur* rust/crates/effects/src/chroma_key* rust/crates/effects/src/desk* rust/crates/vision/src; checked: 0d35dc883 -->
+<!-- covers: rust/crates/effects/src/framing* rust/crates/effects/src/auto_* rust/crates/effects/src/background* rust/crates/effects/src/face_exposure* rust/crates/effects/src/privacy_blur* rust/crates/effects/src/chroma_key* rust/crates/effects/src/desk* rust/crates/vision/src; checked: 88de924b5 -->
 # Framing and background
 
 Keeping you in frame and changing or hiding what is behind you.
@@ -40,7 +40,7 @@ It reacts only to the people MediaPipe finds. It can miss someone (a person turn
 
 With several cameras streaming it watches the one shown in the panels. Whenever it blurs or covers that one the others get blurred all over too until it stops. A camera you clicked away from while it was blurred is still blurred.
 
-Background and Auto framing work less while no part of the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery. A big move, like standing up or waving across the picture, still gets a fresh cutout straight away. With Auto framing at Head or Chest, **Show hands** off and no other effect that needs your body (Fun pack, Privacy blur), Power-saving effects also has it follow your face rather than your body. That costs a fraction as much. It still checks your body once a second and uses it again whenever no face is found or more people are in view. The download from before this version has no face finder and works without it.
+Background and Auto framing work less while no part of the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery. A big move, like standing up or waving across the picture, still gets a fresh cutout straight away. With Auto framing at Head or Chest, **Show hands** off, nobody picked and no other effect that needs your body (Fun pack, Privacy blur), Power-saving effects also has it follow your face rather than your body. That costs a fraction as much. It still checks your body once a second and uses it again whenever no face is found or more people are in view. The download from before this version has no face finder and works without it.
 
 ## Chroma key
 

@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/audio/src rust/crates/effects/src/on_air* rust/crates/outputs/src/wait_screen* android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt rust/crates/setup/src/adjustments.rs; checked: 9acedcd63 -->
+<!-- covers: rust/crates/audio/src rust/crates/effects/src/on_air* rust/crates/outputs/src/wait_screen* android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt rust/crates/setup/src/adjustments.rs; checked: 88de924b5 -->
 # Sound, the On Air sign and monitoring the stream
 
 The microphone, the On Air sign and keeping an eye on the stream.
