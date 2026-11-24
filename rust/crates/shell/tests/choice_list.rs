@@ -39,10 +39,13 @@ fn click(w: &ComponentInstance, x: f32, y: f32) {
     w.window().dispatch_event(WindowEvent::PointerMoved { position });
     w.window().dispatch_event(WindowEvent::PointerPressed { position, button });
     w.window().dispatch_event(WindowEvent::PointerReleased { position, button });
-    // A frame to start the list's ease, then long enough for it to finish
+    // A frame to start the list's ease, then long enough for it to finish. An ease starts from the clock as of the frame that
+    // first reads it, and that can be the second one, so a second frame and wait make sure it has run its course.
     telescope_shell::offscreen::pump();
-    telescope_shell::offscreen::draw(w.window(), 300.0, 400.0, 1.0);
-    telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
+    for _ in 0..2 {
+        telescope_shell::offscreen::draw(w.window(), 300.0, 400.0, 1.0);
+        telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
+    }
 }
 
 // Which row of the open list is filled, by looking at a pixel near each row's end

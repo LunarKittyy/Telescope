@@ -129,6 +129,13 @@ fn tabs(ui: &ComponentInstance, n: usize) -> Vec<String> {
 }
 
 fn fold(ui: &ComponentInstance, key: &str) {
+    // A person's fold glides for as long as it takes and the card then waits a moment before snapping again, both on the clock: pressing
+    // Space on a title (focused() does) starts one, so let it all end before the next fold goes in and again after it
+    let settle = || {
+        telescope_shell::offscreen::skip(std::time::Duration::from_secs(2));
+        telescope_shell::offscreen::draw(ui.window(), 400.0, 240.0, 1.0);
+    };
+    settle();
     FOLDED.with(|f| f.borrow().as_ref().unwrap().borrow_mut().push(key.to_string()));
     let version = match ui.get_global_property("Folds", "version").unwrap() {
         Value::Number(n) => n,
@@ -136,6 +143,7 @@ fn fold(ui: &ComponentInstance, key: &str) {
     };
     ui.set_global_property("Folds", "version", Value::Number(version + 1.0)).unwrap();
     slint::platform::update_timers_and_animations();
+    settle();
 }
 
 #[test]
