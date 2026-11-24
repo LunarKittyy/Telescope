@@ -45,11 +45,12 @@
         <item name="strokeWidth">?attr/tsCardOutlineW</item>
     </style>
 
-    <!-- A button is 44dp tall inside a 48dp touch target (the inset is the touch room); LookButton gives it its role's colours -->
+    <!-- A button is 44dp tall inside a 48dp touch target (the inset is the touch room); LookButton gives it its role's colours. No font padding, which sits the label low in this font -->
     <style name="Widget.Telescope.Button" parent="Widget.MaterialComponents.Button">
         <item name="android:textAllCaps">false</item>
         <item name="android:letterSpacing">0</item>
         <item name="android:textSize">14sp</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:fontFamily">@font/ibm_plex_sans_semibold</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:minWidth">0dp</item>
