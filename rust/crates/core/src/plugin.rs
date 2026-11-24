@@ -197,12 +197,12 @@ pub trait Plugin: Send {
     fn opening(&self) -> Option<crate::link::StreamRequest> {
         None
     }
-    /// A start has begun, the phone's wake included, heard at once on the host's thread before anything wakes (Event::StreamStartBegan
+    /// 1 of 3: a start has begun, the phone's wake included, heard at once on the host's thread before anything wakes (Event::StreamStartBegan
     /// is the same moment but reaches plugins a turn later). Only for what has to hold from this instant, like a download that must not stop adb.
     fn on_stream_start_began(&mut self, _host: &mut dyn Host) {}
-    /// A stream is about to open the virtual camera; anything holding it while idle lets go now.
+    /// 2 of 3: a stream is about to open the virtual camera; anything holding it while idle lets go now.
     fn on_stream_starting(&mut self, _host: &mut dyn Host) {}
-    /// The stream this plugin hears about started, or came back after a drop.
+    /// 3 of 3: the stream this plugin hears about started, or came back after a drop.
     fn on_stream_start(&mut self, _host: &mut dyn Host, _stream: &StreamInfo) {}
     /// The stream this plugin hears about ended (or stops to start again: host.is_restarting()).
     fn on_stream_stop(&mut self, _host: &mut dyn Host) {}
