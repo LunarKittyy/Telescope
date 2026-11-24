@@ -4086,6 +4086,9 @@ msgstr "Baris sebelumnya"
 msgid "Primaries"
 msgstr "Primer"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Buram privasi"
 

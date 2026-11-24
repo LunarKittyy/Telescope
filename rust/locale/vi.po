@@ -4086,6 +4086,9 @@ msgstr "Dòng trước"
 msgid "Primaries"
 msgstr "Màu cơ bản"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Làm mờ riêng tư"
 

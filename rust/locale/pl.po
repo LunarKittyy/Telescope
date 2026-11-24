@@ -4104,6 +4104,9 @@ msgstr "Poprzedni wiersz"
 msgid "Primaries"
 msgstr "Podstawowe"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Rozmycie dla prywatności"
 

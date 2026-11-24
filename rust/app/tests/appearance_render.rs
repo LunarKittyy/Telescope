@@ -1063,7 +1063,7 @@ fn the_main_window_on_a_short_screen_gets_as_short_as_the_screen_and_its_columns
 }
 
 // The Windows-only Graphics priority row, in the narrowest Settings window in every look: it fits, it stays in its card, and the picture is saved
-// when APPEARANCE_SHOTS is set.
+// when APPEARANCE_SHOTS is set (also at the default width).
 #[test]
 fn the_graphics_priority_row_fits_the_narrowest_settings_window_on_windows() {
     WINDOWS.with(|w| w.set(true));
@@ -1081,6 +1081,11 @@ fn the_graphics_priority_row_fits_the_narrowest_settings_window_on_windows() {
         problems.extend(seen.problems.iter().cloned());
         if let Some(dir) = shots() {
             seen.picture.save_png(&dir.join(format!("graphics-priority-{name}-narrowest.png"))).unwrap();
+        }
+        let wide = look_at(&settings.ui, &format!("windows {name} at {SETTINGS_W}"), SETTINGS_W, None);
+        problems.extend(wide.problems.iter().cloned());
+        if let Some(dir) = shots() {
+            wide.picture.save_png(&dir.join(format!("graphics-priority-{name}-default.png"))).unwrap();
         }
     }
     telescope_shell::settings::forget();

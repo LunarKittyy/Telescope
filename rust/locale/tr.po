@@ -4095,6 +4095,9 @@ msgstr "Önceki satır"
 msgid "Primaries"
 msgstr "Ana renkler"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Gizlilik bulanıklaştırması"
 

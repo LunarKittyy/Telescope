@@ -4086,6 +4086,9 @@ msgstr "前の行"
 msgid "Primaries"
 msgstr "プライマリ"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "プライバシーぼかし"
 

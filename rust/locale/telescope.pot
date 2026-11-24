@@ -4093,6 +4093,9 @@ msgstr ""
 msgid "Primaries"
 msgstr ""
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr ""
 

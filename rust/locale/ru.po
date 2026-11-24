@@ -4104,6 +4104,9 @@ msgstr "Предыдущая строка"
 msgid "Primaries"
 msgstr "Основные"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Размытие для приватности"
 

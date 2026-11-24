@@ -4095,6 +4095,9 @@ msgstr "पिछली लाइन"
 msgid "Primaries"
 msgstr "प्राइमरीज़"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "प्राइवेसी ब्लर"
 

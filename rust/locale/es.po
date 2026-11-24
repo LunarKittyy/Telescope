@@ -4095,6 +4095,9 @@ msgstr "Línea anterior"
 msgid "Primaries"
 msgstr "Primarias"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Desenfoque de privacidad"
 

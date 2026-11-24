@@ -4094,6 +4094,9 @@ msgstr "Föregående rad"
 msgid "Primaries"
 msgstr "Primära"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Integritetsoskärpa"
 

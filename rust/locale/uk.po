@@ -4104,6 +4104,9 @@ msgstr "Попередній рядок"
 msgid "Primaries"
 msgstr "Основні"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Приватне розмиття"
 

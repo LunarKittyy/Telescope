@@ -4086,6 +4086,9 @@ msgstr "上一行"
 msgid "Primaries"
 msgstr "一级调色"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "隐私虚化"
 

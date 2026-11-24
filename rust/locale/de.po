@@ -4095,6 +4095,9 @@ msgstr "Vorherige Zeile"
 msgid "Primaries"
 msgstr "Primärfarben"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Privatsphäre-Weichzeichnung"
 

@@ -4095,6 +4095,9 @@ msgstr "Riga precedente"
 msgid "Primaries"
 msgstr "Primari"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "Sfocatura privacy"
 

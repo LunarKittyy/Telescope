@@ -4086,6 +4086,9 @@ msgstr "이전 줄"
 msgid "Primaries"
 msgstr "프라이머리"
 
+msgid "Priority"
+msgstr ""
+
 msgid "Privacy blur"
 msgstr "프라이버시 흐림 효과"
 
