@@ -8,7 +8,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.ServiceInfo
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -728,9 +727,7 @@ class CameraStreamService : Service() {
             // The computer was told its stop worked before this start ran; Android still wants a foreground promotion first.
             if (incomingLease != 0L) CameraOwnership.release(incomingLease)
             stateMachine.record("startAborted")
-            if (intent?.getBooleanExtra(EXTRA_COVERED, false) != true) {
-                try { startForegroundCompat(); stopForeground(STOP_FOREGROUND_REMOVE); inForeground = false } catch (_: Exception) {}
-            }
+            if (intent?.getBooleanExtra(EXTRA_COVERED, false) != true) promoteAndDrop()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -750,9 +747,7 @@ class CameraStreamService : Service() {
         }
         if (!adopted) {
             stateMachine.record("ownershipRefused")
-            if (intent?.getBooleanExtra(EXTRA_COVERED, false) != true) {
-                try { startForegroundCompat(); stopForeground(STOP_FOREGROUND_REMOVE); inForeground = false } catch (_: Exception) {}
-            }
+            if (intent?.getBooleanExtra(EXTRA_COVERED, false) != true) promoteAndDrop()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -1436,18 +1431,13 @@ class CameraStreamService : Service() {
     fun refreshNotification() = showStreamNotification()
 
     private fun startForegroundCompat(withMic: Boolean = AudioStreamer.permitted(this)) {
-        val n = buildNotification()
-        // Type parameter only works on R+; pre-R relies on manifest declaration.
-        // Microphone only once it's allowed: Android refuses a type whose permission is missing.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
-                (if (withMic) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
-            startForeground(NOTIF_ID, n, types)
-        } else {
-            startForeground(NOTIF_ID, n)
-        }
-        micForeground = withMic || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+        micForeground = Foreground.promote(this, NOTIF_ID, buildNotification(), withMic)
         inForeground = true
+    }
+
+    // Android wants a started foreground service promoted even when it's about to stop
+    private fun promoteAndDrop() {
+        try { startForegroundCompat(); stopForeground(STOP_FOREGROUND_REMOVE); inForeground = false } catch (_: Exception) {}
     }
 
     private fun acquireWakeLock() {
