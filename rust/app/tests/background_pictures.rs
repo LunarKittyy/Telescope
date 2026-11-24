@@ -15,7 +15,7 @@ use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_core::vision;
 use telescope_effects::background::BackgroundPlugin;
 use telescope_effects::shared::{picture_reader, PictureReader};
-use telescope_shell::source::to_slint;
+use telescope_shell::slint_source::to_slint;
 
 fn reader() -> PictureReader {
     picture_reader(Arc::new(telescope_media::FfmpegMedia))

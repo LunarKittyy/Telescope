@@ -76,7 +76,7 @@ fn fold_buttons(r: &Rig) -> Vec<i_slint_backend_testing::ElementHandle> {
         st.cards().into_iter().filter_map(|i| {
             let card = &st.slots[i].card.as_ref()?.ui;
             let SlintSource::Text(text) = &card.source else { return None };
-            telescope_shell::source::heading(text, &card.component)
+            telescope_shell::slint_source::heading(text, &card.component)
         }).collect()
     };
     titles.iter().filter_map(|t| ElementHandle::find_by_accessible_label(&r.w.ui, t).find(|e| e.accessible_checkable() == Some(true))).collect()

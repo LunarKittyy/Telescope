@@ -11,7 +11,7 @@ use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::grade::monotone_curve;
 use telescope_shell::offscreen;
-use telescope_shell::source::from_json;
+use telescope_shell::slint_source::from_json;
 
 /// The card's width; CARD_WIDTH tries another for a look at how it lays out.
 fn width() -> f32 {

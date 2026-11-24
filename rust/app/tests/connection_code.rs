@@ -5,7 +5,7 @@ use serde_json::json;
 use slint_interpreter::{Compiler, ComponentHandle, ComponentInstance, Value};
 use std::path::Path;
 use telescope_shell::offscreen;
-use telescope_shell::source::from_json;
+use telescope_shell::slint_source::from_json;
 
 fn spin_on<F: std::future::Future>(f: F) -> F::Output {
     let mut cx = std::task::Context::from_waker(std::task::Waker::noop());

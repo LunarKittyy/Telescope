@@ -13,7 +13,7 @@ use telescope_outputs::webcam::{System, WebcamPlugin, NAME, SOURCE_PREFIX};
 use telescope_outputs::webcam_controls::{Control, Controls};
 use telescope_outputs::webcams::Device;
 use telescope_shell::offscreen;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 struct Settings;
 

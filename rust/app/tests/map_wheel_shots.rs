@@ -9,7 +9,7 @@ use telescope_core::ui::SlintSource;
 use telescope_effects::colour_grading::{wheel_colour, ColourGradingPlugin};
 use telescope_effects::transforms::TransformsPlugin;
 use telescope_shell::offscreen;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 const WIDTH: f32 = 406.0;
 

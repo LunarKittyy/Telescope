@@ -14,7 +14,7 @@ use telescope_core::plugin::Plugin;
 use telescope_core::testing::FakeHost;
 use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_effects::chroma_key::ChromaKeyPlugin;
-use telescope_shell::source::{from_json, parse_color};
+use telescope_shell::slint_source::{from_json, parse_color};
 use telescope_shell::{input, offscreen};
 
 const WIDTH: f32 = 460.0;
@@ -83,7 +83,7 @@ impl Rig {
         for name in ["colour-moved", "hex-typed", "channel-typed", "pipette-clicked"] {
             let log = said.clone();
             w.set_callback(name, move |args| {
-                log.borrow_mut().push(UiEvent { ui: "card".into(), callback: name.into(), args: args.iter().map(telescope_shell::source::to_json).collect() });
+                log.borrow_mut().push(UiEvent { ui: "card".into(), callback: name.into(), args: args.iter().map(telescope_shell::slint_source::to_json).collect() });
                 Value::Void
             })
             .unwrap();

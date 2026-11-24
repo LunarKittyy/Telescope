@@ -223,7 +223,7 @@ impl Stage {
     }
 
     fn lines(&self) -> Vec<serde_json::Value> {
-        telescope_shell::source::to_json(&self.prop("skeleton-lines")).as_array().cloned().unwrap_or_default()
+        telescope_shell::slint_source::to_json(&self.prop("skeleton-lines")).as_array().cloned().unwrap_or_default()
     }
 
     fn accent(&self) -> SValue {
@@ -404,7 +404,7 @@ fn the_popout_pans_zooms_and_shows_boxes_too() {
     assert_eq!(get("has-frame"), SValue::Bool(true));
     assert_eq!(get("stage-cursor"), SValue::String("grab".into()));
     assert_eq!(get("boxes-opacity"), SValue::Number(1.0));
-    let boxes = telescope_shell::source::to_json(&get("lens-boxes"));
+    let boxes = telescope_shell::slint_source::to_json(&get("lens-boxes"));
     assert_eq!(boxes[0]["label"], json!("3\u{d7}"));
 
     let position = |x: f32, y: f32| LogicalPosition::new(x, y);

@@ -36,7 +36,7 @@ pub mod profiles;
 pub mod reset;
 pub mod snapshot;
 pub mod specimen;
-pub mod source;
+pub mod slint_source;
 pub mod sources;
 pub mod stream_flow;
 pub mod streams;

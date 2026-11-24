@@ -8,7 +8,7 @@
 
 use telescope_core::i18n::Fields;
 use crate::layout::{Mode, Panels, Region, WIDTH_THREE_COL, WIDTH_TWO_COL};
-use crate::source::{quote, Interface};
+use crate::slint_source::{quote, Interface};
 
 /// Spacing between cards in a column and between columns (app.py _build_body).
 const GAP: f32 = 14.0;
@@ -623,7 +623,7 @@ const BODY_BOTTOM: &str = r#"        }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::scan;
+    use crate::slint_source::scan;
     use slint_interpreter::{ComponentHandle, Value};
 
     const STAGE: &str = r#"

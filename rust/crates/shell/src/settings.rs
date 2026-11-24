@@ -5,7 +5,7 @@
 use crate::doc::{self, Piece, SectionPlace};
 use crate::plugins_tab::{self, group_icon, Commit, Download, Filter, NoticeKind, Notice, Outcome, Panel, Question, Request, Step, VisionDownload};
 use crate::search::{search_ex, Entry};
-use crate::source::{scan, to_json, to_property};
+use crate::slint_source::{scan, to_json, to_property};
 use crate::window::Window;
 use crate::texts::fill;
 use i_slint_core::accessibility::AccessibleStringProperty;

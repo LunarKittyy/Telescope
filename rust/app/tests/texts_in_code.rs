@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use telescope_core::i18n::po;
 
 /// The files that read or write the calls themselves, so their examples aren't texts.
-const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
+const READERS: [&str; 4] = ["slint_source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")

@@ -82,7 +82,7 @@ Measured (release, window thread CPU over 40 s after 25 s warm-up, fake phone wi
 At 4K everything on that is about 18 % less, but the runs of one build differ by 7 % and the other threads' load differed between runs, so read it as a clear gain of somewhere between 10 and 20 %, not as 18. At 1080p nothing loaded the gain is within noise (one base run was an outlier).
 Pixels: the main window and the Settings window (the offscreen r8_pixels comparison, SLINT_BACKEND=testing) drew byte for byte the same before and after. Tests: telescope-shell and telescope-app nextest, 1643 passed (plugin_removal skipped).
 
-Sixth change, in item_holder.rs, eval.rs, bindings.rs, globals.rs, public_api.rs, api.rs and component.rs (search for "Telescope patch"), with crates/shell/src/source.rs: fewer allocations while the window updates.
+Sixth change, in item_holder.rs, eval.rs, bindings.rs, globals.rs, public_api.rs, api.rs and component.rs (search for "Telescope patch"), with crates/shell/src/slint_source.rs: fewer allocations while the window updates.
 
 Why: a counting allocator over the offscreen window (main window with every plugin, two streams, a phone state update every tick) showed what each update allocated. The biggest part was not evaluation at all: telescope_shell::source::to_property found a property's declared type through ComponentDefinition::properties_and_callbacks, which builds a Vec with a String and a Type for every public property (and the caller normalised every name with two more Strings) to look at one. After that came every instance copying every binding expression it installs, the property table of a native item type being rebuilt on every read, write and callback, and every function call copying the function body and its argument types.
 
