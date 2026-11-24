@@ -415,3 +415,15 @@ fn the_config_path_is_where_the_python_app_kept_it_on_linux_and_windows() {
         assert_eq!(want.config_path().to_string_lossy().replace('\\', "/"), expected, "windows {windows}, env {env_set}, dev {dev}");
     }
 }
+
+#[test]
+fn saves_never_share_a_temp_file() {
+    let dir = scratch_dir("config");
+    let f = file_in(&dir);
+    let mut cfg = f.load();
+    // A leftover temp file of another writer must not be touched by this save
+    let other = dir.join("telescope_config.json.tmp-1-1");
+    std::fs::write(&other, "half").unwrap();
+    assert!(f.save(&mut cfg));
+    assert_eq!(std::fs::read_to_string(&other).unwrap(), "half");
+}

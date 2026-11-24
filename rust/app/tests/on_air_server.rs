@@ -103,7 +103,7 @@ fn a_page_waits_for_the_next_change() {
     let s = server();
     s.sign.publish(json!({"on": false}));
     let waiting = s.get_later("/state?after=1", s.sign.token());
-    assert!(waiting.recv_timeout(Duration::from_millis(300)).is_err(), "nothing new yet: the request is held");
+    assert!(matches!(waiting.recv_timeout(Duration::from_millis(300)), Err(std::sync::mpsc::RecvTimeoutError::Timeout)), "nothing new yet: the request is held");
     s.sign.publish(json!({"on": true}));
     let got = waiting.recv_timeout(Duration::from_secs(3)).expect("the change ends the wait");
     assert_eq!(parsed(&got), json!({"on": true, "seq": 2}));
@@ -115,7 +115,7 @@ fn a_new_link_ends_the_wait_and_refuses_the_old_one() {
     s.sign.publish(json!({"on": false}));
     let old = s.sign.token();
     let waiting = s.get_later("/state?after=1", old.clone());
-    assert!(waiting.recv_timeout(Duration::from_millis(300)).is_err());
+    assert!(matches!(waiting.recv_timeout(Duration::from_millis(300)), Err(std::sync::mpsc::RecvTimeoutError::Timeout)));
     s.sign.set_token(&"c".repeat(24));
     waiting.recv_timeout(Duration::from_secs(3)).expect("the new link ends the wait");
     assert_eq!(s.get("/state?after=1", &old).0, 403);

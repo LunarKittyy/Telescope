@@ -196,13 +196,14 @@ impl Shared {
         let (video, audio) = (feed.clone(), feed.clone());
         let mut session = (self.rtc)(Box::new(move |codec, data, size, made| video.put_video(gen, codec, data, size, made)),
                                      Box::new(move |pcm| audio.put_audio(gen, &pcm)));
-        let answered = session.answer(offer, feed.max_kbps());
+        let max_kbps = feed.max_kbps();
+        let answered = session.answer(offer, max_kbps);
         let codec = session.codec();
         *rtc.borrow_mut() = Some(session);
         match answered {
             Ok(sdp) => {
                 feed.note_rtc(gen, &codec, "");
-                json!({"type": "answer", "sdp": sdp})
+                json!({"type": "answer", "sdp": sdp, "max_kbps": max_kbps})
             }
             Err(e) => {
                 log::warn!("Browser camera: couldn't answer the browser's offer: {}", e.0);

@@ -3,11 +3,12 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-const SCENARIOS: [&str; 36] = [
+const SCENARIOS: [&str; 39] = [
     "the_page_offers_and_applies_the_answer", "a_superseded_offer_is_not_sent", "a_failed_connection_offers_again",
     "flip_keeps_the_mic", "the_mirror_follows_the_camera_not_the_request", "the_mic_follows_the_computer", "a_lost_mic_comes_back",
     "a_mic_that_recovers_clears_its_error_on_the_computer", "a_refused_mic_leaves_the_camera_working",
-    "a_size_the_camera_ignores_reopens_it", "a_new_link_stops_the_page", "a_dropped_socket_reconnects", "stats_report_what_is_sent",
+    "an_old_mic_failure_does_not_blame_the_new_mic", "a_size_the_camera_ignores_reopens_it",
+    "a_frame_rate_the_camera_ignores_reopens_it", "a_new_bitrate_cap_offers_again", "a_new_link_stops_the_page", "a_dropped_socket_reconnects", "stats_report_what_is_sent",
     "one_camera_hides_flip", "a_front_camera_lights_the_screen", "a_flash_stays_on_through_a_new_size", "stop_while_the_camera_opens",
     "a_double_tap_wakes_the_black_screen", "a_lone_tap_times_out", "the_button_tap_is_not_half_a_double_tap",
     "black_screen_without_full_screen", "iphone_black_screen_uses_the_video_player", "a_stalled_camera_closes_the_iphone_player",

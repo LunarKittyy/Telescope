@@ -139,6 +139,9 @@ pub struct SetupStatus {
     /// Windows: the Windows 11 camera could be installed here.
     #[serde(default)]
     pub installable: bool,
+    /// Windows: UnityCapture's DLLs are downloaded already.
+    #[serde(default)]
+    pub driver_files: bool,
 }
 
 pub trait Outputs: Send + Sync {

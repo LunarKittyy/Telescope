@@ -1,6 +1,9 @@
 //! view_controller's _Handover: a phone share sent while zooming, until its frames arrive. The frames before it still
 //! come cropped the old way, and cropping them for the new one would make the picture jump for a moment. A shader's crop
 //! is fixed when it's built, so the worker asks this for each frame and swaps the view's steps on the one that shows it.
+//! A newer phone tags each frame with the crop its camera reported for it (Frame::phone_share). Once a tag has come, a tagged frame
+//! is cropped by its tag. A frame whose tag is missing has the crop the last one had while nothing is on its way; while a share is
+//! on its way its crop isn't known, so it is found by comparing it with the frames before it, as for a phone without tags.
 
 use std::sync::Mutex;
 use std::collections::HashMap;
@@ -27,6 +30,87 @@ const THUMB: (usize, usize) = (128, 72);
 const ARRIVED: f32 = 0.6;
 /// Every this many pixels of a frame go into its thumb.
 const SKIP: usize = 4;
+/// A frame's crop tag is the share sent when their zooms are this close (as a log) and their centres this close (of the whole view): the camera rounds the crop to whole pixels.
+const TAG_ZOOM: f64 = 0.01;
+const TAG_CENTRE: f64 = 0.004;
+/// A share the camera never matches (it rounds the crop to its own steps) is taken to have arrived once two tags this far past the send agree with each other (seconds).
+const SETTLE_TAGS_S: f64 = 0.5;
+/// Untagged frames held back after a reconnect, while the first tag is waited for.
+const AWAIT_TAG_FRAMES: u32 = 3;
+
+/// Whether a frame tagged with `tag` shows `share`.
+fn shows(tag: &PhoneZoom, share: &PhoneZoom) -> bool {
+    let ((tz, tx, ty), (sz, sx, sy)) = (phone_window(Some(tag)), phone_window(Some(share)));
+    (tz.ln() - sz.ln()).abs() < TAG_ZOOM && (window_centre(tz, tx) - window_centre(sz, sx)).abs() < TAG_CENTRE && (window_centre(tz, ty) - window_centre(sz, sy)).abs() < TAG_CENTRE
+}
+
+/// What the frames of a phone that tags them have said, since the stream or its connection last changed.
+#[derive(Default)]
+struct Tags {
+    /// The share sent last, the view for frames that show it and the framing the crops are for, as the window keeps them.
+    target: Option<(PhoneZoom, View, View)>,
+    /// A tag has come: from then on the tags say how frames are cropped.
+    tagged: bool,
+    /// The crop the phone's picture is known to have: the last tag's, the whole view after a reconnect, None after a lens change.
+    known: Option<PhoneZoom>,
+    /// When the last tag came.
+    tag_at: Option<f64>,
+    /// The last tag and when it came, for telling that a camera has settled on a crop that isn't the one sent.
+    last_tag: Option<(PhoneZoom, f64)>,
+    /// Untagged frames still to hold back after a reconnect: the phone keeps its zoom through one, and which it has is only known from a tag.
+    awaiting: u32,
+    /// The crop the last frame shown was taken to have.
+    showing: Option<PhoneZoom>,
+    /// When the share was sent, while it is on its way: until a frame shows it, or for HANDOVER_S (a camera may settle on another crop, or ignore it).
+    pending: Option<f64>,
+    /// Untagged frames in a row.
+    misses: u32,
+    /// How much consecutive frames differ when nothing happens (Handover::calm), kept across the comparisons a tagged frame starts.
+    calm: f32,
+    /// While a share is on its way and tags are missing: where the frames since the last tagged one are found to be.
+    compare: Option<Handover>,
+}
+
+impl Tags {
+    fn on(&self) -> bool {
+        self.tagged && self.target.is_some()
+    }
+
+    fn reset(&mut self) {
+        *self = Tags { target: self.target.take(), ..Tags::default() };
+    }
+
+    /// The crop the phone's picture is taken to have now.
+    fn current(&self) -> Option<PhoneZoom> {
+        self.showing.or(self.known).or(self.target.as_ref().map(|t| t.0))
+    }
+
+    /// The view for a frame that shows `tag`, with the window's current turn and flips, and the phone's window it shows.
+    fn shown(&self, tag: &PhoneZoom) -> Option<(View, (f64, f64, f64))> {
+        let (sent, view, framing) = self.target.as_ref()?;
+        if shows(tag, sent) {
+            return Some((view.clone(), phone_window(Some(sent))));
+        }
+        let crop = rest_within(framing.zoom as f64, framing.pan_x as f64, framing.pan_y as f64, tag, true)?;
+        Some((View { zoom: crop.0 as f32, pan_x: crop.1 as f32, pan_y: crop.2 as f32, ..view.clone() }, phone_window(Some(tag))))
+    }
+
+    fn last_shown(&self) -> Option<(View, (f64, f64, f64))> {
+        self.current().filter(|_| self.on()).and_then(|t| self.shown(&t))
+    }
+}
+
+/// What ViewGate::for_frame_checked says of a frame it doesn't hold back.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Checked {
+    /// The view to swap in and the phone's window the frame shows, when they aren't the ones in place.
+    pub changed: Option<(View, (f64, f64, f64))>,
+    /// The crop named for the frame is a guess.
+    pub unsure: bool,
+    /// The phone's window the frame shows, when the frames of a phone that tags them say it (else the share sent).
+    pub crop: Option<(f64, f64, f64)>,
+}
+
 /// Frames that come this long (seconds) or more after a new share was sent carry a crop that may be well off, until a frame has fitted the whole move (or
 /// HANDOVER_S is over): the phone's picture may have started to move by then, and what the frames show of it is only found a step at a time, late, and not
 /// at all in a scene too flat to find it in.
@@ -198,6 +282,17 @@ struct Handover {
 }
 
 impl Handover {
+    /// Frames of a tagging phone looked for on their way from `old` to `new`, from `base` (a frame at `old`).
+    fn comparing(old: PhoneZoom, new: PhoneZoom, base: Option<Thumb>, calm: f32, now: f64) -> Handover {
+        Handover { old, new, views: Default::default(), framing: View::default(), since: now, guess: Guess::new(now, None), arrived: false, progress: 0.0,
+                   base: base.map(|b| (b, 0.0, now)), calm, still: None }
+    }
+
+    /// The share the frames are taken to be at.
+    fn at(&self) -> PhoneZoom {
+        self.share(if self.arrived { 1.0 } else { self.progress })
+    }
+
     fn share(&self, f: f64) -> PhoneZoom {
         along(&self.old, &self.new, f)
     }
@@ -280,6 +375,26 @@ struct Inner {
     last: Option<Thumb>,
     shown: Option<(View, (f64, f64, f64))>,
     cameras: HashMap<String, (Value, u64)>,
+    tags: Tags,
+}
+
+impl Inner {
+    /// Whatever the frames said about the crop says nothing of the next ones: the stream, its connection or its lens changed.
+    fn reset(&mut self) {
+        self.last = None;
+        self.handover = None;
+        self.guess = None;
+        self.shown = None;
+        self.tags = Tags::default();
+    }
+
+    /// The share on its way to a tagging phone has shown up, or had all the time it is given: frames are no longer looked at.
+    fn settle(&mut self) {
+        (self.tags.pending, self.tags.compare) = (None, None);
+        if self.tags.on() {
+            self.last = None;
+        }
+    }
 }
 
 /// Shared by the window, which starts and ends handovers, and the workers, which see the frames.
@@ -294,7 +409,24 @@ impl ViewGate {
         if entry.0 != *id {
             entry.0 = id.clone();
             entry.1 += 1;
+            // A tag from the lens before says nothing of a frame from this one, and neither does the crop it put in place
+            if inner.source.as_deref() == Some(source) {
+                (inner.tags.known, inner.tags.showing, inner.tags.last_tag, inner.shown) = (None, None, None, None);
+            }
         }
+    }
+
+    /// The worker opened a new connection to `source`'s phone, before its first frame: the phone may have kept its zoom or gone back to its whole
+    /// view, and what the frames before said about the crop says nothing of the next ones, so the first tag is waited for (a few frames at most). The window may hear of it later or earlier, so the share it sent stays.
+    pub fn connection_reset(&self, source: &str) {
+        let mut inner = self.0.lock().unwrap();
+        if inner.source.as_deref() != Some(source) {
+            return;
+        }
+        let tags = &mut inner.tags;
+        (tags.known, tags.showing, tags.compare, tags.misses, tags.last_tag) = (None, None, None, 0, None);
+        tags.awaiting = if tags.tagged { AWAIT_TAG_FRAMES } else { 0 };
+        (inner.last, inner.shown) = (None, None);
     }
 
     pub fn source_epoch(&self, source: &str) -> u64 {
@@ -305,15 +437,23 @@ impl ViewGate {
         let mut inner = self.0.lock().unwrap();
         if inner.source.as_deref() != source {
             inner.source = source.map(str::to_string);
-            inner.last = None;
-            inner.handover = None;
-            inner.guess = None;
-            inner.shown = None;
+            inner.reset();
         }
     }
 
     pub fn begin(&self, old: PhoneZoom, new: PhoneZoom, mut views: (View, View), framing: &View, now: f64) {
         let mut inner = self.0.lock().unwrap();
+        inner.tags.pending = Some(now);
+        inner.tags.target = Some((new, views.1.clone(), framing.clone()));
+        if inner.tags.on() {
+            // Frames already being looked for go on from where they were found to be, towards the new share
+            if let Some(h) = inner.tags.compare.take() {
+                let base = inner.last.clone();
+                inner.tags.compare = Some(Handover::comparing(h.at(), new, base, h.calm, now));
+            }
+            inner.shown = None;
+            return;
+        }
         let old = inner.handover.as_ref().filter(|h| !h.arrived).map_or(old, |h| h.share(h.progress));
         let guess = Guess::new(now, inner.handover.as_ref().map(|h| &h.guess).or(inner.guess.as_ref()));
         inner.guess = None;
@@ -335,9 +475,23 @@ impl ViewGate {
         inner.shown = None;
     }
 
+    /// For a phone that tags its frames: the share sent last (None for a phone that doesn't), the view for frames that show it and the framing,
+    /// as the window has them now. A tagged frame is cropped by these, so its turn and flips are the window's current ones.
+    pub fn aim(&self, sent: Option<PhoneZoom>, view: View, framing: &View) {
+        let mut inner = self.0.lock().unwrap();
+        inner.tags.target = sent.map(|s| (s, view, framing.clone()));
+        if inner.tags.target.is_none() {
+            inner.tags.reset();
+        }
+    }
+
     /// Waiting for frames of the share sent last.
     pub fn waiting(&self) -> bool {
-        self.0.lock().unwrap().handover.as_ref().is_some_and(|h| !h.arrived)
+        let inner = self.0.lock().unwrap();
+        if inner.tags.on() {
+            return inner.tags.pending.is_some();
+        }
+        inner.handover.as_ref().is_some_and(|h| !h.arrived)
     }
 
     pub fn underway(&self) -> bool {
@@ -346,7 +500,12 @@ impl ViewGate {
 
     /// The desktop view and phone crop from the same handover progress.
     pub fn waiting_snapshot(&self) -> Option<(View, (f64, f64, f64))> {
-        self.0.lock().unwrap().handover.as_ref().filter(|h| !h.arrived).map(|h| (h.view(), phone_window(Some(&h.share(h.progress)))))
+        let inner = self.0.lock().unwrap();
+        // The tags say where the picture is, whether or not a share is on its way
+        if inner.tags.on() {
+            return inner.tags.last_shown();
+        }
+        inner.handover.as_ref().filter(|h| !h.arrived).map(|h| (h.view(), phone_window(Some(&h.share(h.progress)))))
     }
 
     /// The old share while still waiting for `sent` to show up (_still_handing_over); None when that's over.
@@ -376,9 +535,32 @@ impl ViewGate {
     /// for_frame_snapshot, and whether the crop it names for this frame is a guess: the phone's zoom is on its way, and the frames show how far it has got
     /// only a step at a time, late (and in a scene too flat to find it in, not at all), so the crop the frame really has may be well off the one it's labelled with.
     pub fn for_frame_labelled(&self, source: &str, frame: &Frame, now: f64, replaced: bool) -> (Option<(View, (f64, f64, f64))>, bool) {
+        self.for_frame_checked(source, frame, now, replaced).map_or((None, false), |c| (c.changed, c.unsure))
+    }
+
+    /// for_frame_labelled, or None for a frame to hold back: the first of a run of frames whose tags are missing while a share is on its way to a
+    /// phone that tags them, which may be the first of the new crop or the last of the old one. The rest of the run is found by comparing pictures.
+    pub fn for_frame_checked(&self, source: &str, frame: &Frame, now: f64, replaced: bool) -> Option<Checked> {
         let mut inner = self.0.lock().unwrap();
         if inner.source.as_deref() != Some(source) {
-            return (None, false);
+            return Some(Checked::default());
+        }
+        if let Some(at) = inner.tags.pending.filter(|at| now - at > HANDOVER_S) {
+            let tags = &mut inner.tags;
+            // No tag since it was sent (the tags stopped) or frames found to show it: it is taken to have arrived, as for a phone without tags
+            if tags.tag_at.is_none_or(|t| t < at) || tags.compare.as_ref().is_some_and(|h| h.arrived) {
+                tags.known = tags.target.as_ref().map(|t| t.0).or(tags.known);
+                tags.showing = None;
+            }
+            inner.settle();
+        }
+        // The first tag puts the tags in charge, and what comparing frames found says nothing any more
+        if frame.phone_share.is_some() && inner.tags.target.is_some() && !inner.tags.tagged {
+            inner.tags.tagged = true;
+            (inner.handover, inner.guess, inner.last) = (None, None, None);
+        }
+        if inner.tags.on() {
+            return self.tagged(inner, source, frame, now, replaced);
         }
         // A guess past the time the phone is given says nothing any more
         if inner.guess.as_ref().is_some_and(|g| now > g.until) {
@@ -391,7 +573,7 @@ impl ViewGate {
             let thumb = thumb(frame);
             inner = self.0.lock().unwrap();
             if inner.source.as_deref() != Some(source) {
-                return (None, false);
+                return Some(Checked::default());
             }
             Some(thumb)
         } else {
@@ -405,7 +587,7 @@ impl ViewGate {
                 }
                 g.unsure(now)
             });
-            return (None, unsure);
+            return Some(Checked { unsure, ..Checked::default() });
         };
         if !h.arrived {
             if let Some(t) = &thumb {
@@ -428,7 +610,88 @@ impl ViewGate {
             inner.shown = Some(shown.clone());
             shown
         });
-        (changed, unsure)
+        Some(Checked { changed, unsure, crop: None })
+    }
+
+    /// for_frame_checked for a phone whose frames have had tags.
+    fn tagged<'a>(&'a self, mut inner: std::sync::MutexGuard<'a, Inner>, source: &str, frame: &Frame, now: f64, replaced: bool) -> Option<Checked> {
+        // Frames are only looked at (and a picture on the card copied off it) while a share is on its way, a few frames at a time: a tagged one is
+        // what an untagged one after it is compared with
+        let thumb = if inner.tags.pending.is_some() {
+            drop(inner);
+            let thumb = thumb(frame);
+            inner = self.0.lock().unwrap();
+            if inner.source.as_deref() != Some(source) || !inner.tags.on() {
+                return Some(Checked::default());
+            }
+            Some(thumb)
+        } else {
+            None
+        };
+        let before = std::mem::replace(&mut inner.last, thumb.clone());
+        let sent = inner.tags.target.as_ref()?.0;
+        let tags = &mut inner.tags;
+        let (crop, unsure) = match frame.phone_share {
+            Some(tag) => {
+                let before_tag = tags.last_tag.replace((tag, now));
+                (tags.known, tags.tag_at, tags.misses, tags.awaiting) = (Some(tag), Some(now), 0, 0);
+                // The camera has settled on a crop of its own when two tags well after the send agree
+                let settled = tags.pending.zip(before_tag).is_some_and(|(at, (prev, prev_at))| prev_at - at >= SETTLE_TAGS_S && shows(&tag, &prev));
+                if shows(&tag, &sent) || settled {
+                    tags.pending = None;
+                }
+                // How much frames differ from one to the next, for telling a cut from the picture's own movement
+                if let Some(change) = before.as_ref().zip(thumb.as_ref()).and_then(|(b, t)| compare(b, t, (1.0, 0.0, 0.0))) {
+                    tags.calm += (change.0 - tags.calm) * 0.1;
+                }
+                // The frames that lose their tags after it are looked for from this one
+                let calm = tags.calm;
+                tags.compare = tags.pending.map(|_| Handover::comparing(tag, sent, thumb, calm, now));
+                (tag, false)
+            }
+            None if tags.awaiting > 0 => {
+                tags.awaiting -= 1;
+                if replaced {
+                    inner.shown = None;
+                }
+                return None;
+            }
+            None if tags.pending.is_none() => (tags.known.unwrap_or(sent), false),
+            None => {
+                tags.misses += 1;
+                let (from, calm) = (tags.current().unwrap_or(sent), tags.calm);
+                let h = tags.compare.get_or_insert_with(|| Handover::comparing(from, sent, before.clone(), calm, now));
+                match thumb {
+                    Some(t) if h.base.is_some() => {
+                        h.seen(&t, before.as_ref(), now);
+                    }
+                    // With nothing to compare it with, a frame this soon after the share was sent is taken to have the crop before
+                    t => h.base = t.map(|t| (t, h.progress, now)),
+                }
+                let at = h.at();
+                tags.calm = h.calm;
+                // The first is held back, which keeps the picture before it up a frame longer (a comparison finds a gliding crop only roughly);
+                // more would freeze it, so the next ones get what the comparison found
+                if tags.misses == 1 {
+                    if replaced {
+                        inner.shown = None;
+                    }
+                    return None;
+                }
+                (at, true)
+            }
+        };
+        if inner.tags.pending.is_none() {
+            inner.settle();
+        }
+        inner.tags.showing = Some(crop);
+        let Some(shown) = inner.tags.shown(&crop) else { return Some(Checked { unsure, ..Checked::default() }) };
+        let crop = Some(shown.1);
+        let changed = (replaced || inner.shown.as_ref() != Some(&shown)).then(|| {
+            inner.shown = Some(shown.clone());
+            shown
+        });
+        Some(Checked { changed, unsure, crop })
     }
 }
 
@@ -665,5 +928,233 @@ mod tests {
         let grey = Frame::new(w, h, PixelFormat::I420, vec![120; PixelFormat::I420.size(w, h)]);
         let on_card = Frame::from_surface(w, h, PixelFormat::I420, Arc::new(OnTheCard(grey.clone())));
         assert_eq!(thumb(&on_card), thumb(&grey));
+    }
+
+    fn tagged(tag: Option<PhoneZoom>, surface: &Arc<Counted>) -> Frame {
+        let mut frame = Frame::from_surface(8, 8, PixelFormat::I420, surface.clone());
+        frame.phone_share = tag;
+        frame
+    }
+
+    fn card() -> Arc<Counted> {
+        Arc::new(Counted(Frame::new(8, 8, PixelFormat::I420, vec![120; 96]), Default::default()))
+    }
+
+    /// A gate following "a", aimed at `sent` with the frames of it shown at zoom 2 of a framing at 6.
+    fn aimed(sent: PhoneZoom) -> (ViewGate, View) {
+        let gate = ViewGate::default();
+        gate.follow(Some("a"));
+        let framing = View { zoom: 6.0, ..View::default() };
+        gate.aim(Some(sent), View { zoom: 2.0, ..View::default() }, &framing);
+        (gate, framing)
+    }
+
+    fn total(shown: &(View, (f64, f64, f64))) -> f64 {
+        shown.0.zoom.max(1.0) as f64 * shown.1 .0
+    }
+
+    /// `frame` tagged with `tag`.
+    fn with_tag(mut frame: Frame, tag: Option<PhoneZoom>) -> Frame {
+        frame.phone_share = tag;
+        frame
+    }
+
+    #[test]
+    fn only_the_first_frame_without_its_tag_is_held_back_while_a_share_is_on_its_way() {
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 3.0, ..old };
+        let (gate, framing) = aimed(old);
+        let surface = card();
+        let at_old = gate.for_frame_checked("a", &tagged(Some(old), &surface), 0.0, false).unwrap().changed.unwrap();
+        assert_eq!(at_old.0.zoom, 2.0);
+        // Nothing on its way: a frame that lost its tag has the crop the last one had, and isn't looked at
+        assert_eq!(gate.for_frame_checked("a", &tagged(None, &surface), 0.03, false), Some(Checked { crop: Some(phone_window(Some(&old))), ..Checked::default() }));
+        assert_eq!(surface.1.load(std::sync::atomic::Ordering::Relaxed), 0, "nothing was copied off the card");
+        gate.begin(old, new, (View { zoom: 3.0, ..View::default() }, View { zoom: 2.0, ..View::default() }), &framing, 0.1);
+        assert!(gate.waiting());
+        // The first frame of the new crop may be the one whose tag is missing: it's held back, not shown cropped for the old one
+        assert_eq!(gate.for_frame_checked("a", &tagged(None, &surface), 0.2, false), None);
+        // The next ones aren't, so the picture never freezes: their crop is a guess
+        for k in 1..5 {
+            let checked = gate.for_frame_checked("a", &tagged(None, &surface), 0.2 + k as f64 * 0.03, false).expect("shown");
+            assert!(checked.unsure);
+        }
+        let at_new = gate.for_frame_checked("a", &tagged(Some(new), &surface), 0.43, false).unwrap();
+        assert!((total(&at_new.changed.unwrap()) - 6.0).abs() < 1e-4);
+        assert!(!at_new.unsure && !gate.waiting());
+    }
+
+    #[test]
+    fn dragging_the_zoom_while_tags_are_missing_never_freezes_the_picture() {
+        let mut share = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let (gate, framing) = aimed(share);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(share), &surface), 0.0, false);
+        let mut held = 0;
+        // 60 fps, with a new share every 50 ms
+        for k in 1..120 {
+            let now = k as f64 / 60.0;
+            if k % 3 == 0 {
+                let next = PhoneZoom { crop: share.crop * 1.02, ..share };
+                gate.begin(share, next, (View::default(), View::default()), &framing, now);
+                gate.aim(Some(next), View::default(), &framing);
+                share = next;
+            }
+            held += gate.for_frame_checked("a", &tagged(None, &surface), now, false).is_none() as u32;
+        }
+        assert_eq!(held, 1, "only the first frame without its tag is held back");
+    }
+
+    #[test]
+    fn frames_that_lost_their_tags_through_a_zoom_are_found_by_their_pictures() {
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 3.0, ..old };
+        let (gate, framing) = aimed(old);
+        gate.for_frame_checked("a", &with_tag(through(2.0), Some(old)), 0.0, false);
+        gate.begin(old, new, (View { zoom: 3.0, ..View::default() }, View { zoom: 2.0, ..View::default() }), &framing, 0.1);
+        gate.for_frame_checked("a", &with_tag(through(2.0), Some(old)), 0.13, false);
+        // The camera switched on the first of four frames whose tags were lost: the first is held back, and the rest show the framing, not the old crop on top of the new one
+        assert_eq!(gate.for_frame_checked("a", &with_tag(through(3.0), None), 0.16, false), None);
+        for k in 1..4 {
+            let checked = gate.for_frame_checked("a", &with_tag(through(3.0), None), 0.16 + k as f64 * 0.03, false).expect("not held back");
+            assert!(checked.unsure);
+            assert_eq!(checked.crop, Some(phone_window(Some(&new))), "frame {k}");
+            assert!((total(&gate.waiting_snapshot().unwrap()) - 6.0).abs() < 1e-4);
+        }
+    }
+
+    #[test]
+    fn tags_that_stop_leave_the_share_sent_in_place_once_the_phone_has_had_its_time() {
+        let old = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let new = PhoneZoom { crop: 3.0, ..old };
+        let (gate, framing) = aimed(old);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(old), &surface), 0.0, false);
+        gate.begin(old, new, (View::default(), View { zoom: 2.0, ..View::default() }), &framing, 0.1);
+        gate.aim(Some(new), View { zoom: 2.0, ..View::default() }, &framing);
+        let mut t = 0.13;
+        while t < 0.1 + HANDOVER_S + 0.1 {
+            gate.for_frame_checked("a", &tagged(None, &surface), t, false);
+            t += 0.03;
+        }
+        let checked = gate.for_frame_checked("a", &tagged(None, &surface), t, false).unwrap();
+        assert!(!checked.unsure && !gate.waiting());
+        assert_eq!(checked.crop, Some(phone_window(Some(&new))), "not the crop of the last tag before the share");
+    }
+
+    #[test]
+    fn a_lens_change_leaves_no_crop_behind_for_the_next_frame() {
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let (gate, _) = aimed(sent);
+        let surface = card();
+        gate.note_camera("a", &serde_json::json!({"id": "main"}));
+        let corrected = gate.for_frame_checked("a", &tagged(Some(PhoneZoom { crop: 1.8, ..sent }), &surface), 0.0, false).unwrap().changed.unwrap();
+        assert!((total(&corrected) - 6.0).abs() < 1e-4 && corrected.0.zoom != 2.0);
+        gate.note_camera("a", &serde_json::json!({"id": "tele"}));
+        // The new lens gives the share sent: an untagged frame of it is put back to the window's view for that, not left with the correction
+        let checked = gate.for_frame_checked("a", &tagged(None, &surface), 0.1, false).unwrap();
+        assert_eq!(checked.changed, Some((View { zoom: 2.0, ..View::default() }, phone_window(Some(&sent)))));
+    }
+
+    #[test]
+    fn a_new_connection_forgets_the_crop_of_the_last_one_before_the_window_hears_of_it() {
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let (gate, _) = aimed(sent);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(sent), &surface), 0.0, false);
+        gate.connection_reset("other");
+        assert_eq!(gate.for_frame_checked("a", &tagged(None, &surface), 0.03, false).unwrap().crop, Some(phone_window(Some(&sent))));
+        // The worker reconnected and the first frames lost their tags: the phone may have kept its zoom, so they are held back rather than given the whole view
+        gate.connection_reset("a");
+        for k in 0..AWAIT_TAG_FRAMES {
+            assert_eq!(gate.for_frame_checked("a", &tagged(None, &surface), 5.0 + k as f64 * 0.03, false), None);
+        }
+        // Past those, the share sent is the best guess
+        let checked = gate.for_frame_checked("a", &tagged(None, &surface), 5.2, false).unwrap();
+        assert_eq!(checked.crop, Some(phone_window(Some(&sent))));
+    }
+
+    #[test]
+    fn a_reconnect_to_a_phone_that_kept_its_zoom_is_not_shown_at_the_whole_view() {
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let (gate, _) = aimed(sent);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(sent), &surface), 0.0, false);
+        gate.connection_reset("a");
+        assert_eq!(gate.for_frame_checked("a", &tagged(None, &surface), 0.1, false), None);
+        // The first tag ends the wait, and says the zoom was kept
+        let checked = gate.for_frame_checked("a", &tagged(Some(sent), &surface), 0.13, false).unwrap();
+        assert_eq!(checked.crop, Some(phone_window(Some(&sent))));
+        let next = gate.for_frame_checked("a", &tagged(None, &surface), 0.16, false).unwrap();
+        assert_eq!(next.crop, Some(phone_window(Some(&sent))));
+    }
+
+    #[test]
+    fn a_camera_that_never_matches_the_share_stops_it_being_waited_for_once_its_tags_agree() {
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let got = PhoneZoom { crop: 1.8, ..sent };
+        let (gate, framing) = aimed(sent);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), 0.0, false);
+        gate.begin(got, sent, (View { zoom: 3.0, ..View::default() }, View { zoom: 3.0, ..View::default() }), &framing, 0.1);
+        let mut at = 0.13;
+        while at < 0.1 + SETTLE_TAGS_S {
+            gate.for_frame_checked("a", &tagged(Some(got), &surface), at, false);
+            assert!(gate.waiting(), "not yet, a camera may still be on its way at {at}");
+            at += 0.03;
+        }
+        // One more past it for the first tag counted, then the one that agrees with it
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), at, false);
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), at + 0.03, false);
+        assert!(!gate.waiting(), "well before HANDOVER_S");
+        let copies = surface.1.load(std::sync::atomic::Ordering::Relaxed);
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), at + 0.06, false);
+        assert_eq!(surface.1.load(std::sync::atomic::Ordering::Relaxed), copies, "frames are no longer copied off the card");
+    }
+
+    #[test]
+    fn a_frame_of_a_new_connection_is_cropped_by_its_own_tag_before_the_window_hears_of_it() {
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let (gate, _) = aimed(sent);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(sent), &surface), 0.0, false);
+        // The camera reopened at its whole view, and the window hasn't been told of the reconnect yet
+        let neutral = PhoneZoom { crop: 1.0, ..sent };
+        let shown = gate.for_frame_checked("a", &tagged(Some(neutral), &surface), 0.1, false).unwrap().changed.unwrap();
+        assert!((total(&shown) - 6.0).abs() < 1e-4, "{shown:?}");
+        assert_eq!(shown.1, phone_window(Some(&neutral)));
+    }
+
+    #[test]
+    fn a_tagged_frame_names_the_crop_it_came_with_for_vision() {
+        // The phone was asked for 2x and stayed at its whole view
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.6, y: 0.5 };
+        let (gate, _) = aimed(sent);
+        let got = PhoneZoom { crop: 1.0, x: 0.5, ..sent };
+        let checked = gate.for_frame_checked("a", &tagged(Some(got), &card()), 0.0, false).unwrap();
+        assert_eq!(checked.crop, Some(phone_window(Some(&got))));
+    }
+
+    #[test]
+    fn a_camera_settled_on_another_crop_is_only_looked_at_while_the_share_is_on_its_way() {
+        let sent = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        let got = PhoneZoom { crop: 1.8, ..sent };
+        let (gate, framing) = aimed(sent);
+        let surface = card();
+        gate.for_frame_checked("a", &tagged(Some(got), &surface), 0.0, false);
+        gate.begin(got, sent, (View { zoom: 3.0, ..View::default() }, View { zoom: 3.0, ..View::default() }), &framing, 0.1);
+        let copies = || surface.1.load(std::sync::atomic::Ordering::Relaxed);
+        let mut after = None;
+        for k in 0..200 {
+            let at = 0.2 + k as f64 * 0.03;
+            if at > 0.1 + HANDOVER_S + 0.1 && after.is_none() {
+                after = Some(copies());
+            }
+            let tag = (k % 10 == 0).then_some(got);
+            gate.for_frame_checked("a", &tagged(tag, &surface), at, false);
+        }
+        assert_eq!(after, Some(copies()), "no frame is copied off the card once the share has had its time");
+        let shown = gate.waiting_snapshot().unwrap();
+        assert!((total(&shown) - 6.0).abs() < 1e-4 && shown.1 == phone_window(Some(&got)));
     }
 }

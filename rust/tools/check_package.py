@@ -125,6 +125,14 @@ def run_info(program: Path, env=None, flags=()) -> dict:
     return json.loads(result.stdout)
 
 
+def first_match(name: str, folder: Path, pattern: str):
+    """The first file in the folder like the pattern, or None with a problem noted."""
+    found = next(iter(sorted(folder.glob(pattern))), None)
+    if found is None:
+        problems.append(f"{name} has no {pattern} in {folder.name}")
+    return found
+
+
 def check_linux(name: str, folder: Path, args):
     names = files_in(folder)
     check_common(name, folder, names, LINUX_FILES)
@@ -145,7 +153,9 @@ def check_linux(name: str, folder: Path, args):
     lib = folder.resolve() / "lib"
     # The system's libva when it has one, as start.sh does
     va = [lib / "fallback" / f for f in ("libdrm.so.2", "libva.so.2", "libva-drm.so.2")] if "not found" in linked else []
-    check_ffmpeg_holds(name, va + [next(lib.glob("libavutil.so.*")), next(lib.glob("libavcodec.so.*"))])
+    found = [first_match(name, lib, "libavutil.so.*"), first_match(name, lib, "libavcodec.so.*")]
+    if all(found):
+        check_ffmpeg_holds(name, va + found)
     check_gphoto2(name, folder)
 
 
@@ -154,9 +164,11 @@ def check_gphoto2(name: str, folder: Path):
     gp = folder.resolve() / "lib" / "gphoto2"
     for lib in ("libgphoto2.so.6", "libgphoto2_port.so.12", "camlibs/ptp2.so", "iolibs/usb1.so"):
         env = dict(os.environ, LD_LIBRARY_PATH=str(gp))
-        out = subprocess.run(["ldd", str(gp / lib)], capture_output=True, text=True, env=env).stdout
-        if "not found" in out:
-            problems.append(f"{name}'s lib/gphoto2/{lib} lacks something it links to: {out}")
+        result = subprocess.run(["ldd", str(gp / lib)], capture_output=True, text=True, env=env)
+        if result.returncode != 0:
+            problems.append(f"{name}'s lib/gphoto2/{lib} can't be inspected: {result.stderr.strip() or result.stdout.strip()}")
+        elif "not found" in result.stdout:
+            problems.append(f"{name}'s lib/gphoto2/{lib} lacks something it links to: {result.stdout}")
 
 
 def check_appimage(image: Path, args):
@@ -235,7 +247,9 @@ def check_windows(name: str, folder: Path, args):
         return
     check_stamp(f"{name}'s exe", run_info(folder / "TelescopeDesktop.exe"), args)
     os.add_dll_directory(folder.resolve())
-    check_ffmpeg_holds(name, [next(folder.resolve().glob("avutil-*.dll")), next(folder.resolve().glob("avcodec-*.dll"))])
+    found = [first_match(name, folder.resolve(), "avutil-*.dll"), first_match(name, folder.resolve(), "avcodec-*.dll")]
+    if all(found):
+        check_ffmpeg_holds(name, found)
 
 
 def main():

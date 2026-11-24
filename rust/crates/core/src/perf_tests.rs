@@ -155,3 +155,31 @@ fn the_timeline_is_a_character_for_two_seconds() {
     assert!(lines[1].ends_with("max 30.0") && lines[4].ends_with("max 99.0"));
     assert!(timeline_from(&[sample(500, now, 1, 30.0, 8.0)], now).is_empty(), "older than two minutes");
 }
+
+#[test]
+fn a_stall_is_kept_when_a_bigger_gap_comes_in_the_next_window() {
+    let mut watch = StallWatch::into(collect);
+    watch.frame(0, &context);
+    watch.frame(300 * MS, &context);
+    watch.window(2.0, 20.0, 5.0, true, &context);
+    watch.frame(300 * MS + 2000 * MS, &context);
+    watch.window(2.0, 20.0, 5.0, true, &context);
+    watch.finish();
+    assert_eq!(got().iter().map(|s| s.ms).collect::<Vec<_>>(), [300, 2000]);
+}
+
+#[test]
+fn several_streams_each_keep_two_minutes_of_timeline() {
+    let now = 100_000 * SECOND;
+    for i in 0..COLUMNS as u64 {
+        for slot in 1..=3 {
+            note_window(slot, now - (COLUMNS as u64 - 1 - i) * STEP_S * SECOND, 30.0, 8.0);
+        }
+    }
+    let lines = timeline_lines(now);
+    let fps: Vec<&String> = lines.iter().filter(|l| l.starts_with("fps")).collect();
+    assert_eq!(fps.len(), 3, "{lines:?}");
+    for l in fps {
+        assert!(!l.split('|').nth(1).unwrap().contains('~'), "{l}");
+    }
+}

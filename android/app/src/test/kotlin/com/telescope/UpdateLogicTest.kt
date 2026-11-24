@@ -104,6 +104,14 @@ class UpdateLogicTest {
     }
 
     @Test
+    fun `an installer result from an earlier attempt is ignored`() {
+        assertTrue(UpdateLogic.fromActiveSession(7, 7))
+        assertFalse(UpdateLogic.fromActiveSession(6, 7))
+        assertFalse(UpdateLogic.fromActiveSession(6, UpdateLogic.NO_SESSION))
+        assertTrue(UpdateLogic.fromActiveSession(-1, 7))
+    }
+
+    @Test
     fun `a download doesn't start over one in flight or one waiting for the installer`() {
         assertTrue(UpdateLogic.downloadMayStart(downloading = false, installing = false))
         assertFalse(UpdateLogic.downloadMayStart(downloading = true, installing = false))

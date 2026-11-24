@@ -556,7 +556,9 @@ impl ConnectionPlugin {
                 // adb opens the forward here, not on the UI thread, which would freeze the window while it answers
                 let RouteSpec::Usb { serial } = &route else { return self.hand_over(host, phone_id, &route, false) };
                 let (shared, serial, phone_id) = (self.shared.clone(), serial.clone(), phone_id.to_string());
-                self.spawn(P_USB_FORWARD, move || json!({"phone_id": phone_id, "route": route, "held": shared.hold_stream_forward(&serial)}));
+                self.spawn(P_USB_FORWARD, move || {
+                    json!({"watch_id": watch_id, "phone_id": phone_id, "route": route, "held": shared.hold_stream_forward(&serial)})
+                });
             }
         }
     }
@@ -564,8 +566,9 @@ impl ConnectionPlugin {
     fn on_usb_forward(&mut self, host: &mut dyn Host, data: &Value) {
         let (Ok(route), Some(phone_id)) = (serde_json::from_value::<RouteSpec>(data["route"].clone()), data["phone_id"].as_str()) else { return };
         let held = data["held"].as_bool() == Some(true);
-        if self.conn().selected_id.as_deref() != Some(phone_id) {
-            // The cable was found for another phone than the one in front now: it waits for that phone's own check
+        let current = data["watch_id"].as_u64().is_some_and(|id| self.conn().usb_watch_current(id));
+        if !current || self.conn().selected_id.as_deref() != Some(phone_id) {
+            // Found for another stream, route choice or phone than now: a phone in front waits for its own check
             if let (true, RouteSpec::Usb { serial }) = (held, &route) {
                 let (shared, serial) = (self.shared.clone(), serial.clone());
                 std::thread::spawn(move || shared.release_stream_forward(&serial));
@@ -830,7 +833,13 @@ impl ConnectionPlugin {
 
     fn close_add(&mut self, host: &mut dyn Host) {
         log::debug!("Add device closed");
-        self.add = None; // revokes the offer
+        // Revoke the offer, then take in a phone that paired a moment before: it saved its token already
+        if let Some(offer) = self.add.take().and_then(|add| add.offer.clone()) {
+            offer.revoke();
+            while let Some(phone) = offer.poll() {
+                self.phone_paired(host, phone);
+            }
+        }
         host.clear_issue(Some("old_phone"), None);
         host.cancel_schedule(T_PAIR_POLL);
         host.cancel_schedule(T_PAIR_USB);
@@ -3641,6 +3650,7 @@ mod tests {
         let watch_id = {
             let mut c = e.shared.conn();
             c.streaming = true;
+            c.usb_watch_active = true;
             c.watch_usb().unwrap().0
         };
         let data = json!({"watch_id": watch_id, "phone_id": "id-a", "route": usb()});
@@ -3669,6 +3679,7 @@ mod tests {
             let mut c = e.shared.conn();
             c.selected_id = Some("id-a".into());
             c.streaming = true;
+            c.usb_watch_active = true;
             c.watch_usb().unwrap().0
         };
         let data = json!({"watch_id": watch_id, "phone_id": "id-a", "route": usb()});
@@ -3678,6 +3689,38 @@ mod tests {
         e.settle();
         std::thread::sleep(Duration::from_millis(50));
         assert!(!e.called("hand_over_stream"), "{:?}", e.host.calls);
+        assert_eq!(*tunnels.seen.lock().unwrap(), ["acquire on_ui=false", "release"]);
+    }
+
+    #[test]
+    fn a_usb_forward_that_opens_after_wifi_only_was_chosen_moves_nothing() {
+        let tunnels = Arc::new(WatchedTunnels::default());
+        let link = FakeLink::new();
+        let shared = Shared::new(tunnels.clone());
+        let mut plugin = ConnectionPlugin::new(link.clone(), shared.clone());
+        let mut host = FakeHost::new();
+        plugin.setup(&mut host);
+        let mut e = Env { plugin, host, link, shared };
+        e.add("id-a", "Pixel");
+        let watch_id = {
+            let mut c = e.shared.conn();
+            c.selected_id = Some("id-a".into());
+            c.streaming = true;
+            c.usb_watch_active = true;
+            c.watch_usb().unwrap().0
+        };
+        let data = json!({"watch_id": watch_id, "phone_id": "id-a", "route": usb()});
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB.into(), data });
+        // The forward is still opening when the stream is reconnected under Wi-Fi only
+        {
+            let mut c = e.shared.conn();
+            c.use_route_preference(RoutePreference::Wifi, 1.0);
+            c.on_stream_start("url");
+        }
+        e.settle();
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(!e.called("hand_over_stream"), "{:?}", e.host.calls);
+        assert!(!e.shared.conn().switch_usb_visible);
         assert_eq!(*tunnels.seen.lock().unwrap(), ["acquire on_ui=false", "release"]);
     }
 
@@ -3696,6 +3739,7 @@ mod tests {
             let mut c = e.shared.conn();
             c.selected_id = Some("id-b".into());
             c.streaming = true;
+            c.usb_watch_active = true;
             c.watch_usb().unwrap().0
         };
         let data = json!({"watch_id": watch_id, "phone_id": "id-b", "route": usb()});

@@ -108,7 +108,7 @@ impl Drop for Owned {
 
 impl Owned {
     fn new(h: Handle) -> Option<Owned> {
-        (!h.is_null()).then_some(Owned(h))
+        (!h.is_null()).then(|| Owned(h))
     }
 }
 

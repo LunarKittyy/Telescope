@@ -436,6 +436,60 @@ fn test_people_detection_finishing_after_shutdown_does_not_notify_the_window() {
     assert_eq!(r.backend.closed(), ["pose"]);
 }
 
+/// A pose model that holds its detection until released, so a test can do something while it's in progress.
+fn slow_people(r: &Ready) -> mpsc::Sender<()> {
+    let (entered_tx, entered_rx) = mpsc::channel::<()>();
+    let (finish_tx, finish_rx) = mpsc::channel::<()>();
+    let (entered_tx, finish_rx) = (Mutex::new(entered_tx), Mutex::new(finish_rx));
+    *r.backend.detect.lock().unwrap() = Arc::new(move || {
+        entered_tx.lock().unwrap().send(()).unwrap();
+        finish_rx.lock().unwrap().recv_timeout(Duration::from_secs(2)).unwrap();
+        vec![Person::default()]
+    });
+    r.v.want_people("test", true);
+    feed(&r.v, "a", &Rgb::filled(8, 8, 0));
+    entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    finish_tx
+}
+
+#[test]
+fn people_found_after_their_stream_ended_are_not_reported() {
+    let r = ready();
+    let finish = slow_people(&r);
+    r.v.drop_stream("a");
+    finish.send(()).unwrap();
+    wait(|| r.backend.closed().contains(&"pose"));
+    assert!(r.people.lock().unwrap().is_empty());
+}
+
+#[test]
+fn people_found_in_a_picture_from_before_the_view_turned_are_not_reported() {
+    let r = ready();
+    let finish = slow_people(&r);
+    r.v.drop_masks();
+    finish.send(()).unwrap();
+    // the next report would come after the cadence, so give this one time to have been wrongly sent
+    std::thread::sleep(Duration::from_millis(200));
+    assert!(r.people.lock().unwrap().is_empty());
+    r.v.shutdown();
+}
+
+#[test]
+fn a_reinstalled_pack_clears_a_failed_vision() {
+    let fixed = Arc::new(AtomicBool::new(false));
+    let f = fixed.clone();
+    let (v, states, _p) = make(Box::new(move || {
+        if f.load(Ordering::SeqCst) { Ok(Fake::new() as Arc<dyn Backend>) } else { Err(LoadError::Failed(VisionError::new("OSError", "can't open"))) }
+    }));
+    v.want_people("Auto framing", true);
+    wait(|| v.state() == FAILED);
+    fixed.store(true, Ordering::SeqCst);
+    v.pack_downloaded();
+    wait(|| v.state() == READY);
+    assert!(v.problem().is_empty());
+    assert_eq!(*states.lock().unwrap(), [LOADING, FAILED, OFF, LOADING, READY]);
+}
+
 #[test]
 fn test_a_broken_mediapipe_fails_once_and_names_only_the_error() {
     let tries = Arc::new(Mutex::new(0));

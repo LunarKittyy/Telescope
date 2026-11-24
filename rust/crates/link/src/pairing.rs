@@ -100,6 +100,12 @@ struct Shared {
 }
 
 impl Shared {
+    /// Stops serving. It waits for a request being accepted, so what was accepted is queued before this returns.
+    fn halt(&self) {
+        let _accepting = self.claimed.lock().unwrap();
+        self.stop.store(true, Ordering::SeqCst);
+    }
+
     fn claim(&self, host: &str) -> bool {
         let mut open = self.open.lock().unwrap();
         if open.values().sum::<usize>() >= self.limits.max_total || open.get(host).copied().unwrap_or(0) >= self.limits.max_per_address {
@@ -184,7 +190,7 @@ impl PairingServer {
     /// Refuses every request from now on, ones on a connection already open too (idempotent); the port closes within a
     /// moment.
     pub fn stop(&self) {
-        self.shared.stop.store(true, Ordering::SeqCst);
+        self.shared.halt();
     }
 
     /// The name of a phone that knocked on the old port since the last call: its app is older than this one.
@@ -328,7 +334,7 @@ fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared, old: bool) -> std:
     let mut body = vec![0u8; length as usize];
     reader.read_exact(&mut body)?;
     let Some(result) = check(&body, &shared.nonce, &shared.token, source_ip) else { return respond(conn, "400 Bad Request", b"") };
-    if shared.stop.load(Ordering::SeqCst) {
+    if old && shared.stop.load(Ordering::SeqCst) {
         return respond(conn, "404 Not Found", b"");
     }
     if old {
@@ -340,19 +346,20 @@ fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared, old: bool) -> std:
         drop(seen);
         return respond(conn, "426 Upgrade Required", b"");
     }
-    let taken = {
+    // Checked and queued under one lock with stop(), so a 200 always has its result waiting for the one who revoked
+    let status = {
         let mut claimed = shared.claimed.lock().unwrap();
-        let taken = claimed.as_deref().is_some_and(|id| id != result.phone_id);
-        if claimed.is_none() {
+        if shared.stop.load(Ordering::SeqCst) {
+            "404 Not Found"
+        } else if claimed.as_deref().is_some_and(|id| id != result.phone_id) {
+            "409 Conflict"
+        } else {
             *claimed = Some(result.phone_id.clone());
+            (shared.on_paired)(result);
+            "200 OK"
         }
-        taken
     };
-    if taken {
-        return respond(conn, "409 Conflict", b"");
-    }
-    (shared.on_paired)(result);
-    respond(conn, "200 OK", b"OK")
+    respond(conn, status, if status == "200 OK" { b"OK" } else { b"" })
 }
 
 /// str(value) as Python would write it, for the few fields the server reads with str().

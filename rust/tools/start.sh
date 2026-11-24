@@ -11,6 +11,11 @@ missing() {
     ldd ./telescope-rs 2>/dev/null | grep 'not found'
 }
 
+# A journal naming an AppImage belongs to that file's launcher (AppRun), not to this folder's own files
+ours() {
+    [ -f .update.json ] && ! grep -q '"appimage"' .update.json
+}
+
 # An entry of the journal's list $1, one name per line
 journal_list() {
     tr -d '\n' < .update.json | sed -n "s/.*\"$1\": *\[\([^]]*\)\].*/\1/p" | tr -d '"' | tr ',' '\n' | sed 's/^ *//'
@@ -20,7 +25,7 @@ journal_list() {
 # The new version can't run, so its own guard (update_guard.rs) never will: this puts the old one back the same way. It's on trial, or an
 # install or a roll-back was cut short with something like lib/ moved aside, which the program can't run without
 roll_back() {
-    grep -q '"state": *"\(trial\|swapping\|rolling_back\)"' .update.json 2>/dev/null && [ -d .previous ] || return 1
+    ours && grep -q '"state": *"\(trial\|swapping\|rolling_back\)"' .update.json 2>/dev/null && [ -d .previous ] || return 1
     build=$(sed -n 's/.*"to_build": *\([0-9]*\).*/\1/p' .update.json)
     # One failed step keeps .previous and the journal, so the next start (or this launcher) can try again
     ok=1
@@ -64,14 +69,14 @@ if [ -n "$gone" ]; then
     exit 1
 fi
 
-if [ ! -f .update.json ]; then
+if ! ours; then
     exec ./telescope-rs "$@"
 fi
 
 # A first start that fails shouldn't wait for someone to try again: the next run's guard rolls it back, or this does if the guard never ran
 ./telescope-rs "$@"
 code=$?
-if [ "$code" -ne 0 ] && [ -f .update.json ]; then
+if [ "$code" -ne 0 ] && ours; then
     if grep -q '"started": *true' .update.json; then
         exec ./telescope-rs
     elif roll_back; then

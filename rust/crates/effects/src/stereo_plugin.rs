@@ -890,6 +890,7 @@ impl StereoPlugin {
             Ok(server) => {
                 self.headset_server = Some(server);
                 let (shared, store) = (self.shared.clone(), self.shared.store());
+                feed.watch_epochs(store.clone());
                 let worker = std::thread::Builder::new().name("stereo-headset".into()).spawn(move || feed.run(&*store, &|f| shared.hub().was_ours(f)));
                 match worker {
                     Ok(handle) => self.headset_worker = Some(handle),

@@ -69,7 +69,7 @@ def run(args: list, state: dict) -> tuple:
     if command == "devices":
         lines = ["List of devices attached"]
         for serial, state_name, model in devices:
-            extra = f" product:fake model:{model.replace(' ', '_')} device:fake transport_id:1" if "-l" in rest else ""
+            extra = f" usb:1-1 product:fake model:{model.replace(' ', '_')} device:fake transport_id:1" if "-l" in rest else ""
             lines.append(f"{serial}\t{state_name}{extra}" if not extra else f"{serial}       {state_name}{extra}")
         return 0, "\n".join(lines) + "\n\n", ""
     if not any(d[1] == "device" for d in devices):

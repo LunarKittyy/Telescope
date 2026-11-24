@@ -81,7 +81,7 @@ fn after_call(rest: &str, with_context_first: bool) -> Option<(String, String)> 
 fn texts_in(path: &Path, text: &str) -> Vec<(String, String, String)> {
     let mut found = Vec::new();
     let is_slint = path.extension().is_some_and(|e| e == "slint");
-    let calls: &[(&str, bool)] = if is_slint { &[("@tr(", false)] } else { &[("tr(", false), ("n_(", false), ("trn(", false), ("tr_ctx(", true), ("tr_with(", false), ("trn_with(", false)] };
+    let calls: &[(&str, bool)] = if is_slint { &[("@tr(", false)] } else { &[("tr(", false), ("n_(", false), ("trn(", false), ("trn_open(", false), ("tr_ctx(", true), ("tr_with(", false), ("trn_with(", false)] };
     for (name, ctx_first) in calls {
         for (at, _) in text.match_indices(name) {
             let before = text[..at].chars().next_back();
@@ -136,7 +136,7 @@ fn no_text_is_built_from_pieces() {
     let mut bad = Vec::new();
     for file in files.iter().filter(|f| f.extension().is_some_and(|e| e == "rs")) {
         let text = std::fs::read_to_string(file).unwrap();
-        for name in ["tr(", "n_(", "tr_ctx(", "tr_with(", "trn(", "trn_with("] {
+        for name in ["tr(", "n_(", "tr_ctx(", "tr_with(", "trn(", "trn_open(", "trn_with("] {
             for (at, _) in text.match_indices(name) {
                 if text[..at].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '_') {
                     continue;

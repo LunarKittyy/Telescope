@@ -28,6 +28,8 @@ const REQUEST: &str = "org.freedesktop.portal.Request";
 const SESSION: &str = "org.freedesktop.portal.Session";
 // Plasma's shortcut store, which the portal binds into on Plasma
 const KGLOBALACCEL: &str = "org.kde.kglobalaccel";
+/// What request() answers when it stopped waiting because newer commands came in.
+const SUPERSEDED: u32 = u32::MAX;
 const WAIT_STEP: Duration = Duration::from_millis(500);
 /// How long a rebind waits after the portal comes back, so its shortcut backend is up too.
 const REBIND_DELAY: Duration = Duration::from_millis(500);
@@ -47,6 +49,8 @@ struct Inner {
     statuses: HashMap<String, HotkeyStatus>,
     version: u32,
     session: Option<String>,
+    /// Shortcuts held down in the current session: a lost session never says Deactivated for them.
+    pressed: std::collections::HashSet<String>,
 }
 
 struct Shared {
@@ -63,6 +67,16 @@ impl Shared {
             i.why = why.into();
         }
         self.signals.changed();
+    }
+
+    /// The session is gone: what was held in it comes up now, since its Deactivated never will.
+    fn forget_session(&self) -> Option<String> {
+        let mut i = self.inner.lock().unwrap();
+        let session = i.session.take();
+        for id in std::mem::take(&mut i.pressed) {
+            self.signals.released(&id);
+        }
+        session
     }
 }
 
@@ -95,11 +109,11 @@ impl PortalHotkeys {
     pub fn new(app_id: &str, signals: Signals, connect: Connect, prepare: Option<Box<dyn FnOnce() + Send>>) -> PortalHotkeys {
         let (tx, rx) = channel();
         let shared = Arc::new(Shared {
-            inner: Mutex::new(Inner { state: State::Starting, why: String::new(), statuses: HashMap::new(), version: 0, session: None }),
+            inner: Mutex::new(Inner { state: State::Starting, why: String::new(), statuses: HashMap::new(), version: 0, session: None, pressed: Default::default() }),
             stopping: AtomicBool::new(false),
             signals,
         });
-        let worker = Worker { app_id: app_id.into(), shared: shared.clone(), connect, prepare, cmds: rx, retry: tx.clone(), last: Vec::new() };
+        let worker = Worker { app_id: app_id.into(), shared: shared.clone(), connect, prepare, cmds: rx, retry: tx.clone(), last: Vec::new(), stash: Default::default() };
         let thread = std::thread::Builder::new().name("portal-shortcuts".into()).spawn(move || worker.run()).ok();
         PortalHotkeys { cmds: tx, shared, thread }
     }
@@ -220,6 +234,8 @@ struct Worker {
     retry: Sender<Cmd>,
     /// What was bound last, for a Rebind.
     last: Vec<Hotkey>,
+    /// Commands read while waiting for the portal's answer that the loop still has to see.
+    stash: std::cell::RefCell<Vec<Cmd>>,
 }
 
 impl Worker {
@@ -287,10 +303,13 @@ impl Worker {
         self.shared.set_state(State::Ready, "");
         self.bind_now(conn, first)?;
         loop {
-            let mut cmds = match self.cmds.recv() {
-                Ok(cmd) => vec![cmd],
-                Err(_) => return Ok(()),
-            };
+            let mut cmds = self.stash.take();
+            if cmds.is_empty() {
+                match self.cmds.recv() {
+                    Ok(cmd) => cmds.push(cmd),
+                    Err(_) => return Ok(()),
+                }
+            }
             cmds.extend(self.cmds.try_iter());
             if cmds.iter().any(|c| matches!(c, Cmd::Stop)) {
                 return Ok(());
@@ -318,6 +337,13 @@ impl Worker {
 
     /// The portal lost the session: register and bind the last shortcuts again, once it has had a moment to start up.
     fn rebind(&mut self, conn: &Connection) -> Result<(), Stopped> {
+        for cmd in self.stash.take() {
+            match cmd {
+                Cmd::Stop => return Err(Stopped),
+                Cmd::Bind(h) => self.last = h,
+                _ => {}
+            }
+        }
         let end = std::time::Instant::now() + REBIND_DELAY;
         while let Some(left) = end.checked_duration_since(std::time::Instant::now()) {
             match self.cmds.recv_timeout(left) {
@@ -327,7 +353,7 @@ impl Worker {
                 Err(RecvTimeoutError::Timeout) => break,
             }
         }
-        self.shared.inner.lock().unwrap().session = None;
+        self.shared.forget_session();
         self.register(conn);
         let hotkeys = self.last.clone();
         self.bind(conn, hotkeys)
@@ -346,18 +372,26 @@ impl Worker {
                 }
                 let Ok(msg) = msg else { return };
                 let member = msg.header().member().map(|m| m.to_string()).unwrap_or_default();
-                let session = shared.inner.lock().unwrap().session.clone();
                 let body = msg.body();
                 match member.as_str() {
                     "Activated" | "Deactivated" => {
                         let Ok((path, id, _, _)) = body.deserialize::<(ObjectPath, String, u64, HashMap<String, OwnedValue>)>() else { continue };
-                        if session.as_deref() != Some(path.as_str()) {
+                        // Under the lock, so a session lost just now can't have a press arrive after its releases
+                        let mut i = shared.inner.lock().unwrap();
+                        if i.session.as_deref() != Some(path.as_str()) {
                             continue;
                         }
-                        if member == "Activated" { shared.signals.pressed(&id) } else { shared.signals.released(&id) }
+                        if member == "Activated" {
+                            i.pressed.insert(id.clone());
+                            shared.signals.pressed(&id);
+                        } else {
+                            i.pressed.remove(&id);
+                            shared.signals.released(&id);
+                        }
                     }
                     "ShortcutsChanged" => {
                         let Ok((path, changed)) = body.deserialize::<(ObjectPath, Vec<(String, HashMap<String, OwnedValue>)>)>() else { continue };
+                        let session = shared.inner.lock().unwrap().session.clone();
                         if session.as_deref() != Some(path.as_str()) {
                             continue;
                         }
@@ -420,6 +454,9 @@ impl Worker {
             let options: HashMap<&str, Value> = HashMap::from([("handle_token", Value::from(token)), ("session_handle_token", Value::from(session_token.as_str()))]);
             self.call(conn, BUS_NAME, PORTAL_PATH, SHORTCUTS, "CreateSession", &(options,))
         })?;
+        if code == SUPERSEDED {
+            return Ok(());
+        }
         let session = results.get("session_handle").and_then(|v| text(v));
         let (true, Some(session)) = (code == 0, session) else {
             log::info!("The desktop portal didn't make a shortcuts session ({code})");
@@ -445,6 +482,9 @@ impl Worker {
             let options: HashMap<&str, Value> = HashMap::from([("handle_token", Value::from(token))]);
             self.call(conn, BUS_NAME, PORTAL_PATH, SHORTCUTS, "BindShortcuts", &(&path, &shortcuts, "", options))
         })?;
+        if code == SUPERSEDED {
+            return Ok(());
+        }
         let bound: HashMap<String, HashMap<String, OwnedValue>> =
             if code == 0 { results.get("shortcuts").map(|v| shortcut_list(v)).unwrap_or_default().into_iter().collect() } else { HashMap::new() };
         {
@@ -498,19 +538,37 @@ impl Worker {
                 }
             }
         });
-        // A dialog waits on the user, for as long as they take
+        // A dialog waits on the user, for as long as they take, unless newer bindings, a lost portal or a stop make the wait pointless
         loop {
             match rx.recv_timeout(WAIT_STEP) {
                 Ok(answer) => return Ok(answer),
-                Err(RecvTimeoutError::Timeout) if !self.shared.stopping.load(Ordering::SeqCst) => {}
-                Err(_) => return Err(Stopped),
+                Err(RecvTimeoutError::Timeout) if !self.shared.stopping.load(Ordering::SeqCst) => {
+                    if let Ok(cmd) = self.cmds.try_recv() {
+                        let ends_wait = matches!(cmd, Cmd::Bind(_) | Cmd::Rebind | Cmd::Stop);
+                        let stop = matches!(cmd, Cmd::Stop);
+                        self.stash.borrow_mut().push(cmd);
+                        if ends_wait {
+                            self.abandon(conn, &handle);
+                            return if stop { Err(Stopped) } else { Ok((SUPERSEDED, HashMap::new())) };
+                        }
+                    }
+                }
+                Err(_) => {
+                    self.abandon(conn, &handle);
+                    return Err(Stopped);
+                }
             }
         }
     }
 
+    /// Stops waiting on a request: the portal is told to drop it, and a Response of our own ends the thread listening for one.
+    fn abandon(&self, conn: &Connection, handle: &str) {
+        let _ = self.call(conn, BUS_NAME, handle, REQUEST, "Close", &());
+        let _ = conn.emit_signal(None::<zbus::names::BusName>, handle, REQUEST, "Response", &(2u32, HashMap::<&str, Value>::new()));
+    }
+
     fn close_session(&self, conn: &Connection) {
-        let session = self.shared.inner.lock().unwrap().session.take();
-        if let Some(session) = session {
+        if let Some(session) = self.shared.forget_session() {
             // Already gone is fine
             let _ = self.call(conn, BUS_NAME, &session, SESSION, "Close", &());
         }
@@ -559,6 +617,8 @@ mod tests {
         calls: Vec<(String, String)>,
         session: String,
         accept: bool,
+        /// BindShortcuts is answered with a request that never gets its Response: the desktop's dialog nobody has answered.
+        hold: bool,
         version: Option<u32>,
         triggers: HashMap<String, String>,
     }
@@ -663,7 +723,7 @@ mod tests {
                 let first = shortcuts.first().map(|(id, p)| format!("{id} {} {}", text(&p["description"]).unwrap_or_default(),
                                                                     p.get("preferred_trigger").and_then(|v| text(v)).unwrap_or_default()));
                 st.calls.last_mut().unwrap().1 = first.unwrap_or_default();
-                let accept = st.accept;
+                let (accept, hold) = (st.accept, st.hold);
                 let bound: Vec<(String, HashMap<&str, Value>)> = shortcuts.iter().map(|(id, p)| {
                     let preferred = p.get("preferred_trigger").and_then(|v| text(v)).unwrap_or_default();
                     let trigger = st.triggers.get(id).cloned().unwrap_or(preferred);
@@ -671,6 +731,9 @@ mod tests {
                 }).collect();
                 drop(st);
                 reply(conn, msg, &ObjectPath::try_from(handle.as_str()).unwrap());
+                if hold {
+                    return;
+                }
                 if accept {
                     respond(&handle, 0, HashMap::from([("shortcuts", Value::from(bound))]));
                 } else {
@@ -873,6 +936,73 @@ mod tests {
         assert!(wait_for(|| working(&s.backend, "b2")));
         std::thread::sleep(Duration::from_millis(1200));
         assert_eq!(s.portal.count("CreateSession"), 2);
+        s.backend.stop();
+    }
+
+    #[test]
+    fn a_portal_that_restarts_during_the_confirmation_dialog_is_bound_again() {
+        let Some(mut s) = setup(Some(2), true, false, &[]) else { return };
+        s.portal.state.lock().unwrap().hold = true;
+        s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
+        assert!(wait_for(|| s.portal.count("BindShortcuts") == 1));
+        // The dialog's request is gone with the old portal, and the new one answers at once
+        s.portal.state.lock().unwrap().hold = false;
+        s.portal.close_session();
+        assert!(wait_for(|| s.portal.count("CreateSession") == 2 && working(&s.backend, "b1")));
+        s.backend.stop();
+    }
+
+    #[test]
+    fn new_bindings_replace_a_confirmation_dialog_nobody_answered() {
+        let Some(mut s) = setup(Some(2), true, false, &[]) else { return };
+        s.portal.state.lock().unwrap().hold = true;
+        s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
+        assert!(wait_for(|| s.portal.count("BindShortcuts") == 1));
+        s.portal.state.lock().unwrap().hold = false;
+        s.backend.apply(&[hk("b2", "Ctrl+T", "Torch")]);
+        assert!(wait_for(|| working(&s.backend, "b2")));
+        assert!(s.portal.calls().contains(&"Close".to_string()), "the old request is closed");
+        s.backend.stop();
+    }
+
+    #[test]
+    fn stopping_ends_the_wait_for_a_dialog_nobody_answered() {
+        let Some(mut s) = setup(Some(2), true, false, &[]) else { return };
+        s.portal.state.lock().unwrap().hold = true;
+        s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
+        assert!(wait_for(|| s.portal.count("BindShortcuts") == 1));
+        let started = Instant::now();
+        s.backend.stop();
+        assert!(started.elapsed() < Duration::from_millis(1900), "{:?}", started.elapsed());
+    }
+
+    #[test]
+    fn a_held_shortcut_comes_up_when_its_session_is_lost() {
+        let Some(mut s) = setup(Some(2), true, true, &[]) else { return };
+        s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
+        assert!(wait_for(|| working(&s.backend, "b1")));
+        s.portal.emit("Activated", "b1");
+        let kinds = |posted: &Mutex<Vec<(String, Json)>>| posted.lock().unwrap().iter()
+            .filter(|(_, d)| d["kind"] != "changed").map(|(_, d)| d["kind"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+        assert!(wait_for(|| kinds(&s.posted) == ["pressed"]));
+        // The key is let go while the portal is away: no Deactivated will ever come for that session
+        s.portal.close_session();
+        assert!(wait_for(|| kinds(&s.posted) == ["pressed", "released"]));
+        assert!(wait_for(|| s.portal.count("CreateSession") == 2 && working(&s.backend, "b1")));
+        s.backend.stop();
+    }
+
+    #[test]
+    fn a_shortcut_let_go_normally_is_not_released_twice() {
+        let Some(mut s) = setup(Some(2), true, true, &[]) else { return };
+        s.backend.apply(&[hk("b1", "Ctrl+M", "Mute")]);
+        assert!(wait_for(|| working(&s.backend, "b1")));
+        s.portal.emit("Activated", "b1");
+        s.portal.emit("Deactivated", "b1");
+        s.portal.close_session();
+        assert!(wait_for(|| s.portal.count("CreateSession") == 2 && working(&s.backend, "b1")));
+        let released = s.posted.lock().unwrap().iter().filter(|(_, d)| d["kind"] == "released").count();
+        assert_eq!(released, 1);
         s.backend.stop();
     }
 }

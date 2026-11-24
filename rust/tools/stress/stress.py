@@ -201,9 +201,18 @@ def gpu_stats(pids) -> dict:
             if key.startswith("drm-engine-") and not key.startswith("drm-engine-capacity"):
                 engine = key[len("drm-engine-"):]
                 busy[engine] = busy.get(engine, 0) + int(value.split()[0])
-            elif key in ("drm-memory-vram", "drm-total-vram"):
-                vram = max(vram, 0) + int(value.split()[0]) * 1024
+        # A driver may write the same memory as drm-memory-vram and drm-total-vram: one of them counts
+        for key in ("drm-total-vram", "drm-memory-vram"):
+            if key in fields:
+                vram += fdinfo_bytes(fields[key])
+                break
     return {"busy": busy, "vram": vram}
+
+
+def fdinfo_bytes(value: str) -> int:
+    """A drm-* memory value such as "1024 KiB": fdinfo says KiB or MiB, or nothing for bytes."""
+    number, _, unit = value.strip().partition(" ")
+    return int(number) * {"": 1, "KiB": 1024, "MiB": 1 << 20, "GiB": 1 << 30}.get(unit.strip(), 1)
 
 
 def memory_kb(pids) -> int:

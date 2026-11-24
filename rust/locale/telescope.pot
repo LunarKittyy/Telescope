@@ -6597,6 +6597,12 @@ msgstr ""
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
+#, python-brace-format
+msgid "The photos arrived late. Saved {name} and {n} more"
+msgid_plural "The photos arrived late. Saved {name} and {n} more"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "The picture already looks right and needs no changes."
 msgstr ""
 

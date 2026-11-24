@@ -68,16 +68,16 @@ impl Target {
     }
 }
 
-/// Every text the plugin's code marks for translation, in file order, each with where it's used.
-pub fn find_texts(target: &Target) -> Vec<PoEntry> {
+/// Every text the plugin's code marks for translation, in file order, each with where it's used. A folder or source that can't be read is an error, so a half-read scan never rewrites a catalogue.
+pub fn find_texts(target: &Target) -> Result<Vec<PoEntry>, String> {
     let mut out: Vec<PoEntry> = Vec::new();
-    let files = crate::package::files(&target.folder, true).unwrap_or_default();
+    let files = crate::package::files(&target.folder, true).map_err(|e| format!("{}: {e}", target.folder.display()))?;
     for rel in files {
         let ext = rel.extension().and_then(|e| e.to_str()).unwrap_or("");
         if ext != "lua" && ext != "slint" {
             continue;
         }
-        let Ok(source) = std::fs::read_to_string(target.folder.join(&rel)) else { continue };
+        let source = std::fs::read_to_string(target.folder.join(&rel)).map_err(|e| format!("{}: {e}", rel.display()))?;
         let found = if ext == "lua" { lua_texts(&source) } else { slint_texts(&source) };
         let rel = rel.to_string_lossy().replace('\\', "/");
         for (line, msgid, plural) in found {
@@ -88,7 +88,7 @@ pub fn find_texts(target: &Target) -> Vec<PoEntry> {
             }
         }
     }
-    out
+    Ok(out)
 }
 
 /// A Lua string literal starting at chars[i] ('...' or "..."), and where it ends.
@@ -226,7 +226,7 @@ fn merge(po: &Path, template: &[PoEntry]) -> Result<(), String> {
 
 /// Writes locale/<plugin>.pot from the code and brings every locale/<lang>.po up to date with it.
 pub fn extract(target: &Target) -> Result<String, String> {
-    let entries = find_texts(target);
+    let entries = find_texts(target)?;
     std::fs::create_dir_all(target.folder.join(LOCALE)).map_err(|e| e.to_string())?;
     let comments = vec![format!("Texts of the {} plugin. See docs/development/writing-plugins.md.", target.name)];
     std::fs::write(target.template(), write_po(&comments, &header(""), &entries)).map_err(|e| e.to_string())?;
@@ -285,5 +285,23 @@ mod tests {
         let found: Vec<(usize, &str, &str)> = all.iter().map(|(l, a, b)| (*l, a.as_str(), b.as_str())).collect();
         assert_eq!(found, [(3, "Hello", ""), (4, "{n} cat", "{n} cats"), (5, "Later", ""), (9, "Hi {who}", "")]);
         assert_eq!(slint_texts("label: @tr(\"Strength\");\n"), [(1, "Strength".to_string(), String::new())]);
+    }
+
+    #[test]
+    fn a_source_that_cant_be_read_stops_extract_before_any_catalogue_changes() {
+        let dir = std::env::temp_dir().join(format!("telescope-texts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join(LOCALE)).unwrap();
+        std::fs::write(dir.join(MANIFEST), r#"{"name":"demo"}"#).unwrap();
+        std::fs::write(dir.join("main.lua"), "tr('Hello')\n").unwrap();
+        std::fs::write(dir.join("broken.lua"), [0xFF, 0xFE, 0xFD]).unwrap();
+        let po = dir.join(LOCALE).join("sv.po");
+        std::fs::write(&po, write_po(&[], &header("sv"), &[PoEntry { msgid: "Hello".into(), forms: vec!["Hej".into()], ..Default::default() }])).unwrap();
+        let before = std::fs::read_to_string(&po).unwrap();
+        let target = Target::new(&dir).unwrap();
+        assert!(extract(&target).unwrap_err().contains("broken.lua"));
+        assert_eq!(std::fs::read_to_string(&po).unwrap(), before);
+        assert!(!target.template().exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

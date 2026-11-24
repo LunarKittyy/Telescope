@@ -427,7 +427,7 @@ fn an_offer_is_answered_and_the_browsers_video_and_mic_come_out() {
     b.text(json!({"type": "hello", "device": "Safari on <iPhone>", "mic_error": ""}));
     assert!(wait(|| feed.device() == "Safari on iPhone", FIVE));
 
-    assert_eq!(b.offer("offer-sdp"), json!({"type": "answer", "sdp": "answer to offer-sdp"}));
+    assert_eq!(b.offer("offer-sdp"), json!({"type": "answer", "sdp": "answer to offer-sdp", "max_kbps": max_kbps_for(1280, 720, 30)}));
     let rtc = run.last();
     assert_eq!(json!(*rtc.max_kbps.lock().unwrap()), config["max_kbps"]);
     assert_eq!(feed.codec(), "H264");
@@ -460,7 +460,7 @@ fn a_new_offer_replaces_the_connection_before_it() {
     b.recv_json();
     b.offer("first");
     let first = run.last();
-    assert_eq!(b.offer("second"), json!({"type": "answer", "sdp": "answer to second"}));
+    assert_eq!(b.offer("second")["sdp"], "answer to second");
     assert!(first.closed() && !run.last().closed());
 }
 

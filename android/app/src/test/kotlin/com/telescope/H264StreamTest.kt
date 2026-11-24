@@ -251,4 +251,121 @@ class H264StreamTest {
         }
         assertEquals(0, H264Stream.captureTimeSei(null, 1).size)
     }
+
+    @Test
+    fun `a crop goes after the time in the same SEI, escaped, and only with a time`() {
+        val sei = H264Stream.captureTimeSei(false, 0x0102030405060708L, floatArrayOf(1f, 2f, 0.5f, 0f))
+        val crop = hex(0x05, 32) + "TELESCOPE-CROP11".toByteArray(Charsets.US_ASCII) +
+            // 1.0, 2.0, 0.5 and 0.0 as floats, with an 03 after each 00 00 that a 00 follows
+            hex(0x3F, 0x80, 0, 0, 0x40, 0, 0, 3, 0, 0x3F, 0, 0, 3, 0, 0, 3, 0, 0, 3, 0, 0x80)
+        assertArrayEquals(seiHead + hex(1, 1, 2, 3, 4, 5, 6, 7, 8) + crop, sei)
+        assertEquals(0, H264Stream.captureTimeSei(null, 1, floatArrayOf(1f, 1f, 0.5f, 0.5f)).size)
+        assertArrayEquals(H264Stream.captureTimeSei(true, 5), H264Stream.captureTimeSei(true, 5, null))
+    }
+
+    private fun crop(c: Float) = floatArrayOf(1f, c, 0.5f, 0.5f)
+
+    @Test
+    fun `the crop log hands each frame only the crop logged at its own time`() {
+        val log = CropLog(capacity = 3)
+        log.put(10_000, crop(1f))
+        log.put(43_333, crop(2f))
+        // A time cut to microseconds or an offset sampled a little off still finds its frame
+        assertArrayEquals(crop(2f), log.take(43_330, 0))
+        assertArrayEquals(crop(2f), log.take(43_340, 0), "taking leaves it for a later look")
+        assertArrayEquals(crop(1f), log.take(10_000, 0))
+        assertNull(log.take(12_000, 0), "a frame between two results gets neither")
+        assertNull(log.take(80_000, 0), "a frame whose result hasn't come gets none")
+        for (t in 1..3) log.put(43_333L + t * 33_333, crop(3f))
+        assertNull(log.take(10_000, 0), "the oldest go once it's full")
+    }
+
+    @Test
+    fun `the first frame at a new rate never gets the crop of the frame before`() {
+        // 30 fps at 2x, then 60 fps at 3x: the first 60 fps frame is 16.7 ms after the last 2x one, and its result is late
+        val log = CropLog()
+        for (k in 0..3) log.put(k * 33_333L, crop(2f))
+        val first = 3 * 33_333L + 16_666
+        Thread { Thread.sleep(5); log.put(first, crop(3f)) }.start()
+        assertArrayEquals(crop(3f), log.take(first, 2_000))
+    }
+
+    @Test
+    fun `a late result after a drop to a slow rate is still waited for`() {
+        // 60 fps, then 15: the next frame comes 66.7 ms after the last result, more than twice the 60 fps interval
+        val log = CropLog()
+        for (k in 0..3) log.put(k * 16_667L, crop(1f))
+        val next = 3 * 16_667L + 66_667
+        Thread { Thread.sleep(5); log.put(next, crop(2f)) }.start()
+        assertArrayEquals(crop(2f), log.take(next, 2_000))
+    }
+
+    @Test
+    fun `the crop log waits only for the result that is next due`() {
+        val log = CropLog()
+        log.put(0, crop(1f))
+        log.put(33_333, crop(1f))
+        // A time on the wrong clock (far from every result) or one whose result has been passed never holds the caller
+        for (wrong in longArrayOf(5_000_000_000L, -500_000_000L, 20_000L)) {
+            val start = System.nanoTime()
+            assertNull(log.take(wrong, 2_000))
+            assertTrue(System.nanoTime() - start < 500_000_000L, "no wait for $wrong")
+        }
+        // Misses in a row change nothing: the next frame is still found
+        Thread { Thread.sleep(5); log.put(66_666, crop(2f)) }.start()
+        assertArrayEquals(crop(2f), log.take(66_670, 2_000))
+    }
+
+    @Test
+    fun `an Android 13 camera on the realtime clock is matched however briefly the phone slept`() {
+        // The encoder keeps the sensor's clock, so its times are the results' own even with only 500 ms asleep
+        val asleep = 500_000L
+        val log = CropLog()
+        log.begin(CropLog.offsetsUs(realtime = true, sensorBase = true, asleepUs = asleep))
+        log.put(1_000_000, crop(1f))
+        Thread { Thread.sleep(5); log.put(1_033_333, crop(2f)) }.start()
+        assertArrayEquals(crop(2f), log.take(1_033_333, 2_000), "the likeliest clock gets the wait")
+        // An older one moves them to the monotonic clock
+        assertEquals(asleep, CropLog.offsetsUs(realtime = true, sensorBase = false, asleepUs = asleep)[0])
+        assertArrayEquals(longArrayOf(0L), CropLog.offsetsUs(realtime = false, sensorBase = true, asleepUs = asleep))
+    }
+
+    @Test
+    fun `an older frame on the other clock is never taken for a late frame`() {
+        // Asleep for exactly ten frames: on the other clock this frame's time is the first frame's, long logged
+        val asleep = 333_330L
+        val log = CropLog()
+        log.begin(longArrayOf(asleep, 0L))
+        for (k in 0..9) log.put(1_000_000 + k * 33_333L, crop(1f))
+        Thread { Thread.sleep(5); log.put(1_000_000 + asleep, crop(2f)) }.start()
+        assertArrayEquals(crop(2f), log.take(1_000_000, 2_000), "the likeliest clock's result is waited for first")
+    }
+
+    @Test
+    fun `a new encoder starts over with its own clock`() {
+        val asleep = 500_000L
+        val log = CropLog()
+        log.begin(longArrayOf(0L, asleep))
+        for (k in 0..3) log.put(asleep + k * 33_333L, crop(1f))
+        for (k in 0..3) log.take(k * 33_333L, 0)
+        // Promoted to the other clock; a lens switch begins again, and the log is empty with the new order
+        log.begin(longArrayOf(0L))
+        assertNull(log.take(0, 0))
+        log.put(0, crop(3f))
+        assertArrayEquals(crop(3f), log.take(0, 0))
+    }
+
+    @Test
+    fun `a clock that keeps matching when the likeliest doesn't becomes the likeliest`() {
+        val asleep = 500_000L
+        val log = CropLog()
+        // Taken to keep the sensor's clock, but this camera moved its frames to the monotonic one
+        log.begin(longArrayOf(0L, asleep))
+        for (k in 0..3) log.put(asleep + k * 33_333L, crop(1f))
+        for (k in 0..3) assertArrayEquals(crop(1f), log.take(k * 33_333L, 0), "found on the other clock")
+        // Now promoted, a late result on it is waited for
+        val next = 4 * 33_333L
+        Thread { Thread.sleep(5); log.put(asleep + next, crop(2f)) }.start()
+        assertArrayEquals(crop(2f), log.take(next, 2_000))
+    }
 }

@@ -135,6 +135,8 @@ pub struct MfCamera {
     view: Option<SharedView>,
     beat: Option<u64>,
     beat_at: Instant,
+    /// The heartbeat a reader stopped on when it was let go: a mapping that still shows it is the stalled reader, not a new request.
+    stalled: Option<u64>,
     linger: Duration,
     last_write: Option<(Instant, u32, u32)>,
     /// Whether the slot still goes to the Windows 11 camera.
@@ -143,7 +145,7 @@ pub struct MfCamera {
 
 impl MfCamera {
     pub fn new(width: u32, height: u32, device: String, open: Opener, still_mf: Box<dyn Fn() -> bool + Send>) -> MfCamera {
-        MfCamera { width, height, device, open, view: None, beat: None, beat_at: Instant::now(), linger: WATCH_LINGER, last_write: None, still_mf }
+        MfCamera { width, height, device, open, view: None, beat: None, beat_at: Instant::now(), stalled: None, linger: WATCH_LINGER, last_write: None, still_mf }
     }
 
     /// The shared memory while an app reads the camera. Let go of once it stops (or stops asking for frames), so the
@@ -156,16 +158,26 @@ impl MfCamera {
                 self.beat = Some(beat);
                 self.beat_at = now;
             }
-            if view.reader_size().is_none() || now - self.beat_at > self.linger {
+            if view.reader_size().is_none() {
+                self.stalled = None;
+                self.view = None;
+            } else if now - self.beat_at > self.linger {
+                self.stalled = self.beat;
                 self.view = None;
             }
         }
         if self.view.is_none() {
             self.last_write = None;
             self.view = (self.open)();
-            if let Some(view) = self.view.as_mut() {
-                self.beat = Some(view.header().heartbeat);
-                self.beat_at = now;
+            match self.view.as_mut().map(|view| view.header().heartbeat) {
+                // The same mapping, still not beating (a paused or hung reader): nothing is sent until it beats again
+                Some(beat) if self.stalled == Some(beat) => self.view = None,
+                Some(beat) => {
+                    self.stalled = None;
+                    self.beat = Some(beat);
+                    self.beat_at = now;
+                }
+                None => self.stalled = None,
             }
         }
         self.view.as_mut()
@@ -548,8 +560,27 @@ pub(crate) mod tests {
         send(&mut c, &o, &grey(8, 4, 0));
         std::thread::sleep(Duration::from_millis(40));
         send(&mut c, &o, &grey(8, 4, 0));
-        assert_eq!(o.closed.load(Ordering::SeqCst), 1, "let go, then looked for again");
+        assert_eq!(o.closed.load(Ordering::SeqCst), 2, "let go, looked for again, and let go once more: it still isn't beating");
         assert_eq!(o.opened.load(Ordering::SeqCst), 2);
+        assert_eq!(o.header().counter, 2, "nothing was written for the stalled reader");
+        assert!(!c.is_open());
+    }
+
+    #[test]
+    fn a_stalled_reader_gets_frames_again_once_it_beats() {
+        let o = Opener::new(Some(shared(8, 4, 1, 7, 0, None, MAGIC)));
+        let mut c = cam(&o, 8, 4);
+        c.linger = Duration::from_millis(20);
+        send(&mut c, &o, &grey(8, 4, 0));
+        std::thread::sleep(Duration::from_millis(40));
+        send(&mut c, &o, &grey(8, 4, 0));
+        send(&mut c, &o, &grey(8, 4, 0));
+        assert_eq!(o.header().counter, 2);
+        // The reader wakes up and asks for a frame
+        o.set(32, 8);
+        send(&mut c, &o, &grey(8, 4, 0));
+        assert_eq!(o.header().counter, 4);
+        assert!(c.is_open());
     }
 
     #[test]

@@ -999,6 +999,32 @@ fn a_normal_mask_late_from_a_slow_open_does_not_lead_a_cutout_of_a_newer_frame()
 }
 
 #[test]
+fn a_current_pack_that_fails_to_load_leaves_the_older_one_to_load() {
+    let (dir, old, _) = installed_pack("vision-load-fails");
+    let staged = scratch_dir("vision-load-fails-new").join("new");
+    for (file, data) in PACK_FILES {
+        std::fs::create_dir_all(staged.join(file).parent().unwrap()).unwrap();
+        std::fs::write(staged.join(file), data).unwrap();
+    }
+    std::fs::write(staged.join("site/extra.so"), b"newer").unwrap();
+    let id = pack::tree_hash(&staged).unwrap();
+    let newer = PackInfo::from_json(&serde_json::json!({"linux": {"id": id, "size": 1, "older": [old.id.clone().unwrap()]}}), Some("linux"));
+    std::fs::rename(&staged, newer.folder(&dir)).unwrap();
+    std::fs::write(newer.folder(&dir).join(pack::DONE), newer.pack_id().unwrap()).unwrap();
+    let loaded = std::sync::Mutex::new(Vec::new());
+    let newer_folder = newer.folder(&dir);
+    let load = |folder: &Path| -> Result<Arc<dyn Backend>, LoadError> {
+        loaded.lock().unwrap().push(folder.to_path_buf());
+        if folder == newer_folder { Err(LoadError::Failed(crate::service::VisionError::new("OSError", "can't open"))) } else { Ok(Fake::new() as Arc<dyn Backend>) }
+    };
+    assert!(find_pack(&dir, &newer, &load).is_ok());
+    assert_eq!(*loaded.lock().unwrap(), [newer.folder(&dir), old.folder(&dir)]);
+    // With nothing older to fall back on, the failure is what's reported
+    let alone = PackInfo { older: Vec::new(), ..newer };
+    assert!(matches!(find_pack(&dir, &alone, &load), Err(LoadError::Failed(_))));
+}
+
+#[test]
 fn a_pack_from_before_the_face_finder_still_loads_after_an_update() {
     let (dir, old, _) = installed_pack("vision-older");
     let newer = PackInfo::from_json(&serde_json::json!({"linux": {"id": "f".repeat(64), "size": 1, "older": [old.id.clone().unwrap()]}}), Some("linux"));

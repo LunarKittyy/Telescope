@@ -350,6 +350,7 @@ impl PipelineFrame {
         frame.number = self.frame.number;
         frame.time_ns = self.frame.time_ns;
         frame.capture_ns = self.frame.capture_ns;
+        frame.phone_share = self.frame.phone_share;
         frame
     }
 
@@ -360,6 +361,7 @@ impl PipelineFrame {
         frame.number = self.frame.number;
         frame.time_ns = self.frame.time_ns;
         frame.capture_ns = self.frame.capture_ns;
+        frame.phone_share = self.frame.phone_share;
         Some(frame)
     }
 
@@ -382,6 +384,7 @@ impl PipelineFrame {
         frame.number = self.frame.number;
         frame.time_ns = self.frame.time_ns;
         frame.capture_ns = self.frame.capture_ns;
+        frame.phone_share = self.frame.phone_share;
         Some(frame)
     }
 

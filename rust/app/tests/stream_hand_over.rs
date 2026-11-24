@@ -46,6 +46,7 @@ fn url(r: &Rig) -> String {
 fn a_hand_over_moves_the_stream_and_tells_the_plugins_where_it_is_now() {
     let r = on_wifi("hand-over");
     assert!(hand_over(&r));
+    assert_eq!(r.link.logged_starting("prepare pixel"), 1, "the new route is prepared when it's asked for");
     assert!(r.worker(0).did(&format!("hand_over {USB}")));
     assert_eq!(url(&r), WIFI, "still Wi-Fi until it's moved");
     assert!(!hand_over(&r), "one at a time");
@@ -88,7 +89,7 @@ fn a_worker_that_cant_hand_over_isnt_asked_and_the_link_keeps_no_route() {
     r.worker(0).refuses_hand_over.store(true, Ordering::SeqCst);
     r.w.with_flow(|_, _| ()); // the state plugins read, as the flow has it
     assert!(!hand_over(&r));
-    assert_eq!(r.link.logged("prepare pixel"), 0);
+    assert_eq!(r.link.logged_starting("prepare pixel"), 0);
     assert_eq!(url(&r), WIFI);
 }
 
@@ -116,5 +117,5 @@ fn a_stream_thats_recovering_isnt_asked_to_move() {
     r.worker(0).says("reconnecting", "Connection lost");
     r.pump();
     assert!(!hand_over(&r));
-    assert_eq!(r.link.logged("prepare pixel"), 0);
+    assert_eq!(r.link.logged_starting("prepare pixel"), 0);
 }

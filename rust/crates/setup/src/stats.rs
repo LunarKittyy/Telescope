@@ -614,7 +614,7 @@ impl StatsPlugin {
             Some((snap, source)) => {
                 props["rows"] = Value::Array(rows(snap, source, self.view, &context).iter().map(|r| r.json(&pinned, locked)).collect());
                 props["empty-text"] = json!("");
-                props["source-name"] = json!(if snap.sources.len() > 1 { tr("Stream on virtual camera {n}").field("n", source.slot) } else { String::new() });
+                props["source-name"] = json!(if snap.sources.len() > 1 { tr("Stream on virtual camera {n}").field("n", source.slot + 1) } else { String::new() });
             }
             None => {
                 props["rows"] = json!([]);
@@ -798,7 +798,12 @@ impl Plugin for StatsPlugin {
             }
             Event::PhoneStateUpdated { state } => self.take_phone_state(host, state),
             // The answers to this card's own asks come back as polls, for the shown stream only
-            Event::PhonePolled { shown: true, state, .. } => self.take_phone_state(host, state),
+            Event::PhonePolled { source_id, shown: true, state, .. } => {
+                // A poll answered for a phone the panels have since moved off is not this card's
+                if host.focused_source_id().is_none_or(|focused| focused == *source_id) {
+                    self.take_phone_state(host, state);
+                }
+            }
             Event::TimerFired { token, .. } if token == PHONE => {
                 self.asking = false;
                 self.ask_phone(host);
@@ -898,6 +903,12 @@ impl Plugin for StatsPlugin {
         Ok(())
     }
 
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        self.set_config(cfg)?;
+        self.want(host);
+        self.show(host);
+        Ok(())
+    }
 }
 
 #[cfg(test)]

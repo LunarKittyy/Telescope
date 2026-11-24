@@ -383,7 +383,13 @@ fn inside(name: &str) -> Option<PathBuf> {
     let mut out = PathBuf::new();
     for part in Path::new(name).components() {
         match part {
-            Component::Normal(p) => out.push(p),
+            // A colon or backslash means something else on Windows (a drive, a separator), so rebuilding the path could leave staging there
+            Component::Normal(p) => {
+                if p.to_string_lossy().contains([':', '\\']) {
+                    return None;
+                }
+                out.push(p)
+            }
             Component::CurDir => {}
             Component::ParentDir => {
                 if !out.pop() {
@@ -446,28 +452,19 @@ fn unpack_into(archive: &Path, staging: &Path, max_bytes: u64) -> Result<(), Fai
     Ok(())
 }
 
-/// Delete the packs and leftovers of unfinished downloads, all but keep.
+/// Delete the packs and leftovers of unfinished downloads, all but keep, and nothing else in the folder.
 pub fn remove(vision_dir: &Path, keep: Option<&str>) -> Result<(), String> {
-    let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
-    let mut failed = Ok(());
-    for entry in entries.flatten() {
-        if keep.is_some_and(|k| entry.file_name().to_string_lossy() == k) {
-            continue;
-        }
-        let path = entry.path();
-        let gone = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
-        if let Err(e) = gone {
-            log::warn!("Couldn't remove {}", path.display());
-            failed = Err(e.to_string());
-        }
-    }
-    failed
+    prune(vision_dir, keep.as_slice())
 }
 
 /// After an install or download: delete older packs, all but keep, and leftovers of unfinished downloads, but only what Telescope makes itself (a pack
 /// folder is named by 16 hex characters). Anything else in the folder, such as a zip the person chose to install, stays.
 fn prune(vision_dir: &Path, keep: &[&str]) -> Result<(), String> {
-    let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
+    let entries = match std::fs::read_dir(vision_dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e.to_string()),
+    };
     let mut failed = Ok(());
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();

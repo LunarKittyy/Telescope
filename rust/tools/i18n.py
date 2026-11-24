@@ -8,7 +8,7 @@
   python tools/i18n.py status [sv]      how much of each language is done, and any broken {fields}
   python tools/i18n.py todo sv          the Swedish texts still missing, ready to paste into a .po
 
-The texts are the ones in tr(), n_(), trn(), tr_ctx(), tr_with() and trn_with() calls in the Rust code and in Slint's @tr().
+The texts are the ones in tr(), n_(), trn(), trn_open(), tr_ctx(), tr_with() and trn_with() calls in the Rust code and in Slint's @tr().
 Calls in tests, comments and the i18n code itself don't count. A `// Translators: ...` comment right above a call becomes the
 text's note. A text the code only passes along as a plain string (a table the card walks, a helper that calls tr() later) stays
 while the same string is still in the code and the template already had it: mark new ones with n_().
@@ -63,12 +63,13 @@ def _unquote(s: str) -> str:
     return re.sub(r'\\(.)', lambda m: _ESCAPES.get(m.group(1), m.group(1)), s[1:-1])
 
 
-def _quote(s: str) -> str:
+def _quote(s: str, prefix: str = "") -> str:
+    """The quoted text as one line, or as "" and continuation lines that each start with the prefix (#~ for an obsolete entry)."""
     body = s.replace("\\", "\\\\").replace('"', '\\"').replace("\t", "\\t")
     if "\n" in body.rstrip("\n"):
         lines = body.split("\n")
         parts = [line + "\\n" for line in lines[:-1]] + ([lines[-1]] if lines[-1] else [])
-        return '""\n' + "\n".join(f'"{p}"' for p in parts)
+        return '""\n' + "\n".join(f'{prefix}"{p}"' for p in parts)
     return '"' + body.replace("\n", "\\n") + '"'
 
 
@@ -151,14 +152,14 @@ def write_po(path: Path, header: str, entries: Iterable[Entry], header_comments:
         if e.flags:
             out.append("#, " + ", ".join(e.flags))
         if e.ctx:
-            out.append(prefix + "msgctxt " + _quote(e.ctx))
-        out.append(prefix + "msgid " + _quote(e.msgid))
+            out.append(prefix + "msgctxt " + _quote(e.ctx, prefix))
+        out.append(prefix + "msgid " + _quote(e.msgid, prefix))
         if e.plural:
-            out.append(prefix + "msgid_plural " + _quote(e.plural))
+            out.append(prefix + "msgid_plural " + _quote(e.plural, prefix))
             for i, s in enumerate(e.msgstr or ["", ""]):
-                out.append(prefix + f"msgstr[{i}] " + _quote(s))
+                out.append(prefix + f"msgstr[{i}] " + _quote(s, prefix))
         else:
-            out.append(prefix + "msgstr " + _quote(e.msgstr[0] if e.msgstr else ""))
+            out.append(prefix + "msgstr " + _quote(e.msgstr[0] if e.msgstr else "", prefix))
         out.append("")
     path.write_text("\n".join(out), encoding="utf-8")
 
@@ -191,7 +192,7 @@ SKIP_DIRS = {"target", "tests", "fixtures", "example-plugins"}
 READERS = {"slint_source.rs", "texts.rs", "text.rs", "i18n.rs"}
 # What a call's arguments mean: which one is the English, the plural, the context
 SHAPES = {"tr": (0, None, None), "n_": (0, None, None), "tr_ctx": (1, None, 0), "tr_with": (0, None, 1),
-          "trn": (0, 1, None), "trn_with": (0, 1, 3)}
+          "trn": (0, 1, None), "trn_open": (0, 1, None), "trn_with": (0, 1, 3)}
 
 
 def source_files() -> List[Path]:

@@ -125,6 +125,7 @@ impl Command_ {
             }
             match self.lines.recv_timeout(Duration::from_millis(5)) {
                 Ok(message) => return message,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => panic!("telescope mcp closed its output before it answered"),
                 Err(_) if Instant::now() < until => {}
                 Err(_) => panic!("no answer from telescope mcp in 20 s"),
             }

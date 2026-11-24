@@ -340,10 +340,10 @@ struct Shared {
     looked_at: Mutex<Option<Instant>>,
 }
 
-/// The newest picture waiting for the reader's worker: a newer one replaces an older one still there.
+/// The newest picture waiting for the reader's worker, and the stream it came from: a newer one replaces an older one still there.
 #[derive(Default)]
 struct Slot {
-    frame: Mutex<Option<Frame>>,
+    frame: Mutex<Option<(Frame, String)>>,
     wake: Condvar,
     closed: AtomicBool,
 }
@@ -373,22 +373,22 @@ impl Reader {
     fn start(&mut self) -> bool {
         let (shared, poster, slot) = (self.shared.clone(), self.poster.clone(), self.slot.clone());
         let spawned = std::thread::Builder::new().name("qr-reader".into()).spawn(move || loop {
-            let frame = {
+            let (frame, source) = {
                 let mut held = slot.frame.lock().unwrap();
                 loop {
                     if slot.closed.load(Ordering::SeqCst) {
                         return;
                     }
-                    if let Some(frame) = held.take() {
-                        break frame;
+                    if let Some(taken) = held.take() {
+                        break taken;
                     }
                     held = slot.wake.wait(held).unwrap();
                 }
             };
-            // A miss is reported too, so a code that's gone stops being outlined; a code Python can't read reports nothing
+            // A miss is reported too, so a code that's gone stops being outlined; a code Python can't read reports nothing. The stream goes with it, so a result for a camera that's no longer shown is dropped.
             match look(&frame) {
-                Ok(Some((text, corners))) => poster.post(POST_FOUND, json!({"text": text, "corners": corners})),
-                Ok(None) => poster.post(POST_FOUND, json!({"text": "", "corners": null})),
+                Ok(Some((text, corners))) => poster.post(POST_FOUND, json!({"text": text, "corners": corners, "source": source})),
+                Ok(None) => poster.post(POST_FOUND, json!({"text": "", "corners": null, "source": source})),
                 Err(Unreadable) => {}
             }
             shared.busy.store(false, Ordering::SeqCst);
@@ -399,10 +399,15 @@ impl Reader {
 
 impl Drop for Reader {
     fn drop(&mut self) {
-        self.slot.closed.store(true, Ordering::SeqCst);
+        // Closed under the lock the worker checks it under, so it can't miss this and go to sleep for good
+        let waiting = {
+            let mut held = self.slot.frame.lock().unwrap();
+            self.slot.closed.store(true, Ordering::SeqCst);
+            held.take()
+        };
         self.slot.wake.notify_all();
         // A picture still waiting will never be looked at, so the look it was queued for is over
-        if self.slot.frame.lock().unwrap().take().is_some() {
+        if waiting.is_some() {
             self.shared.busy.store(false, Ordering::SeqCst);
         }
     }
@@ -426,7 +431,7 @@ impl CpuStep for Reader {
         }
         *self.shared.looked_at.lock().unwrap() = Some(now);
         self.shared.busy.store(true, Ordering::SeqCst);
-        *self.slot.frame.lock().unwrap() = Some(frame.clone());
+        *self.slot.frame.lock().unwrap() = Some((frame.clone(), ctx.source_id().to_string()));
         self.slot.wake.notify_one();
     }
 }
@@ -701,6 +706,11 @@ impl Plugin for QrReaderPlugin {
             Event::Posted { owner, token, data } if owner == NAME && token == POST_FOUND => {
                 let text = data.get("text").and_then(Value::as_str).unwrap_or("");
                 let corners: Option<Corners> = data.get("corners").and_then(|c| serde_json::from_value(c.clone()).ok());
+                // A look at a camera that's no longer the one shown says nothing about the picture now
+                let shown = host.focused_source_id().unwrap_or_default();
+                if data.get("source").and_then(Value::as_str).is_some_and(|source| source != shown) {
+                    return;
+                }
                 self.on_found(host, text, corners);
             }
             Event::TimerFired { owner, token } if owner == NAME => match token.as_str() {

@@ -52,45 +52,54 @@ def main():
     phone = next(p for p in config["plugin_configs"]["connection"]["phones"] if p["name"] == args.phone_name)
     token = phone["token"]
     session, stream = adb_forward(7480), adb_forward(8080)
-    print(post(session, token, "/v1/session", {"action": "start", "width": 1920, "height": 1080, "fps": 30}), flush=True)
-    # The lens used last could be anything, and the wrong one on a phone lying on a desk sees nothing
-    print(post(stream, token, "/v1/control", {"action": "camera", "id": args.lens}), flush=True)
-    time.sleep(3)
-    done = threading.Event()
+    try:
+        print(post(session, token, "/v1/session", {"action": "start", "width": 1920, "height": 1080, "fps": 30}), flush=True)
+        # The lens used last could be anything, and the wrong one on a phone lying on a desk sees nothing
+        print(post(stream, token, "/v1/control", {"action": "camera", "id": args.lens}), flush=True)
+        time.sleep(3)
+        done = threading.Event()
 
-    def sweep():
-        start = time.monotonic()
-        while not done.is_set():
-            t = time.monotonic() - start
-            crop = 1.45 + 0.4 * math.sin(t * 0.5)
-            x, y = 0.5 + 0.28 * math.sin(t * 0.9), 0.5 + 0.28 * math.cos(t * 0.63)
-            try:
-                post(stream, token, "/v1/control", {"action": "zoom", "ratio": 1.0, "crop": round(crop, 3), "x": round(x, 3), "y": round(y, 3)})
-            except OSError:
-                pass
-            time.sleep(0.05)
+        def sweep():
+            start = time.monotonic()
+            while not done.is_set():
+                t = time.monotonic() - start
+                crop = 1.45 + 0.4 * math.sin(t * 0.5)
+                x, y = 0.5 + 0.28 * math.sin(t * 0.9), 0.5 + 0.28 * math.cos(t * 0.63)
+                try:
+                    post(stream, token, "/v1/control", {"action": "zoom", "ratio": 1.0, "crop": round(crop, 3), "x": round(x, 3), "y": round(y, 3)})
+                except (OSError, http.client.HTTPException):
+                    pass
+                time.sleep(0.05)
 
-    con = connection(stream)
-    con.request("GET", "/v1/video.h264", headers={"Authorization": f"Bearer {token}"})
-    reply = con.getresponse()
-    print("stream:", reply.status, flush=True)
-    threading.Thread(target=sweep, daemon=True).start()
-    until = time.monotonic() + args.seconds
-    with args.out.open("wb") as f:
-        # The phone puts no access unit delimiter before its first frame, and fake_phone.py splits on them
-        f.write(b"\x00\x00\x00\x01\x09\xf0")
-        while time.monotonic() < until:
-            chunk = reply.read1(1 << 16)
-            if not chunk:
-                break
-            f.write(chunk)
-    done.set()
-    con.close()
-    time.sleep(0.3)
-    print(post(stream, token, "/v1/control", {"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}))
-    print(post(session, token, "/v1/session", {"action": "stop"}))
-    subprocess.run(["adb", "forward", "--remove", f"tcp:{session}"])
-    subprocess.run(["adb", "forward", "--remove", f"tcp:{stream}"])
+        con = connection(stream)
+        con.request("GET", "/v1/video.h264", headers={"Authorization": f"Bearer {token}"})
+        reply = con.getresponse()
+        print("stream:", reply.status, flush=True)
+        if reply.status != 200:
+            con.close()
+            raise SystemExit(f"the phone's stream answered {reply.status}, no clip was recorded")
+        threading.Thread(target=sweep, daemon=True).start()
+        until = time.monotonic() + args.seconds
+        with args.out.open("wb") as f:
+            # The phone puts no access unit delimiter before its first frame, and fake_phone.py splits on them
+            f.write(b"\x00\x00\x00\x01\x09\xf0")
+            while time.monotonic() < until:
+                chunk = reply.read1(1 << 16)
+                if not chunk:
+                    break
+                f.write(chunk)
+        done.set()
+        con.close()
+        time.sleep(0.3)
+        print(post(stream, token, "/v1/control", {"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}))
+    finally:
+        # Also when the clip failed: the phone stops streaming and the forwards go
+        try:
+            print(post(session, token, "/v1/session", {"action": "stop"}))
+        except (OSError, http.client.HTTPException) as e:
+            print("stopping the session failed:", e)
+        subprocess.run(["adb", "forward", "--remove", f"tcp:{session}"])
+        subprocess.run(["adb", "forward", "--remove", f"tcp:{stream}"])
     print(f"{args.out}: {args.out.stat().st_size / 1e6:.1f} MB")
 
 

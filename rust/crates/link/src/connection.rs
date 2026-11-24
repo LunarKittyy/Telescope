@@ -184,7 +184,10 @@ pub struct Connection {
     /// A Connect via choice checked before the stream moves to it.
     pub pending_route: Option<RoutePreference>,
     pub route_probe_id: u64,
+    /// Counts the stream and route changes a running USB check may have been started before.
     pub watch_id: u64,
+    /// A USB check is running; the next tick waits for it.
+    usb_probing: bool,
     /// Watching for a cable while streaming over Wi-Fi.
     pub usb_watch_active: bool,
     pub switch_usb_visible: bool,
@@ -212,7 +215,7 @@ impl Connection {
             computer_id, computer_name, route_pref: RoutePreference::Auto, udp: false, phones: Vec::new(), selected_id: None, pending_pick: None,
             resolution: None, check_id: 0, running_check: None, check_started: 0.0, unreachable_checks: 0, udp_dynamic: HashSet::new(), holds: HashMap::new(),
             paths: HashMap::new(), prepared: HashMap::new(), usb_sat_out: -1e9, streaming: false, connected: false, lost: false,
-            transport_udp: false, pending_route: None, route_probe_id: 0, watch_id: 0, usb_watch_active: false,
+            transport_udp: false, pending_route: None, route_probe_id: 0, watch_id: 0, usb_probing: false, usb_watch_active: false,
             switch_usb_visible: false, shown: true, watched: false, wanted: false, wanted_held: false, tunnels,
         }
     }
@@ -235,6 +238,7 @@ impl Connection {
     }
 
     /// Sets the selected phone's stream route without a forward (the plugin's tests set it this way).
+    #[cfg(test)]
     pub fn set_stream_route(&mut self, route: Option<RouteSpec>) {
         let k = key(self.selected_id.as_deref());
         let forward = self.holds.get(&k).and_then(|(_, f)| f.clone());
@@ -246,10 +250,12 @@ impl Connection {
         self.holds.get(pid)
     }
 
+    #[cfg(test)]
     pub fn set_hold(&mut self, pid: &str, route: Option<RouteSpec>, forward: Option<String>) {
         self.holds.insert(pid.to_string(), (route, forward));
     }
 
+    #[cfg(test)]
     pub fn set_path(&mut self, pid: &str, path: &str) {
         self.paths.insert(pid.to_string(), path.to_string());
     }
@@ -439,6 +445,7 @@ impl Connection {
     pub fn use_route_preference(&mut self, preference: RoutePreference, now: f64) -> UseRoute {
         self.pending_route = None;
         self.route_pref = preference;
+        self.invalidate_watch();
         self.resolution = None;
         if self.streaming {
             return UseRoute::Reconnect;
@@ -627,7 +634,7 @@ impl Connection {
         self.streaming = true;
         self.lost = false;
         self.switch_usb_visible = false;
-        self.watch_id += 1; // a USB check still running is about the route before this one
+        self.invalidate_watch(); // a USB check still running is about the route before this one
         self.usb_watch_active = self.stream_route().is_some_and(|r| !is_usb(&r)) && self.route_pref == RoutePreference::Auto;
     }
 
@@ -635,7 +642,7 @@ impl Connection {
     pub fn on_stream_stop(&mut self, still_streaming: impl Fn(&str) -> bool, now: f64) -> Option<Check> {
         self.streaming = false;
         self.usb_watch_active = false;
-        self.watch_id += 1;
+        self.invalidate_watch();
         self.switch_usb_visible = false;
         let gone: Vec<String> = self.holds.keys().filter(|pid| !still_streaming(pid)).cloned().collect();
         for pid in gone {
@@ -662,7 +669,7 @@ impl Connection {
         }
         // Recovery picks USB by itself when the phone answers on it, so no Switch to USB meanwhile
         self.usb_watch_active = false;
-        self.watch_id += 1;
+        self.invalidate_watch();
         self.switch_usb_visible = false;
     }
 
@@ -672,13 +679,31 @@ impl Connection {
         if !self.streaming {
             return None;
         }
-        self.watch_id += 1;
+        if self.usb_probing {
+            return None; // a slow check isn't started over, or none would ever finish
+        }
+        self.usb_probing = true;
         Some((self.watch_id, phone))
+    }
+
+    /// Answers from USB checks started before now are stale.
+    fn invalidate_watch(&mut self) {
+        self.watch_id += 1;
+        self.usb_probing = false;
+    }
+
+    /// Whether a USB forward opened for the check watch_id still answers the stream and route choice now.
+    pub fn usb_watch_current(&self, watch_id: u64) -> bool {
+        watch_id == self.watch_id && self.streaming && self.usb_watch_active && self.route_pref == RoutePreference::Auto
     }
 
     /// The USB check's answer: the USB route the phone answers on, or None.
     pub fn on_usb_available(&mut self, watch_id: u64, route: Option<RouteSpec>, now: f64) -> UsbWatch {
-        if watch_id != self.watch_id || !self.streaming {
+        if watch_id != self.watch_id {
+            return UsbWatch::Ignore;
+        }
+        self.usb_probing = false;
+        if !self.streaming {
             return UsbWatch::Ignore;
         }
         let Some(route) = route else {
@@ -1718,6 +1743,34 @@ mod tests {
         c.set_stream_route(Some(usb()));
         c.on_stream_start("url");
         assert!(!c.usb_watch_active);
+    }
+
+    #[test]
+    fn a_slow_usb_check_is_not_started_over_or_invalidated_by_the_next_tick() {
+        let (mut c, _) = model();
+        add(&mut c, "id-a");
+        c.set_stream_route(Some(wifi()));
+        c.on_stream_start("url");
+        let (id, _) = c.watch_usb().unwrap();
+        assert!(c.watch_usb().is_none(), "a second check started while the first still ran");
+        assert_eq!(c.on_usb_available(id, Some(usb()), 100.0), UsbWatch::HandOver(usb()));
+        assert!(c.watch_usb().is_some(), "the next tick can check again once the answer is in");
+    }
+
+    #[test]
+    fn a_usb_check_started_before_the_stream_or_route_changed_is_stale() {
+        let (mut c, _) = model();
+        add(&mut c, "id-a");
+        c.set_stream_route(Some(wifi()));
+        c.on_stream_start("url");
+        let (id, _) = c.watch_usb().unwrap();
+        assert!(c.usb_watch_current(id));
+        c.use_route_preference(RoutePreference::Wifi, 1.0);
+        assert!(!c.usb_watch_current(id));
+        assert_eq!(c.on_usb_available(id, Some(usb()), 100.0), UsbWatch::Ignore);
+        c.use_route_preference(RoutePreference::Auto, 1.0);
+        c.on_stream_start("url");
+        assert!(c.watch_usb().is_some(), "the old check no longer blocks the new stream's");
     }
 
     #[test]

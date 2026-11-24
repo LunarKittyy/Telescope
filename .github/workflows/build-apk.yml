@@ -35,7 +35,7 @@ jobs:
         run: |
           files=$(git diff --name-only HEAD^1 HEAD)
           echo "$files"
-          if echo "$files" | grep -qE '^(android/|rust/crates/ui-kit/ui/theme\.slint$|\.github/workflows/build-apk\.yml$)'; then
+          if echo "$files" | grep -qE '^(android/|docs/state\.json$|rust/crates/ui-kit/ui/theme\.slint$|\.github/workflows/build-apk\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -102,9 +102,9 @@ jobs:
       - name: Build release APK
         working-directory: android
         env:
-          TELESCOPE_KEYSTORE_PASSWORD: ${{ secrets.TELESCOPE_KEYSTORE_PASSWORD }}
-          TELESCOPE_KEY_ALIAS: ${{ secrets.TELESCOPE_KEY_ALIAS }}
-          TELESCOPE_KEY_PASSWORD: ${{ secrets.TELESCOPE_KEY_PASSWORD }}
+          TELESCOPE_KEYSTORE_PASSWORD: ${{ inputs.channel && secrets.TELESCOPE_KEYSTORE_PASSWORD || '' }}
+          TELESCOPE_KEY_ALIAS: ${{ inputs.channel && secrets.TELESCOPE_KEY_ALIAS || '' }}
+          TELESCOPE_KEY_PASSWORD: ${{ inputs.channel && secrets.TELESCOPE_KEY_PASSWORD || '' }}
         run: >-
           ./gradlew assembleRelease
           -PbuildNumber=${{ inputs.build || '1' }}

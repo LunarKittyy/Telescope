@@ -295,6 +295,15 @@ impl PluginFolder {
     /// Unpack a plugin .zip (one folder, named as the plugin) into the plugins folder, switched off. replace: put it in place of the one
     /// there, switched off; its settings are kept since they're saved by name.
     pub fn install_zip(&self, archive: &Path, replace: bool) -> Result<Installed, InstallError> {
+        self.install_zip_as(archive, replace, false)
+    }
+
+    /// Like install_zip with replace, but the one there is only replaced by a package that can load here: a broken update leaves it alone.
+    pub fn update_zip(&self, archive: &Path) -> Result<Installed, InstallError> {
+        self.install_zip_as(archive, true, true)
+    }
+
+    fn install_zip_as(&self, archive: &Path, replace: bool, must_load: bool) -> Result<Installed, InstallError> {
         let mut file = fs::File::open(archive)?;
         check_central_directory(&mut file)?;
         let mut zip = zip::ZipArchive::new(file).map_err(|_| invalid(NOT_A_ZIP))?;
@@ -313,7 +322,7 @@ impl PluginFolder {
         make_private_dir(&self.folder)?;
         let staging = make_staging(&self.folder)?;
         let mut keep_staging = false;
-        let result = self.unpack_and_swap(&mut zip, &staging, &name, &target, &mut keep_staging);
+        let result = self.unpack_and_swap(&mut zip, &staging, &name, &target, must_load, &mut keep_staging);
         // If the old version couldn't be put back, staging is where it is, so it stays
         if !keep_staging {
             let _ = fs::remove_dir_all(&staging);
@@ -323,7 +332,7 @@ impl PluginFolder {
         Ok(self.inspect(&target, &enabled, unsafe_permissions(&self.folder), false))
     }
 
-    fn unpack_and_swap(&self, zip: &mut zip::ZipArchive<fs::File>, staging: &Path, name: &str, target: &Path, keep_staging: &mut bool) -> Result<(), InstallError> {
+    fn unpack_and_swap(&self, zip: &mut zip::ZipArchive<fs::File>, staging: &Path, name: &str, target: &Path, must_load: bool, keep_staging: &mut bool) -> Result<(), InstallError> {
         for i in 0..zip.len() {
             let mut entry = zip.by_index(i).map_err(|_| invalid(NOT_A_ZIP))?;
             let entry_name = entry.name().map_err(|_| invalid(NOT_A_ZIP))?.to_string();
@@ -344,6 +353,12 @@ impl PluginFolder {
             fs::write(&out, data)?;
         }
         set_plain_permissions(&staging.join(name))?;
+        if must_load {
+            let staged = self.inspect(&staging.join(name), &Default::default(), false, false);
+            if !staged.problem.is_empty() {
+                return Err(InstallError::Invalid(staged.problem));
+            }
+        }
         if target.exists() {
             let old = staging.join(".old");
             (self.rename)(target, &old)?;

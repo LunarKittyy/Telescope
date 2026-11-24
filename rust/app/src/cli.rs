@@ -80,13 +80,17 @@ pub fn pair(args: &Args, services: &Services) -> Result<(), String> {
     };
     println!("Paired with {} ({})", phone.name, phone.id);
     phones.add_phone(phone);
-    let saved = file.update(|cfg| {
-        if let Some(pcfg) = cfg.get_mut("plugin_configs").and_then(Value::as_object_mut) {
-            pcfg.insert("connection".into(), phones.to_section());
-        }
-        cfg["selected_device"] = phones.selected_phone.clone().map_or(Value::Null, Value::String);
-    });
+    let saved = file.update(|cfg| record_pairing(cfg, phones.to_section(), phones.selected_phone.clone()));
     if saved { Ok(()) } else { Err(format!("Couldn't save {}", file.path().display())) }
+}
+
+/// The paired phones into a config, which may not have a plugin_configs object yet.
+fn record_pairing(cfg: &mut Value, section: Value, selected: Option<String>) {
+    if !cfg.get("plugin_configs").is_some_and(Value::is_object) {
+        cfg["plugin_configs"] = serde_json::json!({});
+    }
+    cfg["plugin_configs"]["connection"] = section;
+    cfg["selected_device"] = selected.map_or(Value::Null, Value::String);
 }
 
 struct Printer;
@@ -214,4 +218,22 @@ pub fn config_snapshot(folder: Option<&str>, services: Arc<Services>, scratch: &
     let _ = std::fs::remove_dir_all(scratch);
     print!("{}", telescope_core::snapshot::dump(&result?));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn a_pairing_is_saved_even_when_the_config_has_no_plugin_section() {
+        for mut cfg in [json!({}), json!({"plugin_configs": 3}), json!({"plugin_configs": {"setup": {}}, "language": "sv"})] {
+            record_pairing(&mut cfg, json!({"phones": [1]}), Some("phone".into()));
+            assert_eq!(cfg["plugin_configs"]["connection"], json!({"phones": [1]}));
+            assert_eq!(cfg["selected_device"], "phone");
+        }
+        let mut kept = json!({"plugin_configs": {"setup": {"limiter": false}}});
+        record_pairing(&mut kept, json!({}), None);
+        assert_eq!(kept["plugin_configs"]["setup"], json!({"limiter": false}), "the others stay");
+    }
 }

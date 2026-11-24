@@ -192,7 +192,7 @@ impl Timer {
     #[inline]
     pub fn add(&self, ns: u64) {
         let us = (ns / 1000).min(u32::MAX as u64) as u32;
-        // Count last, and a take reads it first: a sample that is counted has its time and its peak in too
+        // Count last, and a take reads it first: a sample that is counted has its time in, though a sample landing mid-take can split between two takes
         self.max_us.fetch_max(us, Ordering::Release);
         self.sum_us.fetch_add(us as u64, Ordering::Release);
         self.count.fetch_add(1, Ordering::Release);
@@ -297,6 +297,8 @@ pub struct SourceStats {
     /// Where this stream's frame steps that can run either way ran last: STEPS_UNKNOWN, STEPS_ON_CARD or STEPS_ON_CPU.
     steps_on: AtomicU8,
     steps: Timers,
+    /// Goes up whenever this stream's frame steps change.
+    steps_epoch: AtomicU64,
     meta: Mutex<Meta>,
 }
 
@@ -314,6 +316,7 @@ impl SourceStats {
             fps: AtomicU32::new(0),
             steps_on: AtomicU8::new(STEPS_UNKNOWN),
             steps: Timers::new(detailed),
+            steps_epoch: AtomicU64::new(0),
             meta: Mutex::new(Meta { source_id: source_id.into(), slot, url: String::new(), plugin_source: false, target_fps: 0, transport: None }),
         }
     }
@@ -334,6 +337,11 @@ impl SourceStats {
     #[inline]
     pub fn decoded(&self, frames: u64) {
         self.decoded.fetch_add(frames, Ordering::Relaxed);
+    }
+
+    /// This stream's frame steps changed, which changes how many frames get through.
+    pub fn steps_changed(&self) {
+        self.steps_epoch.fetch_add(1, Ordering::Relaxed);
     }
 
     /// A new frame went to the virtual camera.
@@ -377,12 +385,12 @@ impl SourceStats {
         self.fps.store(fps, Ordering::Relaxed);
     }
 
-    /// The rate the stream is meant to keep, 0 before it is set.
     /// Where this stream's frame steps that can run either way ran on its last frame.
     pub fn set_steps_on_card(&self, on_card: bool) {
         self.steps_on.store(if on_card { STEPS_ON_CARD } else { STEPS_ON_CPU }, Ordering::Relaxed);
     }
 
+    /// The rate the stream is meant to keep, 0 before it is set.
     pub fn target_fps(&self) -> u32 {
         self.fps.load(Ordering::Relaxed)
     }
@@ -447,6 +455,16 @@ pub(crate) fn note_stage(index: usize, ns: u64) {
 /// The decoder finished this many frames on this thread's stream.
 pub fn note_decoded(frames: u64) {
     with_current(|s| s.decoded(frames));
+}
+
+/// How many new frames this thread's stream has sent to the virtual camera so far, or None on a thread no stream is bound to.
+pub fn delivered_total() -> Option<u64> {
+    BOUND.try_with(|b| b.try_borrow().ok().and_then(|b| b.as_deref().map(|s| s.delivered.load(Ordering::Relaxed)))).ok().flatten()
+}
+
+/// How many times this thread's stream's frame steps have changed, or None on a thread no stream is bound to.
+pub fn steps_epoch() -> Option<u64> {
+    BOUND.try_with(|b| b.try_borrow().ok().and_then(|b| b.as_deref().map(|s| s.steps_epoch.load(Ordering::Relaxed)))).ok().flatten()
 }
 
 /// The feed on this thread's stream carries its video this way now, whatever its URL said.

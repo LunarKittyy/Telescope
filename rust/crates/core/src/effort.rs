@@ -96,9 +96,8 @@ struct Window {
     ran: u32,
     late: u32,
     shed: u32,
-    /// The steps' time over the ran frames, and the time a frame has.
-    step_ns: u64,
-    interval_ns: u64,
+    /// Each ran frame's step time in thousandths of its own interval, added up (so streams at different rates don't mix).
+    load: u64,
     /// How long the window lasted.
     span_ns: u64,
 }
@@ -139,16 +138,18 @@ impl Watch {
 
     fn judge(&mut self, now: u64, w: Window) -> Option<Step> {
         let frames = w.ran + w.shed;
+        // A long gap means the stream stopped, so what came before (even a full window of frames) says nothing about what comes next
+        if w.span_ns > 3 * WINDOW {
+            self.restart();
+            return None;
+        }
         if frames < MIN_FRAMES {
-            // A long gap with hardly any frames means the stream stopped, so what came before says nothing about what comes next
-            if w.span_ns > 3 * WINDOW {
-                self.restart();
-            }
             return None;
         }
         let share = (w.late + w.shed) as f32 / frames as f32;
         self.late_share = share;
-        let mean_ns = w.step_ns / w.ran.max(1) as u64;
+        // Thousandths of its own frame interval that a step took, on average
+        let mean_load = w.load / w.ran.max(1) as u64;
         if share > BEHIND_SHARE {
             self.clear_since = None;
             self.behind = self.behind.saturating_add(1);
@@ -172,7 +173,7 @@ impl Watch {
             return Some(Step { why: Why::Behind, late_share: share, clear_for: self.clear_for });
         }
         self.behind = 0;
-        if share >= CLEAR_SHARE || mean_ns * 2 >= w.interval_ns {
+        if share >= CLEAR_SHARE || mean_load * 2 >= 1000 {
             self.clear_since = None;
             return None;
         }
@@ -234,8 +235,7 @@ pub struct Effort {
     ran: AtomicU32,
     late: AtomicU32,
     shed: AtomicU32,
-    step_ns: AtomicU64,
-    interval_ns: AtomicU64,
+    load: AtomicU64,
     /// When this window is over.
     next_window: AtomicU64,
     /// Whether people may be followed by their faces while the effects are lighter, and when they last were (0: never).
@@ -264,8 +264,7 @@ impl Effort {
             ran: AtomicU32::new(0),
             late: AtomicU32::new(0),
             shed: AtomicU32::new(0),
-            step_ns: AtomicU64::new(0),
-            interval_ns: AtomicU64::new(0),
+            load: AtomicU64::new(0),
             next_window: AtomicU64::new(0),
             heads_ok: AtomicBool::new(true),
             heads_at: AtomicU64::new(0),
@@ -277,14 +276,13 @@ impl Effort {
         self.level.load(Ordering::Relaxed)
     }
 
-    /// The steps ran on a frame and took step_ns, when a frame has interval_ns at the stream's rate.
+    /// The steps ran on a frame and took step_ns, when this frame has interval_ns at its stream's rate.
     pub fn note_frame(&self, step_ns: u64, interval_ns: u64) {
         self.ran.fetch_add(1, Ordering::Relaxed);
         if step_ns.saturating_mul(10) > interval_ns.saturating_mul(LATE_TENTHS) {
             self.late.fetch_add(1, Ordering::Relaxed);
         }
-        self.step_ns.fetch_add(step_ns, Ordering::Relaxed);
-        self.interval_ns.store(interval_ns, Ordering::Relaxed);
+        self.load.fetch_add(step_ns.saturating_mul(1000) / interval_ns.max(1), Ordering::Relaxed);
         self.tick(monotonic_ns());
     }
 
@@ -401,8 +399,7 @@ impl Effort {
             ran: self.ran.swap(0, Ordering::Relaxed),
             late: self.late.swap(0, Ordering::Relaxed),
             shed: self.shed.swap(0, Ordering::Relaxed),
-            step_ns: self.step_ns.swap(0, Ordering::Relaxed),
-            interval_ns: self.interval_ns.load(Ordering::Relaxed),
+            load: self.load.swap(0, Ordering::Relaxed),
             span_ns: now.saturating_sub(st.window_start),
         };
         let first = std::mem::replace(&mut st.window_start, now) == 0;
@@ -445,9 +442,13 @@ mod tests {
 
     const FRAME: u64 = 33 * MS;
 
+    fn load(step_ns: u64) -> u64 {
+        step_ns * 1000 / FRAME
+    }
+
     /// A window of 30 frames, late of them late and shed more dropped, that took step_ms each, lasting a second.
     fn win(late: u32, shed: u32, step_ms: u64) -> Window {
-        Window { ran: 30, late, shed, step_ns: 30 * step_ms * MS, interval_ns: FRAME, span_ns: SECOND }
+        Window { ran: 30, late, shed, load: 30 * load(step_ms * MS), span_ns: SECOND }
     }
 
     fn behind() -> Window {
@@ -489,14 +490,14 @@ mod tests {
     #[test]
     fn dropped_frames_count_as_late() {
         let mut w = Watch::new();
-        let shed = Window { ran: 20, late: 0, shed: 10, step_ns: 20 * 5 * MS, interval_ns: FRAME, span_ns: SECOND };
+        let shed = Window { ran: 20, late: 0, shed: 10, load: 20 * load(5 * MS), span_ns: SECOND };
         assert_eq!(run(&mut w, 100, &[shed, shed]), [(101, 1)]);
     }
 
     #[test]
     fn windows_with_few_frames_say_nothing() {
         let mut w = Watch::new();
-        let few = Window { ran: 9, late: 9, shed: 0, step_ns: 9 * 100 * MS, interval_ns: FRAME, span_ns: SECOND };
+        let few = Window { ran: 9, late: 9, shed: 0, load: 9 * load(100 * MS), span_ns: SECOND };
         assert!(run(&mut w, 100, &vec![few; 50]).is_empty());
         // One of them between two bad windows neither counts nor breaks the run
         assert_eq!(run(&mut w, 200, &[behind(), few, behind()]), [(202, 1)]);
@@ -504,6 +505,27 @@ mod tests {
         let mut w = Watch::new();
         let gap = Window { span_ns: 10 * SECOND, ..few };
         assert!(run(&mut w, 300, &[behind(), gap, behind()]).is_empty());
+    }
+
+    #[test]
+    fn a_stale_window_after_a_pause_is_no_evidence_of_room() {
+        let mut w = Watch::new();
+        run(&mut w, 100, &[behind(), behind()]);
+        assert_eq!(w.level, 1);
+        let stale = Window { ran: 20, span_ns: 300 * SECOND, ..clear() };
+        assert!(w.judge(400 * SECOND, stale).is_none());
+        assert_eq!(w.level, 1);
+        assert!(w.clear_since.is_none(), "the pause is not dated as clear time");
+    }
+
+    #[test]
+    fn steps_are_judged_against_each_frames_own_interval() {
+        let mut w = Watch::new();
+        run(&mut w, 100, &[behind(), behind()]);
+        // 10 ms steps on 60 fps frames (16.7 ms) are over half a frame, so no room, whatever another stream's rate is
+        let sixty = Window { load: 30 * (10 * MS * 1000 / (1000 * MS / 60)), ..clear() };
+        assert!(run(&mut w, 200, &vec![sixty; 30]).is_empty());
+        assert_eq!(w.level, 1);
     }
 
     #[test]

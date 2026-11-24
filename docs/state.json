@@ -43,6 +43,7 @@
             "zoomRatioMax": 10.0,
             "cropZoomMax": 8.0,
             "freeformCrop": true,
+            "cropTags": true,
             "lensZooms": [
                 3.0
             ],
