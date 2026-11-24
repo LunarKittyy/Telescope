@@ -743,3 +743,28 @@ fn a_malformed_needs_is_a_load_error_not_a_dropped_requirement() {
     let found = one(&p);
     assert!(found.problem.contains("\"needs\" in plugin.json has to be a list"), "{}", found.problem);
 }
+
+fn broken_update(p: &PluginFolder, edit: impl Fn(&mut Value)) -> PathBuf {
+    let mut files = example_files("black_and_white/");
+    for (name, data) in &mut files {
+        if name.ends_with(MANIFEST) {
+            let mut m: Value = serde_json::from_slice(data).unwrap();
+            edit(&mut m);
+            *data = m.to_string().into_bytes();
+        }
+    }
+    zip_of(&scratch(p).join("bw3.zip"), &files)
+}
+
+#[test]
+fn an_update_that_cant_load_leaves_the_working_plugin_and_its_switch() {
+    let p = plugins();
+    example(&p.folder, "black_and_white");
+    p.set_enabled(&one(&p), true).unwrap();
+    for archive in [broken_update(&p, |m| m["api"] = json!(999)), broken_update(&p, |m| m["main"] = json!("missing.lua"))] {
+        assert!(matches!(p.update_zip(&archive), Err(InstallError::Invalid(_))));
+        let now = one(&p);
+        assert!(now.enabled && now.problem.is_empty(), "{now:?}");
+        assert_eq!(listing(&p.folder), ["black_and_white"]);
+    }
+}
