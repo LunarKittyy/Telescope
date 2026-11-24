@@ -140,7 +140,7 @@ fn run(r: &Run, seconds: f64, framing: &impl Fn(f64) -> (f32, f32, f32)) -> Vec<
             label = vc.frame_window();
         }
         // A frame held back isn't shown: the one before it stays up
-        let Some((changed, unsure)) = gate.for_frame_checked("p1", &frame, now, restep) else { continue };
+        let Some(telescope_shell::handover::Checked { changed, unsure, .. }) = gate.for_frame_checked("p1", &frame, now, restep) else { continue };
         if let Some((v, crop)) = changed {
             (in_place, label) = (v, crop);
         }
@@ -273,8 +273,8 @@ fn a_phone_that_tags_its_frames_keeps_the_picture_still_through_every_hand_over(
     }
 }
 
-/// A tagging phone that loses a tag now and then still never makes the picture jump: a frame without one is held back while
-/// a zoom is on its way, as it may be the first of the new crop.
+/// A tagging phone that loses a tag now and then still never makes the picture jump: a frame without one while a zoom is on its
+/// way is held back when it is the first of a run, and found by its picture after that.
 #[test]
 fn a_phone_that_loses_some_tags_still_keeps_the_picture_still() {
     let framings: [(&str, Box<dyn Fn(f64) -> (f32, f32, f32)>, f64); 2] = [("person leans away", Box::new(closer(3.5, 10.0, 4.0)), 20.0),
