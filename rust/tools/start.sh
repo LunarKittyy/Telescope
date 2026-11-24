@@ -73,14 +73,20 @@ if ! ours; then
     exec ./telescope-rs "$@"
 fi
 
-# A first start that fails shouldn't wait for someone to try again: the next run's guard rolls it back, or this does if the guard never ran
+# Whether the journal says $1 (started, retried)
+journal_has() {
+    grep -q "\"$1\": *true" .update.json 2>/dev/null
+}
+
+# A first start that fails gets the guard's one more try here, not exec'd, so a second failure still reaches this launcher to roll back
 ./telescope-rs "$@"
 code=$?
 if [ "$code" -ne 0 ] && ours; then
-    if grep -q '"started": *true' .update.json; then
-        exec ./telescope-rs
-    elif roll_back; then
-        exec ./start.sh "$@"
+    if journal_has started && ! journal_has retried; then
+        ./telescope-rs
+        code=$?
+        [ "$code" -ne 0 ] && ours && journal_has retried || exit "$code"
     fi
+    roll_back && exec ./start.sh "$@"
 fi
 exit "$code"
