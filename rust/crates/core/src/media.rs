@@ -577,13 +577,13 @@ pub struct DecodingStatus {
 /// Hands the newest packet from a stream's reader to its decoders (stream._Newest): one nobody took in time is
 /// dropped, so a slow decoder skips frames instead of letting them queue up as lag.
 pub struct Newest<T> {
-    item: std::sync::Mutex<(Option<T>, bool)>,
+    item: std::sync::Mutex<(std::collections::VecDeque<T>, bool)>,
     ready: std::sync::Condvar,
 }
 
 impl<T> Default for Newest<T> {
     fn default() -> Self {
-        Newest { item: std::sync::Mutex::new((None, false)), ready: std::sync::Condvar::new() }
+        Newest { item: std::sync::Mutex::new((std::collections::VecDeque::new(), false)), ready: std::sync::Condvar::new() }
     }
 }
 
@@ -591,9 +591,22 @@ impl<T> Newest<T> {
     /// Replaces whatever is waiting.
     /// True when it replaced an item nobody had taken, which is dropped.
     pub fn put(&self, item: T) -> bool {
-        let replaced = self.item.lock().unwrap().0.replace(item).is_some();
+        self.put_keeping(item, 1)
+    }
+
+    /// Adds an item behind up to `kept - 1` waiting ones, dropping the oldest beyond that: for a stage that now and then takes more than one frame time.
+    /// True when an item nobody had taken was dropped.
+    pub fn put_keeping(&self, item: T, kept: usize) -> bool {
+        let mut st = self.item.lock().unwrap();
+        st.0.push_back(item);
+        let mut dropped = false;
+        while st.0.len() > kept.max(1) {
+            st.0.pop_front();
+            dropped = true;
+        }
+        drop(st);
         self.ready.notify_one();
-        replaced
+        dropped
     }
 
     /// No more items come; take() hands out what's left, then None.
@@ -602,11 +615,11 @@ impl<T> Newest<T> {
         self.ready.notify_all();
     }
 
-    /// The newest item, waiting for one; None once finished and nothing is left.
+    /// The oldest item waiting (the only one unless put_keeping kept more), waiting for one; None once finished and nothing is left.
     pub fn take(&self) -> Option<T> {
         let mut st = self.item.lock().unwrap();
         loop {
-            if let Some(item) = st.0.take() {
+            if let Some(item) = st.0.pop_front() {
                 return Some(item);
             }
             if st.1 {
@@ -620,6 +633,18 @@ impl<T> Newest<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn newest_keeps_the_asked_number_and_hands_out_the_oldest_first() {
+        let q = Newest::default();
+        assert!(!q.put_keeping(1, 2));
+        assert!(!q.put_keeping(2, 2));
+        assert!(q.put_keeping(3, 2), "the oldest is dropped beyond two");
+        assert_eq!((q.take(), q.take()), (Some(2), Some(3)));
+        assert!(!q.put(4));
+        assert!(q.put(5), "the plain put still keeps only the newest");
+        assert_eq!(q.take(), Some(5));
+    }
 
     /// A scaler that only knows rgb, as most do.
     struct Greys(usize);

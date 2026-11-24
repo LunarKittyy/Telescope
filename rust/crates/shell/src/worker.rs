@@ -1491,7 +1491,9 @@ impl Shared {
             } else {
                 reader.read().map(|f| {
                     self.count_arrived(f.count, f.bytes);
-                    if newest.put((self.next_seq(), f.frame)) {
+                    // Scaling a picture on the card can take a little over a frame time now and then, which a second waiting picture rides out
+                    let kept = if cfg!(windows) && self.camera_fit.is_some() && f.frame.surface().is_some() { 2 } else { 1 };
+                    if newest.put_keeping((self.next_seq(), f.frame), kept) {
                         self.shed(1);
                     }
                 })

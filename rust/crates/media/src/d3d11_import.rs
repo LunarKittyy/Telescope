@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use telescope_core::frame::{DecodedSurface, Frame, PixelFormat};
 use windows::core::{Interface, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0};
@@ -21,6 +22,9 @@ use wgpu::hal::api::{Dx12, Vulkan};
 pub(crate) const MAX_SURFACES: usize = 3;
 /// How many decoder pictures a stream may hold back at once: the newest one, those queued for the camera and shown, and the preview's.
 pub(crate) const MAX_HELD: usize = 6;
+
+/// How long after the first picture the camera still gets whole ones: the card is slow to settle, and a first scaled picture can take over 100 ms, which drops frames.
+const WARM_UP: Duration = Duration::from_millis(1000);
 /// The decoder this module imports from.
 pub(crate) const HW: crate::ffmpeg::Hw = crate::ffmpeg::Hw::D3d11va;
 /// How long the copy into the shared texture may take before the picture goes through memory instead.
@@ -155,6 +159,8 @@ pub(crate) struct Stream {
     download: Mutex<Option<crate::ffmpeg::Codec>>,
     /// Scaling pictures on the card failed once: the camera gets whole pictures from then on.
     fit_failed: AtomicBool,
+    /// When the first picture was kept: scaling waits until the card has settled (see `WARM_UP`).
+    first: OnceLock<Instant>,
     slots: Mutex<Vec<Slot>>,
     fence: Mutex<Option<Arc<Fence>>>,
     #[cfg(test)]
@@ -276,6 +282,7 @@ impl Surface {
             let bt709 = std::slice::from_raw_parts(ff::sws_getCoefficients(1), 4);
             let colour = if coefficients == bt601 { 0 } else if coefficients == bt709 { 16 } else { return Err("unsupported surface colour matrix".into()) }
                 | if (*frame).color_range == ff::AVColorRange::AVCOL_RANGE_JPEG { 32 } else { 0 };
+            stream.first.get_or_init(Instant::now);
             if stream.live.try_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < MAX_HELD).then_some(n + 1)).is_err() {
                 return Ok(None);
             }
@@ -608,11 +615,11 @@ impl DecodedSurface for Surface {
 
     // Full-range pictures stay whole: the processor works in studio range and some drivers would clamp them
     fn can_fit(&self, width: u32, height: u32) -> bool {
-        self.stream.enabled() && self.colour & 32 == 0 && !self.stream.fit_failed.load(Ordering::Acquire) && crate::surface_fit::scales_to(self.size, (width, height))
+        self.stream.first.get().is_some_and(|at| at.elapsed() >= WARM_UP) && self.scales_to(width, height)
     }
 
     fn fitted(&self, width: u32, height: u32) -> Option<Frame> {
-        if !self.can_fit(width, height) {
+        if !self.scales_to(width, height) {
             return None;
         }
         let source = self.frame.lock().unwrap_or_else(|e| e.into_inner());
@@ -637,6 +644,12 @@ impl DecodedSurface for Surface {
                 None
             }
         }
+    }
+}
+
+impl Surface {
+    fn scales_to(&self, width: u32, height: u32) -> bool {
+        self.stream.enabled() && self.colour & 32 == 0 && !self.stream.fit_failed.load(Ordering::Acquire) && crate::surface_fit::scales_to(self.size, (width, height))
     }
 }
 
