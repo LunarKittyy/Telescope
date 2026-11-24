@@ -12,6 +12,8 @@ use wgpu::hal::api::Vulkan;
 use wgpu::hal::Device as _;
 
 pub(crate) const MAX_SURFACES: usize = 3;
+/// How many decoder pictures a stream may hold back at once (the same here).
+pub(crate) const MAX_HELD: usize = MAX_SURFACES;
 /// The decoder this module imports from.
 pub(crate) const HW: crate::ffmpeg::Hw = crate::ffmpeg::Hw::Vaapi;
 const R8: u32 = u32::from_le_bytes(*b"R8  ");
