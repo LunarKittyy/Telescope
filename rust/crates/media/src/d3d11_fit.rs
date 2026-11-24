@@ -100,26 +100,18 @@ impl Fitter {
             let (fence, context4) = self.fence.clone().ok_or("no fence")?;
             let event = self.event.ok_or("no event")?;
             self.value += 1;
-            let (d_lock, d_sub);
-            let d0 = std::time::Instant::now();
             {
                 let _locked = Locked::new(d3d);
-                let d1 = d0.elapsed();
                 let scaled = self.blt(d3d, device, texture, index, ((*frame).width as u32, (*frame).height as u32), size)?;
                 context.CopyResource(&staging, &scaled);
                 context4.Signal(&fence, self.value).map_err(|e| e.to_string())?;
                 context.Flush();
-                d_sub = d0.elapsed();
-                d_lock = d1;
             }
             fence.SetEventOnCompletion(self.value, event).map_err(|e| e.to_string())?;
-            let d2 = std::time::Instant::now();
             if WaitForSingleObject(event, WAIT_MS) != WAIT_OBJECT_0 {
                 self.abandoned = true;
                 return Err(format!("the card took over {WAIT_MS} ms to scale a picture"));
             }
-            let d_wait = d2.elapsed();
-            let d3 = std::time::Instant::now();
             let _locked = Locked::new(d3d);
             let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
             context.Map(&staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped)).map_err(|e| e.to_string())?;
@@ -141,7 +133,6 @@ impl Fitter {
                 }
             }
             context.Unmap(&staging, 0);
-            log::info!("DIAG fit lock={:.1} submit={:.1} wait={:.1} map_copy={:.1}", d_lock.as_secs_f64() * 1e3, d_sub.as_secs_f64() * 1e3, d_wait.as_secs_f64() * 1e3, d3.elapsed().as_secs_f64() * 1e3);
             Ok(())
         }
     }
