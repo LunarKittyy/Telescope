@@ -225,6 +225,18 @@ class MjpegServer(
         clients.clear()
     }
 
+    // Local only just turned on: close every viewer that isn't on USB, since the accept check never sees a connection already open
+    fun closeNonUsbViewers() {
+        fun wifi(socket: Socket) = !isUsbPeer(socket)
+        clients.filter { wifi(it.socket) }.forEach { it.close(); clients.remove(it) }
+        h264Clients.filter { wifi(it.socket) }.forEach { it.close(); h264Clients.remove(it) }
+        udpClients.forEach { if (wifi(it.socket)) { it.close(); udpClients.remove(it) } }
+        synchronized(audioLock) {
+            audioClients.filter { wifi(it.socket) }.forEach { it.close() }
+        }
+        sensorClients.filter { wifi(it.socket) }.forEach { it.close(); sensorClients.remove(it) }
+    }
+
     /** Drop H.264 viewers (the encoder is gone); their readers see the end of the stream. */
     fun closeH264Clients() {
         h264Clients.forEach { it.close() }
@@ -539,7 +551,7 @@ class MjpegServer(
         const val SENSOR_SEND_BUFFER = 8 * 1024
     }
 
-    inner class MjpegClient(private val socket: Socket, private val request: HttpWire.Request) {
+    inner class MjpegClient(val socket: Socket, private val request: HttpWire.Request) {
         private val queue = ArrayBlockingQueue<ByteArray>(2)
         private val alive = AtomicBoolean(true)
         @Volatile var lastWriteAtMs: Long = clock()
@@ -585,7 +597,7 @@ class MjpegServer(
         fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }
     }
 
-    inner class H264Client(private val socket: Socket, private val request: HttpWire.Request) {
+    inner class H264Client(val socket: Socket, private val request: HttpWire.Request) {
         val queue = H264ClientQueue(onWaited = { PhoneStats.shared.addQueue(it) })
         private val alive = AtomicBoolean(true)
         @Volatile var lastWriteAtMs: Long = clock()
@@ -627,7 +639,7 @@ class MjpegServer(
         fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }
     }
 
-    inner class AudioClient(private val socket: Socket, private val request: HttpWire.Request) {
+    inner class AudioClient(val socket: Socket, private val request: HttpWire.Request) {
         val queue = PcmClientQueue()
         private val alive = AtomicBoolean(true)
         @Volatile var lastWriteAtMs: Long = clock()
@@ -653,7 +665,7 @@ class MjpegServer(
     }
 
     // Writes the newest readings of the kinds it started, only the ones that changed, until the computer goes away.
-    inner class SensorClient(private val socket: Socket, private val request: HttpWire.Request,
+    inner class SensorClient(val socket: Socket, private val request: HttpWire.Request,
                              private val feed: SensorFeed, private val kinds: Set<String>) {
         private val alive = AtomicBoolean(true)
         @Volatile private var writingSinceMs = 0L  // 0 while not in a write

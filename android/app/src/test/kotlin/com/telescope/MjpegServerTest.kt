@@ -83,6 +83,33 @@ class MjpegServerTest {
     }
 
     @Test
+    fun `turning local only on closes a Wi-Fi viewer that is already streaming`() {
+        var local = false
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            localOnly = { local }, isUsbPeer = { false })
+        server.start()
+        try {
+            val port = actualPort(server)
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 3_000
+                socket.getOutputStream().write("GET /v1/video HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n".toByteArray())
+                val input = socket.getInputStream()
+                assertTrue(input.read() >= 0)
+                local = true
+                server.closeNonUsbViewers()
+                val end = System.currentTimeMillis() + 3_000
+                var closed = false
+                while (!closed && System.currentTimeMillis() < end) {
+                    closed = try { input.read() < 0 } catch (_: java.net.SocketTimeoutException) { false } catch (_: java.io.IOException) { true }
+                }
+                assertTrue(closed)
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `v1 state endpoint returns UTF-8 JSON with length and no CORS header when authorized`() {
         val body = "{\"camera\":\"télé\"}"
         val server = MjpegServer(0, { body }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") })

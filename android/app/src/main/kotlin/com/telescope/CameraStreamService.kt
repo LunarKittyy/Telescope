@@ -553,6 +553,9 @@ class CameraStreamService : Service() {
     val state: StreamState get() = stateMachine.state
     val isStreaming: Boolean get() = stateMachine.isStreaming
     // A computer is taking the video or the mic (not just the camera being on).
+    // Local only just turned on: viewers already connected over Wi-Fi are dropped
+    fun dropWifiViewers() { server?.closeNonUsbViewers() }
+
     val hasViewer: Boolean get() = server?.hasActiveViewer() == true
     // Streaming the mic with the camera closed.
     val cameraOff: Boolean get() = controller?.isCameraOff() == true
