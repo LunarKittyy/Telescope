@@ -30,6 +30,6 @@ When a release bumps the pinned version of a dependency listed here, check its e
 
 - **Bug:** [gfx-rs/wgpu#9845](https://github.com/gfx-rs/wgpu/issues/9845). wgpu 30 makes a descriptor pool with no pool sizes while it opens a device. Vulkan only allows that since 1.3.215 and Intel's Windows driver (`igvk64.dll`, seen on HD 630 and UHD 630) crashes on it.
 - **Symptom:** Telescope closes at start on laptops with these Intel cards (#489). wgpu 29 was fine.
-- **Workaround:** on Windows, Intel cards are tried through DX12 before Vulkan and with a graphics preference set their Vulkan comes after every other real card.
-- **Code:** `order` in [`rust/crates/core/src/gpu_pick.rs`](../../rust/crates/core/src/gpu_pick.rs)
-- **Fixed when:** a wgpu release has [gfx-rs/wgpu#10124](https://github.com/gfx-rs/wgpu/pull/10124) (merged on trunk in September 2026 and missing from 30.0.2). Then this entry and the bug ID comments go. The order can be left unchanged because DX12 works well on these cards.
+- **Workaround:** `rust/vendor/wgpu-hal` is wgpu-hal with the same small fix as [gfx-rs/wgpu#10124](https://github.com/gfx-rs/wgpu/pull/10124) (see its `PATCH.txt`). Intel cards on Windows can then draw the window on Vulkan, where DX12 leaks memory. Their frame pipeline stays on DX12 first, where decoded pictures are shared on the card. If Vulkan fails to open, the card's DX12 adapter is next in the list.
+- **Code:** `[patch.crates-io]` in [`rust/Cargo.toml`](../../rust/Cargo.toml)
+- **Fixed when:** a wgpu release has gfx-rs/wgpu#10124 (merged on trunk in September 2026 and missing from 30.0.2). Then this entry, the vendored folder and the `[patch]` go.

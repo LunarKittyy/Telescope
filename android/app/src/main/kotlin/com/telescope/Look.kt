@@ -128,6 +128,7 @@ fun MaterialAlertDialogBuilder.showLook(action: LookButton.Role = LookButton.Rol
                     isAllCaps = false
                     typeface = androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.ibm_plex_sans_semibold)
                     textSize = 14f
+                    includeFontPadding = false
                     cornerRadius = (8 * d).toInt()
                     insetTop = (2 * d).toInt()
                     insetBottom = (2 * d).toInt()

@@ -57,6 +57,7 @@ class LookSegmented @JvmOverloads constructor(context: Context, attrs: Attribute
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 textSize = 14f
+                includeFontPadding = false
                 minHeight = (48 * d).toInt()
                 isClickable = true
                 isFocusable = true

@@ -5,7 +5,7 @@ use crate::convert::{fit_frame, i420_to_rgba_flipped_into, rgb_to_i420};
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::output::VideoOutput;
 
-/// The biggest picture the filter makes room for: 4K at four 16-bit channels.
+/// The biggest picture the filter makes room for: 4K at four 16-bit channels. Must match the filter's own limit, or it resets the picture it finds in the primed image.
 pub const MAX_SHARED_IMAGE_SIZE: usize = 3840 * 2160 * 4 * 2;
 const HEADER: usize = 32;
 const FORMAT_UINT8: i32 = 0;
@@ -53,7 +53,16 @@ pub trait Target: Send {
     fn ready(&mut self) -> bool {
         true
     }
+    /// Whether a picture left for the filter to find when an app opens the camera would be used (prime).
+    fn primes(&self) -> bool {
+        false
+    }
+    /// Leaves the picture where the filter finds it the moment an app opens the camera, so that app's first frames aren't black.
+    fn prime(&mut self, _rgba: &[u8], _width: u32, _height: u32) {}
 }
+
+/// How often the picture waiting for an app to open the camera is refreshed.
+const PRIME_EVERY: std::time::Duration = std::time::Duration::from_secs(1);
 
 /// The picture last made, and what it was made from: the same pixels again (a wait screen showing one picture) need no new conversion.
 struct Made {
@@ -61,6 +70,16 @@ struct Made {
     source: std::sync::Weak<Vec<u8>>,
     format: PixelFormat,
     size: (u32, u32),
+}
+
+impl Made {
+    fn of(frame: &Frame) -> Made {
+        Made { source: std::sync::Arc::downgrade(&frame.data), format: frame.format, size: (frame.width, frame.height) }
+    }
+
+    fn is_of(&self, frame: &Frame) -> bool {
+        std::ptr::eq(self.source.as_ptr(), std::sync::Arc::as_ptr(&frame.data)) && self.format == frame.format && self.size == (frame.width, frame.height)
+    }
 }
 
 pub struct UcCamera {
@@ -73,11 +92,16 @@ pub struct UcCamera {
     /// The RGBA picture made last, kept for its allocation and for the same frame again.
     rgba: Vec<u8>,
     made: Option<Made>,
+    /// When the picture waiting for an app to open the camera was last refreshed.
+    primed: Option<std::time::Instant>,
+    /// What that picture was made from: the same pixels again (a wait screen showing one picture) aren't converted and written again.
+    primed_from: Option<Made>,
+    prime_every: std::time::Duration,
 }
 
 impl UcCamera {
     pub fn new(width: u32, height: u32, device: String, target: Box<dyn Target>, moved: Box<dyn Fn() -> bool + Send>) -> UcCamera {
-        UcCamera { width, height, device, target, moved, rgba: Vec::new(), made: None }
+        UcCamera { width, height, device, target, moved, rgba: Vec::new(), made: None, primed: None, primed_from: None, prime_every: PRIME_EVERY }
     }
 }
 
@@ -90,15 +114,31 @@ impl VideoOutput for UcCamera {
             // No app has the camera open: the picture is made again when one does
             self.rgba = Vec::new();
             self.made = None;
+            if self.target.primes() && self.primed.is_none_or(|at| at.elapsed() >= self.prime_every) {
+                self.primed = Some(std::time::Instant::now());
+                if !self.primed_from.as_ref().is_some_and(|m| m.is_of(frame)) {
+                    let mut picture = Vec::new();
+                    if picture_into(frame, self.width, self.height, &mut picture).is_ok() {
+                        self.target.prime(&picture, self.width, self.height);
+                        self.primed_from = Some(Made::of(frame));
+                    }
+                }
+            }
             return Ok(());
         }
-        let same = self.made.as_ref().is_some_and(|m| std::ptr::eq(m.source.as_ptr(), std::sync::Arc::as_ptr(&frame.data)) && m.format == frame.format && m.size == (frame.width, frame.height));
-        if !same {
+        self.primed_from = None;
+        if !self.made.as_ref().is_some_and(|m| m.is_of(frame)) {
             self.made = None;
             picture_into(frame, self.width, self.height, &mut self.rgba)?;
-            self.made = Some(Made { source: std::sync::Arc::downgrade(&frame.data), format: frame.format, size: (frame.width, frame.height) });
+            self.made = Some(Made::of(frame));
         }
         self.target.send(&self.rgba, self.width, self.height)
+    }
+    fn send_now(&mut self, frame: &Frame) -> Result<(), String> {
+        // After a hiding the picture waiting for an app to open the camera must be this one, not the clear one from up to a second ago
+        self.primed = None;
+        self.primed_from = None;
+        self.send(frame)
     }
     fn size(&self) -> (u32, u32) {
         (self.width, self.height)
@@ -128,8 +168,26 @@ pub struct Shared {
     num: u32,
     /// Made on the first try and kept while the filter has yet to answer it.
     want: Option<crate::win::Owned>,
+    /// The shared image made ahead of the filter, holding the picture its first frames show.
+    primed: Option<crate::win::View>,
+    /// When making the shared image found someone else's, so it isn't tried again every second.
+    create_failed: Option<std::time::Instant>,
     open: Option<(crate::win::Owned, crate::win::Owned, crate::win::Owned, crate::win::View)>,
+    /// When the filter last asked for a frame (its Want event), or when it was opened. An app that closed the camera stops asking.
+    asked: std::time::Instant,
 }
+
+/// How long the filter may go without asking for a frame before it counts as closed: frames stop being made and only the waiting picture is kept fresh.
+#[cfg(windows)]
+const ASK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// How long to leave an image that someone else made alone before trying to make it again.
+#[cfg(windows)]
+const CREATE_RETRY: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Room the primed image has beyond the biggest picture and the header, in case the filter counts a little more than we do.
+#[cfg(windows)]
+const IMAGE_SLACK: usize = 4096;
 
 /// How long the first go at the filter's objects waits for its mutex.
 #[cfg(windows)]
@@ -143,7 +201,47 @@ const LOCK_WAIT_MS: u32 = 2;
 #[cfg(windows)]
 impl Shared {
     pub fn new(num: u32) -> Shared {
-        Shared { num, want: None, open: None }
+        Shared { num, want: None, primed: None, create_failed: None, open: None, asked: std::time::Instant::now() }
+    }
+
+    /// Makes the Want event and the shared image before any app opens the camera, with the picture in it. The filter shows what it
+    /// finds there at once, where a new image that nobody has written to yet makes its first frames black. After an app closed the
+    /// camera it replaces what the image shows, so the next one to open it doesn't start on an old picture.
+    fn prime_image(&mut self, rgba: &[u8], width: u32, height: u32) {
+        use crate::wincam::uc_object_name as name;
+        if let Some((mutex, _, _, view)) = self.open.as_mut() {
+            if crate::win::wait(mutex, LOCK_WAIT_MS) {
+                write_frame(view.buf(), rgba, width, height);
+                crate::win::release_mutex(mutex);
+            }
+            return;
+        }
+        if self.want.is_none() {
+            self.want = crate::win::create_event(&name("Want", self.num));
+        }
+        if self.primed.is_none() {
+            if self.create_failed.is_some_and(|at| at.elapsed() < CREATE_RETRY) {
+                return;
+            }
+            match crate::win::View::create(&name("Data", self.num), HEADER + MAX_SHARED_IMAGE_SIZE + IMAGE_SLACK) {
+                // Someone else made it, so a filter is already running: the frames go the usual way once it's opened
+                Some((_, false)) | None => {
+                    self.create_failed = Some(std::time::Instant::now());
+                    return;
+                }
+                Some((mut view, true)) => {
+                    view.buf()[0..4].copy_from_slice(&(MAX_SHARED_IMAGE_SIZE as u32).to_le_bytes());
+                    self.primed = Some(view);
+                }
+            }
+        }
+        // The filter makes its mutex when an app opens the camera and holds it while it copies the picture: a write now would tear it
+        if crate::win::mutex_exists(&name("Mutx", self.num)) {
+            return;
+        }
+        if let Some(view) = self.primed.as_mut() {
+            write_frame(view.buf(), rgba, width, height);
+        }
     }
 
     fn try_open(&mut self) -> bool {
@@ -166,8 +264,10 @@ impl Shared {
         crate::win::release_mutex(&mutex);
         match opened {
             Some((sent, view)) => {
+                self.primed = None;
                 let want = self.want.take().unwrap();
                 self.open = Some((mutex, want, sent, view));
+                self.asked = std::time::Instant::now();
                 true
             }
             None => false,
@@ -178,7 +278,24 @@ impl Shared {
 #[cfg(windows)]
 impl Target for Shared {
     fn ready(&mut self) -> bool {
-        self.try_open()
+        if !self.try_open() {
+            return false;
+        }
+        // The filter signals Want for every frame it takes. Nothing for a while means the app closed the camera, and pictures
+        // made meanwhile would be thrown away: the next sign of an app is the moment to start making them again.
+        let (_, want, _, _) = self.open.as_ref().unwrap();
+        if crate::win::wait(want, 0) {
+            self.asked = std::time::Instant::now();
+        }
+        self.asked.elapsed() < ASK_TIMEOUT
+    }
+
+    fn primes(&self) -> bool {
+        self.open.is_none() || self.asked.elapsed() >= ASK_TIMEOUT
+    }
+
+    fn prime(&mut self, rgba: &[u8], width: u32, height: u32) {
+        self.prime_image(rgba, width, height);
     }
 
     fn send(&mut self, rgba: &[u8], width: u32, height: u32) -> Result<(), String> {
@@ -263,6 +380,77 @@ mod tests {
         fn ready(&mut self) -> bool {
             self.ready.load(std::sync::atomic::Ordering::SeqCst)
         }
+    }
+
+    /// A target nobody has opened that keeps the pictures it is primed with.
+    struct Priming(std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>>);
+
+    impl Target for Priming {
+        fn send(&mut self, _rgba: &[u8], _width: u32, _height: u32) -> Result<(), String> {
+            Ok(())
+        }
+        fn ready(&mut self) -> bool {
+            false
+        }
+        fn primes(&self) -> bool {
+            true
+        }
+        fn prime(&mut self, rgba: &[u8], _width: u32, _height: u32) {
+            self.0.lock().unwrap().push(rgba.to_vec());
+        }
+    }
+
+    #[test]
+    fn a_picture_waits_for_the_app_that_opens_the_camera_and_is_refreshed_now_and_then() {
+        let primed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut cam = UcCamera::new(4, 4, "cam".into(), Box::new(Priming(primed.clone())), Box::new(|| false));
+        cam.send(&grey(4, 4, 100)).unwrap();
+        cam.send(&grey(4, 4, 200)).unwrap();
+        assert_eq!(primed.lock().unwrap().len(), 1, "once a second at most");
+        let first = primed.lock().unwrap()[0].clone();
+        assert_eq!(first.len(), 4 * 4 * 4);
+        assert!(first[0] < 150, "the picture the camera had then: {first:?}");
+        cam.prime_every = std::time::Duration::ZERO;
+        cam.send(&grey(4, 4, 200)).unwrap();
+        let primed = primed.lock().unwrap();
+        assert_eq!(primed.len(), 2);
+        assert!(primed[1][0] > 150, "the newer picture");
+        assert_eq!(cam.rgba.capacity(), 0, "nothing kept for a camera nobody reads");
+    }
+
+    #[test]
+    fn a_hidden_picture_replaces_the_waiting_one_at_once() {
+        let primed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut cam = UcCamera::new(4, 4, "cam".into(), Box::new(Priming(primed.clone())), Box::new(|| false));
+        cam.prime_every = std::time::Duration::from_secs(3600);
+        cam.send(&grey(4, 4, 200)).unwrap();
+        cam.send(&grey(4, 4, 100)).unwrap();
+        assert_eq!(primed.lock().unwrap().len(), 1);
+        cam.send_now(&grey(4, 4, 100)).unwrap();
+        let primed = primed.lock().unwrap();
+        assert_eq!(primed.len(), 2, "not left to the next refresh");
+        assert!(primed[1][0] < 150, "the hidden picture, not the clear one");
+    }
+
+    #[test]
+    fn a_picture_that_has_not_changed_is_not_made_and_written_again() {
+        let primed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut cam = UcCamera::new(4, 4, "cam".into(), Box::new(Priming(primed.clone())), Box::new(|| false));
+        cam.prime_every = std::time::Duration::ZERO;
+        let still = grey(4, 4, 100);
+        for _ in 0..3 {
+            cam.send(&still).unwrap();
+        }
+        assert_eq!(primed.lock().unwrap().len(), 1);
+        cam.send(&grey(4, 4, 200)).unwrap();
+        assert_eq!(primed.lock().unwrap().len(), 2, "a new picture is written");
+    }
+
+    #[test]
+    fn nothing_is_made_for_a_camera_that_takes_no_primed_picture() {
+        let (mut cam, _sent, _open) = switchable_camera(false);
+        cam.send(&grey(4, 4, 100)).unwrap();
+        assert!(cam.primed.is_none());
     }
 
     fn camera(ready: bool) -> (UcCamera, std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>>) {

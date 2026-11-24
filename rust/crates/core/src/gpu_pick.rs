@@ -165,7 +165,6 @@ pub fn less_memory_for(saved: &str, ram_gb: Option<u64>) -> bool {
 }
 
 static LESS_MEMORY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-static OPENED_VENDOR: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 static OPENED_API: std::sync::Mutex<Option<Api>> = std::sync::Mutex::new(None);
 
 /// Sets what Settings said ("Use less memory" is true), once at start before the window opens a card. Only Windows has the choice.
@@ -183,12 +182,12 @@ pub fn less_memory() -> bool {
     less_memory_set() && std::env::var_os("WGPU_BACKEND").is_none_or(|v| v.is_empty())
 }
 
-/// Whether the card the window opened is Intel's, whose API Settings' choice doesn't change (`order`).
+/// Whether the card the window opened is Intel's, whose API the choice never moves (`order`).
 pub fn opened_is_intel() -> bool {
-    OPENED_VENDOR.load(std::sync::atomic::Ordering::Relaxed) == VENDOR_INTEL
+    window_card().starts_with(&format!("{VENDOR_INTEL:04x}:"))
 }
 
-/// Whether "Use less memory" really applies: set, and on a card that can take Vulkan.
+/// Whether "Use less memory" really applies: set, and on a card that isn't Intel.
 pub fn less_memory_in_effect() -> bool {
     less_memory() && !opened_is_intel()
 }
@@ -198,41 +197,58 @@ pub fn opened_api() -> Option<Api> {
     *OPENED_API.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Between the real ones `prefer`
-/// decides which kind goes first (Intel's Windows Vulkan driver crashes, so with a preference it goes after every other real card).
-/// Inside a group DX12 goes first on Windows, where only DX12 can share the decoder's pictures and keep a plain stream on the card
-/// (TELESCOPE_VULKAN_FIRST puts Vulkan first again, except on Intel). Elsewhere Vulkan goes first. Metal and GL follow, and inside an
-/// API the driver's own order stays.
-pub fn order(candidates: &[Candidate], prefer: Prefer) -> Vec<usize> {
-    order_by(candidates, prefer, vulkan_first_asked())
+/// Which device is being opened, since the window and the frame pipeline want different things from an Intel card on Windows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Role {
+    /// The window's own device, which draws the preview.
+    Window,
+    /// The frame pipeline's device, which shares decoded pictures with the D3D11 decoder on DX12 only.
+    Pipeline,
 }
 
-fn order_by(candidates: &[Candidate], prefer: Prefer, vulkan_first: bool) -> Vec<usize> {
+/// Whether DX12 goes before Vulkan for this adapter. Windows tries it first so a plain stream can stay on the card, unless Vulkan is asked
+/// for. Intel ignores that: its window stays on Vulkan (its DX12 driver leaks memory) and its pipeline on DX12 (see `order`).
+fn dx12_first(c: &Candidate, role: Role, vulkan_first: bool) -> bool {
+    c.windows && if c.vendor == VENDOR_INTEL { role == Role::Pipeline } else { !vulkan_first }
+}
+
+/// Whether the window's device on this adapter can also run the frame pipeline. Not on Intel's Vulkan adapter in Windows: the pipeline wants
+/// the card's DX12 adapter there (see `order`) and opens its own device on it, so the preview is then painted from the pipeline's pictures
+/// in memory instead of from the card.
+pub fn window_serves_pipeline(api: Api, vendor: u32, windows: bool) -> bool {
+    !(windows && vendor == VENDOR_INTEL && api == Api::Vulkan)
+}
+
+/// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Between the real ones `prefer`
+/// decides which kind goes first. Inside a group DX12 goes first on Windows, because only DX12 shares decoded pictures with the decoder
+/// and keeps a plain stream on the card (TELESCOPE_VULKAN_FIRST or "Use less memory" put Vulkan first again). Elsewhere Vulkan goes
+/// first. Metal and GL follow, and inside an API the driver's own order stays. Intel in Windows ignores the choice: its window goes
+/// Vulkan first (its DX12 driver leaks memory) and its pipeline DX12 first.
+pub fn order(candidates: &[Candidate], prefer: Prefer, role: Role) -> Vec<usize> {
+    order_by(candidates, prefer, role, vulkan_first_asked())
+}
+
+fn order_by(candidates: &[Candidate], prefer: Prefer, role: Role, vulkan_first: bool) -> Vec<usize> {
     let tier = |k: Kind| match k {
         Kind::Integrated | Kind::Discrete => 0,
         Kind::Other => 1,
         Kind::Virtual => 2,
         Kind::Cpu => 3,
     };
-    // Intel's Windows Vulkan driver crashes while opening the card, its DX12 one doesn't (gfx-rs/wgpu#9845), so it stays DX12 first even when Vulkan is asked for
-    let intel_windows = |c: &Candidate| c.windows && c.vendor == VENDOR_INTEL;
-    let dx12_first = |c: &Candidate| c.windows && (!vulkan_first || c.vendor == VENDOR_INTEL);
     let api = |c: &Candidate| match c.api {
-        Api::Vulkan if dx12_first(c) => 1,
-        Api::Dx12 if dx12_first(c) => 0,
+        Api::Vulkan if dx12_first(c, role, vulkan_first) => 1,
+        Api::Dx12 if dx12_first(c, role, vulkan_first) => 0,
         Api::Vulkan => 0,
         Api::Dx12 => 1,
         Api::Metal => 2,
         Api::Gl => 3,
     };
     let mut sorted = candidates.to_vec();
-    // gfx-rs/wgpu#9845
-    let crashy = |c: &Candidate| prefer != Prefer::Unchanged && intel_windows(c) && c.api == Api::Vulkan;
     let kind_rank = |k: Kind| match (prefer, k) {
         (Prefer::HighPerformance, Kind::Integrated) | (Prefer::PowerSaving, Kind::Discrete) => 1,
         _ => 0,
     };
-    sorted.sort_by_key(|c| (tier(c.kind), crashy(c), kind_rank(c.kind), api(c), c.index));
+    sorted.sort_by_key(|c| (tier(c.kind), kind_rank(c.kind), api(c), c.index));
     sorted.into_iter().map(|c| c.index).collect()
 }
 
@@ -242,6 +258,8 @@ static CHOICE: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
 static LISTED: std::sync::Mutex<Vec<Listed>> = std::sync::Mutex::new(Vec::new());
 /// The card the window opened, for Settings to show.
 static OPENED: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+/// The `card_id` of the card the window opened, so the frame pipeline can land on the same card.
+static WINDOW_CARD: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
 
 /// A real card as Settings lists it: the id it is saved by and the name it is shown by.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -264,11 +282,16 @@ pub fn choice() -> String {
     CHOICE.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
-/// Notes the card the window opened.
-pub fn set_opened(name: &str, vendor: u32, api: Api) {
-    *OPENED.lock().unwrap_or_else(|e| e.into_inner()) = name.trim().to_string();
-    OPENED_VENDOR.store(vendor, std::sync::atomic::Ordering::Relaxed);
+/// Notes the card the window opened, by name, by `card_id` and by the API it opened on.
+pub fn set_opened(name: &str, id: &str, api: Api) {
     *OPENED_API.lock().unwrap_or_else(|e| e.into_inner()) = Some(api);
+    *OPENED.lock().unwrap_or_else(|e| e.into_inner()) = name.trim().to_string();
+    *WINDOW_CARD.lock().unwrap_or_else(|e| e.into_inner()) = id.to_ascii_lowercase();
+}
+
+/// The `card_id` of the card the window opened, empty before one did.
+pub fn window_card() -> String {
+    WINDOW_CARD.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
 /// The card the window opened (empty before one did, or when the window draws on the processor).
@@ -279,7 +302,8 @@ pub fn opened() -> String {
 /// Remembers which real cards (integrated or discrete) exist, once each, for the Settings list. `names` is indexed like `candidates`.
 pub fn note_listed(candidates: &[Candidate], names: &[String]) {
     let mut found: Vec<Listed> = Vec::new();
-    for i in order(candidates, Prefer::Unchanged) {
+    // the role and the API choice only order one card's APIs, which doesn't show in the list, so the list keeps one order whatever is chosen
+    for i in order_by(candidates, Prefer::Unchanged, Role::Pipeline, true) {
         let c = &candidates[i];
         let real = matches!(c.kind, Kind::Integrated | Kind::Discrete);
         let id = card_id(c.vendor, c.device);
@@ -297,13 +321,12 @@ pub fn listed() -> Vec<Listed> {
     LISTED.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
-/// The adapters (`Candidate::index`) that are the chosen card. Intel's Windows Vulkan adapter is never one of them, since it is the one
-/// that crashes (see `order`), whatever was chosen.
+/// The adapters (`Candidate::index`) that are the chosen card, on every API.
 pub fn chosen(candidates: &[Candidate], choice: &str) -> Vec<usize> {
     if choice.trim().is_empty() {
         return Vec::new();
     }
-    candidates.iter().filter(|c| card_id(c.vendor, c.device).eq_ignore_ascii_case(choice.trim()) && !is_crashy(c)).map(|c| c.index).collect()
+    candidates.iter().filter(|c| card_id(c.vendor, c.device).eq_ignore_ascii_case(choice.trim())).map(|c| c.index).collect()
 }
 
 /// `ordered` (candidate indices, best first) with the chosen card's adapters moved to the front, in their own order. The rest follow, so
@@ -315,23 +338,14 @@ pub fn with_choice(ordered: Vec<usize>, candidates: &[Candidate], choice: &str) 
     first.into_iter().chain(rest).collect()
 }
 
-/// Intel's Windows Vulkan adapter, the one that crashes while it opens (see `order`).
-pub fn is_crashy(c: &Candidate) -> bool {
-    c.windows && c.vendor == VENDOR_INTEL && c.api == Api::Vulkan
-}
-
-/// `ordered` with one adapter (`Candidate::index`) moved to the front, for a power preference set in the environment. Unchanged when it isn't
-/// there or is the crashy one, which no preference may bring forward.
-pub fn move_to_front(mut ordered: Vec<usize>, candidates: &[Candidate], index: usize) -> Vec<usize> {
+/// `ordered` with the whole card that adapter (`Candidate::index`) belongs to moved to the front, keeping its adapters' order, for a power
+/// preference set in the environment. Unchanged when it isn't there or isn't a real card.
+pub fn move_to_front(ordered: Vec<usize>, candidates: &[Candidate], index: usize) -> Vec<usize> {
     // A power preference only picks between real cards, never software or odd adapters (`none` can name one)
-    if candidates.iter().any(|c| c.index == index && (is_crashy(c) || !matches!(c.kind, Kind::Integrated | Kind::Discrete))) {
+    let Some(picked) = candidates.iter().find(|c| c.index == index && matches!(c.kind, Kind::Integrated | Kind::Discrete)) else {
         return ordered;
-    }
-    if let Some(at) = ordered.iter().position(|&i| i == index) {
-        let found = ordered.remove(at);
-        ordered.insert(0, found);
-    }
-    ordered
+    };
+    with_choice(ordered, candidates, &card_id(picked.vendor, picked.device))
 }
 
 #[cfg(test)]
@@ -351,26 +365,43 @@ mod tests {
     }
 
     #[test]
-    fn intel_on_windows_tries_dx12_before_vulkan() {
+    fn the_window_tries_intel_vulkan_first_and_the_pipeline_tries_dx12_first_on_windows() {
         let list = [intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true), c(Api::Vulkan, Kind::Discrete, 2)];
-        assert_eq!(order(&list, Prefer::Unchanged), [1, 2, 0]);
+        assert_eq!(order(&list, Prefer::Unchanged, Role::Window), [0, 2, 1], "the Intel DX12 adapter stays behind every Vulkan one");
+        assert_eq!(order(&list, Prefer::Unchanged, Role::Pipeline), [1, 2, 0], "card sharing of decoded pictures needs DX12");
     }
 
     #[test]
-    fn every_vendor_on_windows_tries_dx12_first_and_vulkan_goes_first_elsewhere() {
+    fn the_window_device_serves_the_pipeline_except_on_intel_vulkan_in_windows() {
+        assert!(!window_serves_pipeline(Api::Vulkan, VENDOR_INTEL, true));
+        assert!(window_serves_pipeline(Api::Dx12, VENDOR_INTEL, true));
+        assert!(window_serves_pipeline(Api::Vulkan, VENDOR_INTEL, false));
+        assert!(window_serves_pipeline(Api::Vulkan, 0x10de, true));
+    }
+
+    #[test]
+    fn intel_elsewhere_keeps_vulkan_first_and_other_vendors_on_windows_go_dx12_first_for_both_roles() {
         let list = [intel(Api::Dx12, 0, false), intel(Api::Vulkan, 1, false)];
-        assert_eq!(order_by(&list, Prefer::Unchanged, false), [1, 0]);
+        assert_eq!(order_by(&list, Prefer::Unchanged, Role::Pipeline, false), [1, 0]);
         let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
-        assert_eq!(order_by(&[nvidia(Api::Vulkan, 0), nvidia(Api::Dx12, 1)], Prefer::Unchanged, false), [1, 0]);
+        let cards = [nvidia(Api::Vulkan, 0), nvidia(Api::Dx12, 1)];
+        for role in [Role::Window, Role::Pipeline] {
+            assert_eq!(order_by(&cards, Prefer::Unchanged, role, false), [1, 0]);
+            assert_eq!(order_by(&cards, Prefer::Unchanged, role, true), [0, 1], "asking for Vulkan puts it first");
+        }
     }
 
     #[test]
-    fn asking_for_vulkan_puts_it_first_on_windows_except_on_intel() {
-        let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
-        assert_eq!(order_by(&[nvidia(Api::Dx12, 0), nvidia(Api::Vulkan, 1)], Prefer::Unchanged, true), [1, 0]);
-        assert_eq!(order_by(&[intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true)], Prefer::Unchanged, true), [1, 0], "Intel's Vulkan driver crashes");
+    fn asking_for_vulkan_or_less_memory_never_moves_intel() {
+        for vulkan_first in [false, true] {
+            for prefer in [Prefer::Unchanged, Prefer::HighPerformance, Prefer::PowerSaving] {
+                let list = [intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true)];
+                assert_eq!(order_by(&list, prefer, Role::Window, vulkan_first)[0], 0, "Intel's window stays on Vulkan");
+                assert_eq!(order_by(&list, prefer, Role::Pipeline, vulkan_first)[0], 1, "Intel's pipeline stays on DX12");
+            }
+        }
         let linux = [c(Api::Dx12, Kind::Discrete, 0), c(Api::Vulkan, Kind::Discrete, 1)];
-        assert_eq!(order_by(&linux, Prefer::Unchanged, true), order_by(&linux, Prefer::Unchanged, false), "nothing changes off Windows");
+        assert_eq!(order_by(&linux, Prefer::Unchanged, Role::Window, true), order_by(&linux, Prefer::Unchanged, Role::Window, false), "nothing changes off Windows");
     }
 
     #[test]
@@ -381,13 +412,11 @@ mod tests {
     }
 
     #[test]
-    fn use_less_memory_never_moves_intel_to_vulkan() {
-        let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
-        assert_eq!(order_by(&[nvidia(Api::Dx12, 0), nvidia(Api::Vulkan, 1)], Prefer::Unchanged, true), [1, 0], "other cards go Vulkan first");
-        for prefer in [Prefer::Unchanged, Prefer::HighPerformance, Prefer::PowerSaving] {
-            let order = order_by(&[intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true)], prefer, true);
-            assert_eq!(order[0], 1, "Intel keeps DX12 first for {prefer:?}");
-        }
+    fn the_windows_card_stays_dx12_first_on_other_vendors_without_a_request() {
+        let gtx = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
+        let list = [gtx(Api::Vulkan, 0), intel(Api::Vulkan, 1, true), intel(Api::Dx12, 2, true), gtx(Api::Dx12, 3)];
+        assert_eq!(order_by(&list, Prefer::HighPerformance, Role::Window, false), [3, 0, 1, 2]);
+        assert_eq!(order_by(&list, Prefer::HighPerformance, Role::Pipeline, false), [3, 0, 2, 1]);
     }
 
     #[test]
@@ -410,27 +439,27 @@ mod tests {
     #[test]
     fn real_gpus_come_before_software_and_odd_ones() {
         let list = [c(Api::Vulkan, Kind::Cpu, 0), c(Api::Vulkan, Kind::Other, 1), c(Api::Vulkan, Kind::Virtual, 2), c(Api::Vulkan, Kind::Integrated, 3)];
-        assert_eq!(order(&list, Prefer::Unchanged), [3, 1, 2, 0]);
+        assert_eq!(order(&list, Prefer::Unchanged, Role::Window), [3, 1, 2, 0]);
     }
 
     #[test]
     fn the_drivers_order_among_real_gpus_stays() {
         let list = [c(Api::Vulkan, Kind::Integrated, 0), c(Api::Vulkan, Kind::Discrete, 1)];
-        assert_eq!(order(&list, Prefer::Unchanged), [0, 1]);
+        assert_eq!(order(&list, Prefer::Unchanged, Role::Window), [0, 1]);
         let list = [c(Api::Vulkan, Kind::Discrete, 0), c(Api::Vulkan, Kind::Integrated, 1)];
-        assert_eq!(order(&list, Prefer::Unchanged), [0, 1]);
+        assert_eq!(order(&list, Prefer::Unchanged, Role::Window), [0, 1]);
     }
 
     #[test]
     fn vulkan_goes_before_dx12() {
         let list = [c(Api::Dx12, Kind::Integrated, 0), c(Api::Dx12, Kind::Discrete, 1), c(Api::Vulkan, Kind::Discrete, 2)];
-        assert_eq!(order(&list, Prefer::Unchanged), [2, 0, 1]);
+        assert_eq!(order(&list, Prefer::Unchanged, Role::Window), [2, 0, 1]);
     }
 
     #[test]
     fn a_real_vulkan_gpu_beats_a_dx12_software_adapter() {
         let list = [c(Api::Dx12, Kind::Cpu, 0), c(Api::Vulkan, Kind::Integrated, 1)];
-        assert_eq!(order(&list, Prefer::Unchanged), [1, 0]);
+        assert_eq!(order(&list, Prefer::Unchanged, Role::Window), [1, 0]);
     }
 
     fn laptop() -> [Candidate; 4] {
@@ -439,28 +468,28 @@ mod tests {
     }
 
     #[test]
-    fn high_performance_puts_the_discrete_card_before_intel_dx12() {
-        assert_eq!(order_by(&laptop(), Prefer::HighPerformance, false), [3, 0, 2, 1]);
-        assert_eq!(order_by(&laptop(), Prefer::HighPerformance, true), [0, 3, 2, 1]);
+    fn high_performance_puts_the_discrete_card_before_intel() {
+        assert_eq!(order_by(&laptop(), Prefer::HighPerformance, Role::Window, true), [0, 3, 1, 2]);
+        assert_eq!(order_by(&laptop(), Prefer::HighPerformance, Role::Pipeline, true), [0, 3, 2, 1]);
     }
 
     #[test]
-    fn power_saving_puts_intel_dx12_first_and_intel_vulkan_last() {
-        assert_eq!(order_by(&laptop(), Prefer::PowerSaving, false), [2, 3, 0, 1]);
-        assert_eq!(order_by(&laptop(), Prefer::PowerSaving, true), [2, 0, 3, 1]);
+    fn power_saving_puts_intel_before_the_discrete_card() {
+        assert_eq!(order_by(&laptop(), Prefer::PowerSaving, Role::Window, true), [1, 2, 0, 3]);
+        assert_eq!(order_by(&laptop(), Prefer::PowerSaving, Role::Pipeline, true), [2, 1, 0, 3]);
     }
 
     #[test]
-    fn unchanged_keeps_the_drivers_order_inside_each_api() {
-        assert_eq!(order_by(&laptop(), Prefer::Unchanged, false), [2, 3, 0, 1]);
-        assert_eq!(order_by(&laptop(), Prefer::Unchanged, true), [0, 2, 1, 3]);
+    fn unchanged_keeps_the_old_order() {
+        assert_eq!(order_by(&laptop(), Prefer::Unchanged, Role::Window, true), [0, 1, 2, 3]);
+        assert_eq!(order_by(&laptop(), Prefer::Unchanged, Role::Pipeline, true), [0, 2, 1, 3]);
     }
 
     #[test]
     fn a_preference_still_keeps_software_cards_last() {
         let list = [c(Api::Vulkan, Kind::Cpu, 0), c(Api::Vulkan, Kind::Integrated, 1), c(Api::Vulkan, Kind::Discrete, 2)];
-        assert_eq!(order(&list, Prefer::HighPerformance), [2, 1, 0]);
-        assert_eq!(order(&list, Prefer::PowerSaving), [1, 2, 0]);
+        assert_eq!(order_by(&list, Prefer::HighPerformance, Role::Window, true), [2, 1, 0]);
+        assert_eq!(order_by(&list, Prefer::PowerSaving, Role::Window, true), [1, 2, 0]);
     }
 
     #[test]
@@ -474,10 +503,25 @@ mod tests {
 
     #[test]
     fn a_chosen_card_goes_first_and_keeps_its_own_order() {
-        let ordered = order_by(&laptop(), Prefer::HighPerformance, false);
-        assert_eq!(ordered, [3, 0, 2, 1]);
-        assert_eq!(with_choice(ordered.clone(), &laptop(), "8086:591b"), [2, 3, 0, 1], "Intel DX12 first, its crashy Vulkan adapter stays behind the working cards");
+        let ordered = order_by(&laptop(), Prefer::HighPerformance, Role::Window, true);
+        assert_eq!(ordered, [0, 3, 1, 2]);
+        assert_eq!(with_choice(ordered.clone(), &laptop(), "8086:591b"), [1, 2, 0, 3], "both Intel adapters first, Vulkan before DX12");
         assert_eq!(with_choice(ordered.clone(), &laptop(), "10DE:1C20"), ordered);
+    }
+
+    #[test]
+    fn a_chosen_intel_card_keeps_dx12_first_for_the_pipeline() {
+        let ordered = order_by(&laptop(), Prefer::HighPerformance, Role::Pipeline, true);
+        assert_eq!(with_choice(ordered, &laptop(), "8086:591b"), [2, 1, 0, 3]);
+    }
+
+    #[test]
+    fn the_pipeline_follows_the_windows_card_between_two_discrete_cards() {
+        let card = |api, index, vendor| Candidate { api, kind: Kind::Discrete, index, vendor, device: 0x1, windows: true };
+        let list = [card(Api::Vulkan, 0, VENDOR_INTEL), card(Api::Vulkan, 1, 0x10de), card(Api::Dx12, 2, VENDOR_INTEL), card(Api::Dx12, 3, 0x10de)];
+        let ordered = order_by(&list, Prefer::HighPerformance, Role::Pipeline, true);
+        assert_eq!(ordered, [1, 2, 0, 3], "alone, the other vendor's Vulkan adapter sorts before Intel's DX12 one");
+        assert_eq!(with_choice(ordered, &list, &card_id(VENDOR_INTEL, 0x1)), [2, 0, 1, 3], "the window's card goes first");
     }
 
     #[test]
@@ -489,10 +533,8 @@ mod tests {
     }
 
     #[test]
-    fn the_crashy_adapter_is_never_a_chosen_one() {
-        assert_eq!(chosen(&laptop(), "8086:591b"), [2]);
-        let linux = Candidate { windows: false, ..intel(Api::Vulkan, 0, false) };
-        assert_eq!(chosen(&[linux], "8086:591b"), [0]);
+    fn a_chosen_card_matches_its_adapters_on_every_api() {
+        assert_eq!(chosen(&laptop(), "8086:591b"), [1, 2]);
     }
 
     #[test]
@@ -501,23 +543,21 @@ mod tests {
         let mut list = laptop().to_vec();
         list.push(c(Api::Vulkan, Kind::Cpu, 4));
         note_listed(&list, &names);
-        let mut found = listed();
-        found.sort_by(|a, b| a.id.cmp(&b.id));
-        assert_eq!(found, [Listed { id: "10de:1c20".into(), name: "GTX".into() }, Listed { id: "8086:591b".into(), name: "Intel (R)".into() }]);
+        assert_eq!(listed(), [Listed { id: "10de:1c20".into(), name: "GTX".into() }, Listed { id: "8086:591b".into(), name: "Intel (R)".into() }]);
     }
 
     #[test]
     fn one_adapter_can_be_moved_first() {
         let list = laptop();
-        assert_eq!(move_to_front(vec![2, 0, 3], &list, 3), [3, 2, 0]);
+        assert_eq!(move_to_front(vec![2, 0, 3], &list, 3), [0, 3, 2], "the whole card moves, in its own order");
         assert_eq!(move_to_front(vec![2, 0, 3], &list, 9), [2, 0, 3]);
-        assert_eq!(move_to_front(vec![2, 0, 3], &list, 1), [2, 0, 3], "Intel's Windows Vulkan adapter never goes first");
+        assert_eq!(move_to_front(vec![2, 1, 0, 3], &list, 1), [2, 1, 0, 3], "picking Intel's Vulkan adapter keeps the pipeline's DX12 first");
         let soft = [c(Api::Vulkan, Kind::Discrete, 0), c(Api::Vulkan, Kind::Cpu, 1)];
         assert_eq!(move_to_front(vec![0, 1], &soft, 1), [0, 1], "software never goes first");
     }
 
     #[test]
     fn nothing_in_nothing_out() {
-        assert!(order(&[], Prefer::Unchanged).is_empty());
+        assert!(order(&[], Prefer::Unchanged, Role::Window).is_empty());
     }
 }

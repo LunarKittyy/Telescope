@@ -427,30 +427,43 @@ export component FormRow inherits HorizontalLayout {
     out property <string> control-kind: "row";
     spacing: Theme.u(4);
     min-height: Theme.row;
-    if !quiet: Text {
-        text: label;
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font), the same as the controls beside it
+    property <length> lift: 1phx;
+    // The name is in a box of its own so it can be lifted, which a layout's own children can't be
+    if !quiet: Rectangle {
         width: Theme.u(48);
-        font-family: Theme.font;
-        font-size: Theme.body;
-        font-weight: Theme.w-label;
-        color: enabled ? Theme.ink : Theme.dis;
-        vertical-alignment: center;
-        overflow: elide;
-        // control_row's label is what the settings search finds
-        accessible-id: "setting";
-        if keywords != "": SearchWords { words: keywords; }
+        Text {
+            y: -lift;
+            width: parent.width;
+            height: parent.height;
+            text: label;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-label;
+            color: enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+            overflow: elide;
+            // control_row's label is what the settings search finds
+            accessible-id: "setting";
+            if keywords != "": SearchWords { words: keywords; }
+        }
     }
-    if quiet: Text {
-        text: label;
+    if quiet: Rectangle {
         width: Theme.u(48);
-        font-family: Theme.font;
-        font-size: Theme.body;
-        font-weight: Theme.w-label;
-        color: enabled ? Theme.ink : Theme.dis;
-        vertical-alignment: center;
-        overflow: elide;
-        accessible-role: none;
-        SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
+        Text {
+            y: -lift;
+            width: parent.width;
+            height: parent.height;
+            text: label;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-label;
+            color: enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+            SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
+        }
     }
     @children
 }
@@ -480,6 +493,8 @@ export component RailRow inherits HorizontalLayout {
     // Small labels right after the name ("Lab", "Limited"), each with its tooltip sentence and colour
     in property <[TagData]> tags;
     out property <string> control-kind: "row";
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     spacing: Theme.u(4);
     min-height: Theme.row;
     Rectangle {
@@ -511,27 +526,33 @@ export component RailRow inherits HorizontalLayout {
         }
         if has-icon && named && tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
     }
-    if named: Text {
+    // The name is in a box of its own so it can be lifted (lift) like the controls' words, which a layout's own children can't be
+    if named: Rectangle {
         horizontal-stretch: tags.length == 0 ? 1 : 0;
         // The whole name unless it is long: the control beside it gives way first
-        min-width: min(self.preferred-width, Theme.u(80));
-        text: label;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        font-weight: Theme.w-label;
-        color: enabled ? Theme.ink2 : Theme.dis;
-        vertical-alignment: center;
-        overflow: elide;
-        // The row is named by it already
-        accessible-role: none;
-        if tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
+        min-width: min(name-text.preferred-width, Theme.u(80));
+        preferred-width: name-text.preferred-width;
+        name-text := Text {
+            y: -lift;
+            width: parent.width;
+            height: parent.height;
+            text: label;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-label;
+            color: enabled ? Theme.ink2 : Theme.dis;
+            vertical-alignment: center;
+            overflow: elide;
+            // The row is named by it already
+            accessible-role: none;
+            if tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
+        }
     }
     if named && tags.length > 0: HorizontalLayout {
         spacing: Theme.u(2);
         for t in tags: VerticalLayout {
             alignment: center;
-            // The name is centred by its line box without a lift, so the tag's word takes none either and both sit on the same middle
-            Tag { text: t.text; detail: t.detail; tint: t.tint; lift: 0phx; }
+            Tag { text: t.text; detail: t.detail; tint: t.tint; }
         }
     }
     if named && tags.length > 0: Rectangle { horizontal-stretch: 1; min-width: 0px; }
