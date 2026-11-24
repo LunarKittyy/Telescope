@@ -240,7 +240,7 @@ fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preferen
             wgpu::DeviceType::Cpu => Kind::Cpu,
             wgpu::DeviceType::Other => Kind::Other,
         };
-        Some(Candidate { api, kind, index, vendor: info.vendor, device: info.device, windows: cfg!(windows) })
+        Some(Candidate { api, kind, index, vendor: info.vendor, device: info.device })
     }).collect();
     let names: Vec<String> = listed.iter().map(|a| a.get_info().name).collect();
     gpu_pick::note_listed(&candidates, &names);
