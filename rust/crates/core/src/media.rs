@@ -474,6 +474,10 @@ pub trait FramePipeline: Send {
     fn camera_fit(&self) -> Option<Arc<std::sync::atomic::AtomicU64>> {
         None
     }
+    /// Set while no step needs the picture and nothing converts it on the card, so the stream may let pictures wait for the card to scale them. None for a pipeline that never does.
+    fn plain_steps(&self) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        None
+    }
 }
 
 /// One stream's newest frames: what it made, and what goes out on its virtual camera (which replace_frame can swap).
@@ -577,7 +581,7 @@ pub struct DecodingStatus {
 /// Hands the newest packet from a stream's reader to its decoders (stream._Newest): one nobody took in time is
 /// dropped, so a slow decoder skips frames instead of letting them queue up as lag.
 pub struct Newest<T> {
-    item: std::sync::Mutex<(std::collections::VecDeque<T>, bool)>,
+    item: std::sync::Mutex<(std::collections::VecDeque<(std::time::Instant, T)>, bool)>,
     ready: std::sync::Condvar,
 }
 
@@ -591,18 +595,23 @@ impl<T> Newest<T> {
     /// Replaces whatever is waiting.
     /// True when it replaced an item nobody had taken, which is dropped.
     pub fn put(&self, item: T) -> bool {
-        self.put_keeping(item, 1)
+        self.put_keeping(item, 1, None) > 0
     }
 
-    /// Adds an item behind up to `kept - 1` waiting ones, dropping the oldest beyond that: for a stage that now and then takes more than one frame time.
-    /// True when an item nobody had taken was dropped.
-    pub fn put_keeping(&self, item: T, kept: usize) -> bool {
+    /// Adds an item behind up to `kept - 1` waiting ones, dropping the oldest beyond that and any that have waited more than `max_age` (so a slow patch leaves no standing delay): for a stage that now and then takes more than one frame time.
+    /// How many items nobody had taken were dropped.
+    pub fn put_keeping(&self, item: T, kept: usize, max_age: Option<std::time::Duration>) -> usize {
+        let now = std::time::Instant::now();
         let mut st = self.item.lock().unwrap();
-        st.0.push_back(item);
-        let mut dropped = false;
+        let mut dropped = 0;
+        while max_age.is_some_and(|age| st.0.front().is_some_and(|(at, _)| now.duration_since(*at) > age)) {
+            st.0.pop_front();
+            dropped += 1;
+        }
+        st.0.push_back((now, item));
         while st.0.len() > kept.max(1) {
             st.0.pop_front();
-            dropped = true;
+            dropped += 1;
         }
         drop(st);
         self.ready.notify_one();
@@ -619,7 +628,7 @@ impl<T> Newest<T> {
     pub fn take(&self) -> Option<T> {
         let mut st = self.item.lock().unwrap();
         loop {
-            if let Some(item) = st.0.pop_front() {
+            if let Some((_, item)) = st.0.pop_front() {
                 return Some(item);
             }
             if st.1 {
@@ -637,13 +646,23 @@ mod tests {
     #[test]
     fn newest_keeps_the_asked_number_and_hands_out_the_oldest_first() {
         let q = Newest::default();
-        assert!(!q.put_keeping(1, 2));
-        assert!(!q.put_keeping(2, 2));
-        assert!(q.put_keeping(3, 2), "the oldest is dropped beyond two");
+        assert_eq!(q.put_keeping(1, 2, None), 0);
+        assert_eq!(q.put_keeping(2, 2, None), 0);
+        assert_eq!(q.put_keeping(3, 2, None), 1, "the oldest is dropped beyond two");
         assert_eq!((q.take(), q.take()), (Some(2), Some(3)));
         assert!(!q.put(4));
         assert!(q.put(5), "the plain put still keeps only the newest");
         assert_eq!(q.take(), Some(5));
+    }
+
+    #[test]
+    fn newest_drops_what_waited_too_long_and_counts_every_drop() {
+        let q = Newest::default();
+        q.put_keeping(1, 3, None);
+        q.put_keeping(2, 3, None);
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        assert_eq!(q.put_keeping(3, 3, Some(std::time::Duration::from_millis(10))), 2, "both stale pictures go at once");
+        assert_eq!(q.take(), Some(3));
     }
 
     /// A scaler that only knows rgb, as most do.

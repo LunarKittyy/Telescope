@@ -442,6 +442,10 @@ struct Shared {
     surface_wish: Option<Arc<AtomicBool>>,
     /// Where the pipeline reads the size the camera takes while it is open (FramePipeline::camera_fit), so a plain stream's pictures can be scaled to it on the card.
     camera_fit: Option<Arc<AtomicU64>>,
+    /// Whether no step needs the pictures (FramePipeline::plain_steps), so the ones the card scales may wait in a short queue.
+    plain_steps: Option<Arc<AtomicBool>>,
+    /// How long the last picture's scaling on the card took, which isn't the steps' cost and stays out of the effort figure.
+    scaled_ns: AtomicU64,
     plugin_source: bool,
     size: Mutex<(Option<u32>, Option<u32>)>,
     fps: AtomicU32,
@@ -638,6 +642,7 @@ impl StreamWorker {
         pipeline.set_steps(setup.steps);
         let surface_wish = pipeline.surface_wish();
         let camera_fit = pipeline.camera_fit();
+        let plain_steps = pipeline.plain_steps();
         let tap = media.packet_tap();
         let view_epoch = setup.vision.as_ref().map_or(0, |f| f.service.view_epoch());
         let shared = Arc::new(Shared {
@@ -647,7 +652,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), nudge: Flag::default(), retry_pace: Mutex::new(drop_retry_delay), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), surface_wish, camera_fit, publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
+            photo_until: Mutex::new(None), surface_wish, camera_fit, plain_steps, scaled_ns: AtomicU64::new(0), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, was_paused: AtomicBool::new(false), born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -1019,7 +1024,9 @@ impl Shared {
             out.land_until(&|| self.stopped());
         } else if let Some((w, h)) = self.camera_fit.as_ref().and_then(|cell| telescope_core::media::unpack_camera_fit(cell.load(Ordering::Relaxed))).filter(|&(w, h)| out.keeps_fitted() && out.fits_on_card(w, h)) {
             // A picture the camera takes scaled is scaled here, off the camera's pacing thread, and kept for it and the preview
+            let scaling = Instant::now();
             out.land_fitted_until(w, h, &|| self.stopped());
+            self.scaled_ns.store(scaling.elapsed().as_nanos() as u64, Ordering::Relaxed);
         }
         // A frame made while Stop waited isn't published after it
         if self.stopped() {
@@ -1303,11 +1310,14 @@ impl Shared {
             return false;
         }
         let began = Instant::now();
+        self.scaled_ns.store(0, Ordering::Relaxed);
         let published = self.publish(seq, frame);
         // What the steps cost tells the effects whether to work less; a frame that never went out says nothing
         if published && self.settle.lock().unwrap().over(began) {
             let interval_ns = 1_000_000_000 / self.fps.load(Ordering::SeqCst).max(1) as u64;
-            Effort::global().note_frame(began.elapsed().as_nanos() as u64, interval_ns);
+            // The card's scaling is the camera's work, not the effects': it would lower every stream's effect level
+            let steps_ns = (began.elapsed().as_nanos() as u64).saturating_sub(self.scaled_ns.load(Ordering::Relaxed));
+            Effort::global().note_frame(steps_ns, interval_ns);
         }
         published
     }
@@ -1459,7 +1469,7 @@ impl Shared {
         }
     }
 
-    /// The thread that runs the frame steps on what decoding hands it, newest first, so decoding goes straight on to the next picture.
+    /// The thread that runs the frame steps on what decoding hands it, the newest picture first (a few wait only while the card scales for the camera), so decoding goes straight on to the next picture.
     fn spawn_steps(self: &Arc<Self>, frames: Arc<Newest<(u64, Frame)>>) -> std::thread::JoinHandle<()> {
         let s = self.clone();
         std::thread::Builder::new().name("stream-steps".into()).spawn(move || {
@@ -1471,8 +1481,26 @@ impl Shared {
         }).expect("a thread for the frame steps")
     }
 
+    /// How many pictures may wait for the steps, and how long: a few when the card will scale this one for the open camera and no step needs it (the scale now and then takes a little over a frame time, which they ride out), else only the newest.
+    /// The decoder holds six surfaces for everything, so three is what is left for waiting. A picture older than two frame periods is dropped, never shown late.
+    fn hand_off_for(&self, frame: &Frame) -> (usize, Option<Duration>) {
+        // Tests stand in for Windows, the only place the card scales
+        let scaled = cfg!(any(windows, test))
+            && self.plain_steps.as_ref().is_some_and(|p| p.load(Ordering::Relaxed))
+            && self.camera_fit.as_ref().and_then(|cell| telescope_core::media::unpack_camera_fit(cell.load(Ordering::Relaxed))).is_some_and(|(w, h)| frame.surface().is_some_and(|s| s.can_fit(w, h)));
+        if !scaled {
+            return (1, None);
+        }
+        let mut fps = self.fps.load(Ordering::SeqCst).max(1) as f32;
+        let arriving = *self.last_arrival_fps.lock().unwrap();
+        if arriving > 1.0 {
+            fps = fps.min(arriving);
+        }
+        (3, Some(Duration::from_secs_f32(2.0 / fps)))
+    }
+
     /// H.264: this thread decodes, and a second one runs the steps, so the next picture decodes while the last goes through them. One that
-    /// the steps haven't taken by the time the next is decoded is dropped, so slow steps skip frames instead of lagging.
+    /// the steps haven't taken by the time the next is decoded is dropped, so slow steps skip frames instead of lagging, except for the few that wait while the card scales (hand_off_for).
     fn read_h264(self: &Arc<Self>, reader: &mut dyn FrameReader) -> Ended {
         let newest: Arc<Newest<(u64, Frame)>> = Arc::default();
         let steps = self.spawn_steps(newest.clone());
@@ -1491,10 +1519,10 @@ impl Shared {
             } else {
                 reader.read().map(|f| {
                     self.count_arrived(f.count, f.bytes);
-                    // Scaling a picture on the card can take a little over a frame time now and then, which a few waiting pictures ride out
-                    let kept = if cfg!(windows) && self.camera_fit.is_some() && f.frame.surface().is_some() { 8 } else { 1 };
-                    if newest.put_keeping((self.next_seq(), f.frame), kept) {
-                        self.shed(1);
+                    let (kept, max_age) = self.hand_off_for(&f.frame);
+                    let dropped = newest.put_keeping((self.next_seq(), f.frame), kept, max_age);
+                    if dropped > 0 {
+                        self.shed(dropped as u64);
                     }
                 })
             };
@@ -4026,6 +4054,65 @@ mod tests {
         let sent: Vec<_> = cams.frames.lock().unwrap().iter().map(|f| (f.width, f.height, f.data[0])).collect();
         assert!(sent.iter().all(|f| *f == (4, 4, 33)), "a frame reached the camera without the card's fit: {sent:?}");
         assert_eq!(whole.load(Ordering::SeqCst), 0, "a picture the card fitted was read back whole as well");
+    }
+
+    /// A decoder surface the card can scale to anything even and smaller.
+    #[derive(Debug)]
+    struct ScalableSurface(Frame);
+
+    impl telescope_core::frame::DecodedSurface for ScalableSurface {
+        fn ram(&self) -> &Frame {
+            &self.0
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn can_fit(&self, width: u32, height: u32) -> bool {
+            width < self.0.width && height < self.0.height
+        }
+    }
+
+    /// A pipeline that says whether its steps are plain and what the camera takes, through cells the test sets.
+    struct Plainness(Arc<AtomicBool>, Arc<AtomicU64>);
+
+    impl FramePipeline for Plainness {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+        fn plain_steps(&self) -> Option<Arc<AtomicBool>> {
+            Some(self.0.clone())
+        }
+        fn camera_fit(&self) -> Option<Arc<AtomicU64>> {
+            Some(self.1.clone())
+        }
+    }
+
+    #[test]
+    fn only_a_picture_the_card_will_scale_for_an_open_camera_may_wait_behind_others() {
+        let (plain, cell) = (Arc::new(AtomicBool::new(true)), Arc::new(AtomicU64::new(0)));
+        let media = WithPipeline(Box::new({
+            let (plain, cell) = (plain.clone(), cell.clone());
+            move || Box::new(Plainness(plain.clone(), cell.clone()))
+        }));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Pause(Duration::from_secs(30))])]);
+        let events: Events = Arc::new(|_| {});
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(Arc::new(Mutex::new(None)), Arc::new(Mutex::new(Vec::new()))));
+        let w = StreamWorker::start(setup(opener), Arc::new(media), Arc::new(FakeOutputs(Arc::new(Cams::default()))), slot, events).unwrap();
+        let card = Frame::from_surface(8, 4, PixelFormat::I420, Arc::new(ScalableSurface(grey(8, 4, 1))));
+        let shared = &w.shared;
+        assert_eq!(shared.hand_off_for(&card), (1, None), "no camera is open");
+        cell.store(telescope_core::media::pack_camera_fit((4, 2)), Ordering::Relaxed);
+        let (kept, age) = shared.hand_off_for(&card);
+        assert_eq!(kept, 3, "plain steps, an open camera and a picture the card scales");
+        assert!(age.is_some_and(|a| a <= Duration::from_millis(70)), "a picture older than about two frame periods is dropped: {age:?}");
+        assert_eq!(shared.hand_off_for(&grey(8, 4, 1)), (1, None), "a picture in memory has nothing for the card to scale");
+        plain.store(false, Ordering::Relaxed);
+        assert_eq!(shared.hand_off_for(&card), (1, None), "a card effect keeps skipping to the newest picture");
+        w.stop();
     }
 
     /// A picture that fits itself to the camera on the card and keeps it, like a decoder's surface, and the number of times it did.

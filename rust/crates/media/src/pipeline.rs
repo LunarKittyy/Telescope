@@ -301,6 +301,8 @@ pub struct Pipeline {
     forget_due: bool,
     /// Whether the first step to run does it on the card, for the stream's decoder to read (FramePipeline::surface_wish).
     surface_wish: Arc<AtomicBool>,
+    /// Whether no step needs the picture and nothing converts it on the card (FramePipeline::plain_steps).
+    plain_steps: Arc<AtomicBool>,
     /// The size the stream's camera takes while it is open, 0 while it isn't (FramePipeline::camera_fit).
     camera_fit: Arc<AtomicU64>,
     /// This stream's last submission to the card, so streams sharing the card don't wait for each other's pictures.
@@ -341,7 +343,7 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance: balance.lane(), size: (0, 0), card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), camera_fit: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
+        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance: balance.lane(), size: (0, 0), card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), plain_steps: Arc::default(), camera_fit: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
         // Asked before the first picture, which sizes the decoder's pool: a stream with no steps yet takes them in on the card
         pipeline.note_surface_wish();
         pipeline
@@ -746,6 +748,14 @@ impl Pipeline {
 
     fn note_surface_wish(&self) {
         self.surface_wish.store(self.starts_on_card() || self.fit_wanted(), Ordering::Relaxed);
+        self.plain_steps.store(self.plain_for_fit(), Ordering::Relaxed);
+    }
+
+    /// Whether no step runs and the plain picture isn't converted on the card, so a card picture can be left for the camera to take scaled.
+    fn plain_for_fit(&self) -> bool {
+        // Tests stand in for Windows, where a plain stream converts on the card only when opted in
+        let windows = cfg!(any(windows, test));
+        self.no_steps_run() && !self.plain_on_card_if(plain_gate(windows, plain_opted_in()))
     }
 
     /// The size the camera takes while it is open.
@@ -756,10 +766,8 @@ impl Pipeline {
     /// Whether the decoder's pictures stay on the card for the camera to take scaled there: no step needs them, nothing converts them on the card, and
     /// the camera is open at a size the last picture's can be scaled to.
     fn fit_wanted(&self) -> bool {
-        // Tests stand in for Windows, where a plain stream converts on the card only when opted in
         let windows = cfg!(any(windows, test));
-        let plain = self.no_steps_run() && !self.plain_on_card_if(plain_gate(windows, plain_opted_in()));
-        surface_fit::wanted(windows, plain, self.camera_size(), self.size)
+        surface_fit::wanted(windows, self.plain_for_fit(), self.camera_size(), self.size)
     }
 
     fn steps_changed(&mut self) {
@@ -1325,6 +1333,10 @@ impl FramePipeline for Pipeline {
 
     fn camera_fit(&self) -> Option<Arc<AtomicU64>> {
         Some(self.camera_fit.clone())
+    }
+
+    fn plain_steps(&self) -> Option<Arc<AtomicBool>> {
+        Some(self.plain_steps.clone())
     }
 
     fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame {
