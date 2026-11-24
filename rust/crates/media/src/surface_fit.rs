@@ -51,6 +51,10 @@ impl CardPicture for SurfacePicture {
         self.surface.can_fit(width, height)
     }
 
+    fn keeps_fitted(&self) -> bool {
+        true
+    }
+
     fn landed_fitted(&self, width: u32, height: u32) -> Option<Frame> {
         self.kept(width, height)
     }
@@ -98,6 +102,23 @@ mod tests {
         assert!(!wanted(true, false, Some((1920, 1080)), big), "a step needs the whole picture");
         assert!(!wanted(true, true, None, big), "no camera open");
         assert!(!wanted(true, true, Some(big), big), "camera as big as the stream");
+    }
+
+    #[derive(Debug)]
+    struct Whole(Frame);
+    impl DecodedSurface for Whole {
+        fn ram(&self) -> &Frame {
+            &self.0
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn only_a_surface_picture_keeps_what_it_fitted() {
+        let frame = Frame::dark(4, 4, telescope_core::frame::PixelFormat::I420);
+        assert!(SurfacePicture::new(Arc::new(Whole(frame))).keeps_fitted());
     }
 
     #[test]

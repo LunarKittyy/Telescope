@@ -13,7 +13,7 @@ use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_NV12, DXGI_RATIONAL, DX
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 
 /// How long to wait for the card to finish a picture before giving the scaling up.
-const WAIT_MS: u32 = 1000;
+const WAIT_MS: u32 = 100;
 
 /// Input views kept for the decoder's textures before they are made again, far more than its pool holds.
 const MOST_VIEWS: usize = 64;
@@ -42,6 +42,8 @@ pub(crate) struct Fitter {
     staging: Option<(ID3D11Texture2D, (u32, u32))>,
     fence: Option<(ID3D11Fence, ID3D11DeviceContext4)>,
     event: Option<HANDLE>,
+    // A wait ran out: the card may still signal the event, so it stays open when the fitter goes
+    abandoned: bool,
     value: u64,
 }
 
@@ -50,7 +52,7 @@ unsafe impl Send for Fitter {}
 
 impl Drop for Fitter {
     fn drop(&mut self) {
-        if let Some(event) = self.event.take() {
+        if let Some(event) = self.event.take().filter(|_| !self.abandoned) {
             // SAFETY: the event was made by CreateEventW and is closed once.
             let _ = unsafe { CloseHandle(event) };
         }
@@ -107,6 +109,7 @@ impl Fitter {
             }
             fence.SetEventOnCompletion(self.value, event).map_err(|e| e.to_string())?;
             if WaitForSingleObject(event, WAIT_MS) != WAIT_OBJECT_0 {
+                self.abandoned = true;
                 return Err(format!("the card took over {WAIT_MS} ms to scale a picture"));
             }
             let _locked = Locked::new(d3d);

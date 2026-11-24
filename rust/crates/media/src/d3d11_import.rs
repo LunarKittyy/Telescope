@@ -606,8 +606,9 @@ impl DecodedSurface for Surface {
         self.ram.get()
     }
 
+    // Full-range pictures stay whole: the processor works in studio range and some drivers would clamp them
     fn can_fit(&self, width: u32, height: u32) -> bool {
-        self.stream.enabled() && !self.stream.fit_failed.load(Ordering::Acquire) && crate::surface_fit::scales_to(self.size, (width, height))
+        self.stream.enabled() && self.colour & 32 == 0 && !self.stream.fit_failed.load(Ordering::Acquire) && crate::surface_fit::scales_to(self.size, (width, height))
     }
 
     fn fitted(&self, width: u32, height: u32) -> Option<Frame> {

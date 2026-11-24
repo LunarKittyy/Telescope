@@ -4168,7 +4168,7 @@ pub(crate) mod tests {
     #[test]
     fn a_plain_stream_into_a_smaller_camera_keeps_its_pictures_on_the_card_and_goes_back_whole_when_a_step_comes_on() {
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        assert!(!wish(&p) || plain_allowed(), "no camera open, nothing to scale for");
+        assert_eq!(wish(&p), plain_allowed(), "no camera open, nothing to scale for");
         camera(&p, Some((64, 36)));
         let (frame, surface) = scalable(128, 72);
         let out = p.process_picture(frame, &NoContext);
@@ -4209,8 +4209,8 @@ pub(crate) mod tests {
         p.set_steps(Vec::new());
         camera(&p, None);
         let (frame, _) = scalable(128, 72);
-        assert!(p.process_picture(frame, &NoContext).picture().is_none() || plain_allowed());
-        assert!(!wish(&p) || plain_allowed());
+        assert!(p.process_picture(frame, &NoContext).picture().is_none(), "nothing is scaled for a closed camera, and a plain stream without a card converts on the CPU here");
+        assert_eq!(wish(&p), plain_allowed());
     }
 
     #[test]
@@ -4220,7 +4220,7 @@ pub(crate) mod tests {
             camera(&p, Some(size));
             let (frame, _) = scalable(128, 72);
             let out = p.process_picture(frame, &NoContext);
-            assert!(out.picture().is_none() || plain_allowed(), "{size:?}");
+            assert!(out.picture().is_none(), "{size:?}");
         }
     }
 

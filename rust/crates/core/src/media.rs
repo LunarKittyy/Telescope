@@ -325,6 +325,10 @@ pub trait CardPicture: Send + Sync {
     fn fits_on_card(&self, _width: u32, _height: u32) -> bool {
         false
     }
+    /// Whether land_fitted keeps what it makes, so landed_fitted can give it to a reader that can't wait for the card.
+    fn keeps_fitted(&self) -> bool {
+        false
+    }
     /// What stands in for the picture, once its landing failed; None while it is the real one (or not landed yet).
     fn stood_in(&self) -> Option<StandIn> {
         None
@@ -385,12 +389,18 @@ impl PipelineFrame {
         frame.number = self.frame.number;
         frame.time_ns = self.frame.time_ns;
         frame.capture_ns = self.frame.capture_ns;
+        frame.phone_share = self.frame.phone_share;
         Some(frame)
     }
 
     /// Whether the card can fit the picture into width x height (CardPicture::fits_on_card); a picture in memory can't.
     pub fn fits_on_card(&self, width: u32, height: u32) -> bool {
         self.picture.as_ref().is_some_and(|p| p.fits_on_card(width, height))
+    }
+
+    /// Whether the picture keeps the fitted copy the card makes (CardPicture::keeps_fitted).
+    pub fn keeps_fitted(&self) -> bool {
+        self.picture.as_ref().is_some_and(|p| p.keeps_fitted())
     }
 
     /// What stands in for the picture when the card failed to land it (CardPicture::stood_in).
