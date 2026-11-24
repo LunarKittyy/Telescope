@@ -143,7 +143,7 @@ pub fn slot_ready(reg: &dyn Registry, slot: u32) -> bool {
 pub enum FilterProbe {
     /// The Windows 11 camera's shared memory exists.
     Shared,
-    /// UnityCapture's shared image exists. Only the main camera has a filter to watch for.
+    /// UnityCapture's shared image exists.
     Image,
 }
 
@@ -152,7 +152,8 @@ pub fn filter_probe_for(reg: &dyn Registry, slot: u32) -> Option<FilterProbe> {
     if use_mf(reg, slot) {
         return Some(FilterProbe::Shared);
     }
-    (slot == 0).then_some(FilterProbe::Image)
+    // An extra camera has a filter of its own once it is registered under its numbered name
+    (slot == 0 || uc_names(reg).iter().any(|(_, n)| *n == slot_label(slot))).then_some(FilterProbe::Image)
 }
 
 /// An older Telescope's Windows 11 camera is installed, and this one has a newer one (with its DLL at dll) to put
