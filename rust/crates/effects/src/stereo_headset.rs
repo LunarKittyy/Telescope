@@ -294,14 +294,14 @@ impl Feed {
         *self.epochs.lock().unwrap_or_else(|e| e.into_inner()) = Some(store);
     }
 
-    /// The message as a headset may have it right now: a picture made before the pipeline's latest change gives way to black.
-    fn vet(&self, seq: u64, message: Message) -> Message {
-        let Some(store) = self.epochs.lock().unwrap_or_else(|e| e.into_inner()).clone() else { return message };
+    /// The message as a headset may have it right now, or none: a picture made before the pipeline's latest change is held back, so the headset keeps its last picture until the worker sends the new one or black.
+    fn vet(&self, seq: u64, message: Message) -> Option<Message> {
+        let Some(store) = self.epochs.lock().unwrap_or_else(|e| e.into_inner()).clone() else { return Some(message) };
         let made = self.lock().shown.as_ref().filter(|s| s.seq == seq).map(|s| s.epoch);
         match (&message, made) {
-            (Message::Jpeg(_), Some(epoch)) if epoch < store.pipeline_epoch() => Message::Blank,
-            (Message::Jpeg(_), None) => Message::Blank,
-            _ => message,
+            (Message::Jpeg(_), Some(epoch)) if epoch < store.pipeline_epoch() => None,
+            (Message::Jpeg(_), None) => None,
+            _ => Some(message),
         }
     }
 
@@ -520,13 +520,13 @@ fn serve_viewer(feed: Arc<Feed>, mut sock: Box<dyn Socket>, slot: Slot) {
         let valid = |state: &State| state.run == slot.run && state.token_gen == slot.generation;
         if let Some((seq, message)) = feed.next_where(seen, SEND_WAIT, &valid, &|m| !waiting_for_ack || *m == Message::Blank) {
             seen = seq;
-            let message = feed.vet(seq, message);
-            let sent = match &message {
-                Message::Jpeg(jpeg) => {
+            let sent = match feed.vet(seq, message) {
+                Some(Message::Jpeg(jpeg)) => {
                     waiting_for_ack = true;
-                    send(&mut *sock, BINARY, jpeg)
+                    send(&mut *sock, BINARY, &jpeg)
                 }
-                Message::Blank => send(&mut *sock, TEXT, b"blank"),
+                Some(Message::Blank) => send(&mut *sock, TEXT, b"blank"),
+                None => Ok(()),
             };
             if sent.is_err() {
                 return;
