@@ -523,20 +523,37 @@ fn the_declared_settings_round_trip() {
 fn the_host_is_told_when_it_starts_and_stops_hiding_and_not_while_it_only_has_its_step() {
     let told = |rig: &Rig| rig.host.hiding.clone();
     let mut rig = Rig::new();
-    assert_eq!(told(&rig), [(NAME.to_string(), None, false)], "its step is there, and hides nothing");
+    assert_eq!(told(&rig), [(NAME.to_string(), Some("phone".to_string()), false)], "its step is there, and hides nothing");
     rig.switch_on();
     rig.see(1, 0.5);
     assert_eq!(told(&rig).len(), 1, "one person, so nothing to hide");
     rig.see(2, EVERY);
-    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), Some("phone".to_string()), true)));
     rig.see(2, 1.0);
     assert_eq!(told(&rig).len(), 2, "not said again while it carries on");
     rig.see(1, OFF_S + 1.0);
-    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), None, false)));
+    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), Some("phone".to_string()), false)));
     assert_eq!(told(&rig).len(), 3);
     // Blur now hides with nobody found
     rig.ui("now-clicked", vec![]);
-    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), Some("phone".to_string()), true)));
     rig.ui("now-clicked", vec![]);
-    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), None, false)));
+    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), Some("phone".to_string()), false)));
+}
+
+#[test]
+fn a_blurred_stream_stays_reported_hidden_while_another_is_in_front() {
+    let mut rig = Rig::new();
+    let stream = StreamInfo { source_id: "x".into(), url: "url".into(), session: 0 };
+    rig.switch_on();
+    rig.see(2, 0.5);
+    rig.plugin.on_focus_lost(&mut rig.host);
+    rig.host.focused = Some("laptop".into());
+    rig.plugin.on_focus_gained(&mut rig.host, &stream);
+    let told = rig.host.hiding.clone();
+    assert_eq!(told.last(), Some(&(NAME.to_string(), Some("laptop".to_string()), false)));
+    assert!(!told.iter().any(|(_, id, on)| id.is_none() && !on), "never a report for every stream");
+    // the phone's last word is still that it hides
+    let last_for = |id: &str| told.iter().rev().find(|(_, s, _)| s.as_deref() == Some(id)).map(|(_, _, on)| *on);
+    assert_eq!(last_for("phone"), Some(true));
 }
