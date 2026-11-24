@@ -1088,6 +1088,24 @@ fn the_graphics_priority_row_fits_the_narrowest_settings_window_on_windows() {
             wide.picture.save_png(&dir.join(format!("graphics-priority-{name}-default.png"))).unwrap();
         }
     }
+    // The same at the largest text and loosest density, picked through the Look card on the General tab
+    let big = Appearance { text: TextSize::Large, density: Density::Comfortable, contrast: true, ..Default::default() };
+    for (name, l) in [("dark", Look::Dark), ("light", Look::Light)] {
+        assert!(settings.show_tab("general"));
+        look(&w, l);
+        choose(&w, big);
+        assert!(settings.show_tab("video"));
+        w.process();
+        settle(&w);
+        let seen = look_at(&settings.ui, &format!("windows {name} largest at {SETTINGS_LEAST_W}"), SETTINGS_LEAST_W, None);
+        problems.extend(seen.problems.iter().cloned());
+        if let Some(dir) = shots() {
+            seen.picture.save_png(&dir.join(format!("graphics-priority-{name}-narrowest-largest.png"))).unwrap();
+        }
+    }
+    assert!(settings.show_tab("general"));
+    choose(&w, Appearance::default());
+    look(&w, Look::Dark);
     telescope_shell::settings::forget();
     w.shut_down();
     WINDOWS.with(|w| w.set(false));
