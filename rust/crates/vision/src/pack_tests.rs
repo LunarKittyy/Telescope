@@ -461,3 +461,13 @@ fn removing_the_download_leaves_a_zip_the_person_kept_there() {
     remove(&dir, None).unwrap();
     assert_eq!(names(&dir), ["Telescope-vision-linux-0123456789abcdef.zip".to_string()]);
 }
+
+#[test]
+fn the_pack_5_1_4_shipped_still_runs() {
+    // Same MediaPipe library and models as the current pack minus the face finder, which Auto framing does without
+    for (key, id) in [("linux", "a0043f336d81658ece87fc335229ae5da881c5e92f7fe4dbc1fed894db2d8a5e"), ("windows", "c751cea79917c7f1248f7b11e7c118bf83bb95fb0953f4efac298a889b0a3f13")] {
+        let info = PackInfo::from_json(&serde_json::from_str(PACK_INFO).unwrap(), Some(key));
+        assert!(info.older.iter().any(|o| o == id), "{key}");
+        assert!(info.older.len() <= 3, "{key}: the build script keeps three");
+    }
+}
