@@ -1087,8 +1087,9 @@ pub fn all() -> Vec<Scene> {
                     continue;
                 }
                 scenes.push(Scene::new(format!("r2set-{name}{state}-{label}"), move || {
-                    HAS_LOG.store(name == "about", std::sync::atomic::Ordering::Relaxed);
                     let services = services_with(quiet(), Changes { on_air: name == "onair", streaming: name == "streaming", ..Changes::default() });
+                    // After the services, which start every scene without a log
+                    HAS_LOG.store(name == "about", std::sync::atomic::Ordering::Relaxed);
                     let mut setup = Setup { page: Page::Settings(tab.into()), ..Setup::window(Some(services), main_window_config(true), size.0, size.1) };
                     if state == "-more" {
                         setup.then = Some(Box::new(move |w| {
