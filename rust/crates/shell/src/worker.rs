@@ -1085,13 +1085,21 @@ impl Shared {
         // The frame that was out before a dark one took its place, while its hiding is still to be run for real
         let pending = self.replay.lock().unwrap().take();
         let cached = pending.clone().unwrap_or(latest);
-        // This is the window's thread, which can't wait for the graphics card, and a dark stand-in would flash on the camera: a picture still on the card is left as it is out, and the worker's thread lands it and does the real run
-        let Some(in_hand) = cached.landed() else {
-            *self.replay.lock().unwrap() = Some(cached);
-            self.handed.fetch_add(1, Ordering::SeqCst);
-            self.slot.forget_history();
-            self.start_replay();
-            return;
+        // This is the window's thread, which can't wait for the graphics card, and a dark stand-in would flash on the camera. The whole picture in memory is hidden as it is; with only the copy scaled to the camera's size in memory (a stream the card scales), that copy is what the camera is showing, so it is hidden instead and the real run on the whole picture follows
+        let camera_fit = self.camera_fit.as_ref().and_then(|cell| telescope_core::media::unpack_camera_fit(cell.load(Ordering::Relaxed)));
+        let (in_hand, from_copy) = match cached.landed() {
+            Some(whole) => (whole, false),
+            None => match camera_fit.and_then(|(w, h)| cached.landed_fitted(w, h)) {
+                Some(copy) => (copy, true),
+                // A picture still on the card is left as it is out, and the worker's thread lands it and does the real run
+                None => {
+                    *self.replay.lock().unwrap() = Some(cached);
+                    self.handed.fetch_add(1, Ordering::SeqCst);
+                    self.slot.forget_history();
+                    self.start_replay();
+                    return;
+                }
+            },
         };
         let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered, hurried: true, superseded: None };
         let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(in_hand.clone(), &ctx))).unwrap_or_else(|_| {
@@ -1101,7 +1109,12 @@ impl Shared {
         let (out, changed) = match (hidden, pending) {
             (Some(out), _) => {
                 let changed = !Arc::ptr_eq(&out.data, &in_hand.data);
-                (telescope_core::media::PipelineFrame::from(out), changed)
+                // Nothing was hidden on the scaled copy: the whole picture goes back out as it was, not the smaller one
+                if from_copy && !changed {
+                    (cached.clone(), false)
+                } else {
+                    (telescope_core::media::PipelineFrame::from(out), changed)
+                }
             }
             // Nothing is left to hide, and the dark frame that went out for it isn't needed
             (None, Some(before)) => (before, false),
@@ -1475,7 +1488,12 @@ impl Shared {
         std::thread::Builder::new().name("stream-steps".into()).spawn(move || {
             let _counting = telescope_core::stats::bind(&s.stats);
             let _priority = telescope_core::system::prioritise_thread("frame steps");
-            while let Some((seq, frame)) = frames.take() {
+            loop {
+                let (next, stale) = frames.take_counting();
+                if stale > 0 {
+                    s.shed(stale as u64);
+                }
+                let Some((seq, frame)) = next else { break };
                 s.accept(seq, frame);
             }
         }).expect("a thread for the frame steps")
@@ -4186,6 +4204,81 @@ mod tests {
         let newest = kept.lock().unwrap().clone().unwrap().0;
         assert!(newest.landed_fitted(4, 4).is_some(), "the published picture wasn't scaled yet when the camera could take it");
         assert!(fits.load(Ordering::SeqCst) >= 3, "every frame is scaled once, on its way in");
+    }
+
+    /// A picture on the card with only its copy scaled to the camera in memory; reading the whole one back waits for the gate (a backed-up card).
+    struct OnlyScaled(Arc<AtomicBool>);
+
+    impl telescope_core::media::CardPicture for OnlyScaled {
+        fn land(&self) -> Frame {
+            while !self.0.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            grey(8, 8, 200)
+        }
+        fn landed(&self) -> Option<Frame> {
+            None
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn fits_on_card(&self, _width: u32, _height: u32) -> bool {
+            true
+        }
+        fn keeps_fitted(&self) -> bool {
+            true
+        }
+        fn landed_fitted(&self, width: u32, height: u32) -> Option<Frame> {
+            Some(grey(width, height, 200))
+        }
+        fn land_fitted(&self, width: u32, height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
+            Some(grey(width, height, 200))
+        }
+    }
+
+    /// Makes `OnlyScaled` pictures, and hides by halving the luma of the pixels it is given.
+    struct HalvesOnlyScaled(Arc<AtomicBool>, Arc<AtomicU64>);
+
+    impl FramePipeline for HalvesOnlyScaled {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn process_picture(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> telescope_core::media::PipelineFrame {
+            telescope_core::media::PipelineFrame::new(frame, Some(Arc::new(OnlyScaled(self.0.clone()))))
+        }
+        fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
+            Some(grey(frame.width, frame.height, frame.data[0] / 2))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+        fn camera_fit(&self) -> Option<Arc<AtomicU64>> {
+            Some(self.1.clone())
+        }
+    }
+
+    #[test]
+    fn hiding_a_stalled_picture_with_only_its_scaled_copy_in_memory_hides_that_copy_at_once() {
+        let cams = Arc::new(Cams::default());
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10), Step::Pause(Duration::from_secs(30))])]);
+        let (gate, cell) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicU64::new(0)));
+        let _opens_gate = OpensOnDrop(gate.clone());
+        let media = WithPipeline(Box::new({
+            let (gate, cell) = (gate.clone(), cell.clone());
+            move || Box::new(HalvesOnlyScaled(gate.clone(), cell.clone()))
+        }));
+        let setup = WorkerSetup { canvas: (Some(4), Some(4)), ..setup(opener) };
+        // A slot that wants no pixels in memory, so the stream doesn't read the whole picture back
+        let slot: Arc<dyn FrameSlot> = Arc::new(Keeps(Arc::new(Mutex::new(None)), Arc::new(Mutex::new(Vec::new()))));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(setup, Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        w.set_steps(privacy_step());
+        // The card is still backed up, so nothing but the scaled copy can be hidden: the camera must not stay on the clear one
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&100));
+        gate.store(true, Ordering::SeqCst);
+        w.stop();
     }
 
     /// Every other picture on the card (one the card fits to the camera) and the rest in memory at another size, as when the balance moves steps.
