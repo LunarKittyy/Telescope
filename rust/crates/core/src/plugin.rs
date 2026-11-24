@@ -1,4 +1,4 @@
-//! The plugin trait (TelescopePlugin in plugin.py): built-in plugins implement it in Rust, the plugin host implements it for Lua and WASM ones.
+//! The plugin trait: built-in plugins implement it in Rust, the plugin host implements it for Lua and WASM ones.
 
 use crate::event::Event;
 use crate::frame::{FrameStage, FrameStep};
@@ -264,7 +264,7 @@ pub trait Plugin: Send {
 }
 
 /// What a plugin following the panels keeps about a stream they moved away from while it streams on, so coming back to it
-/// picks up where it was instead of starting over (StreamsBehind in plugin.py). A stream is told apart by its
+/// picks up where it was instead of starting over. A stream is told apart by its
 /// StreamInfo::session, as the phone's ctrl object was.
 #[derive(Clone, Debug)]
 pub struct StreamsBehind<T> {

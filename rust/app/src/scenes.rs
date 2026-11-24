@@ -1340,7 +1340,6 @@ mod tests {
     // The plugins that say category = "extras" themselves in Python
     const IN_EXTRAS: [&str; 5] = ["mcp", "onboarding", "presets", "shortcuts", "updates"];
 
-    // test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon
     #[test]
     fn the_built_in_plugins_frame_order_is_the_one_written_down() {
         use telescope_core::frame::FrameStage;
@@ -1404,7 +1403,6 @@ mod tests {
         Some(icon.split(';').next()?.trim().replace('-', "_"))
     }
 
-    // test_plugins_panel.py::test_every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon
     #[test]
     fn every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon() {
         let bus = telescope_core::EventBus::new();

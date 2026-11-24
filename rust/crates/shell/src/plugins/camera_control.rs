@@ -1,4 +1,4 @@
-//! The Camera card (plugins/camera_control.py): lenses, exposure, focus and image settings sent to the phone. The card's
+//! The Camera card: lenses, exposure, focus and image settings sent to the phone. The card's
 //! widgets live here as plain state, changed the way Qt changes them (a value set while signals flow runs its handler),
 //! and camera.slint only draws them; its callbacks come back as UiEvents and the settings go out through Host::phone_control.
 

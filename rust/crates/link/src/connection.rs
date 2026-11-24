@@ -1,4 +1,4 @@
-//! What the Connection plugin decides, without its window (plugins/connection.py): the saved phones and route choice,
+//! What the Connection plugin decides, without its window: the saved phones and route choice,
 //! which checks to run and which answers count, the routes each stream holds (and their adb forwards), hand-overs and
 //! recovery, waking the phone's camera, and the texts that explain a phone that can't stream.
 //!
@@ -794,7 +794,7 @@ impl Connection {
     }
 }
 
-/// phones.py's name for a status.
+/// The name for a status.
 pub fn status_name(status: PhoneStatus) -> &'static str {
     match status {
         PhoneStatus::Ready => "ready",

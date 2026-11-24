@@ -1,4 +1,4 @@
-//! The editor for One picture (widgets/composite_editor.py), a window of the plugin's own: a live preview to drag, resize and crop
+//! The editor for One picture, a window of the plugin's own: a live preview to drag, resize and crop
 //! the streams on, and the controls for borders, corners, the background and saved layouts. Every change goes out at once. Its
 //! window draws what editor_props says and reports the pointer in px of the picture.
 

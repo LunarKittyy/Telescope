@@ -267,7 +267,7 @@ struct Entry {
 type Table = Option<Arc<Vec<f32>>>;
 
 /// What a stage is told apart by when baking again would give the same LUT: the data it holds. The Arcs are kept, so a freed
-/// stage's address can't be taken by another one and pass for it (colour.py keys on the stage objects themselves).
+/// stage's address can't be taken by another one and pass for it.
 #[derive(Clone)]
 struct Identity(Vec<(Arc<Vec<f32>>, Table)>);
 

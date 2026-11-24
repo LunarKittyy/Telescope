@@ -1,4 +1,4 @@
-//! The vision pack (vision_pack.py): MediaPipe and its models as one download from the release, checked and unpacked. It lands
+//! The vision pack: MediaPipe and its models as one download from the release, checked and unpacked. It lands
 //! in the same folder the Python app uses, one folder per pack id, so a pack either app downloaded works for both.
 
 use ring::digest::{Context, SHA256};
@@ -23,7 +23,7 @@ const CHUNK: usize = 256 * 1024;
 /// while it's unpacked and not after. Raise it when a pin bump makes the pack grow (build_vision_pack.py prints the unpacked size).
 pub const MAX_UNPACKED: u64 = 160 * 1024 * 1024;
 const REPO: &str = "LunarKittyy/Telescope";
-/// What scripts/build_vision_pack.py --write recorded for this version.
+/// What tools/build_vision_pack.py --write recorded for this version.
 pub const PACK_INFO: &str = include_str!("../vision_pack.json");
 /// And tools/build_matting_pack.py --write for the high quality cutout's download.
 pub const MATTING_INFO: &str = include_str!("../matting_pack.json");

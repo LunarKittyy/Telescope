@@ -267,7 +267,7 @@ pub struct Style {
 }
 
 impl Style {
-    /// json.dumps(cfg, indent=2), how config.py saves the settings file.
+    /// json.dumps(cfg, indent=2), how the Python app saved the settings file.
     pub const CONFIG: Style = Style { indent: Some(2), sort_keys: false, ensure_ascii: true };
     /// json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False), how the config fixtures are written.
     pub const FIXTURE: Style = Style { indent: Some(2), sort_keys: true, ensure_ascii: false };

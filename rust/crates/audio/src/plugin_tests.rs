@@ -1,4 +1,4 @@
-//! test_microphone.py and the card half of test_vb_cable.py.
+//! Tests for the Microphone plugin and the card half of the VB-Cable question.
 
 use super::*;
 use crate::backend::{Problem, WindowsMic};
@@ -322,7 +322,7 @@ fn the_card_is_greyed_out_until_a_phone_is_paired() {
     assert!(r.h.on("active"));
 }
 
-// test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked, the Microphone card's part
+// The Microphone card's part
 #[test]
 fn a_picked_source_counts_as_a_paired_phone() {
     let mut r = Rig::new(backend());
@@ -803,7 +803,7 @@ fn the_gain_key_steps_sets_and_resets_within_the_range() {
     assert_eq!(actions[0].keywords, "push to talk silence");
 }
 
-// VB-Cable from the card (test_vb_cable.py)
+// VB-Cable from the card
 
 fn windows_mic(downloaded: Result<std::path::PathBuf, String>, opened: &'static str, calls: &Shared<Vec<String>>) -> Arc<WindowsMic> {
     let (c1, c2) = (calls.clone(), calls.clone());

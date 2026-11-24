@@ -1,4 +1,4 @@
-//! The Browser camera's server (BrowserServer in browser_server.py): any device with a browser streams its camera and
+//! The Browser camera's server: any device with a browser streams its camera and
 //! mic here, no app needed.
 //!
 //! The device opens https://<this computer>:<port>/#<token> and allows the camera. Browsers only allow that on HTTPS

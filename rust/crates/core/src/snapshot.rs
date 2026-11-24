@@ -36,7 +36,7 @@ pub fn result(folder: &Path, scratch: &Path, plugins: &[String]) -> std::io::Res
     Ok(json!({"set_aside": set_aside, "plugins": plugins, "saved": saved}))
 }
 
-/// The snapshot as config_fixtures.py writes it.
+/// The snapshot as the Python app's fixtures wrote it.
 pub fn dump(snapshot: &Value) -> String {
     json::dumps(snapshot, Style::FIXTURE) + "\n"
 }
@@ -85,7 +85,7 @@ mod tests {
         keys
     }
 
-    // The parts config.py and the window decide; plugin sections become exact as plugins get ported
+    // The parts the settings and the window decide; plugin sections become exact as plugins get ported
     #[test]
     fn config_level_parts_match_every_fixture() {
         let mut folders: Vec<PathBuf> = std::fs::read_dir(fixtures()).expect("desktop fixtures").flatten()

@@ -33,7 +33,7 @@ fn window(doc: &str) -> ComponentInstance {
     w
 }
 
-// test_connection_dialogs.py::test_qr_widget_builds_matrix_and_renders, and the card's half of test_success_shows_the_phone_and_hands_the_result_over
+// The QR code is a square of real cells, and the card shows the phone and hands the result over
 #[test]
 fn the_code_is_a_square_of_real_cells_and_goes_once_paired() {
     let (cells, size) = telescope_link::plugin::qr("hello");

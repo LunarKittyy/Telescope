@@ -214,7 +214,7 @@ pub fn h264_hd(count: usize, w: u32, h: u32) -> Option<Vec<Vec<u8>>> {
 }
 
 /// H.264 packets (no delimiters) of a grey square moving right over a picture that changes completely every 6 frames, the
-/// way test_h264_mosh.py makes its streams: no B-frames, no scene cuts, a keyframe every `gop` frames. profile: "high" or "baseline".
+/// way the Mosher tests make their streams: no B-frames, no scene cuts, a keyframe every `gop` frames. profile: "high" or "baseline".
 pub fn h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -> Option<Vec<Vec<u8>>> {
     let g = gop.to_string();
     // Greys as BGR turn into YUV: the limited range

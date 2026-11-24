@@ -1,4 +1,4 @@
-//! A message before any window exists (the QMessageBox main.py and single_instance.py show when a start can't go on): a title, the
+//! A message before any window exists: a title, the
 //! words and an OK button, shown on its own until it's closed.
 
 use crate::compile::compile;

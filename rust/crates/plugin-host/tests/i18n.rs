@@ -1,5 +1,5 @@
 //! A plugin someone added can ship its own translations: locale/<lang>.po in its folder, used for its texts before Telescope's own, with
-//! English for what's missing, and a file that's broken costs it nothing but the translation (test_plugin_i18n.py).
+//! English for what's missing, and a file that's broken costs it nothing but the translation.
 
 use serde_json::{json, Value};
 use std::cell::RefCell;

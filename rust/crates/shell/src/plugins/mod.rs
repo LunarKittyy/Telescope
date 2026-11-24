@@ -43,7 +43,7 @@ pub fn builtins(services: Option<&Services>, bus: &BusSender) -> Vec<Box<dyn Plu
     ]
 }
 
-/// Every built-in plugin's name in the Python app's registration order (plugins/__init__.py), which is the order
+/// Every built-in plugin's name in the Python app's registration order, which is the order
 /// their cards and menu entries come in. Built-ins from other crates (Connection from link) arrive through
 /// Services.plugins and are put in their place by this.
 pub const ORDER: &[&str] = &[

@@ -1,4 +1,4 @@
-//! Starting, stopping and moving the panels between streams (stream_flow.py).
+//! Starting, stopping and moving the panels between streams.
 //!
 //! StreamFlow drives Sessions: it starts a source (waking a phone first), stops one, moves the panels' focus between
 //! streams that keep running and keeps the plugins that stay put (the mic) on one stream. It reaches the window only

@@ -1,4 +1,4 @@
-//! The picture work around the models, as vision.py does it with OpenCV: shrinking a frame for a model, the tiny grey copy that
+//! The picture work around the models, as the Python app did it with OpenCV: shrinking a frame for a model, the tiny grey copy that
 //! tells whether anything moved, carrying the last mask into the next, and turning a frame upright. Each one matches OpenCV's
 //! bytes (tests/fixtures/vision.json has what Python made).
 

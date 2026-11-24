@@ -1,4 +1,4 @@
-// The Stream output card drawn with the kit's real widgets (test_plugins.py's test_stream_quality_and_bitrate_reset_on_a_double_click).
+// The Stream output card drawn with the kit's real widgets.
 use i_slint_backend_testing::ElementHandle;
 use slint::platform::{PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};

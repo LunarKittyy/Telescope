@@ -1,4 +1,4 @@
-//! The QR codes plugin (plugins/qr_reader.py): a code held up to the camera goes to the clipboard, the Wi-Fi password for a Wi-Fi
+//! The QR codes plugin: a code held up to the camera goes to the clipboard, the Wi-Fi password for a Wi-Fi
 //! one. The picture is looked at on a thread of its own a few times a second; a code only counts once it's been read several
 //! looks in a row at about the same place, and is outlined on the preview while it does.
 

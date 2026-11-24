@@ -291,7 +291,7 @@ fn the_warp_looks_up_in_32nds_of_a_pixel_like_opencv() {
     }
 }
 
-/// Dev check against cv2: WARP_CASES names a JSON file of {w, h, rw, rh, image, matrix, expected} made with warp_gen.py.
+/// Dev check against cv2: WARP_CASES names a JSON file of {w, h, rw, rh, image, matrix, expected} made with a separate script.
 #[test]
 #[ignore]
 fn warp_perspective_matches_cv2_on_recorded_cases() {

@@ -299,7 +299,7 @@ impl Codec {
             if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || c.held.is_null() || (parse && c.parser.is_null()) {
                 return Err("out of memory opening a decoder".into());
             }
-            // Show each frame as soon as it's decoded instead of holding some back for reordering (h264_reader.py)
+            // Show each frame as soon as it's decoded instead of holding some back for reordering
             if !threads.whole_frames {
                 (*c.ctx).flags |= ff::AV_CODEC_FLAG_LOW_DELAY as i32;
             }

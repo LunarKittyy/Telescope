@@ -1,4 +1,4 @@
-//! Matching typed words against a few named fields of text, forgiving about typos and word endings (fuzzy.py).
+//! Matching typed words against a few named fields of text, forgiving about typos and word endings.
 
 use std::collections::HashMap;
 use unicode_normalization::UnicodeNormalization;

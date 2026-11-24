@@ -1,4 +1,4 @@
-//! Person masks and people's positions, once per stream, for the plugins that ask (vision.py's Vision). MediaPipe loads on first
+//! Person masks and people's positions, once per stream, for the plugins that ask. MediaPipe loads on first
 //! use; every call is safe before it's ready (None, nothing). A frame step gets the newest mask at once and leaves its frame for a
 //! thread of the stream's own, so the model and the work around it never hold a frame up, and a mask is a frame or so behind the
 //! picture and never over MASK_MAX_AGE_S behind (past that a step gets None). People come from another such thread, about 12 times a second

@@ -8,22 +8,22 @@ fn round4(v: f64) -> f64 {
     (v * 10_000.0).round() / 10_000.0
 }
 
-/// The camera going off while the mic streams on, and back (app.py, sources.py).
+/// The camera going off while the mic streams on, and back.
 pub fn camera_on(on: bool) -> Value {
     json!({"action": "camera_on", "value": if on { 1 } else { 0 }})
 }
 
-/// Asks for a keyframe now (app.py, after a decoder lost its place).
+/// Asks for a keyframe now.
 pub fn keyframe() -> Value {
     json!({"action": "keyframe"})
 }
 
-/// Focus on a point, 0..1 in the phone's own frame (camera_control.py).
+/// Focus on a point, 0..1 in the phone's own frame.
 pub fn focus_point(x: f64, y: f64) -> Value {
     json!({"action": "focus_point", "x": round4(x), "y": round4(y)})
 }
 
-/// Meter exposure on a point, focus left alone (camera_control.py).
+/// Meter exposure on a point, focus left alone.
 pub fn meter_point(x: f64, y: f64) -> Value {
     json!({"action": "meter_point", "x": round4(x), "y": round4(y)})
 }
@@ -52,7 +52,7 @@ pub fn notes_style(size: i64, speed: i64, playing: bool) -> Value {
     json!({"action": "notes_style", "size": size, "speed": speed, "playing": if playing { 1 } else { 0 }})
 }
 
-/// Bits per second; -1 is Dynamic, 0 Auto (stream_output.py).
+/// Bits per second; -1 is Dynamic, 0 Auto.
 pub fn bitrate(bps: i64) -> Value {
     json!({"action": "bitrate", "value": bps})
 }

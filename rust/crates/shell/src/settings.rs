@@ -1,4 +1,4 @@
-//! The settings window (widgets/settings_window.py): tabs down the left, one scrolling page of plugins' sections for
+//! The settings window: tabs down the left, one scrolling page of plugins' sections for
 //! each, the Plugins tab, and the search over all of it. Built from the plugins' SettingsSections the first time it
 //! opens, then kept.
 

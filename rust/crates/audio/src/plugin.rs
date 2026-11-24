@@ -1,4 +1,4 @@
-//! The Microphone plugin (plugins/microphone.py): the phone's microphone as a microphone on this computer.
+//! The Microphone plugin: the phone's microphone as a microphone on this computer.
 //!
 //! Per phone. While it's on, it follows the stream: it starts with it and stops with it. Mute keeps the virtual mic
 //! and the stream running and writes silence; it isn't saved. Setting up and removing the virtual mic, and stopping the

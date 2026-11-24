@@ -1,4 +1,4 @@
-//! The window's state without the window: the plugins, their cards and settings, banners, folds and saving (app.py's
+//! The window's state without the window: the plugins, their cards and settings, banners, folds and saving (the
 //! TelescopeWindow minus Qt). The Slint side (window.rs) drains `effects` after each call and shows the result.
 
 use telescope_core::i18n::Fields;
@@ -711,7 +711,7 @@ impl State {
     }
 
     /// Runs f with plugin i taken out and a host for it; a plugin that panics is logged and the others carry on, as
-    /// app.py's _call does with exceptions.
+    /// what the window's call does with exceptions.
     pub fn call<R>(&mut self, i: usize, f: impl FnOnce(&mut dyn Plugin, &mut crate::host::Ctx) -> R) -> Option<R> {
         let slot = self.slots.get_mut(i)?;
         if slot.stopped.is_some() || slot.ended {
@@ -2174,7 +2174,6 @@ mod tests {
         assert!(s.effects.iter().all(|e| e.plugin() != Some("grabber")) && !s.layers.contains_key("grabber"));
     }
 
-    // test_vision_pack.py::test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open
     #[test]
     fn the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open() {
         let mut s = state();
@@ -2183,7 +2182,7 @@ mod tests {
         assert_eq!(crate::switches::optional_on(&s.file.load()).into_iter().collect::<Vec<_>>(), ["framing"]);
     }
 
-    // test_vision_pack.py::test_a_failed_download_remembers_why_for_the_plugin_that_waited (vision's host_tests has what it remembers)
+    // Vision's host_tests has what it remembers
     #[test]
     fn a_failed_download_switches_nothing_on() {
         let mut s = state();

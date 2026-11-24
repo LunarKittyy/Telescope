@@ -1,4 +1,4 @@
-//! Which Telescope this is: the repo's VERSION file, as telescope/version.py reads it, for what's sent out (a User-Agent).
+//! Which Telescope this is: the repo's VERSION file, as the app reads it, for what's sent out (a User-Agent).
 
 pub fn version() -> &'static str {
     include_str!("../../../../VERSION").trim()

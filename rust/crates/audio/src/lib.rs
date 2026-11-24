@@ -1,4 +1,4 @@
-//! The phone's microphone into a virtual microphone (audio.py, denoise.py, platform/virtual_mic.py and the Microphone
+//! The phone's microphone into a virtual microphone (the audio worker, noise reduction, the virtual device and the Microphone
 //! plugin). The plugin (plugin.rs) is what the window uses; VirtualMic is core's Audio for anything else that has a
 //! phone's audio feed.
 

@@ -358,7 +358,6 @@ pub(crate) mod tests {
         c.send(frame).unwrap();
     }
 
-    // test_vcam.py::test_the_windows_11_camera_gets_nv12_at_the_readers_size
     #[test]
     fn the_windows_11_camera_gets_nv12_at_the_readers_size() {
         let o = Opener::new(Some(reading(8, 4)));
@@ -488,7 +487,6 @@ pub(crate) mod tests {
         assert_eq!(o.header().counter, 4);
     }
 
-    // test_vcam.py::test_a_frame_of_another_size_is_fitted_to_what_the_app_picked
     #[test]
     fn a_frame_of_another_size_is_fitted_to_what_the_app_picked() {
         let o = Opener::new(Some(reading(8, 4)));
@@ -512,7 +510,6 @@ pub(crate) mod tests {
         assert_eq!(c.fit_size(), Some((4, 2)));
     }
 
-    // test_vcam.py::test_frames_are_dropped_until_an_app_opens_the_camera
     #[test]
     fn frames_are_dropped_until_an_app_opens_the_camera() {
         let o = Opener::new(None);
@@ -523,7 +520,6 @@ pub(crate) mod tests {
         assert_eq!(o.header().counter, 2);
     }
 
-    // test_vcam.py::test_a_write_cut_off_half_way_is_finished_with_an_even_count
     #[test]
     fn a_write_cut_off_half_way_is_finished_with_an_even_count() {
         let o = Opener::new(Some(shared(8, 4, 1, 0, 5, None, MAGIC)));
@@ -532,7 +528,6 @@ pub(crate) mod tests {
         assert_eq!(o.header().counter, 8);
     }
 
-    // test_vcam.py::test_the_camera_is_let_go_once_the_app_stops_reading
     #[test]
     fn the_camera_is_let_go_once_the_app_stops_reading() {
         let o = Opener::new(Some(reading(8, 4)));
@@ -545,7 +540,6 @@ pub(crate) mod tests {
         assert!(!c.is_open());
     }
 
-    // test_vcam.py::test_an_app_that_stopped_asking_for_frames_counts_as_gone
     #[test]
     fn an_app_that_stopped_asking_for_frames_counts_as_gone() {
         let o = Opener::new(Some(shared(8, 4, 1, 7, 0, None, MAGIC)));
@@ -558,7 +552,6 @@ pub(crate) mod tests {
         assert_eq!(o.opened.load(Ordering::SeqCst), 2);
     }
 
-    // test_vcam.py::test_a_size_too_big_for_the_shared_memory_is_never_written
     #[test]
     fn a_size_too_big_for_the_shared_memory_is_never_written() {
         let o = Opener::new(Some(shared(8, 4, 1, 0, 0, Some(10), MAGIC)));
@@ -568,14 +561,13 @@ pub(crate) mod tests {
         assert_eq!(o.header().counter, 0);
     }
 
-    // test_vcam.py::test_memory_from_another_program_is_refused
     #[test]
     fn memory_from_another_program_is_refused() {
         assert!(!Opener::new(Some(shared(8, 4, 1, 0, 0, None, 0x1234))).opener()().unwrap().valid());
         assert!(Opener::new(Some(reading(8, 4))).opener()().unwrap().valid());
     }
 
-    // test_vcam.py::test_the_windows_11_camera_only_takes_rgb_or_bgr (here: I420 or RGBA)
+    // Here: I420 or RGBA
     #[test]
     fn the_windows_11_camera_only_takes_i420_or_rgba() {
         let o = Opener::new(None);
@@ -585,7 +577,6 @@ pub(crate) mod tests {
         assert!(c.send(&Frame::new(8, 4, PixelFormat::Rgba, vec![0; 128])).is_ok());
     }
 
-    // test_vcam.py::test_camera_changed_compares_the_kind_with_the_slots_camera
     #[test]
     fn a_camera_whose_slot_moved_off_the_windows_11_camera_is_outdated() {
         let o = Opener::new(None);
@@ -597,7 +588,6 @@ pub(crate) mod tests {
         assert!(c.outdated());
     }
 
-    // test_vcam.py::test_the_python_side_matches_the_dlls_shared_memory_layout
     #[test]
     fn the_layout_matches_the_dlls_shared_memory() {
         let header = include_str!("../../../windows/virtualcamera/shared_frame.h");

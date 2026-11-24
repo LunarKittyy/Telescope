@@ -1,4 +1,4 @@
-//! The window's plugin update check: telling about new releases and, with auto-update on, installing them (test_plugin_updater.py).
+//! The window's plugin update check: telling about new releases and, with auto-update on, installing them.
 
 use serde_json::json;
 use std::io::Write;

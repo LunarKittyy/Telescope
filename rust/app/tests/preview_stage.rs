@@ -1,4 +1,4 @@
-// test_preview.py through the window: the real Preview, real frames painted on the stage and the pop-out, and the real mouse.
+// Through the window: the real Preview, real frames painted on the stage and the pop-out, and the real mouse.
 mod rig;
 
 use rig::{Listener, Rig};

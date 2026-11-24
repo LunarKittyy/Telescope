@@ -1,4 +1,4 @@
-//! Setup (plugins/setup.py, its AdvancedSettings cards): no card in the window, only sections in Settings. The virtual
+//! Setup: no card in the window, only sections in Settings. The virtual
 //! camera and the phone app on Virtual camera & phone, the Video card (hardware decoding, power-saving effects, the Zoom
 //! slider's reach and the canvas size), the Microphone card (the Gain slider's reach and the limiter), the Look card (card
 //! colours and the language) and About. Its settings are what other parts read through the host: canvas_size(), the
@@ -39,11 +39,11 @@ pub const BUG_REPORT_URL: &str = "https://github.com/LunarKittyy/Telescope/issue
 pub const HELP_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md";
 pub const TRANSLATE_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/development/translating.md";
 
-/// platform/linux.py's devices and the message a refused password prompt comes back with (the outputs crate has the same).
+/// The Linux devices and the message a refused password prompt comes back with (the outputs crate has the same).
 pub const V4L2_PHONE_DEV: &str = "/dev/video11";
 pub const V4L2_OBS_DEV: &str = "/dev/video10";
 pub const CANCELLED: &str = "Cancelled.";
-/// platform/windows.py's UC_NAME: what Telescope registers UnityCapture as.
+/// UC_NAME: what Telescope registers UnityCapture as.
 pub const UC_NAME: &str = "Telescope";
 
 /// The decoder names the Hardware acceleration row says (_HW_NAMES).

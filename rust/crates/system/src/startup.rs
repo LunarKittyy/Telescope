@@ -1,4 +1,4 @@
-//! The Startup plugin (plugins/startup.py): starting and stopping on its own, and opening Telescope at sign-in.
+//! The Startup plugin: starting and stopping on its own, and opening Telescope at sign-in.
 //!
 //! The Automatic streaming card in Settings picks when a stream starts by itself (never, as soon as the phone is ready, or when
 //! an app opens the camera) and when one stops by itself (never, or once no app has read the camera for a while: only a stream it

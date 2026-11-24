@@ -1,4 +1,4 @@
-//! One stream's video (StreamWorker in stream.py): it reads the source's feed, decodes it, runs the plugins' frame
+//! One stream's video: it reads the source's feed, decodes it, runs the plugins' frame
 //! steps and feeds the virtual camera, reconnecting when the stream drops and moving to another route without a gap.
 //!
 //! The reader (and its phone connection) outlives virtual camera restarts: an fps change only reopens the camera.
@@ -2910,7 +2910,7 @@ mod tests {
         w.stop();
     }
 
-    // test_stream.py's reader and reconnect checks: a feed told what to do, which says when the worker lets go of it.
+    // Reader and reconnect checks: a feed told what to do, which says when the worker lets go of it.
 
     #[derive(Clone)]
     enum Step {
@@ -5503,7 +5503,6 @@ mod tests {
         assert!(forgot, "the new worker forgets its own state when it ends");
     }
 
-    // test_view_controller.py::test_people_are_found_in_the_picture_as_shown_through_the_phone_share
     #[test]
     fn people_are_found_in_the_picture_as_shown_through_the_phone_share() {
         use telescope_core::host::ViewChange;

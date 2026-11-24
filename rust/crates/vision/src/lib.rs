@@ -1,6 +1,6 @@
 //! People in the picture for the plugins that look at them: the vision pack's download (pack), MediaPipe from it (mediapipe),
 //! the picture work around the models (ops) and the per-stream scheduling (service). VisionHost puts them together as core's
-//! VisionService, adding the steady people tracking app.py does (core::people) and the app's one download (VisionDownload).
+//! VisionService, adding the steady people tracking (core::people) and the app's one download (VisionDownload).
 
 pub mod heads;
 pub mod matting;

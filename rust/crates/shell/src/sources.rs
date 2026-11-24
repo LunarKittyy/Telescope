@@ -1,4 +1,4 @@
-//! What the window streams from (sources.py): a paired phone, reached through link, or a plugin's StreamSource.
+//! What the window streams from: a paired phone, reached through link, or a plugin's StreamSource.
 //!
 //! A phone does what only a phone can: wake its camera, look for another route when the stream drops and report its
 //! state. Its blocking calls run on threads of their own and come back to the window on the UI thread (Report).
@@ -1726,7 +1726,7 @@ mod tests {
         assert!(opened[0].released.load(Ordering::SeqCst), "and the older one's goes");
     }
 
-    // test_sources.py: what a phone decides, against a stand-in window
+    // What a phone decides, against a stand-in window
 
     fn wifi() -> RouteSpec {
         RouteSpec::Network { address: "192.168.1.20".into() }

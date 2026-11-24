@@ -1,4 +1,4 @@
-//! How a phone camera's lens is named (widgets/lens_panel.py): the same short English name wherever the phone app was built,
+//! How a phone camera's lens is named: the same short English name wherever the phone app was built,
 //! and the words of it in the language loaded. The Camera card's tiles and Transforms' lens notes both use it.
 
 use crate::i18n::tr_ctx;

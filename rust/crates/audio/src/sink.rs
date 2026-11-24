@@ -1,4 +1,4 @@
-//! Where the worker writes: the Linux pipe source's FIFO, or VB-Cable's playback end on Windows (audio.py's FifoSink
+//! Where the worker writes: the Linux pipe source's FIFO, or VB-Cable's playback end on Windows (the FIFO sink
 //! and SoundDeviceSink).
 
 #[cfg(unix)]

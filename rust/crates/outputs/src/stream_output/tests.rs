@@ -188,7 +188,7 @@ fn the_card_compiles_with_the_kit() {
     crate::ui_check::compiles(UI, "stream_output.slint", "StreamOutputCard");
 }
 
-// test_plugins.py: the stream_output fixture's tests, as the card and the phone see them
+// The stream_output fixture's tests, as the card and the phone see them
 
 fn cam(id: &str, sizes: &[(u32, u32)]) -> Value {
     let list: Vec<Value> = sizes.iter().map(|(w, h)| json!({"width": w, "height": h})).collect();
@@ -587,7 +587,7 @@ fn stream_output_saved_resolution_does_not_leak_into_the_next_device() {
     assert_eq!(p.pending_resolution_text, None);
 }
 
-// test_plugins.py runs this for Monitoring too; its half is in setup's monitoring_tests.rs
+// Runs this for Monitoring too; its half is in setup's monitoring_tests.rs
 #[test]
 fn the_card_is_greyed_out_until_a_phone_is_paired() {
     let (mut p, mut host) = (plugin(), FakeHost::new());

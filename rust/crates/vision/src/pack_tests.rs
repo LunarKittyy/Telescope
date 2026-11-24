@@ -1,4 +1,4 @@
-//! test_vision_pack.py, by name.
+//! Tests for the vision pack.
 
 use super::*;
 use std::io::Cursor;

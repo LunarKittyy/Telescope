@@ -1,4 +1,4 @@
-//! The maths of the Colour grading card (telescope/grade.py): one Grade turns RGB values 0..1 into graded ones, in the order a
+//! The maths of the Colour grading card: one Grade turns RGB values 0..1 into graded ones, in the order a
 //! grading panel reads (white balance, wheels, contrast, tone, saturation, curves, then a LUT file).
 
 use crate::cube::CubeLut;

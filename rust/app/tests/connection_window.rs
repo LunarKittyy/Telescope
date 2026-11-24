@@ -1,5 +1,4 @@
-// Per-phone settings through the real window with the real Connection and Camera plugins (test_connection.py's
-// window_with_plugins tests).
+// Per-phone settings through the real window with the real Connection and Camera plugins.
 mod rig;
 
 use rig::Rig;

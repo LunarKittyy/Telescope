@@ -1,4 +1,4 @@
-// test_widgets.py's checks of what a widget looks like, on the kit's widgets drawn by the software renderer.
+// Checks of what a widget looks like, on the kit's widgets drawn by the software renderer.
 use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition, SharedString};
 use slint_interpreter::{ComponentInstance, Value};

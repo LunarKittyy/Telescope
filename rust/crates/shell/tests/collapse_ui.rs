@@ -1,4 +1,4 @@
-// Cards and sections fold when their title is clicked, and what's folded is remembered (tests/test_collapse.py), on the
+// Cards and sections fold when their title is clicked, and what's folded is remembered, on the
 // kit's Card and Section driven through Slint's testing backend with the same Collapsing state the window keeps.
 use i_slint_backend_testing::ElementHandle;
 use slint::platform::{PointerEventButton, WindowEvent};

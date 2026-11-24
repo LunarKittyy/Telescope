@@ -1,4 +1,4 @@
-//! Windows global shortcuts (platform/hotkeys_windows.py): RegisterHotKey on a thread of its own, whose message loop
+//! Windows global shortcuts: RegisterHotKey on a thread of its own, whose message loop
 //! gets the WM_HOTKEYs.
 //!
 //! Windows never says when the key comes back up, so for "while held" the thread watches the key (GetAsyncKeyState)

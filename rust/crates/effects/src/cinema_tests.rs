@@ -1,4 +1,4 @@
-//! The Cinema tools plugin: tests/test_cinema.py's card, settings, level guide and sensor tests.
+//! The Cinema tools plugin: card, settings, level guide and sensor tests.
 
 use super::*;
 use std::sync::atomic::{AtomicU64, Ordering};

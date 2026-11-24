@@ -1,4 +1,4 @@
-//! What the Cinema tools draw over the preview (CinemaLayer in plugins/cinema.py): the framing guides, the false colour legend,
+//! What the Cinema tools draw over the preview: the framing guides, the false colour legend,
 //! the level guide and the scope, painted into one transparent picture the size of the preview, and the layer that holds the
 //! tools' look, the scope last worked out and the newest tilt for the preview to ask. The guides' lines are the sharp ones Qt
 //! draws without anti-aliasing; the rest is smoothed.

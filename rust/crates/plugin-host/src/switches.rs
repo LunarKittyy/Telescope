@@ -161,7 +161,6 @@ mod tests {
         Switches::new(ConfigFile::at(scratch_dir("switches").join("telescope_config.json")))
     }
 
-    // test_plugin_loader.py::test_built_in_plugins_switch_off_and_back_on
     #[test]
     fn built_in_plugins_switch_off_and_back_on() {
         let s = switches();
@@ -179,7 +178,6 @@ mod tests {
         assert!(s.builtin_off().is_empty() && s.optional_on().is_empty());
     }
 
-    // test_plugin_loader.py::test_the_switches_survive_a_settings_save
     #[test]
     fn the_switches_survive_a_settings_save() {
         let s = switches();

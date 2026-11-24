@@ -1,4 +1,4 @@
-// test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs: only the vision pack is still loaded from outside
+// Only the vision pack is still loaded from outside
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;

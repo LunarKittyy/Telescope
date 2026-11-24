@@ -1,4 +1,4 @@
-//! When a freshly updated copy counts as having started fine (main.py's started_fine and its timer).
+//! When a freshly updated copy counts as having started fine.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;

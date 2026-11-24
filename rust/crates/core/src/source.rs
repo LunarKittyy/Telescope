@@ -1,4 +1,4 @@
-//! What a stream comes from: a paired phone, or a plugin's StreamSource (sources.py).
+//! What a stream comes from: a paired phone, or a plugin's StreamSource.
 
 use crate::i18n::tr;
 use crate::media::{Codec, Decoder, VideoFeed};
@@ -80,7 +80,7 @@ pub trait SourceStills: Send + Sync {
     fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>);
 }
 
-/// Something other than a paired phone to stream from, like the Browser camera (StreamSource in plugin.py).
+/// Something other than a paired phone to stream from, like the Browser camera.
 pub trait StreamSource: Send + Sync {
     /// Also the key its per-device settings are saved under, so it mustn't look like a phone id.
     fn id(&self) -> String;

@@ -1,4 +1,4 @@
-//! The Privacy blur plugin (plugins/privacy_blur.py): when more than one person is in the picture, blurs all of it or puts the wait screen up instead. Kept as small as it can be, so anything it gets wrong is the people detection's doing.
+//! The Privacy blur plugin: when more than one person is in the picture, blurs all of it or puts the wait screen up instead. Kept as small as it can be, so anything it gets wrong is the people detection's doing.
 
 use crate::cpu::Rgb;
 use crate::shared::Paired;

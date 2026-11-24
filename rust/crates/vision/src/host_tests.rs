@@ -1,4 +1,4 @@
-//! VisionHost: the download the cards share (vision_download.py) and the people app.py tracks, on the bus.
+//! VisionHost: the download the cards share and the people tracked, on the bus.
 
 use super::*;
 use crate::service::tests::{wait, Fake};

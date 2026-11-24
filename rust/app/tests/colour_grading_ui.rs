@@ -1,4 +1,4 @@
-//! test_colour_grading.py's tests of what's on screen: the card in a real offscreen window, the plugin among the real built-ins.
+//! Tests of what's on screen: the card in a real offscreen window, the plugin among the real built-ins.
 
 use i_slint_backend_testing::ElementHandle;
 use serde_json::{json, Value as Json};

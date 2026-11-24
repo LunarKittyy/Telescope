@@ -1,4 +1,4 @@
-//! A dev profile (dev_profile.py): TELESCOPE_DEV_PROFILE names a folder that holds this copy's config and log, apart from the real app.
+//! A dev profile: TELESCOPE_DEV_PROFILE names a folder that holds this copy's config and log, apart from the real app.
 
 use std::path::{Path, PathBuf};
 

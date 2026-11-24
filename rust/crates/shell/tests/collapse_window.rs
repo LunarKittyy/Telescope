@@ -1,4 +1,4 @@
-// Folding in the real window, with a plugin that only declares a card the standard way (tests/test_collapse.py's "In the
+// Folding in the real window, with a plugin that only declares a card the standard way (the "In the
 // window" part). Driven through Slint's testing backend: nothing reaches the desktop.
 use i_slint_backend_testing::ElementHandle;
 use slint::ComponentHandle;

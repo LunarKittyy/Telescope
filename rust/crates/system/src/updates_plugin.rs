@@ -1,4 +1,4 @@
-//! The Updates plugin (plugins/updates.py): checks a few seconds after launch and then daily, quietly; a newer build shows an Update
+//! The Updates plugin: checks a few seconds after launch and then daily, quietly; a newer build shows an Update
 //! button in the header. Updating downloads, verifies, swaps the files and restarts, waiting for a running stream to stop first. A copy
 //! that can't replace itself gets the release page instead. The network and the install go through a Backend, so tests stand in for them.
 
@@ -1121,7 +1121,7 @@ mod tests {
         assert_eq!(quits(&host), 1);
     }
 
-    // An unzipped Windows copy updates through the installer (plugins/updates.py's moves_on_update)
+    // An unzipped Windows copy updates through the installer
 
     fn with_setup() -> Manifest {
         let mut m = newer();
@@ -1527,7 +1527,6 @@ mod tests {
         (plugin, host, backend, root)
     }
 
-    // test_updates_plugin.py::test_the_installer_route_relaunches_the_installed_copy, test_adb_is_stopped_before_the_setup_runs
     #[test]
     fn the_installer_route_stops_adb_then_relaunches_the_installed_copy() {
         let body = b"setup".to_vec();
@@ -1547,7 +1546,7 @@ mod tests {
         assert_eq!(quits(&host), 1);
     }
 
-    // test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build, through the installer
+    // Through the installer
     #[test]
     fn a_setup_replaced_before_its_download_marks_the_build_that_went_in() {
         let body = b"setup".to_vec();

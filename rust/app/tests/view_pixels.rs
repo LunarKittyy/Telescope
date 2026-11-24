@@ -1,4 +1,4 @@
-// test_view_controller.py with real pixels and the real Transforms card: the view's steps run on the graphics card (they skip
+// With real pixels and the real Transforms card: the view's steps run on the graphics card (they skip
 // without one), and the card and the controller meet in the window.
 mod rig;
 
@@ -57,7 +57,6 @@ fn flipped(frame: &Frame) -> Vec<u8> {
     frame.data.chunks(w * 4).flat_map(|row| row.chunks(4).rev().flatten().copied().collect::<Vec<u8>>()).collect()
 }
 
-// test_view_controller.py::test_a_frozen_step_keeps_the_view_it_was_taken_with
 #[test]
 fn a_frozen_step_keeps_the_view_it_was_taken_with() {
     let Some(mut run) = pipeline() else { return };
@@ -110,7 +109,6 @@ fn error(a: &Frame, b: &Frame) -> f64 {
     total as f64 / u64::from(SIZE.0 * SIZE.1) as f64
 }
 
-// test_view_controller.py::test_a_new_phone_share_is_cropped_for_only_once_its_frames_arrive
 #[test]
 fn a_new_phone_share_is_cropped_for_only_once_its_frames_arrive() {
     let Some(mut run) = pipeline() else { return };
@@ -159,7 +157,6 @@ fn a_turned_view_stands_the_picture_up_for_the_pose_model() {
     assert_eq!((up.w, up.h), (40, 60));
 }
 
-// test_view_controller.py::test_the_transforms_card_greys_out_zoom_and_pan_while_something_else_moves_them
 #[test]
 fn the_transforms_card_greys_out_zoom_and_pan_while_something_else_moves_them() {
     let r = Rig::with("view-greys", |_, heard| vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(TransformsPlugin::new())]);

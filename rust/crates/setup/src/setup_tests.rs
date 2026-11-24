@@ -1,4 +1,4 @@
-//! test_setup.py's tests and test_plugins.py's Setup ones, by the same names.
+//! Tests for the Setup plugin.
 
 use super::*;
 use std::sync::Mutex;
@@ -702,7 +702,6 @@ fn the_graphics_card_row_says_what_really_happens() {
     assert!(!checked(&r));
 }
 
-// test_plugins.py
 
 #[test]
 fn setup_plugin_canvas_config() {

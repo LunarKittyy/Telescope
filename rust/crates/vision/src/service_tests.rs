@@ -1,4 +1,4 @@
-//! test_vision.py, by name, against a fake MediaPipe (the real one is in tests/parity.rs).
+//! Vision service tests, against a fake MediaPipe (the real one is in tests/parity.rs).
 
 use super::*;
 use std::sync::mpsc;

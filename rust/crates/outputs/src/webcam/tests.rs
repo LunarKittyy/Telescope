@@ -60,7 +60,6 @@ fn status(env: &Env) -> String {
     env.plugin.props(streaming)["status-text"].as_str().unwrap().to_string()
 }
 
-// test_webcam_plugin.py::test_webcams_are_listed_by_name
 #[test]
 fn webcams_are_listed_by_name() {
     let env = cams();
@@ -68,7 +67,6 @@ fn webcams_are_listed_by_name() {
     assert_eq!(env.plugin.sources["usb-c920"].name(), "HD Pro Webcam C920");
 }
 
-// test_webcam_plugin.py::test_a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves
 #[test]
 fn a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves() {
     let mut env = cams();
@@ -81,7 +79,6 @@ fn a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves() {
     assert!(env.host.calls.contains(&"remove_stream_source webcam:usb-brio".to_string()), "{:?}", env.host.calls);
 }
 
-// test_webcam_plugin.py::test_a_renamed_webcam_is_offered_again_under_its_new_name
 #[test]
 fn a_renamed_webcam_is_offered_again_under_its_new_name() {
     let mut env = cams();
@@ -99,7 +96,6 @@ fn a_webcam_whose_name_changes_under_the_same_key_is_named_afresh() {
     assert_eq!(env.host.calls.iter().filter(|c| *c == "add_stream_source webcam:usb-c920").count(), 2);
 }
 
-// test_webcam_plugin.py::test_a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on
 #[test]
 fn a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on() {
     let mut env = cams();
@@ -117,7 +113,6 @@ fn a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on() {
     assert!(!env.plugin.states.contains_key("usb-c920"));
 }
 
-// test_webcam_plugin.py::test_an_unplugged_webcam_leaves_once_its_stream_stops
 #[test]
 fn an_unplugged_webcam_leaves_once_its_stream_stops() {
     let mut env = cams();
@@ -129,7 +124,6 @@ fn an_unplugged_webcam_leaves_once_its_stream_stops() {
     assert!(!env.plugin.sources.contains_key("usb-c920"));
 }
 
-// test_webcam_plugin.py::test_start_on_a_webcam_unplugged_since_it_was_picked_says_so
 #[test]
 fn start_on_a_webcam_unplugged_since_it_was_picked_says_so() {
     let env = cams();
@@ -144,7 +138,6 @@ fn start_on_a_webcam_unplugged_since_it_was_picked_says_so() {
     assert!(env.host.calls.iter().any(|c| c == "show_issue start HD Pro Webcam C920 isn't plugged in"));
 }
 
-// test_webcam_plugin.py::test_a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens
 #[test]
 fn a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens() {
     let mut env = cams();
@@ -159,7 +152,6 @@ fn a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens() {
     assert_eq!(status(&env), "1280×720, MJPEG, 30 fps");
 }
 
-// test_webcam_plugin.py::test_a_busy_webcam_without_a_known_app_still_says_what_to_do
 #[test]
 fn a_busy_webcam_without_a_known_app_still_says_what_to_do() {
     let mut env = cams();
@@ -169,7 +161,6 @@ fn a_busy_webcam_without_a_known_app_still_says_what_to_do() {
     assert!(issue.text.contains("Another app"), "{issue:?}");
 }
 
-// test_webcam_plugin.py::test_the_card_shows_only_while_a_webcam_is_picked
 #[test]
 fn the_card_shows_only_while_a_webcam_is_picked() {
     let mut env = cams();
@@ -180,7 +171,6 @@ fn the_card_shows_only_while_a_webcam_is_picked() {
     assert_eq!(env.plugin.props(false)["visible"], false);
 }
 
-// test_webcam_plugin.py::test_the_card_offers_the_cameras_sizes_and_the_rates_at_each
 #[test]
 fn the_card_offers_the_cameras_sizes_and_the_rates_at_each() {
     let mut env = cams();
@@ -191,7 +181,6 @@ fn the_card_offers_the_cameras_sizes_and_the_rates_at_each() {
     assert_eq!(env.plugin.fps_items().0, [30]);
 }
 
-// test_webcam_plugin.py::test_settings_are_kept_per_camera_and_used_for_the_capture
 #[test]
 fn settings_are_kept_per_camera_and_used_for_the_capture() {
     let mut env = cams();
@@ -212,7 +201,6 @@ fn settings_are_kept_per_camera_and_used_for_the_capture() {
     assert_eq!(other.plugin.shared.choice(&c920()), Some(want));
 }
 
-// test_webcam_plugin.py::test_changing_a_streaming_webcams_settings_reopens_it
 #[test]
 fn changing_a_streaming_webcams_settings_reopens_it() {
     let mut env = cams();
@@ -222,7 +210,6 @@ fn changing_a_streaming_webcams_settings_reopens_it() {
     assert!(env.host.calls.contains(&"reconnect_stream".to_string()));
 }
 
-// test_webcam_plugin.py::test_a_saved_size_the_camera_no_longer_offers_stays_shown
 #[test]
 fn a_saved_size_the_camera_no_longer_offers_stays_shown() {
     let mut env = cams();
@@ -232,7 +219,6 @@ fn a_saved_size_the_camera_no_longer_offers_stays_shown() {
     assert_eq!(p["size-items"][p["size-current"].as_u64().unwrap() as usize], "800×600");
 }
 
-// test_webcam_plugin.py::test_bad_config_is_ignored
 #[test]
 fn bad_config_is_ignored() {
     let mut env = cams();
@@ -242,7 +228,6 @@ fn bad_config_is_ignored() {
     assert_eq!(env.plugin.get_config(), json!({"cameras": {}}));
 }
 
-// test_webcam_plugin.py::test_a_camera_that_lists_no_modes_gets_what_was_picked
 #[test]
 fn a_camera_that_lists_no_modes_gets_what_was_picked() {
     let env = cams_with(vec![], Box::new(|_| None));
@@ -250,7 +235,6 @@ fn a_camera_that_lists_no_modes_gets_what_was_picked() {
     assert_eq!(env.plugin.shared.choice(&bare), Some(Choice { fourcc: "RAW".into(), width: 1280, height: 720, fps: 30.0 }));
 }
 
-// test_webcam_plugin.py::test_the_source_reads_through_the_plugin
 #[test]
 fn the_source_reads_through_the_plugin() {
     let env = cams();
@@ -282,7 +266,7 @@ impl webcam_capture::Capture for OneFrame {
     }
 }
 
-// test_webcam_plugin.py::test_the_source_reads_through_the_plugin: with a camera there, the source gives the frames it read
+// With a camera there, the source gives the frames it read
 #[test]
 fn the_source_opens_a_feed_of_the_cameras_frames() {
     let plugged = Arc::new(Mutex::new(vec![c920()]));
@@ -302,7 +286,6 @@ fn the_source_opens_a_feed_of_the_cameras_frames() {
     assert_eq!(feed.read().map(|p| p.data).unwrap(), [0xFF, 0xD8, 0xFF, 0xD9]);
 }
 
-// test_webcam_plugin.py::test_a_failing_scan_keeps_what_was_found
 #[test]
 fn a_failing_scan_keeps_what_was_found() {
     let mut env = cams();
@@ -311,7 +294,6 @@ fn a_failing_scan_keeps_what_was_found() {
     assert!(env.plugin.sources.contains_key("usb-c920"));
 }
 
-// test_webcam_plugin.py::test_diagnostics_list_the_webcams_and_their_streams
 #[test]
 fn diagnostics_list_the_webcams_and_their_streams() {
     let mut env = cams();
@@ -324,7 +306,7 @@ fn diagnostics_list_the_webcams_and_their_streams() {
     assert_eq!(env.plugin.diagnostics(), [("Webcams".to_string(), "none found".to_string())]);
 }
 
-// The picture settings card (test_webcam_controls.py's card tests)
+// The picture settings card
 
 #[derive(Clone, Default)]
 struct Backend {
@@ -803,7 +785,6 @@ fn stepping_and_holding_send_no_new_tiles_that_would_rebuild_the_arrow_under_the
     ui(&mut env, "hold-up", vec![]);
 }
 
-// test_webcam_controls.py::test_a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains
 #[test]
 fn a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains() {
     let (mut env, backend) = card();
@@ -813,7 +794,6 @@ fn a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_t
     assert_eq!(*backend.sets.lock().unwrap(), [("anti_flicker".to_string(), 1)]);
 }
 
-// test_webcam_controls.py::test_the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto
 #[test]
 fn the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto() {
     let (mut env, _backend) = card();
@@ -824,7 +804,6 @@ fn the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto()
     assert!(row_enabled(&env, "exposure_time"));
 }
 
-// test_webcam_controls.py::test_picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again
 #[test]
 fn picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again() {
     let (mut env, backend) = card();
@@ -841,7 +820,6 @@ fn picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again() {
     assert!(sets.contains(&("exposure_time".to_string(), 166)) && sets.contains(&("gain".to_string(), 40)));
 }
 
-// test_webcam_controls.py::test_an_opening_that_reads_like_the_last_one_still_puts_the_settings_back
 #[test]
 fn an_opening_that_reads_like_the_last_one_still_puts_the_settings_back() {
     let (mut env, backend) = card();
@@ -854,7 +832,6 @@ fn an_opening_that_reads_like_the_last_one_still_puts_the_settings_back() {
     assert!(backend.sets.lock().unwrap().contains(&("gain".to_string(), 40)));
 }
 
-// test_webcam_controls.py::test_reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked
 #[test]
 fn reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked() {
     let (mut env, backend) = card();
@@ -867,7 +844,6 @@ fn reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked() {
     assert!(env.plugin.get_config()["cameras"]["cam"].get("controls").is_none());
 }
 
-// test_webcam_controls.py::test_saved_settings_that_arent_numbers_are_ignored
 #[test]
 fn saved_settings_that_arent_numbers_are_ignored() {
     let (mut env, _backend) = card();
@@ -875,7 +851,6 @@ fn saved_settings_that_arent_numbers_are_ignored() {
     assert_eq!(env.plugin.get_config()["cameras"]["cam"]["controls"], json!({"zoom": 2}));
 }
 
-// test_webcam_controls.py::test_a_camera_whose_settings_cant_be_reached_shows_none
 #[test]
 fn a_camera_whose_settings_cant_be_reached_shows_none() {
     let mut env = cams_with(vec![cam()], Box::new(|_| None));
@@ -894,7 +869,6 @@ fn the_card_declares_everything_it_is_given() {
     }
 }
 
-// test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings
 #[test]
 fn a_replugged_webcam_gets_a_fresh_handle_on_its_settings() {
     let made: Arc<Mutex<Vec<Backend>>> = Arc::default();

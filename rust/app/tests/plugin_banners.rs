@@ -1,5 +1,5 @@
 // Monitoring and Stream output in the real window: what the phone says arrives through the stream's own fetch and a banner's
-// button really starts the phone (test_plugins.py, whose stand-in host checks the same things).
+// button really starts the phone.
 mod rig;
 
 use rig::{state_with, Listener, Rig};

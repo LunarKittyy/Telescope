@@ -1,4 +1,4 @@
-//! The adb commands the desktop needs (platform/__init__.py): finding adb, devices, forwards, the reverse to the
+//! The adb commands the desktop needs: finding adb, devices, forwards, the reverse to the
 //! pairing server, the pairing broadcast, installing the phone app, and on Windows adb's server as this app's child.
 
 use std::path::{Path, PathBuf};

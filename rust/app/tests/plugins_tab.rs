@@ -1,4 +1,4 @@
-//! The Python tests of widgets/plugins_panel.py's model (tests/test_plugins_panel.py), named after them. They run here, in the binary's
+//! The Plugins tab's model tests. They run here, in the binary's
 //! crate, because the real plugins folder comes from the plugin host, which the shell never names.
 
 use i_slint_backend_testing::ElementHandle;

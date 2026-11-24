@@ -1,4 +1,4 @@
-//! Keys as text (telescope/shortcuts.py's key half): Qt's portable form ("Ctrl+Alt+M"), which saved bindings use,
+//! Keys as text: Qt's portable form ("Ctrl+Alt+M"), which saved bindings use,
 //! read and written without Qt, plus what the portal and Windows call the same keys.
 
 /// Qt's portable names for keys that aren't one character (F-keys aside), so a binding saved by the Qt app loads.
@@ -37,7 +37,7 @@ const NAMED: &[&str] = &[
 const ALIASES: &[(&str, &str)] =
     &[("escape", "Esc"), ("delete", "Del"), ("insert", "Ins"), ("page up", "PgUp"), ("page down", "PgDown")];
 
-/// Keys no text box types with (shortcuts.py's _NEVER_TYPES).
+/// Keys no text box types with.
 const NEVER_TYPES: &[&str] = &[
     "Pause", "Print", "ScrollLock", "Volume Mute", "Volume Down", "Volume Up", "Media Play", "Toggle Media Play/Pause",
     "Media Stop", "Media Next", "Media Previous", "Media Pause", "Microphone Mute",

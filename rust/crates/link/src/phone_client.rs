@@ -1,4 +1,4 @@
-//! A stream's camera controls (phone_client.py): sent from a queue on a thread of their own, coalesced by action,
+//! A stream's camera controls: sent from a queue on a thread of their own, coalesced by action,
 //! sent again on a stalling link, and checked against the phone's /v1/state so a setting it lost goes out again.
 
 use crate::https::{Error, PhoneAuth, Request, MAX_REPLY_BYTES};

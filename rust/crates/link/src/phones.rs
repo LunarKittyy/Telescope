@@ -1,4 +1,4 @@
-//! Paired phones and how to reach them (phones.py). adb, the session client and LAN discovery are passed in.
+//! Paired phones and how to reach them. adb, the session client and LAN discovery are passed in.
 //!
 //! Every resolve starts from scratch and prefers USB whenever this phone answers over a cable. "Answers" is checked: a
 //! plugged-in device only counts once its /v1/hello says the paired phone's id. Whenever the result isn't USB the

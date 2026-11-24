@@ -1,4 +1,4 @@
-//! The Presets plugin (plugins/presets.py): named snapshots of the settings of every plugin that is in_presets (the camera,
+//! The Presets plugin: named snapshots of the settings of every plugin that is in_presets (the camera,
 //! stream output, transforms and so on). They are per phone (lens ids and sizes differ between phones), so the host keeps
 //! them with the other per-device settings. Applying one hands each section to its plugin's apply_preset(), which also
 //! sends it to the phone while streaming.

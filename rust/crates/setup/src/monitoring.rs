@@ -1,4 +1,4 @@
-//! Monitoring (plugins/monitoring.py): the Phone card with the battery and temperature of the stream the panels show, and
+//! Monitoring: the Phone card with the battery and temperature of the stream the panels show, and
 //! warnings when either crosses its threshold. Every 15 s it asks each phone stream for its state, the ones behind the panels
 //! too, and judges those by the thresholds saved for that phone. A warning notifies once per crossing (it re-arms 5 below
 //! or above the line); Stop the stream stops on every reading past the line, until Start anyway lets it carry on.

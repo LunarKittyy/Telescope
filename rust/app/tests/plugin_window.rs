@@ -92,7 +92,6 @@ fn editing(name: &str) -> (Rc<window::Window>, Arc<Mutex<Vec<String>>>) {
     (w, heard)
 }
 
-// test_composite.py::test_a_closed_editor_is_freed
 #[test]
 fn a_closed_editor_is_freed() {
     use slint::ComponentHandle as _;
@@ -111,7 +110,7 @@ fn a_closed_editor_is_freed() {
     assert!(heard.lock().unwrap().contains(&"closed".to_string()));
 }
 
-// test_composite.py::test_starting_from_a_layout_and_saving_it: Rename and Delete work once the picture is a saved layout
+// Rename and Delete work once the picture is a saved layout
 #[test]
 fn rename_and_delete_come_on_with_a_saved_layout() {
     use i_slint_backend_testing::ElementHandle;

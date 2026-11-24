@@ -1,4 +1,4 @@
-//! The Stream output plugin (plugins/stream_output.py): the resolution, frame rate and format of the stream, and the
+//! The Stream output plugin: the resolution, frame rate and format of the stream, and the
 //! JPEG quality or bitrate the phone sends at. It tells the phone through host.phone_control while a stream runs, and
 //! the window reads its format and bitrate from its settings when a stream starts.
 

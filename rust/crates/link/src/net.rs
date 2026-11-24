@@ -1,4 +1,4 @@
-//! This computer's addresses a phone could pair over, and the address helpers routes use (ip_utils.py).
+//! This computer's addresses a phone could pair over, and the address helpers routes use.
 
 use serde::Serialize;
 use std::net::{IpAddr, Ipv4Addr};

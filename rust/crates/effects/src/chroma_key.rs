@@ -1,4 +1,4 @@
-//! The Chroma key plugin (plugins/chroma_key.py): a green or blue screen, or a colour picked on the preview, swapped for a colour or
+//! The Chroma key plugin: a green or blue screen, or a colour picked on the preview, swapped for a colour or
 //! a picture. The matte is a shader (chroma_key.wgsl) that looks colours up in the same three tables Python builds (`key_tables`,
 //! handed over as a texture), so the picture is the one OpenCV makes. Picking the screen's colour needs the frame the key sees, which
 //! no shader can hand back: while a pick runs the key steps aside for a CPU step that keeps the newest frame, as Python's process_frame

@@ -1,4 +1,4 @@
-//! test_composite.py's plugin tests, by the same names. Frames are BGRA, so a colour reads as the BGR Python's do.
+//! The Composite plugin's tests. Frames are BGRA, so a colour reads as the BGR Python's do.
 
 use super::*;
 use crate::composite::{bgr, Tile, DEFAULT_BACKGROUND};
@@ -9,7 +9,7 @@ use telescope_core::testing::FakeHost;
 
 const SECOND: u64 = 1_000_000_000;
 
-/// The stream frames the host hands out, changed as a test goes (the _Host of test_composite.py).
+/// The stream frames the host hands out, changed as a test goes.
 #[derive(Default)]
 struct Store {
     frames: Mutex<Vec<StreamFrame>>,

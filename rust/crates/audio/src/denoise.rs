@@ -1,4 +1,4 @@
-//! RNNoise noise reduction for the microphone (denoise.py): 48 kHz mono in 480-sample frames, the same audio /v1/audio
+//! RNNoise noise reduction for the microphone: 48 kHz mono in 480-sample frames, the same audio /v1/audio
 //! sends. The library is loaded at run time from next to the program, as Python loaded it from the pyrnnoise wheel's
 //! folder, so a build without it still runs and the card says why.
 
