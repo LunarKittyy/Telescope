@@ -90,7 +90,10 @@ fn number(ui: &ComponentInstance, name: &str) -> i32 {
 }
 
 fn flag(ui: &ComponentInstance, name: &str) -> bool {
-    ui.get_property(name) == Ok(Value::Bool(true))
+    match ui.get_property(name) {
+        Ok(Value::Bool(b)) => b,
+        other => panic!("{name}: {other:?}, not a flag"),
+    }
 }
 
 fn dropdown(ui: &ComponentInstance) -> ElementHandle {
