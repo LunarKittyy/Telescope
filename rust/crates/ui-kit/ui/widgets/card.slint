@@ -495,10 +495,8 @@ export component RailRow inherits HorizontalLayout {
     out property <string> control-kind: "row";
     // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
     property <length> lift: 1phx;
-    // A row whose control is shorter than a box (a slider's handle, a switch) is only as tall as that control, so the space between one control and the next is the same
-    in property <bool> short;
     spacing: Theme.u(4);
-    min-height: short ? Theme.handle-h : Theme.row;
+    min-height: Theme.row;
     Rectangle {
         width: Theme.u(14);
         accessible-role: none;
@@ -587,9 +585,8 @@ export component SwitchRow inherits Rectangle {
     callback toggled(bool);
     // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
     property <length> lift: 1phx;
-    height: Theme.handle-h;
+    height: Theme.row;
     RailRow {
-        short: true;
         width: parent.width;
         height: parent.height;
         icon: root.icon;

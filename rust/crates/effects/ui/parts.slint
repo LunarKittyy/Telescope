@@ -178,10 +178,9 @@ component RailSlider inherits Rectangle {
     in property <image> peek-picture;
     callback moved(float);
     callback peek-changed(bool);
-    height: Theme.handle-h;
+    height: Theme.row;
     horizontal-stretch: 1;
     RailRow {
-        short: true;
         width: parent.width;
         height: parent.height;
         icon: root.icon;
