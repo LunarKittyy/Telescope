@@ -414,8 +414,13 @@ impl StallWatch {
             return;
         }
         self.gap_in_window = true;
-        if self.pending.as_ref().is_some_and(|(p, _)| p.ms >= gap_ms) {
+        if self.pending.as_ref().is_some_and(|(p, w)| *w == self.window && p.ms >= gap_ms) {
             return;
+        }
+        // A stall from an earlier window is kept as it is before this bigger one takes its place
+        if self.pending.as_ref().is_some_and(|(_, w)| *w < self.window) {
+            let (stall, _) = self.pending.take().expect("checked just above");
+            (self.sink)(stall);
         }
         let (decoder, foreground) = context();
         let (stage, stage_ms) = peak.unwrap_or(("", 0.0));
@@ -481,7 +486,9 @@ static TIMELINE: Mutex<VecDeque<Sample>> = Mutex::new(VecDeque::new());
 pub fn note_window(slot: u32, now_ns: u64, fps: f32, mbps: f32) {
     let mut line = TIMELINE.lock().unwrap_or_else(|e| e.into_inner());
     line.push_back(Sample { ns: now_ns, slot, fps, mbps });
-    while line.len() > COLUMNS * 2 {
+    // By age, so several streams each keep the whole two minutes; the count is only a backstop
+    let oldest = now_ns.saturating_sub(COLUMNS as u64 * STEP_S * 1_000_000_000);
+    while line.front().is_some_and(|s| s.ns < oldest) || line.len() > COLUMNS * 16 {
         line.pop_front();
     }
 }

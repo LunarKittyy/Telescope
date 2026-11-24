@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -105,6 +106,8 @@ struct SetAside {
     unread: bool,
     /// A reset wrote the file and the app is about to restart, so nothing saves over it.
     discarding: bool,
+    /// Saves fail on purpose, so a test can see what the app does when the disk refuses.
+    refusing: bool,
 }
 
 /// How a read treats a file that stays unreadable: an error, an empty start, or an empty start that closes saving.
@@ -229,6 +232,9 @@ impl ConfigFile {
             log::info!("Not saving to {}: a reset is waiting for the restart", self.path.display());
             return Ok(());
         }
+        if with_set_aside(&self.path, |s| s.refusing) {
+            return Err(io::Error::other("saving is refused on purpose"));
+        }
         if let Value::Object(map) = cfg {
             map.insert("version".into(), CONFIG_VERSION.into());
         }
@@ -246,8 +252,10 @@ impl ConfigFile {
     fn write_with(&self, bytes: &[u8], chmod: Chmod) -> io::Result<()> {
         let dir = self.path.parent().unwrap_or(Path::new("."));
         private_dir(dir, chmod)?;
+        // Its own name per write, so two writers (the app and the command line) never share a half-written file
+        static WRITES: AtomicU64 = AtomicU64::new(0);
         let mut tmp_name = self.path.file_name().unwrap_or_default().to_os_string();
-        tmp_name.push(".tmp");
+        tmp_name.push(format!(".tmp-{}-{}", std::process::id(), WRITES.fetch_add(1, Ordering::Relaxed)));
         let tmp = self.path.with_file_name(tmp_name);
         let written = open_private(&tmp, chmod).and_then(|mut f| f.write_all(bytes).and_then(|_| f.flush()).and_then(|_| f.sync_all()));
         let result = written.and_then(|_| fs::rename(&tmp, &self.path));
@@ -275,6 +283,12 @@ impl ConfigFile {
     /// Every save to this path (by any ConfigFile) does nothing and counts as done until resume_saves(), so a reset that is restarting isn't written over on the way out.
     pub fn discard_saves(&self) {
         with_set_aside(&self.path, |s| s.discarding = true);
+    }
+
+    /// Makes every save to this path fail until `refuse_saves(false)`; for tests that need a failing disk on any OS.
+    #[doc(hidden)]
+    pub fn refuse_saves(&self, on: bool) {
+        with_set_aside(&self.path, |s| s.refusing = on);
     }
 
     /// Saving works again after discard_saves().
