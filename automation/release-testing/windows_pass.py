@@ -354,6 +354,9 @@ $deadline = (Get-Date).AddMinutes(5)
 while ($true) {
     if ((Get-Date) -gt $deadline) { throw "setup didn't get to Finish: $((Get-Texts 'TelescopeSetup') -join ' / ')" }
     if (Find-Control "Finish" "" 1 "TelescopeSetup") { break }
+    # The first page asks for an install mode: per user is the recommended choice, and the one the checks below expect
+    $perUser = Find-Control "Install for me only (recommended)" "" 1 "TelescopeSetup"
+    if ($perUser) { Press $perUser; Start-Sleep 1 }
     $next = Find-Control "Install" "" 1 "TelescopeSetup"
     if (-not $next) { $next = Find-Control "Next" "" 1 "TelescopeSetup" }
     if ($next) { Press $next; Start-Sleep 1 }
