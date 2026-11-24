@@ -1959,6 +1959,7 @@ impl Shared {
 /// What the camera takes from `picture` (Shared::take_for_camera).
 fn take_for_camera(picture: &PipelineFrame, want: (u32, u32), cancel: &dyn Fn() -> bool) -> Option<(Frame, bool)> {
     // One in memory already (another reader landed it, or the stream did for the camera) is fitted from there, not read back a second time
+    let t0 = std::time::Instant::now();
     let taken = match picture.landed() {
         Some(whole) => (whole, false),
         None => match picture.land_fitted_until(want.0, want.1, cancel) {
@@ -1966,6 +1967,7 @@ fn take_for_camera(picture: &PipelineFrame, want: (u32, u32), cancel: &dyn Fn() 
             None => (picture.land_until(cancel), false),
         },
     };
+    log::info!("DIAG take fitted={} ms={:.1}", taken.1, t0.elapsed().as_secs_f64() * 1000.0);
     (picture.stood_in() != Some(StandIn::Unprocessed)).then_some(taken)
 }
 
