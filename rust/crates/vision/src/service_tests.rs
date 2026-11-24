@@ -1979,3 +1979,21 @@ fn someone_still_and_turned_away_costs_a_pose_run_a_second_at_the_lightest_level
     assert!((18..=22).contains(&posed), "{posed} pose runs in 21 s");
     assert!((18..=22).contains(&r.backend.log.lock().unwrap().faced.len()), "faces looked for as often");
 }
+
+#[test]
+fn a_mask_remapped_by_axis_is_the_one_remapped_pixel_by_pixel() {
+    let (w, h) = (64usize, 36usize);
+    let src: Vec<u8> = (0..w * h).map(|i| ((i * 37 + i / w * 11) % 256) as u8).collect();
+    let old = Geometry { zoom: 1.3, pan_x: -0.4, pan_y: 0.2, ..Geometry::default() };
+    for (zoom, pan_x, pan_y) in [(1.0, 0.0, 0.0), (1.6, 0.3, -0.2), (2.4, -0.9, 0.7), (1.1, 1.0, 1.0)] {
+        for (flip_h, flip_v, rotation) in [(false, false, None), (true, false, Some(180)), (false, true, Some(0)), (true, true, None)] {
+            for (stretch_x, stretch_y) in [(1.0, 1.0), (1.2, 0.9), (0.8, 1.0)] {
+                let new = Geometry { zoom, pan_x, pan_y, flip_h, flip_v, rotation, stretch_x, stretch_y, ..Geometry::default() };
+                for (ow, oh) in [(64, 36), (480, 270), (97, 53)] {
+                    assert_eq!(remap_mask(&src, w, h, ow, oh, &old, &new), remap_each(&src, w, h, ow, oh, &old, &new), "{new:?} at {ow}x{oh}");
+                    assert_eq!(remap_mask(&src, w, h, ow, oh, &new, &old), remap_each(&src, w, h, ow, oh, &new, &old), "back from {new:?} at {ow}x{oh}");
+                }
+            }
+        }
+    }
+}

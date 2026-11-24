@@ -22,6 +22,19 @@ fn the_model_gets_the_same_number_of_pixels_whatever_shape_the_picture_is() {
 }
 
 #[test]
+fn a_smaller_copy_of_the_frame_goes_to_the_model_at_the_size_the_whole_frame_would() {
+    // The size the media crate shrinks a frame to before the model sees it must be the one it picks for the whole frame, or a stream that moves between the two starts the model's memory over
+    for (w, h) in [(1920, 1080), (3840, 2160), (2560, 1440), (1440, 1080), (1280, 960), (1600, 1200), (1920, 1200), (2048, 1536), (1080, 1920), (1000, 1000), (2592, 1944), (3000, 2000), (4096, 2160), (2560, 1080), (1281, 721), (1279, 723), (1440, 1081)] {
+        let size = crate::ops::model_input_size(w as usize, h as usize, input_size(w as usize, h as usize)).map(|(mw, mh)| (mw as u32, mh as u32));
+        assert_eq!(telescope_core::vision::cutout_input_size(w, h), size, "{w}x{h}");
+        let small = telescope_core::frame::Frame::new(size.unwrap().0, size.unwrap().1, telescope_core::frame::PixelFormat::I420, vec![90; telescope_core::frame::PixelFormat::I420.size(size.unwrap().0, size.unwrap().1)]);
+        let given = crate::cutout_rgb(&small).unwrap();
+        assert_eq!(((given.w as u32), (given.h as u32)), size.unwrap(), "{w}x{h}: the copy comes whole");
+        assert!(model_picture(&given).is_none(), "{w}x{h}: the model leaves the copy at its size");
+    }
+}
+
+#[test]
 fn the_frame_is_shrunk_to_that_size_and_a_small_one_is_left_alone() {
     let small = model_picture(&Rgb::filled(1920, 1080, 10)).unwrap();
     assert_eq!((small.w, small.h), (640, 360));

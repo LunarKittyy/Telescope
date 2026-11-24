@@ -6,6 +6,8 @@ namespace telescope {
 
 // "Global\TelescopeCamera<slot>" exists while an app reads the camera, which is how Telescope tells it's in use
 constexpr wchar_t kSharedName[] = L"Global\\TelescopeCamera";
+// "Global\TelescopeCameraFrame<slot>", an auto-reset event Telescope sets after each frame it writes, so the camera can wait for it instead of polling. An older Telescope never sets it
+constexpr wchar_t kFrameEventName[] = L"Global\\TelescopeCameraFrame";
 constexpr uint32_t kMagic = 0x4D435354;  // "TSCM"
 constexpr uint32_t kVersion = 1;
 constexpr uint32_t kFormatNV12 = 1;

@@ -8,6 +8,8 @@ use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::output::VideoOutput;
 
 pub const SHARED_NAME: &str = "Global\\TelescopeCamera";
+/// The camera's event for a new frame, which a camera of an earlier version doesn't make.
+pub const FRAME_EVENT_NAME: &str = "Global\\TelescopeCameraFrame";
 pub const MAGIC: u32 = 0x4D43_5354; // "TSCM"
 pub const PROTOCOL: u32 = 1;
 pub const NV12: u32 = 1;
@@ -21,6 +23,8 @@ pub const WATCH_LINGER: Duration = Duration::from_secs(3);
 pub trait Mapping: Send {
     /// Runs f on the mapped bytes.
     fn with(&mut self, f: &mut dyn FnMut(&mut [u8]));
+    /// Tells the camera a frame has landed, so it needn't poll for one.
+    fn signal(&mut self) {}
 }
 
 /// The header's fields: magic, version, data_offset, data_capacity, consumer_state, consumer_width, consumer_height,
@@ -115,7 +119,8 @@ impl SharedView {
             b[FRAME_AT + 4..FRAME_AT + 8].copy_from_slice(&frame.height.to_le_bytes());
             b[FRAME_AT + 8..FRAME_AT + 12].copy_from_slice(&NV12.to_le_bytes());
             b[COUNTER_AT..COUNTER_AT + 8].copy_from_slice(&(counter + 2).to_le_bytes());
-        })
+        });
+        self.map.signal();
     }
 }
 
@@ -237,15 +242,31 @@ pub fn peek(open: &dyn Fn() -> Option<SharedView>) -> Option<(bool, u64)> {
 /// The real thing: Global\TelescopeCamera<slot> mapped while it exists.
 #[cfg(windows)]
 pub fn open_shared(slot: u32) -> Option<SharedView> {
-    struct Win(crate::win::View);
+    struct Win {
+        view: crate::win::View,
+        slot: u32,
+        event: Option<crate::win::Owned>,
+        /// When the event was last looked for, so a camera without one is asked again about once a second.
+        tried: Option<std::time::Instant>,
+    }
     impl Mapping for Win {
         fn with(&mut self, f: &mut dyn FnMut(&mut [u8])) {
-            f(self.0.buf())
+            f(self.view.buf())
+        }
+        fn signal(&mut self) {
+            let slot = self.slot;
+            if self.event.is_none() && self.tried.is_none_or(|t| t.elapsed() >= std::time::Duration::from_secs(1)) {
+                self.tried = Some(std::time::Instant::now());
+                self.event = crate::win::open_event(&format!("{FRAME_EVENT_NAME}{slot}"), crate::win::EVENT_MODIFY_STATE);
+            }
+            if let Some(event) = &self.event {
+                crate::win::set_event(event);
+            }
         }
     }
     let access = crate::win::FILE_MAP_READ | crate::win::FILE_MAP_WRITE;
     let view = crate::win::View::open(&format!("{SHARED_NAME}{slot}"), access)?;
-    let mut shared = SharedView::new(Box::new(Win(view)));
+    let mut shared = SharedView::new(Box::new(Win { view, slot, event: None, tried: None }));
     shared.valid().then_some(shared)
 }
 
@@ -278,10 +299,11 @@ pub(crate) mod tests {
         pub buf: Arc<Mutex<Option<Vec<u8>>>>,
         pub opened: Arc<AtomicUsize>,
         pub closed: Arc<AtomicUsize>,
+        pub signals: Arc<AtomicUsize>,
     }
 
     /// A view of the shared buffer; once the camera takes its memory away (None) it keeps the copy it last saw.
-    struct View(Arc<Mutex<Option<Vec<u8>>>>, Arc<AtomicUsize>);
+    struct View(Arc<Mutex<Option<Vec<u8>>>>, Arc<AtomicUsize>, Arc<AtomicUsize>);
 
     impl Mapping for View {
         fn with(&mut self, f: &mut dyn FnMut(&mut [u8])) {
@@ -290,6 +312,9 @@ pub(crate) mod tests {
                 Some(b) => f(b),
                 None => f(&mut [0u8; 64]),
             }
+        }
+        fn signal(&mut self) {
+            self.2.fetch_add(1, Ordering::SeqCst);
         }
     }
 
@@ -308,12 +333,12 @@ pub(crate) mod tests {
             Box::new(move || {
                 me.buf.lock().unwrap().as_ref()?;
                 me.opened.fetch_add(1, Ordering::SeqCst);
-                Some(SharedView::new(Box::new(View(me.buf.clone(), me.closed.clone()))))
+                Some(SharedView::new(Box::new(View(me.buf.clone(), me.closed.clone(), me.signals.clone()))))
             })
         }
         pub fn header(&self) -> Header {
             let b = self.buf.lock().unwrap().clone().unwrap();
-            SharedView::new(Box::new(View(Arc::new(Mutex::new(Some(b))), Arc::default()))).header()
+            SharedView::new(Box::new(View(Arc::new(Mutex::new(Some(b))), Arc::default(), Arc::default()))).header()
         }
         pub fn set(&self, at: usize, value: u8) {
             if let Some(b) = self.buf.lock().unwrap().as_mut() {
@@ -350,6 +375,20 @@ pub(crate) mod tests {
         assert_eq!((h.counter, h.frame_width, h.frame_height, h.frame_format), (2, 8, 4, NV12));
         c.send_at(&frame, now + Duration::from_millis(34)).unwrap();
         assert_eq!(o.header().counter, 4);
+    }
+
+    #[test]
+    fn the_camera_is_told_after_each_frame_that_is_written_and_not_for_one_that_is_thinned() {
+        let o = Opener::new(Some(reading(8, 4)));
+        let mut c = cam(&o, 8, 4);
+        let frame = grey(8, 4, 235);
+        let now = Instant::now();
+        c.send_at(&frame, now).unwrap();
+        assert_eq!(o.signals.load(Ordering::SeqCst), 1);
+        c.send_at(&frame, now + Duration::from_millis(5)).unwrap();
+        assert_eq!(o.signals.load(Ordering::SeqCst), 1, "thinned");
+        c.send_at(&frame, now + Duration::from_millis(40)).unwrap();
+        assert_eq!(o.signals.load(Ordering::SeqCst), 2);
     }
 
     #[test]
