@@ -277,6 +277,7 @@ impl Surface {
             let colour = if coefficients == bt601 { 0 } else if coefficients == bt709 { 16 } else { return Err("unsupported surface colour matrix".into()) }
                 | if (*frame).color_range == ff::AVColorRange::AVCOL_RANGE_JPEG { 32 } else { 0 };
             if stream.live.try_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < MAX_HELD).then_some(n + 1)).is_err() {
+                log::info!("DIAG capture full-copy fallback (held at max)");
                 return Ok(None);
             }
             (((*frame).width as u32, (*frame).height as u32), colour, ff::av_frame_clone(frame))
