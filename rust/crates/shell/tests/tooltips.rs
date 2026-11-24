@@ -171,6 +171,8 @@ fn a_long_tooltip_sizes_to_its_text_stays_in_the_window_and_draws_over_what_is_b
     move_to(&w, at(BUTTON.0, BUTTON.1));
     let before = draw(&w);
     wait(&w, 900);
+    // The tip's fade starts at the frame that first draws it, so it needs a wait of its own to be fully in
+    wait(&w, 300);
     let after = draw(&w);
     assert_eq!(popups(&w), 1);
     // The box is what changed: its edges, where its three lines of text end, and the switch row it covers
