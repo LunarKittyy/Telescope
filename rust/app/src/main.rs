@@ -421,7 +421,7 @@ fn started_fine() {
     static DONE: std::sync::Once = std::sync::Once::new();
     DONE.call_once(|| {
         let dir = app_dir();
-        telescope_system::update_guard::confirm(&dir);
+        telescope_system::update_guard::confirm_running(&dir);
         if let Some(venv) = telescope_system::update_guard::python_venv_left(&dir, Some(telescope_system::version::build()), &data_home()) {
             // Tens of thousands of files, and nothing waits for them
             std::thread::spawn(move || telescope_system::update_guard::remove(&venv));
