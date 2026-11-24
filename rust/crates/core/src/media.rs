@@ -293,6 +293,16 @@ pub enum StandIn {
     Dark,
 }
 
+/// The camera's size as FramePipeline::camera_fit holds it (width in the high half), 0 while the camera isn't open.
+pub fn pack_camera_fit((width, height): (u32, u32)) -> u64 {
+    (u64::from(width) << 32) | u64::from(height)
+}
+
+/// The size pack_camera_fit stored, None for 0.
+pub fn unpack_camera_fit(packed: u64) -> Option<(u32, u32)> {
+    (packed != 0).then_some(((packed >> 32) as u32, packed as u32))
+}
+
 /// A media-owned card picture; landing and its cache belong to the implementation.
 pub trait CardPicture: Send + Sync {
     fn land(&self) -> Frame;
@@ -307,8 +317,16 @@ pub trait CardPicture: Send + Sync {
     fn land_fitted(&self, _width: u32, _height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
         None
     }
+    /// The picture land_fitted made for width x height, if it was made already: for a reader that paints from the camera's size and can't wait for the card.
+    fn landed_fitted(&self, _width: u32, _height: u32) -> Option<Frame> {
+        None
+    }
     /// Whether the card can fit this picture into width x height (land_fitted may still fail), whether or not it landed already.
     fn fits_on_card(&self, _width: u32, _height: u32) -> bool {
+        false
+    }
+    /// Whether land_fitted keeps what it makes, so landed_fitted can give it to a reader that can't wait for the card.
+    fn keeps_fitted(&self) -> bool {
         false
     }
     /// What stands in for the picture, once its landing failed; None while it is the real one (or not landed yet).
@@ -365,9 +383,24 @@ impl PipelineFrame {
         Some(frame)
     }
 
+    /// What land_fitted_until already made for width x height, with the publication's stamps, without waiting for the card.
+    pub fn landed_fitted(&self, width: u32, height: u32) -> Option<Frame> {
+        let mut frame = self.picture.as_ref()?.landed_fitted(width, height)?;
+        frame.number = self.frame.number;
+        frame.time_ns = self.frame.time_ns;
+        frame.capture_ns = self.frame.capture_ns;
+        frame.phone_share = self.frame.phone_share;
+        Some(frame)
+    }
+
     /// Whether the card can fit the picture into width x height (CardPicture::fits_on_card); a picture in memory can't.
     pub fn fits_on_card(&self, width: u32, height: u32) -> bool {
         self.picture.as_ref().is_some_and(|p| p.fits_on_card(width, height))
+    }
+
+    /// Whether the picture keeps the fitted copy the card makes (CardPicture::keeps_fitted).
+    pub fn keeps_fitted(&self) -> bool {
+        self.picture.as_ref().is_some_and(|p| p.keeps_fitted())
     }
 
     /// What stands in for the picture when the card failed to land it (CardPicture::stood_in).
@@ -434,6 +467,15 @@ pub trait FramePipeline: Send {
     /// Set while the first step to run does it on the graphics card: the only frames a decoder may leave on the card are the ones this wants.
     /// None for a pipeline that never takes one.
     fn surface_wish(&self) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        None
+    }
+    /// Where the stream's camera says what size it takes, (width << 32 | height) while it is open and 0 while it isn't, so a plain stream's
+    /// pictures can be scaled to it on the card. None for a pipeline that never does.
+    fn camera_fit(&self) -> Option<Arc<std::sync::atomic::AtomicU64>> {
+        None
+    }
+    /// Set while no step needs the picture and nothing converts it on the card, so the stream may let pictures wait for the card to scale them. None for a pipeline that never does.
+    fn plain_steps(&self) -> Option<Arc<std::sync::atomic::AtomicBool>> {
         None
     }
 }
@@ -539,13 +581,13 @@ pub struct DecodingStatus {
 /// Hands the newest packet from a stream's reader to its decoders (stream._Newest): one nobody took in time is
 /// dropped, so a slow decoder skips frames instead of letting them queue up as lag.
 pub struct Newest<T> {
-    item: std::sync::Mutex<(Option<T>, bool)>,
+    item: std::sync::Mutex<(std::collections::VecDeque<(std::time::Instant, T)>, bool)>,
     ready: std::sync::Condvar,
 }
 
 impl<T> Default for Newest<T> {
     fn default() -> Self {
-        Newest { item: std::sync::Mutex::new((None, false)), ready: std::sync::Condvar::new() }
+        Newest { item: std::sync::Mutex::new((std::collections::VecDeque::new(), false)), ready: std::sync::Condvar::new() }
     }
 }
 
@@ -553,9 +595,27 @@ impl<T> Newest<T> {
     /// Replaces whatever is waiting.
     /// True when it replaced an item nobody had taken, which is dropped.
     pub fn put(&self, item: T) -> bool {
-        let replaced = self.item.lock().unwrap().0.replace(item).is_some();
+        self.put_keeping(item, 1, None) > 0
+    }
+
+    /// Adds an item behind up to `kept - 1` waiting ones, dropping the oldest beyond that and any that have waited more than `max_age` (so a slow patch leaves no standing delay): for a stage that now and then takes more than one frame time.
+    /// How many items nobody had taken were dropped.
+    pub fn put_keeping(&self, item: T, kept: usize, max_age: Option<std::time::Duration>) -> usize {
+        let now = std::time::Instant::now();
+        let mut st = self.item.lock().unwrap();
+        let mut dropped = 0;
+        while max_age.is_some_and(|age| st.0.front().is_some_and(|(at, _)| now.duration_since(*at) > age)) {
+            st.0.pop_front();
+            dropped += 1;
+        }
+        st.0.push_back((now, item));
+        while st.0.len() > kept.max(1) {
+            st.0.pop_front();
+            dropped += 1;
+        }
+        drop(st);
         self.ready.notify_one();
-        replaced
+        dropped
     }
 
     /// No more items come; take() hands out what's left, then None.
@@ -564,11 +624,11 @@ impl<T> Newest<T> {
         self.ready.notify_all();
     }
 
-    /// The newest item, waiting for one; None once finished and nothing is left.
+    /// The oldest item waiting (the only one unless put_keeping kept more), waiting for one; None once finished and nothing is left.
     pub fn take(&self) -> Option<T> {
         let mut st = self.item.lock().unwrap();
         loop {
-            if let Some(item) = st.0.take() {
+            if let Some((_, item)) = st.0.pop_front() {
                 return Some(item);
             }
             if st.1 {
@@ -582,6 +642,28 @@ impl<T> Newest<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn newest_keeps_the_asked_number_and_hands_out_the_oldest_first() {
+        let q = Newest::default();
+        assert_eq!(q.put_keeping(1, 2, None), 0);
+        assert_eq!(q.put_keeping(2, 2, None), 0);
+        assert_eq!(q.put_keeping(3, 2, None), 1, "the oldest is dropped beyond two");
+        assert_eq!((q.take(), q.take()), (Some(2), Some(3)));
+        assert!(!q.put(4));
+        assert!(q.put(5), "the plain put still keeps only the newest");
+        assert_eq!(q.take(), Some(5));
+    }
+
+    #[test]
+    fn newest_drops_what_waited_too_long_and_counts_every_drop() {
+        let q = Newest::default();
+        q.put_keeping(1, 3, None);
+        q.put_keeping(2, 3, None);
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        assert_eq!(q.put_keeping(3, 3, Some(std::time::Duration::from_millis(10))), 2, "both stale pictures go at once");
+        assert_eq!(q.take(), Some(3));
+    }
 
     /// A scaler that only knows rgb, as most do.
     struct Greys(usize);

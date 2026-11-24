@@ -190,6 +190,14 @@ pub struct Codec {
     /// Copies D3D11VA pictures into memory waiting on a fence, not on Map (which spins a core on some drivers).
     #[cfg(all(windows, ffmpeg))]
     copier: crate::d3d11_copy::Copier,
+    /// A download that the card's video processor scales first (fit_surface): the size the picture comes down at.
+    #[cfg(all(windows, ffmpeg))]
+    fit_to: Option<(u32, u32)>,
+    #[cfg(all(windows, ffmpeg))]
+    fitter: crate::d3d11_fit::Fitter,
+    /// The pool has room for pictures held back for the camera to take scaled (set up before the first picture, whether or not anything wants one yet).
+    #[cfg(surfaces)]
+    fit_room: bool,
 }
 
 /// Copies data into buf followed by the AV_INPUT_BUFFER_PADDING_SIZE zero bytes FFmpeg requires after any input.
@@ -230,16 +238,21 @@ impl Codec {
     /// Whether the next pictures may stay on the card for import (VA-API only); the pool is sized at the first picture, so a decoder started without the wish copies to memory until it is opened again.
     #[cfg(surfaces)]
     pub(crate) fn surfaces(&mut self, wish: bool) {
-        if wish && !self.surface_room && self.hw == Some(import_mod::HW) {
+        // On Windows the room is made for every stream: the camera opens after the first picture, and a plain stream's pictures are kept for it then
+        let room_for_camera = cfg!(windows) && !self.fit_room;
+        if (wish || room_for_camera) && !self.surface_room && self.hw == Some(import_mod::HW) {
             // SAFETY: the context is live, and the pool isn't made yet while it holds no hardware frames context
             unsafe {
                 if (*self.ctx).hw_frames_ctx.is_null() {
-                    (*self.ctx).extra_hw_frames = 1 + import_mod::MAX_SURFACES as i32;
-                    self.surface_room = true;
+                    (*self.ctx).extra_hw_frames = 1 + import_mod::MAX_HELD as i32;
+                    if wish {
+                        self.surface_room = true;
+                    }
+                    self.fit_room = true;
                 }
             }
         }
-        self.defer_surfaces = wish && self.surface_room;
+        self.defer_surfaces = wish && (self.surface_room || self.fit_room);
     }
 
     pub fn mjpeg() -> Result<Codec, String> {
@@ -303,6 +316,12 @@ impl Codec {
                 import_node: None,
                 #[cfg(all(windows, ffmpeg))]
                 copier: crate::d3d11_copy::Copier::default(),
+                #[cfg(all(windows, ffmpeg))]
+                fit_to: None,
+                #[cfg(all(windows, ffmpeg))]
+                fitter: Default::default(),
+                #[cfg(surfaces)]
+                fit_room: false,
             };
             if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || c.held.is_null() || (parse && c.parser.is_null()) {
                 return Err("out of memory opening a decoder".into());
@@ -547,6 +566,22 @@ impl Codec {
             (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
         }
         #[cfg(all(windows, ffmpeg))]
+        if let Some(size) = self.fit_to.take() {
+            let began = monotonic_ns();
+            // SAFETY: both frames are this codec's own
+            return match self.fitter.fit(self.frame, self.sw_frame, size) {
+                Ok(()) => {
+                    span("transfer", began);
+                    transfers::decoded_down();
+                    Ok(())
+                }
+                Err(why) => {
+                    ff::av_frame_unref(self.sw_frame);
+                    Err(Fault::Broken(format!("couldn't scale the picture on the card: {why}")))
+                }
+            };
+        }
+        #[cfg(all(windows, ffmpeg))]
         if self.hw == Some(Hw::D3d11va) && !self.card_gives_i420 && self.copier.usable() && self.forced_now() != Some(Forced::Copy) {
             #[cfg(test)]
             let measured = self.copy_ns.is_some();
@@ -727,6 +762,15 @@ impl Codec {
             }
             self.take_frame().map(|(frame, _)| frame)
         }
+    }
+
+    /// download_surface, with the card's video processor scaling the picture to `size` before it comes down.
+    #[cfg(all(windows, ffmpeg))]
+    pub(crate) fn fit_surface(&mut self, surface: *const ff::AVFrame, size: (u32, u32)) -> Result<Frame, Fault> {
+        self.fit_to = Some(size);
+        let frame = self.download_surface(surface);
+        self.fit_to = None;
+        frame
     }
 }
 

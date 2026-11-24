@@ -43,10 +43,10 @@ impl Drop for Copier {
 }
 
 /// FFmpeg's lock on the device context, released when dropped.
-struct Locked<'a>(&'a DeviceContext);
+pub(crate) struct Locked<'a>(&'a DeviceContext);
 
 impl<'a> Locked<'a> {
-    fn new(d3d: &'a DeviceContext) -> Self {
+    pub(crate) fn new(d3d: &'a DeviceContext) -> Self {
         // SAFETY: FFmpeg's own lock functions for this device context.
         if let Some(lock) = d3d.lock {
             unsafe { lock(d3d.lock_ctx) }

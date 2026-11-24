@@ -7,12 +7,13 @@
 use crate::gpu::{self, Gpu, Held, MaskPlane};
 use crate::transfers;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 use telescope_core::balance::{Balance, Lane, Place};
 use telescope_core::image::SparePool;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, Touch};
-use telescope_core::media::{FramePipeline, PipelineFrame, StagedStep};
+use crate::surface_fit::{self, SurfacePicture};
+use telescope_core::media::{unpack_camera_fit, FramePipeline, PipelineFrame, StagedStep};
 use telescope_core::stats::{SourceStats, Timer};
 use telescope_core::time::{monotonic_ns, span};
 
@@ -297,6 +298,10 @@ pub struct Pipeline {
     forget_due: bool,
     /// Whether the first step to run does it on the card, for the stream's decoder to read (FramePipeline::surface_wish).
     surface_wish: Arc<AtomicBool>,
+    /// Whether no step needs the picture and nothing converts it on the card (FramePipeline::plain_steps).
+    plain_steps: Arc<AtomicBool>,
+    /// The size the stream's camera takes while it is open, 0 while it isn't (FramePipeline::camera_fit).
+    camera_fit: Arc<AtomicU64>,
     /// This stream's last submission to the card, so streams sharing the card don't wait for each other's pictures.
     pacing: gpu::Pacing,
     /// Whether the last frame ran its either-way steps off the card, so leaving the card releases cached textures once.
@@ -335,7 +340,7 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance: balance.lane(), size: (0, 0), card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
+        let pipeline = Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance: balance.lane(), size: (0, 0), card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), plain_steps: Arc::default(), camera_fit: Arc::default(), pacing: gpu::Pacing::default(), was_off_card: false, trial: None, card_decoder: false };
         // Asked before the first picture, which sizes the decoder's pool: a stream with no steps yet takes them in on the card
         pipeline.note_surface_wish();
         pipeline
@@ -376,7 +381,9 @@ impl Pipeline {
             self.size = (frame.width, frame.height);
             self.balance.work_changed();
         }
-        if frame.surface().is_some() && !self.starts_on_card() {
+        // A plain stream's picture stays on the card for a smaller camera, which takes it scaled there (surface_fit)
+        let keep_fit = matches!(finish, Finish::Card) && self.fit_wanted() && self.camera_size().is_some_and(|(w, h)| frame.surface().is_some_and(|s| s.can_fit(w, h)));
+        if frame.surface().is_some() && !self.starts_on_card() && !keep_fit {
             let began = monotonic_ns();
             frame = frame.materialise();
             if card_takes_it {
@@ -498,6 +505,12 @@ impl Pipeline {
                     picture = Some(Arc::new(gpu::CardFrame::new(gpu, chain.held.take().unwrap(), frame.clone(), fallback, self.deferred_failed.clone(), chain.movable.then(|| self.balance.clone()))) as Arc<dyn telescope_core::media::CardPicture>);
                 }
                 Err(why) => self.card_failed(&why, &mut chain, &mut frame, ctx, &gpu),
+            }
+        }
+        // Still the decoder's picture and nothing touched it: it is landed when the camera asks, scaled to the camera's size if it can
+        if picture.is_none() && keep_fit && !chain.pending() && !chain.withheld {
+            if let Some(surface) = frame.surface().cloned() {
+                picture = Some(Arc::new(SurfacePicture::new(surface)) as Arc<dyn telescope_core::media::CardPicture>);
             }
         }
         if picture.is_none() {
@@ -699,12 +712,16 @@ impl Pipeline {
 
     /// Whether a stream with no step to run converts the decoder's picture on the card: not on one drawing in software, nor while the balance has moved work off it.
     fn plain_on_card(&self) -> bool {
+        self.plain_on_card_if(plain_allowed())
+    }
+
+    fn plain_on_card_if(&self, allowed: bool) -> bool {
         let card = match &self.gpu {
             Some(Some(gpu)) => !gpu.is_lost() && !gpu.is_software(),
             Some(None) => false,
             None => true,
         };
-        card && !self.card_lost && plain_allowed() && self.balance.place() == Place::Card && self.no_steps_run()
+        card && !self.card_lost && allowed && self.balance.place() == Place::Card && self.no_steps_run()
     }
 
     /// Whether every step is left out (none, or all skipped for failing).
@@ -727,7 +744,26 @@ impl Pipeline {
     }
 
     fn note_surface_wish(&self) {
-        self.surface_wish.store(self.starts_on_card(), Ordering::Relaxed);
+        self.surface_wish.store(self.starts_on_card() || self.fit_wanted(), Ordering::Relaxed);
+        self.plain_steps.store(self.plain_for_fit(), Ordering::Relaxed);
+    }
+
+    /// Whether no step runs and the plain picture isn't converted on the card, so a card picture can be left for the camera to take scaled.
+    fn plain_for_fit(&self) -> bool {
+        // Tests stand in for a card where plain streams stay off it (Intel, "Use less memory"), the case the fit is for
+        self.no_steps_run() && !self.plain_on_card_if(!cfg!(test) && plain_allowed())
+    }
+
+    /// The size the camera takes while it is open.
+    fn camera_size(&self) -> Option<(u32, u32)> {
+        unpack_camera_fit(self.camera_fit.load(Ordering::Relaxed))
+    }
+
+    /// Whether the decoder's pictures stay on the card for the camera to take scaled there: no step needs them, nothing converts them on the card, and
+    /// the camera is open at a size the last picture's can be scaled to.
+    fn fit_wanted(&self) -> bool {
+        let windows = cfg!(any(windows, test));
+        surface_fit::wanted(windows, self.plain_for_fit(), self.camera_size(), self.size)
     }
 
     fn steps_changed(&mut self) {
@@ -1289,6 +1325,14 @@ impl FramePipeline for Pipeline {
 
     fn surface_wish(&self) -> Option<Arc<AtomicBool>> {
         Some(self.surface_wish.clone())
+    }
+
+    fn camera_fit(&self) -> Option<Arc<AtomicU64>> {
+        Some(self.camera_fit.clone())
+    }
+
+    fn plain_steps(&self) -> Option<Arc<AtomicBool>> {
+        Some(self.plain_steps.clone())
     }
 
     fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame {
@@ -4091,6 +4135,102 @@ pub(crate) mod tests {
         assert!(wish(&p), "a step with both ways, with the card ahead");
         let (p, _) = either(Place::Cpu);
         assert!(!wish(&p), "a step with both ways, with the CPU ahead");
+    }
+
+    /// A decoder picture the card can scale to the camera's size: the picture that comes down scaled is a flat 200, the whole one a flat 90.
+    #[derive(Debug, Default)]
+    struct Scalable {
+        whole: Option<Frame>,
+        landed: std::sync::OnceLock<Frame>,
+        fits: AtomicUsize,
+    }
+
+    impl telescope_core::frame::DecodedSurface for Scalable {
+        fn ram(&self) -> &Frame {
+            self.landed.get_or_init(|| self.whole.clone().unwrap())
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn landed(&self) -> Option<&Frame> {
+            self.landed.get()
+        }
+        fn can_fit(&self, width: u32, height: u32) -> bool {
+            let whole = self.whole.as_ref().unwrap();
+            crate::surface_fit::scales_to((whole.width, whole.height), (width, height))
+        }
+        fn fitted(&self, width: u32, height: u32) -> Option<Frame> {
+            self.fits.fetch_add(1, Ordering::SeqCst);
+            Some(grey(width, height, 200))
+        }
+    }
+
+    fn scalable(w: u32, h: u32) -> (Frame, Arc<Scalable>) {
+        let surface = Arc::new(Scalable { whole: Some(grey(w, h, 90)), ..Scalable::default() });
+        (Frame::from_surface(w, h, PixelFormat::I420, surface.clone()), surface)
+    }
+
+    fn camera(p: &Pipeline, size: Option<(u32, u32)>) {
+        p.camera_fit().unwrap().store(size.map_or(0, telescope_core::media::pack_camera_fit), Ordering::Relaxed);
+    }
+
+    #[test]
+    fn a_plain_stream_into_a_smaller_camera_keeps_its_pictures_on_the_card_and_goes_back_whole_when_a_step_comes_on() {
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        assert_eq!(wish(&p), plain_allowed(), "no camera open, nothing to scale for");
+        camera(&p, Some((64, 36)));
+        let (frame, surface) = scalable(128, 72);
+        let out = p.process_picture(frame, &NoContext);
+        assert!(out.picture().is_some(), "left on the card");
+        assert_eq!((out.metadata().width, out.metadata().height), (128, 72), "anything reading the source size still sees it");
+        assert!(wish(&p), "the next pictures are kept too");
+        assert!(out.fits_on_card(64, 36));
+        let fitted = out.land_fitted_until(64, 36, &|| false).unwrap();
+        assert_eq!((fitted.width, fitted.height, fitted.data[0]), (64, 36, 200));
+        assert_eq!(surface.fits.load(Ordering::SeqCst), 1);
+        let whole = out.land();
+        assert_eq!((whole.width, whole.height, whole.data[0]), (128, 72, 90), "landing it whole still gives the real picture");
+        assert!(out.land_fitted_until(64, 36, &|| false).is_none(), "one in memory is fitted from there, not read back again");
+        let (frame, surface) = scalable(128, 72);
+        let again = p.process_picture(frame, &NoContext);
+        assert!(again.landed_fitted(64, 36).is_none(), "nothing scaled yet");
+        let first = again.land_fitted_until(64, 36, &|| false).unwrap();
+        let second = again.land_fitted_until(64, 36, &|| false).unwrap();
+        assert_eq!((first.width, second.width, surface.fits.load(Ordering::SeqCst)), (64, 64, 1), "the camera and the preview share one scaling");
+        assert_eq!(again.landed_fitted(64, 36).map(|f| f.height), Some(36));
+        assert!(again.landed_fitted(32, 18).is_none(), "another size isn't the kept one");
+        // A step that needs the whole picture comes on: the next picture is whole, not dark, and the decoder is no longer asked to keep them
+        p.set_steps(vec![step("first", FrameStage::Background, Brightens)]);
+        assert!(!wish(&p));
+        let (frame, surface) = scalable(128, 72);
+        let out = p.process_picture(frame, &NoContext);
+        assert!(out.picture().is_none());
+        assert_eq!((out.metadata().width, out.metadata().height), (128, 72));
+        assert!(out.land().data[0] >= 90, "the picture the step began from, not a dark one");
+        assert_eq!(surface.fits.load(Ordering::SeqCst), 0);
+        // A picture kept before the step came on still comes down whole when the steps run
+        p.set_steps(Vec::new());
+        let (kept, _) = scalable(128, 72);
+        p.set_steps(vec![step("first", FrameStage::Background, Brightens)]);
+        let out = p.process_picture(kept, &NoContext);
+        assert!(out.picture().is_none() && out.land().data[0] >= 90);
+        // The camera closes: pictures come down whole as before
+        p.set_steps(Vec::new());
+        camera(&p, None);
+        let (frame, _) = scalable(128, 72);
+        assert!(p.process_picture(frame, &NoContext).picture().is_none(), "nothing is scaled for a closed camera, and a plain stream without a card converts on the CPU here");
+        assert_eq!(wish(&p), plain_allowed());
+    }
+
+    #[test]
+    fn a_camera_as_big_as_the_stream_or_of_another_shape_leaves_its_pictures_alone() {
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        for size in [(128, 72), (64, 48), (256, 144)] {
+            camera(&p, Some(size));
+            let (frame, _) = scalable(128, 72);
+            let out = p.process_picture(frame, &NoContext);
+            assert!(out.picture().is_none(), "{size:?}");
+        }
     }
 
     #[test]
