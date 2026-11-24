@@ -12,8 +12,8 @@ use windows::Win32::Graphics::Direct3D11::*;
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_NV12, DXGI_RATIONAL, DXGI_SAMPLE_DESC};
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 
-/// How long to wait for the card to finish a picture before giving the scaling up (a few frame times: the camera's thread and the publish lock wait this long on a stuck card).
-const WAIT_MS: u32 = 100;
+/// How long to wait for the card to finish a picture before giving the scaling up.
+const WAIT_MS: u32 = 500;
 
 /// Input views kept for the decoder's textures before they are made again, far more than its pool holds.
 const MOST_VIEWS: usize = 64;
