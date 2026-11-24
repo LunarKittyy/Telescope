@@ -192,6 +192,15 @@ pub fn less_memory_in_effect() -> bool {
     less_memory() && !opened_is_intel()
 }
 
+/// Whether a plain stream must stay off the card: "Use less memory" is in effect, or this is Intel in Windows, whose DX12 pipeline device leaks.
+pub fn plain_held_back() -> bool {
+    plain_held_back_for(less_memory_in_effect(), cfg!(windows) && opened_is_intel())
+}
+
+fn plain_held_back_for(less_memory: bool, intel_in_windows: bool) -> bool {
+    less_memory || intel_in_windows
+}
+
 /// The API the window's card opened on, for the status line.
 pub fn opened_api() -> Option<Api> {
     *OPENED_API.lock().unwrap_or_else(|e| e.into_inner())
@@ -402,6 +411,12 @@ mod tests {
         }
         let linux = [c(Api::Dx12, Kind::Discrete, 0), c(Api::Vulkan, Kind::Discrete, 1)];
         assert_eq!(order_by(&linux, Prefer::Unchanged, Role::Window, true), order_by(&linux, Prefer::Unchanged, Role::Window, false), "nothing changes off Windows");
+    }
+
+    #[test]
+    fn a_plain_stream_stays_off_the_card_on_intel_in_windows_and_with_less_memory() {
+        assert!(!plain_held_back_for(false, false));
+        assert!(plain_held_back_for(true, false) && plain_held_back_for(false, true));
     }
 
     #[test]
