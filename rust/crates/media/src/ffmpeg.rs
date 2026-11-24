@@ -242,16 +242,13 @@ impl Codec {
             // SAFETY: the context is live, and the pool isn't made yet while it holds no hardware frames context
             unsafe {
                 if (*self.ctx).hw_frames_ctx.is_null() {
-                    (*self.ctx).extra_hw_frames = 1 + import_mod::MAX_SURFACES as i32;
+                    (*self.ctx).extra_hw_frames = 1 + import_mod::MAX_HELD as i32;
                     if wish {
                         self.surface_room = true;
                     }
                     self.fit_room = true;
                 }
             }
-        }
-        if self.defer_surfaces != (wish && (self.surface_room || self.fit_room)) {
-            log::info!("DIAG decoder defers surfaces: {} (wish {wish}, room {} {})", wish && (self.surface_room || self.fit_room), self.surface_room, self.fit_room);
         }
         self.defer_surfaces = wish && (self.surface_room || self.fit_room);
     }

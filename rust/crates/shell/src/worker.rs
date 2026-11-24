@@ -1005,10 +1005,6 @@ impl Shared {
         self.newest_arrival.store(arrived, Ordering::Relaxed);
         // The one place a card picture is read back for the readers of the slot: here, on this thread, before the lock they take
         if self.slot.ram_wanted() {
-            static TOLD: AtomicBool = AtomicBool::new(false);
-            if !TOLD.swap(true, Ordering::Relaxed) {
-                log::info!("DIAG a reader wants the stream's pictures in memory");
-            }
             out.land_until(&|| self.stopped());
         }
         // A frame made while Stop waited isn't published after it
@@ -1678,9 +1674,7 @@ impl Shared {
     /// Tells the pipeline what size the camera takes (None once it is closed), which decides whether the card scales a plain stream's pictures before they come down.
     fn set_camera_fit(&self, size: Option<(u32, u32)>) {
         if let Some(cell) = &self.camera_fit {
-            if cell.swap(size.map_or(0, telescope_core::media::pack_camera_fit), Ordering::Relaxed) != size.map_or(0, telescope_core::media::pack_camera_fit) {
-                log::info!("DIAG camera fit now {size:?}");
-            }
+            cell.store(size.map_or(0, telescope_core::media::pack_camera_fit), Ordering::Relaxed);
         }
     }
 

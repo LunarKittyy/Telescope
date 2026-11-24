@@ -19,6 +19,8 @@ use wgpu::hal::api::{Dx12, Vulkan};
 
 /// Decoder pictures kept on the card at once, and shared textures in flight, per stream.
 pub(crate) const MAX_SURFACES: usize = 3;
+/// How many decoder pictures a stream may hold back at once: the newest one, those queued for the camera and shown, and the preview's.
+pub(crate) const MAX_HELD: usize = 6;
 /// The decoder this module imports from.
 pub(crate) const HW: crate::ffmpeg::Hw = crate::ffmpeg::Hw::D3d11va;
 /// How long the copy into the shared texture may take before the picture goes through memory instead.
@@ -274,7 +276,7 @@ impl Surface {
             let bt709 = std::slice::from_raw_parts(ff::sws_getCoefficients(1), 4);
             let colour = if coefficients == bt601 { 0 } else if coefficients == bt709 { 16 } else { return Err("unsupported surface colour matrix".into()) }
                 | if (*frame).color_range == ff::AVColorRange::AVCOL_RANGE_JPEG { 32 } else { 0 };
-            if stream.live.try_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < MAX_SURFACES).then_some(n + 1)).is_err() {
+            if stream.live.try_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < MAX_HELD).then_some(n + 1)).is_err() {
                 return Ok(None);
             }
             (((*frame).width as u32, (*frame).height as u32), colour, ff::av_frame_clone(frame))
@@ -622,10 +624,8 @@ impl DecodedSurface for Surface {
         })();
         match tried {
             Ok(frame) => {
-                if !self.stream.fit_failed.load(Ordering::Relaxed) && self.ram.get().is_none() {
-                    static SAID: std::sync::Once = std::sync::Once::new();
-                    SAID.call_once(|| log::info!("DIAG first picture scaled on the card to {width}x{height}"));
-                }
+                static SAID: std::sync::Once = std::sync::Once::new();
+                SAID.call_once(|| log::info!("The graphics card scales the decoder's pictures to the camera's size ({width}x{height}) before they are copied"));
                 Some(frame)
             }
             Err(why) => {
@@ -831,7 +831,7 @@ mod tests {
             dark += u64::from(out.data[0] < 20);
             shown += 1;
             if let Some(stream) = &stream {
-                assert!(stream.live.load(Ordering::Acquire) <= MAX_SURFACES + 2, "decoder surfaces are piling up");
+                assert!(stream.live.load(Ordering::Acquire) <= MAX_HELD, "decoder surfaces are piling up");
                 assert!(stream.slots.lock().unwrap().len() <= MAX_SURFACES, "shared textures are piling up");
             }
         }
