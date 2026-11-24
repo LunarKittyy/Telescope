@@ -128,7 +128,15 @@ fn at_the_lightest_effort_level_the_cutout_rests_and_comes_back_after() {
     first_mask(v);
     let runs = || r.counts.runs.load(Ordering::SeqCst);
     v.inner.effort.set_floor(MOST);
-    let before = runs();
+    // a run the polling asks left queued may still land, so count from when the thread has been quiet a moment
+    let mut before = runs();
+    loop {
+        std::thread::sleep(Duration::from_millis(60));
+        if runs() == before {
+            break;
+        }
+        before = runs();
+    }
     for seq in 100..110 {
         assert!(ask(v, seq).is_none(), "the normal mask stands in");
         cutout_stream(v).mask.lock().unwrap().at -= CUTOUT_STILL_EVERY_S + 0.02;

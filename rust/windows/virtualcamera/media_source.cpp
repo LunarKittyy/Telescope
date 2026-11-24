@@ -207,6 +207,7 @@ HRESULT MediaStream::Run(IMFMediaType* type) {
 }
 
 void MediaStream::Halt() {
+    std::lock_guard<std::mutex> halting(m_halt);
     std::thread worker;
     {
         std::lock_guard<std::mutex> lock(m_lock);
@@ -248,6 +249,9 @@ void MediaStream::Deliver() {
     using clock = std::chrono::steady_clock;
     // Other waits round up to Windows' 15.6 ms timer tick, so 60 fps frames came 15.6 or 31.2 ms apart
     HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    constexpr auto kPoll = std::chrono::milliseconds(1);  // how often the polling fallback looks for a frame
+    HANDLE frame_event = m_channel.FrameEvent();
+    bool signalled = false;  // Telescope sets the event for each frame, so there's no polling
     // Sleeps with the lock off, so stopping waits for at most one sleep. False once it's stopping.
     auto sleep_until = [&](std::unique_lock<std::mutex>& lock, clock::time_point at) {
         auto left = std::chrono::duration_cast<std::chrono::duration<LONGLONG, std::ratio<1, 10000000>>>(at - clock::now());
@@ -262,8 +266,23 @@ void MediaStream::Deliver() {
         }
         return !m_wake.wait_until(lock, at, [this] { return m_stopWorker; });
     };
+    // Waits for Telescope's frame event or the time, with the lock off. False once it's stopping.
+    auto wait_signal = [&](std::unique_lock<std::mutex>& lock, clock::time_point at, bool* by_event) {
+        auto left = std::chrono::duration_cast<std::chrono::duration<LONGLONG, std::ratio<1, 10000000>>>(at - clock::now());
+        if (left.count() <= 0) return !m_stopWorker;
+        LARGE_INTEGER due;
+        due.QuadPart = -left.count();
+        if (!SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) return sleep_until(lock, std::min(at, clock::now() + kPoll));
+        HANDLE handles[2] = {frame_event, timer};  // the event first, so one that comes with the timer isn't missed
+        lock.unlock();
+        DWORD got = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+        lock.lock();
+        *by_event = got == WAIT_OBJECT_0;
+        return !m_stopWorker;
+    };
+    // Takes a frame event that's set, which says whether Telescope signals frames at all
+    auto take_signal = [&] { return frame_event && WaitForSingleObject(frame_event, 0) == WAIT_OBJECT_0; };
     constexpr auto kLive = std::chrono::milliseconds(200);  // a frame this recently means Telescope is sending
-    constexpr auto kPoll = std::chrono::milliseconds(1);
     auto period = std::chrono::nanoseconds(1000000000LL / m_fps);
     auto next = clock::now();   // when the picture repeats if nothing new came
     auto floor = next;          // the earliest a frame may follow the last one
@@ -274,11 +293,23 @@ void MediaStream::Deliver() {
         // Paused, requests wait in the queue until it runs again
         m_wake.wait(lock, [this] { return m_stopWorker || (!m_tokens.empty() && m_state == MF_STREAM_STATE_RUNNING); });
         if (m_stopWorker) break;
+        bool heard = false;  // whether this frame's signal has come
         bool live = seen && clock::now() - fresh_at < kLive;
         if (!sleep_until(lock, live ? std::min(floor, next) : next)) break;
         while (live && !m_tokens.empty() && m_state == MF_STREAM_STATE_RUNNING && !m_channel.HasNew(m_width, m_height)
                && clock::now() < next) {
-            if (!sleep_until(lock, std::min(next, clock::now() + kPoll))) break;
+            if (signalled && timer) {
+                // Telescope sets the event as each frame lands, so this sleeps through the wait instead of polling for it
+                bool by_event = false;
+                if (!wait_signal(lock, next, &by_event)) break;
+                heard = heard || by_event;
+                if (!by_event && m_channel.HasNew(m_width, m_height) && !take_signal()) {
+                    signalled = false;  // a frame came and no signal did, so poll again until one does
+                }
+            } else {
+                if (!sleep_until(lock, std::min(next, clock::now() + kPoll))) break;
+                if (m_channel.HasNew(m_width, m_height) && take_signal()) signalled = true;
+            }
         }
         if (m_stopWorker) break;
         if (m_tokens.empty() || m_state != MF_STREAM_STATE_RUNNING) continue;
@@ -296,6 +327,11 @@ void MediaStream::Deliver() {
             Log(L"slot %d: making a frame failed (0x%08x)", m_slot, hr);
             if (m_queue) m_queue->QueueEventParamVar(MEError, GUID_NULL, hr, nullptr);
             break;
+        }
+        if (signalled) {
+            // The signal of a frame that's been taken, so it doesn't wake the next wait
+            heard = take_signal() || heard;
+            if (fresh && !heard) signalled = false;  // a frame with no signal at all: poll until they come back
         }
         auto now = clock::now();
         if (fresh) {

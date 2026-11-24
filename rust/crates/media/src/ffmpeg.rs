@@ -182,6 +182,9 @@ pub struct Codec {
     import: std::sync::Arc<import_mod::Stream>,
     #[cfg(surfaces)]
     import_node: Option<String>,
+    /// Copies D3D11VA pictures into memory waiting on a fence, not on Map (which spins a core on some drivers).
+    #[cfg(all(windows, ffmpeg))]
+    copier: crate::d3d11_copy::Copier,
 }
 
 /// Copies data into buf followed by the AV_INPUT_BUFFER_PADDING_SIZE zero bytes FFmpeg requires after any input.
@@ -199,6 +202,24 @@ impl Codec {
     /// H.264 with low delay, in software (two slice threads) or on hw with no software fallback.
     pub fn h264(hw: Option<Hw>) -> Result<Codec, String> {
         Codec::open(ff::AVCodecID::AV_CODEC_ID_H264, hw, true)
+    }
+
+    /// Tests: copy pictures off the card the way FFmpeg does.
+    #[cfg(all(test, windows, ffmpeg))]
+    pub(crate) fn fenced_copy_off(&mut self) {
+        self.copier.disable();
+    }
+
+    /// Tests: the driver has no fences.
+    #[cfg(all(test, windows, ffmpeg))]
+    pub(crate) fn fence_unavailable(&self) -> bool {
+        self.copier.fence_unavailable()
+    }
+
+    /// Tests: whether the fenced copy is still in use.
+    #[cfg(all(test, windows, ffmpeg))]
+    pub(crate) fn fenced_copy_works(&self) -> bool {
+        self.copier.usable()
     }
 
     /// Whether the next pictures may stay on the card for import (VA-API only); the pool is sized at the first picture, so a decoder started without the wish copies to memory until it is opened again.
@@ -272,6 +293,8 @@ impl Codec {
                 import: std::sync::Arc::default(),
                 #[cfg(surfaces)]
                 import_node: None,
+                #[cfg(all(windows, ffmpeg))]
+                copier: crate::d3d11_copy::Copier::default(),
             };
             if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || c.held.is_null() || (parse && c.parser.is_null()) {
                 return Err("out of memory opening a decoder".into());
@@ -501,6 +524,32 @@ impl Codec {
         // The card's own NV12 is split in take_frame, unless a test asked for I420
         if self.card_gives_i420 {
             (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
+        }
+        #[cfg(all(windows, ffmpeg))]
+        if self.hw == Some(Hw::D3d11va) && !self.card_gives_i420 && self.copier.usable() && self.forced_now() != Some(Forced::Copy) {
+            #[cfg(test)]
+            let measured = self.copy_ns.is_some();
+            #[cfg(not(test))]
+            let measured = false;
+            if !measured {
+                let began = monotonic_ns();
+                match self.copier.copy(self.frame, self.sw_frame) {
+                    Ok(true) => {
+                        span("transfer", began);
+                        transfers::decoded_down();
+                        return Ok(());
+                    }
+                    Ok(false) => {}
+                    Err(why) if self.copier.device_removed() => {
+                        // FFmpeg's copy would make its staging texture on the removed device and could return with the device lock held
+                        return Err(Fault::Broken(format!("the card's device was removed during a copy ({why})")));
+                    }
+                    Err(why) => {
+                        log::warn!("Copying a decoded picture with a fence failed ({why}); FFmpeg's copy takes over for this decoder");
+                        ff::av_frame_unref(self.sw_frame);
+                    }
+                }
+            }
         }
         #[cfg(test)]
         let started = std::time::Instant::now();
