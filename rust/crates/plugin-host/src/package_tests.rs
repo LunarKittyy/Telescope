@@ -280,6 +280,22 @@ fn a_module_loaded_late_is_the_one_the_plugin_started_with() {
 }
 
 #[test]
+fn a_shader_read_late_is_the_one_the_plugin_started_with() {
+    use telescope_core::Plugin as _;
+    let p = plugins();
+    let folder = example(&p.folder, "black_and_white");
+    p.set_enabled(&one(&p), true).unwrap();
+    let mut running = crate::load::load(&one(&p), "en").unwrap();
+    running.setup(&mut FakeHost::new());
+    running.set_config(&json!({"on": true})).unwrap();
+    let shader = fs::read_dir(folder.join("shaders")).unwrap().flatten().map(|e| e.path()).find(|f| f.extension().is_some_and(|e| e == "wgsl")).expect("a shader");
+    // A newer version of the plugin is unpacked over the folder while this one runs
+    fs::write(&shader, "fn effect() {}").unwrap();
+    let Some(FrameStep::Shader(step)) = running.frame_step() else { panic!("no shader") };
+    assert!(step.wgsl.contains("fn effect") && step.wgsl.len() > 20, "{}", step.wgsl);
+}
+
+#[test]
 fn a_plugin_that_raises_on_load_is_reported_not_raised() {
     let p = plugins();
     plugin(&p.folder, "thing", "error('broken on purpose')\n", json!({}));
