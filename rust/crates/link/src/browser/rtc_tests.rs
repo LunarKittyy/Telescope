@@ -1,4 +1,4 @@
-//! tests/test_browser_rtc.py, test for test: the SDP helpers here. The real connection needs the decoders too, so it's in app/tests/browser_rtc.rs.
+//! The SDP helpers here. The real connection needs the decoders too, so it's in app/tests/browser_rtc.rs.
 
 use super::rtc::*;
 use std::sync::Arc;
@@ -43,4 +43,30 @@ fn max_kbps_follows_size_and_rate_within_bounds() {
 fn an_offer_without_a_codec_this_computer_decodes_is_refused() {
     let mut session = StrSession::new(vec![], Arc::new(|| None), Box::new(|_, _, _, _| {}), Box::new(|_| {}));
     assert!(session.answer("v=0\r\nnot an offer\r\n", 4000).is_err());
+}
+
+/// A real offer from a str0m peer, which has the video and audio the answer needs.
+fn offer() -> String {
+    let mut rtc = str0m::RtcConfig::new().set_crypto_provider(Arc::new(str0m::crypto::from_feature_flags())).build(std::time::Instant::now());
+    let mut change = rtc.sdp_api();
+    change.add_media(str0m::media::MediaKind::Video, str0m::media::Direction::SendOnly, None, None, None);
+    change.add_media(str0m::media::MediaKind::Audio, str0m::media::Direction::SendOnly, None, None, None);
+    change.apply().unwrap().0.to_sdp_string()
+}
+
+#[test]
+fn each_offer_is_answered_with_the_addresses_this_computer_has_by_then() {
+    use std::net::IpAddr;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let asked = Arc::new(AtomicUsize::new(0));
+    let counted = asked.clone();
+    // The first offer finds the computer on a network and the second finds it on none (it moved)
+    let maker = str_maker(move || if counted.fetch_add(1, Ordering::SeqCst) == 0 { vec![IpAddr::from([127, 0, 0, 1])] } else { Vec::new() },
+                          Arc::new(|| None));
+    let mut first = maker(Box::new(|_, _, _, _| {}), Box::new(|_| {}));
+    assert!(first.answer(&offer(), 4000).is_ok());
+    first.close();
+    let mut second = maker(Box::new(|_, _, _, _| {}), Box::new(|_| {}));
+    assert!(second.answer(&offer(), 4000).is_err(), "the addresses from the first offer were reused");
+    assert_eq!(asked.load(Ordering::SeqCst), 2);
 }

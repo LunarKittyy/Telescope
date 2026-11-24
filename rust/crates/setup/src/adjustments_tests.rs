@@ -90,6 +90,56 @@ fn power_saving_is_the_reason_not_an_item_of_its_own() {
 }
 
 #[test]
+fn the_computers_power_saving_is_the_reason_with_full_quality_and_its_own_switch_to_undo_it() {
+    let saving = |floor: u8, auto_level: u8, held: bool| {
+        let level = if held { floor } else { auto_level.max(floor).max(1) };
+        Seen { effort: EffortSnapshot { level, auto_level, floor, machine_floor: u8::from(!held), auto: true, held, ..Default::default() }, ..quiet() }
+    };
+    let list = items(&saving(0, 0, false));
+    assert_eq!((list.len(), &list[0].kind, &list[0].reason), (1, &Kind::Effects, &Reason::ComputerSavesPower));
+    assert_eq!(list[0].overrides, [Override::KeepFull, Override::TurnOffPower]);
+    // Power-saving effects asks for as much itself: that is the reason, and its own card has the switch
+    let both = items(&saving(1, 0, false));
+    assert_eq!((&both[0].reason, both[0].overrides.len()), (&Reason::PowerSaving, 0));
+    // Frames running late have taken it further than either floor
+    assert_eq!(items(&saving(0, 2, false))[0].reason, Reason::FramesLate);
+    // Full quality kept: the computer's ask is let go, so nothing is adjusted
+    assert!(items(&saving(0, 0, true)).is_empty());
+}
+
+#[test]
+fn the_computers_power_saving_has_a_saved_switch_that_the_list_and_settings_both_move() {
+    let (mut p, mut host) = plugin();
+    p.on_plugins_ready(&mut host);
+    assert!(host.calls.contains(&"set_effects_follow_power true".to_string()), "on as it comes");
+    let mut snap = stream(0);
+    snap.app.effort = EffortSnapshot { level: 1, floor: 0, machine_floor: 1, auto: true, ..Default::default() };
+    p.on_event(&mut host, &Event::StatsUpdated { snapshot: snap });
+    assert_eq!((p.rows.len(), &p.rows[0].reason), (1, &Reason::ComputerSavesPower));
+    // Full quality for this run: the host is told to hold it
+    host.calls.clear();
+    let click = |p: &mut AdjustmentsPlugin, host: &mut FakeHost, b: u64| p.on_ui(host, &UiEvent { ui: "header".into(), callback: "override-clicked".into(), args: vec![json!(0), json!(b)] });
+    click(&mut p, &mut host, 0);
+    assert!(host.calls.contains(&"hold_effects_full true".to_string()));
+    assert_eq!(p.get_config()["power"], true, "that one isn't saved");
+    // Turn off is the saved switch, and leaves the lighter-effects-while-late switch alone
+    click(&mut p, &mut host, 1);
+    assert_eq!((p.get_config()["power"].clone(), p.get_config()["effects"].clone()), (json!(false), json!(true)));
+    assert!(host.calls.contains(&"set_effects_follow_power false".to_string()) && host.calls.contains(&"schedule_save".to_string()));
+    // Settings moves it back
+    p.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "power-toggled".into(), args: vec![json!(true)] });
+    assert_eq!(p.get_config()["power"], true);
+    assert!(host.calls.last().is_some_and(|c| c.starts_with("set_ui_props adjustments")));
+}
+
+#[test]
+fn switching_the_plugin_off_lets_go_of_following_power() {
+    let (mut p, mut host) = plugin();
+    p.shutdown(&mut host);
+    assert!(host.calls.contains(&"set_effects_follow_power false".to_string()));
+}
+
+#[test]
 fn the_balancer_only_counts_when_it_moved_frames_and_nothing_pins_them() {
     let moved = Seen { balance: BalanceSnapshot { on_card: false, ..Default::default() }, busiest_gpu: Some("Game".into()), ..quiet() };
     let list = items(&moved);
@@ -121,6 +171,16 @@ fn decoding_on_the_processor_offers_the_video_settings() {
 }
 
 #[test]
+fn a_trimmed_stream_size_offers_the_pick_back_or_switching_it_off() {
+    let seen = Seen { trimmed: Some(((1920, 1080), (3840, 2160))), ..quiet() };
+    let all = items(&seen);
+    assert_eq!(kinds(&seen), [Kind::StreamSize]);
+    assert_eq!(all[0].overrides, [Override::KeepPickedSize, Override::TurnOff]);
+    let why = why_of(&all[0].reason);
+    assert!(why.contains("1920 × 1080") && why.contains("3840 × 2160"), "{why}");
+}
+
+#[test]
 fn every_item_has_a_name_a_reason_and_a_tooltip_for_each_button() {
     let seen = Seen {
         effort: EffortSnapshot { heads: true, ..lighter() },
@@ -128,6 +188,7 @@ fn every_item_has_a_name_a_reason_and_a_tooltip_for_each_button() {
         dynamic_in_use: true,
         phone: Phone { bitrate_bps: Some(2e6), peak_bps: 8e6, dynamic_fps: Some(20), heat_fps: None },
         decoding_slow: true,
+        trimmed: Some(((1920, 1080), (3840, 2160))),
         ..Default::default()
     };
     for item in items(&seen) {
@@ -237,18 +298,36 @@ fn the_overrides_reach_the_host_through_its_methods_and_an_event() {
 }
 
 #[test]
+fn keeping_the_picked_size_asks_stream_output_and_turn_off_is_the_saved_switch() {
+    let (mut p, mut host) = plugin();
+    p.on_event(&mut host, &Event::StreamSizeTrimmed { trimmed: true, width: 1920, height: 1080, picked_width: 3840, picked_height: 2160 });
+    assert_eq!(p.trimmed, Some(((1920, 1080), (3840, 2160))));
+    p.rows = items(&Seen { trimmed: p.trimmed, ..quiet() });
+    let click = |p: &mut AdjustmentsPlugin, host: &mut FakeHost, which: u64| {
+        p.on_ui(host, &UiEvent { ui: "header".into(), callback: "override-clicked".into(), args: vec![json!(0), json!(which)] });
+    };
+    click(&mut p, &mut host, 0);
+    assert_eq!(host.events, [Event::StreamSizeHeld { on: true }]);
+    click(&mut p, &mut host, 1);
+    assert_eq!(p.get_config()["stream_size"], false);
+    p.on_event(&mut host, &Event::StreamStopped);
+    assert_eq!(p.trimmed, None, "a new stream starts untrimmed");
+}
+
+#[test]
 fn the_switches_are_applied_at_the_start_and_reset_puts_them_back_on() {
     let (mut p, mut host) = plugin();
-    p.set_config(&json!({"effects": false, "heads": false, "balance": false, "dynamic": false})).unwrap();
+    p.set_config(&json!({"effects": false, "heads": false, "balance": false, "dynamic": false, "power": false, "stream_size": false})).unwrap();
     p.on_plugins_ready(&mut host);
-    for call in ["set_effects_step_down false", "hold_effects_full false", "allow_heads false", "keep_steps_on_card true"] {
+    for call in ["set_effects_step_down false", "set_effects_follow_power false", "hold_effects_full false", "allow_heads false", "keep_steps_on_card true"] {
         assert!(host.calls.contains(&call.to_string()), "{call}: {:?}", host.calls);
     }
-    assert_eq!(host.events, [Event::FixedBitrateRequested { on: true }]);
+    assert_eq!(host.events, [Event::FixedBitrateRequested { on: true }, Event::StreamSizeHeld { on: true }]);
     p.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "reset-clicked".into(), args: vec![] });
-    assert_eq!(p.get_config(), json!({"effects": true, "heads": true, "balance": true, "dynamic": true}));
+    assert_eq!(p.get_config(), json!({"effects": true, "heads": true, "balance": true, "dynamic": true, "power": true, "stream_size": true}));
+    assert!(host.calls.contains(&"set_effects_follow_power true".to_string()));
     assert_eq!(host.calls.iter().rev().find(|c| c.starts_with("allow_heads")).map(String::as_str), Some("allow_heads true"));
-    assert_eq!(host.events.last(), Some(&Event::FixedBitrateRequested { on: false }));
+    assert_eq!(host.events[2..], [Event::FixedBitrateRequested { on: false }, Event::StreamSizeHeld { on: false }]);
     assert!(host.calls.contains(&"keep_steps_on_card false".to_string()));
 }
 
@@ -372,8 +451,8 @@ fn the_banner_asks_to_hear_about_its_dismissal() {
 #[test]
 fn every_switch_in_settings_is_one_the_plugin_has() {
     let ui = include_str!("../ui/adjustments.slint");
-    assert_eq!(ui.matches("SwitchRow {").count(), 4);
-    for switch in ["effects", "heads", "balance", "dynamic"] {
+    assert_eq!(ui.matches("SwitchRow {").count(), 6);
+    for switch in ["effects", "heads", "balance", "dynamic", "power", "stream-size"] {
         assert!(ui.contains(&format!("root.{switch}-toggled(on)")), "{switch}");
     }
     assert!(!ui.contains("enabled: false"));
@@ -417,4 +496,38 @@ fn following_faces_can_be_kept_off_for_this_run_or_switched_off() {
     p.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "heads-toggled".into(), args: vec![json!(false)] });
     assert_eq!(p.get_config()["heads"], false);
     assert_eq!(host.calls.iter().rev().find(|c| c.starts_with("allow_heads")).map(String::as_str), Some("allow_heads false"));
+}
+
+#[test]
+fn a_closed_banner_stays_closed_when_the_cause_isnt_read_yet_on_the_first_tick_back() {
+    let (mut p, mut host) = plugin();
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 0);
+    dismiss(&mut p, &mut host);
+    let mut calm = stream(0);
+    calm.app.effort = lightest();
+    p.on_stats_at(&mut host, &calm, SECOND);
+    behind_with(&mut p, &mut host, 6, None, 2 * SECOND);
+    assert!(host.issues.is_empty(), "the computer isn't read on the first tick, which says nothing about the cause");
+    behind_with(&mut p, &mut host, 6, Some("Renderer"), 3 * SECOND);
+    assert!(host.issues.is_empty());
+    behind_with(&mut p, &mut host, 20, None, 4 * SECOND);
+    assert_eq!(host.issues.len(), 1, "far more frames shed still brings it back");
+}
+
+#[test]
+fn polls_during_a_stream_update_the_phones_readings() {
+    let (mut p, mut host) = plugin();
+    p.on_event(&mut host, &Event::PhonePolled { source_id: "phone".into(), session: 1, shown: true, state: json!({"bitrate": 8e6}) });
+    p.on_event(&mut host, &Event::PhonePolled { source_id: "phone".into(), session: 1, shown: true, state: json!({"bitrate": 3e6, "dynamic_fps": 24}) });
+    assert_eq!(p.phone.bitrate_bps, Some(3e6));
+    assert_eq!(p.phone.peak_bps, 8e6);
+    assert_eq!(p.phone.dynamic_fps, Some(24));
+    p.on_event(&mut host, &Event::PhonePolled { source_id: "other".into(), session: 1, shown: false, state: json!({"bitrate": 1e6}) });
+    assert_eq!(p.phone.bitrate_bps, Some(3e6), "a phone that isn't shown is left alone");
+}
+
+#[test]
+fn faces_are_not_listed_once_the_effects_are_back_at_full() {
+    let tail = Seen { effort: EffortSnapshot { level: 0, heads: true, ..Default::default() }, ..quiet() };
+    assert!(items(&tail).is_empty());
 }

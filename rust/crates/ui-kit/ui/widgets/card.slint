@@ -1,4 +1,4 @@
-// The card frame and its rows (widgets/common.py: create_card, add_card_header, add_section_heading, control_row).
+// The card frame and its rows.
 
 import { Theme } from "../theme.slint";
 import { Icon, FocusRing, Button, IconButton, KeyFocus } from "basics.slint";
@@ -28,7 +28,7 @@ component HeaderMenu inherits ContextMenuArea {
     }
 }
 
-// collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
+// The fold button: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
 component FoldTitle inherits Rectangle {
     in property <string> key;
     in property <string> text;
@@ -620,7 +620,7 @@ export component SwitchRow inherits Rectangle {
     }
 }
 
-// A section of a card that folds by its heading (add_section_heading plus collapse.py). key is the heading in English,
+// A section of a card that folds by its heading. key is the heading in English,
 // scope the card's fold-key.
 export component Section inherits VerticalLayout {
     in property <string> key;

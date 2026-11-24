@@ -1,4 +1,4 @@
-//! What a plugin does with the preview's own copy of the picture (PreviewLayer in overlays.py): colour it, work something out of
+//! What a plugin does with the preview's own copy of the picture: colour it, work something out of
 //! it, and draw over it. Apps never see any of it, since none of it touches the frames that go out to the virtual camera.
 
 use crate::frame::Frame;

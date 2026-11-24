@@ -1,4 +1,4 @@
-//! tests/test_shortcuts.py on real controls: Python builds a widget and an action for it, a Rust action belongs to its plugin, so
+//! Shortcuts on real controls: Python built a widget and an action for it, a Rust action belongs to its plugin, so
 //! these run the Camera card's own actions and read the card and what went to the phone. What a binding says of itself is
 //! `shortcuts.rs` in the system crate.
 

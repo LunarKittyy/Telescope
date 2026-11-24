@@ -112,7 +112,7 @@ pub enum SetupAction {
 
 /// SetupResult::message when the person said no at the password prompt. Compared, never shown, so it stays as it is.
 pub const SETUP_CANCELLED: &str = "Cancelled.";
-/// Slot 0's node, as the Linux setup makes it (platform/linux.py V4L2_PHONE_DEV).
+/// Slot 0's node, as the Linux setup makes it.
 pub const V4L2_PHONE_DEV: &str = "/dev/video11";
 
 /// How far the virtual camera is set up on this computer, for the setup checks.
@@ -139,6 +139,9 @@ pub struct SetupStatus {
     /// Windows: the Windows 11 camera could be installed here.
     #[serde(default)]
     pub installable: bool,
+    /// Windows: UnityCapture's DLLs are downloaded already.
+    #[serde(default)]
+    pub driver_files: bool,
 }
 
 pub trait Outputs: Send + Sync {

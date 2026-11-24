@@ -13,7 +13,7 @@ use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::desk::DeskPlugin;
 use telescope_effects::transforms::TransformsPlugin;
 use telescope_shell::offscreen;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 fn out() -> Option<PathBuf> {
     let dir = PathBuf::from(std::env::var("CARD_SHOTS").ok()?);

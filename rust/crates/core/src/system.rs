@@ -40,7 +40,7 @@ pub trait Autostart: Send + Sync {
     fn set_enabled(&self, on: bool, minimized: bool) -> Result<(), String>;
 }
 
-/// What a second copy asked the first for (main.py's --action and plain starts).
+/// What a second copy asked the first for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum InstanceMessage {

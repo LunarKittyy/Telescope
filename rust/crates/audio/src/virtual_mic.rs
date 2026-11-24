@@ -1,4 +1,4 @@
-//! The virtual microphone other apps record from (platform/virtual_mic.py).
+//! The virtual microphone other apps record from.
 //!
 //! Linux: a PulseAudio / PipeWire pipe source named "Telescope Microphone", fed through a FIFO. It's an input only, so
 //! it never shows up as a speaker. Needs only pactl, and it's gone after a reboot (or when the mic is switched off).

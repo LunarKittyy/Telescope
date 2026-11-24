@@ -25,13 +25,17 @@ done
 [ -n "$ffmpeg" ] || { echo "Pass --ffmpeg, a build from build_ffmpeg.sh" >&2; exit 2; }
 case $channel in stable|nightly|dev) ;; *) echo "The channel is stable, nightly or dev" >&2; exit 2 ;; esac
 
+# Only a stable release waits for the slowest, most optimised build (Cargo.toml's nightly profile)
+profile=nightly
+[ "$channel" = stable ] && profile=release
+
 cd "$rust"
-FFMPEG_DIR=$ffmpeg TELESCOPE_BUILD=$build TELESCOPE_CHANNEL=$channel TELESCOPE_COMMIT=$commit cargo build --release --locked -p telescope-app
+FFMPEG_DIR=$ffmpeg TELESCOPE_BUILD=$build TELESCOPE_CHANNEL=$channel TELESCOPE_COMMIT=$commit cargo build --profile "$profile" --locked -p telescope-app
 target=${CARGO_TARGET_DIR:-target}
 
 rm -rf "$out"
 mkdir -p "$out/lib/fallback" "$out/telescope"
-cp "$target/release/telescope-rs" "$out/"
+cp "$target/$profile/telescope-rs" "$out/"
 cp tools/start.sh "$out/start.sh"
 cp tools/main_stub.py "$out/main.py"
 chmod +x "$out/start.sh" "$out/telescope-rs"
@@ -45,14 +49,19 @@ for lib in libavcodec libavutil libswresample libswscale; do
     soname=$(basename "$(find "$ffmpeg/lib" -name "$lib.so.*" -regex '.*\.so\.[0-9]+')")
     cp -L "$ffmpeg/lib/$soname" "$out/lib/$soname"
 done
+# The first x86-64 entry of ldconfig, without exiting early (awk quitting would break the pipe and fail the build)
+cache=$(ldconfig -p)
+find_lib() {
+    awk -v l="$1" '$1 == l && /x86-64/ && !done { print $NF; done = 1 }' <<< "$cache"
+}
 # Only reached on a system without its own (start.sh)
 for lib in libva.so.2 libva-drm.so.2 libdrm.so.2; do
-    cp -L "$(ldconfig -p | awk -v l="$lib" '$1 == l && /x86-64/ { print $NF; exit }')" "$out/lib/fallback/$lib"
+    cp -L "$(find_lib "$lib")" "$out/lib/fallback/$lib"
 done
 # The same for fontconfig, in a folder of its own: libva's being wanted mustn't put these ahead of a system's own
 mkdir "$out/lib/fallback-fonts"
 for lib in libfontconfig.so.1 libfreetype.so.6 libexpat.so.1 libpng16.so.16 libbrotlidec.so.1 libbrotlicommon.so.1 libuuid.so.1 libz.so.1; do
-    cp -L "$(ldconfig -p | awk -v l="$lib" '$1 == l && /x86-64/ { print $NF; exit }')" "$out/lib/fallback-fonts/$lib"
+    cp -L "$(find_lib "$lib")" "$out/lib/fallback-fonts/$lib"
 done
 cp tools/fonts.conf "$out/lib/fallback-fonts/fonts.conf"
 # DSLR support (libgphoto2 with the PTP camera driver and what it links to), found by the program in lib/gphoto2 before the system's own

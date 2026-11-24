@@ -75,7 +75,7 @@ fn an_outline_that_is_told_to_fade_goes_and_a_cleared_list_has_none() {
     assert!(accent_at(ui, SLIDER_TOP.0, SLIDER_TOP.1) > 0.8);
     touched(ui, &[("colour_grading.contrast", false, true)]);
     // The fade is an animation: run the window's clock past it
-    std::thread::sleep(std::time::Duration::from_millis(700));
+    offscreen::skip(std::time::Duration::from_millis(700));
     assert!(accent_at(ui, SLIDER_TOP.0, SLIDER_TOP.1) < 0.2, "faded out");
     touched(ui, &[]);
     assert!(accent_at(ui, SLIDER_TOP.0, SLIDER_TOP.1) < 0.2);

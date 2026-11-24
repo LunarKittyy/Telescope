@@ -1,4 +1,4 @@
-//! The vision pack (vision_pack.py): MediaPipe and its models as one download from the release, checked and unpacked. It lands
+//! The vision pack: MediaPipe and its models as one download from the release, checked and unpacked. It lands
 //! in the same folder the Python app uses, one folder per pack id, so a pack either app downloaded works for both.
 
 use ring::digest::{Context, SHA256};
@@ -23,7 +23,7 @@ const CHUNK: usize = 256 * 1024;
 /// while it's unpacked and not after. Raise it when a pin bump makes the pack grow (build_vision_pack.py prints the unpacked size).
 pub const MAX_UNPACKED: u64 = 160 * 1024 * 1024;
 const REPO: &str = "LunarKittyy/Telescope";
-/// What scripts/build_vision_pack.py --write recorded for this version.
+/// What tools/build_vision_pack.py --write recorded for this version.
 pub const PACK_INFO: &str = include_str!("../vision_pack.json");
 /// And tools/build_matting_pack.py --write for the high quality cutout's download.
 pub const MATTING_INFO: &str = include_str!("../matting_pack.json");
@@ -383,7 +383,13 @@ fn inside(name: &str) -> Option<PathBuf> {
     let mut out = PathBuf::new();
     for part in Path::new(name).components() {
         match part {
-            Component::Normal(p) => out.push(p),
+            // A colon or backslash means something else on Windows (a drive, a separator), so rebuilding the path could leave staging there
+            Component::Normal(p) => {
+                if p.to_string_lossy().contains([':', '\\']) {
+                    return None;
+                }
+                out.push(p)
+            }
             Component::CurDir => {}
             Component::ParentDir => {
                 if !out.pop() {
@@ -446,28 +452,19 @@ fn unpack_into(archive: &Path, staging: &Path, max_bytes: u64) -> Result<(), Fai
     Ok(())
 }
 
-/// Delete the packs and leftovers of unfinished downloads, all but keep.
+/// Delete the packs and leftovers of unfinished downloads, all but keep, and nothing else in the folder.
 pub fn remove(vision_dir: &Path, keep: Option<&str>) -> Result<(), String> {
-    let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
-    let mut failed = Ok(());
-    for entry in entries.flatten() {
-        if keep.is_some_and(|k| entry.file_name().to_string_lossy() == k) {
-            continue;
-        }
-        let path = entry.path();
-        let gone = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
-        if let Err(e) = gone {
-            log::warn!("Couldn't remove {}", path.display());
-            failed = Err(e.to_string());
-        }
-    }
-    failed
+    prune(vision_dir, keep.as_slice())
 }
 
 /// After an install or download: delete older packs, all but keep, and leftovers of unfinished downloads, but only what Telescope makes itself (a pack
 /// folder is named by 16 hex characters). Anything else in the folder, such as a zip the person chose to install, stays.
 fn prune(vision_dir: &Path, keep: &[&str]) -> Result<(), String> {
-    let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
+    let entries = match std::fs::read_dir(vision_dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e.to_string()),
+    };
     let mut failed = Ok(());
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();

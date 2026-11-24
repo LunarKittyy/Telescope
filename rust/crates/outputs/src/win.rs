@@ -1,4 +1,4 @@
-//! Windows: kernel32 and the registry by hand, so there's nothing extra to build (as platform/windows.py and vcam.py
+//! Windows: kernel32 and the registry by hand, so there's nothing extra to build (as the Python app did
 //! do with ctypes): shared memory, named events and mutexes, and which camera is registered.
 
 #![allow(clippy::upper_case_acronyms)]
@@ -108,7 +108,7 @@ impl Drop for Owned {
 
 impl Owned {
     fn new(h: Handle) -> Option<Owned> {
-        (!h.is_null()).then_some(Owned(h))
+        (!h.is_null()).then(|| Owned(h))
     }
 }
 

@@ -12,7 +12,7 @@ use telescope_core::event::RememberedSource;
 use telescope_core::source::PairedPhone;
 use telescope_link::plugin::phone_rows;
 use telescope_shell::offscreen;
-use telescope_shell::source::from_json;
+use telescope_shell::slint_source::from_json;
 
 fn spin_on<F: std::future::Future>(f: F) -> F::Output {
     let mut cx = std::task::Context::from_waker(std::task::Waker::noop());

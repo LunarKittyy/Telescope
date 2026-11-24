@@ -1,4 +1,4 @@
-//! The On Air plugin (plugins/on_air.py): lets the people you live with know you're on a call. What counts as on air is picked in
+//! The On Air plugin: lets the people you live with know you're on a call. What counts as on air is picked in
 //! Settings: an app reading the virtual camera (camera_watched, the default), that or Telescope's mic being live, the mic alone, or
 //! just streaming. The answer is debounced and then goes to a sign page another device keeps open and to a webhook, either or both.
 //! camera_watched comes from Wait screen; without it this plugin watches the camera itself.

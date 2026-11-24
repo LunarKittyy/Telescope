@@ -73,6 +73,9 @@ pub struct EffortSnapshot {
     pub auto_level: u8,
     /// The least level power-saving effects asks for.
     pub floor: u8,
+    /// The least level the computer's own power saving asks for while it is on and full quality isn't kept (0 or 1). Live only: left out of anything written or sent.
+    #[serde(skip)]
+    pub machine_floor: u8,
     /// Whether the automatic part is on.
     pub auto: bool,
     /// Full quality is kept for this run of the app.
@@ -93,9 +96,8 @@ struct Window {
     ran: u32,
     late: u32,
     shed: u32,
-    /// The steps' time over the ran frames, and the time a frame has.
-    step_ns: u64,
-    interval_ns: u64,
+    /// Each ran frame's step time in thousandths of its own interval, added up (so streams at different rates don't mix).
+    load: u64,
     /// How long the window lasted.
     span_ns: u64,
 }
@@ -136,16 +138,18 @@ impl Watch {
 
     fn judge(&mut self, now: u64, w: Window) -> Option<Step> {
         let frames = w.ran + w.shed;
+        // A long gap means the stream stopped, so what came before (even a full window of frames) says nothing about what comes next
+        if w.span_ns > 3 * WINDOW {
+            self.restart();
+            return None;
+        }
         if frames < MIN_FRAMES {
-            // A long gap with hardly any frames means the stream stopped, so what came before says nothing about what comes next
-            if w.span_ns > 3 * WINDOW {
-                self.restart();
-            }
             return None;
         }
         let share = (w.late + w.shed) as f32 / frames as f32;
         self.late_share = share;
-        let mean_ns = w.step_ns / w.ran.max(1) as u64;
+        // Thousandths of its own frame interval that a step took, on average
+        let mean_load = w.load / w.ran.max(1) as u64;
         if share > BEHIND_SHARE {
             self.clear_since = None;
             self.behind = self.behind.saturating_add(1);
@@ -169,7 +173,7 @@ impl Watch {
             return Some(Step { why: Why::Behind, late_share: share, clear_for: self.clear_for });
         }
         self.behind = 0;
-        if share >= CLEAR_SHARE || mean_ns * 2 >= w.interval_ns {
+        if share >= CLEAR_SHARE || mean_load * 2 >= 1000 {
             self.clear_since = None;
             return None;
         }
@@ -192,6 +196,10 @@ impl Watch {
 /// Everything behind the lock: the decision, the switches and what happened.
 struct State {
     watch: Watch,
+    /// The floor power-saving effects asks for; `watch.floor` is the higher of this and the machine's.
+    user_floor: u8,
+    /// The computer says it is saving power (battery saver or a power-saver profile).
+    machine_saving: bool,
     auto: bool,
     held: bool,
     /// When the window now being counted began, 0 before the first.
@@ -202,6 +210,16 @@ struct State {
 }
 
 impl State {
+    /// What the computer's power saving asks for: level 1, unless full quality is kept for this run.
+    fn machine_floor(&self) -> u8 {
+        u8::from(self.machine_saving && !self.held)
+    }
+
+    /// The floor the decision goes by: the person's or the computer's, whichever is higher.
+    fn sync_floor(&mut self) {
+        self.watch.floor = self.user_floor.max(self.machine_floor());
+    }
+
     fn level(&self) -> u8 {
         let auto = if self.auto && !self.held { self.watch.level } else { FULL };
         auto.max(self.watch.floor)
@@ -217,8 +235,7 @@ pub struct Effort {
     ran: AtomicU32,
     late: AtomicU32,
     shed: AtomicU32,
-    step_ns: AtomicU64,
-    interval_ns: AtomicU64,
+    load: AtomicU64,
     /// When this window is over.
     next_window: AtomicU64,
     /// Whether people may be followed by their faces while the effects are lighter, and when they last were (0: never).
@@ -242,13 +259,12 @@ impl Effort {
     /// One of its own, for tests.
     pub fn free() -> Effort {
         Effort {
-            state: Mutex::new(State { watch: Watch::new(), auto: true, held: false, window_start: 0, moves: VecDeque::new(), shown: FULL }),
+            state: Mutex::new(State { watch: Watch::new(), user_floor: FULL, machine_saving: false, auto: true, held: false, window_start: 0, moves: VecDeque::new(), shown: FULL }),
             level: AtomicU8::new(FULL),
             ran: AtomicU32::new(0),
             late: AtomicU32::new(0),
             shed: AtomicU32::new(0),
-            step_ns: AtomicU64::new(0),
-            interval_ns: AtomicU64::new(0),
+            load: AtomicU64::new(0),
             next_window: AtomicU64::new(0),
             heads_ok: AtomicBool::new(true),
             heads_at: AtomicU64::new(0),
@@ -260,14 +276,13 @@ impl Effort {
         self.level.load(Ordering::Relaxed)
     }
 
-    /// The steps ran on a frame and took step_ns, when a frame has interval_ns at the stream's rate.
+    /// The steps ran on a frame and took step_ns, when this frame has interval_ns at its stream's rate.
     pub fn note_frame(&self, step_ns: u64, interval_ns: u64) {
         self.ran.fetch_add(1, Ordering::Relaxed);
         if step_ns.saturating_mul(10) > interval_ns.saturating_mul(LATE_TENTHS) {
             self.late.fetch_add(1, Ordering::Relaxed);
         }
-        self.step_ns.fetch_add(step_ns, Ordering::Relaxed);
-        self.interval_ns.store(interval_ns, Ordering::Relaxed);
+        self.load.fetch_add(step_ns.saturating_mul(1000) / interval_ns.max(1), Ordering::Relaxed);
         self.tick(monotonic_ns());
     }
 
@@ -298,6 +313,7 @@ impl Effort {
             return;
         }
         st.held = on;
+        st.sync_floor();
         st.watch.restart();
         self.settled(&mut st, monotonic_ns(), None);
     }
@@ -306,10 +322,11 @@ impl Effort {
     pub fn set_floor(&self, floor: u8) {
         let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
         let floor = floor.min(MOST);
-        if st.watch.floor == floor {
+        if st.user_floor == floor {
             return;
         }
-        st.watch.floor = floor;
+        st.user_floor = floor;
+        st.sync_floor();
         st.watch.restart();
         self.settled(&mut st, monotonic_ns(), None);
     }
@@ -336,8 +353,21 @@ impl Effort {
         at != 0 && monotonic_ns().saturating_sub(at) < HEADS_SHOWN
     }
 
+    /// What power-saving effects asks for (not the computer's own power saving).
     pub fn floor(&self) -> u8 {
-        self.state.lock().unwrap_or_else(|p| p.into_inner()).watch.floor
+        self.state.lock().unwrap_or_else(|p| p.into_inner()).user_floor
+    }
+
+    /// The computer says it is saving power, so the effects run at level 1 at least, until full quality is kept or this says otherwise. Live only: not saved, not logged.
+    pub fn set_machine_saving(&self, on: bool) {
+        let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        if st.machine_saving == on {
+            return;
+        }
+        st.machine_saving = on;
+        st.sync_floor();
+        st.watch.restart();
+        self.settled(&mut st, monotonic_ns(), None);
     }
 
     pub fn snapshot(&self) -> EffortSnapshot {
@@ -345,7 +375,8 @@ impl Effort {
         EffortSnapshot {
             level: st.level(),
             auto_level: st.watch.level,
-            floor: st.watch.floor,
+            floor: st.user_floor,
+            machine_floor: st.machine_floor(),
             auto: st.auto,
             held: st.held,
             late_share: st.watch.late_share,
@@ -368,8 +399,7 @@ impl Effort {
             ran: self.ran.swap(0, Ordering::Relaxed),
             late: self.late.swap(0, Ordering::Relaxed),
             shed: self.shed.swap(0, Ordering::Relaxed),
-            step_ns: self.step_ns.swap(0, Ordering::Relaxed),
-            interval_ns: self.interval_ns.load(Ordering::Relaxed),
+            load: self.load.swap(0, Ordering::Relaxed),
             span_ns: now.saturating_sub(st.window_start),
         };
         let first = std::mem::replace(&mut st.window_start, now) == 0;
@@ -412,9 +442,13 @@ mod tests {
 
     const FRAME: u64 = 33 * MS;
 
+    fn load(step_ns: u64) -> u64 {
+        step_ns * 1000 / FRAME
+    }
+
     /// A window of 30 frames, late of them late and shed more dropped, that took step_ms each, lasting a second.
     fn win(late: u32, shed: u32, step_ms: u64) -> Window {
-        Window { ran: 30, late, shed, step_ns: 30 * step_ms * MS, interval_ns: FRAME, span_ns: SECOND }
+        Window { ran: 30, late, shed, load: 30 * load(step_ms * MS), span_ns: SECOND }
     }
 
     fn behind() -> Window {
@@ -456,14 +490,14 @@ mod tests {
     #[test]
     fn dropped_frames_count_as_late() {
         let mut w = Watch::new();
-        let shed = Window { ran: 20, late: 0, shed: 10, step_ns: 20 * 5 * MS, interval_ns: FRAME, span_ns: SECOND };
+        let shed = Window { ran: 20, late: 0, shed: 10, load: 20 * load(5 * MS), span_ns: SECOND };
         assert_eq!(run(&mut w, 100, &[shed, shed]), [(101, 1)]);
     }
 
     #[test]
     fn windows_with_few_frames_say_nothing() {
         let mut w = Watch::new();
-        let few = Window { ran: 9, late: 9, shed: 0, step_ns: 9 * 100 * MS, interval_ns: FRAME, span_ns: SECOND };
+        let few = Window { ran: 9, late: 9, shed: 0, load: 9 * load(100 * MS), span_ns: SECOND };
         assert!(run(&mut w, 100, &vec![few; 50]).is_empty());
         // One of them between two bad windows neither counts nor breaks the run
         assert_eq!(run(&mut w, 200, &[behind(), few, behind()]), [(202, 1)]);
@@ -471,6 +505,27 @@ mod tests {
         let mut w = Watch::new();
         let gap = Window { span_ns: 10 * SECOND, ..few };
         assert!(run(&mut w, 300, &[behind(), gap, behind()]).is_empty());
+    }
+
+    #[test]
+    fn a_stale_window_after_a_pause_is_no_evidence_of_room() {
+        let mut w = Watch::new();
+        run(&mut w, 100, &[behind(), behind()]);
+        assert_eq!(w.level, 1);
+        let stale = Window { ran: 20, span_ns: 300 * SECOND, ..clear() };
+        assert!(w.judge(400 * SECOND, stale).is_none());
+        assert_eq!(w.level, 1);
+        assert!(w.clear_since.is_none(), "the pause is not dated as clear time");
+    }
+
+    #[test]
+    fn steps_are_judged_against_each_frames_own_interval() {
+        let mut w = Watch::new();
+        run(&mut w, 100, &[behind(), behind()]);
+        // 10 ms steps on 60 fps frames (16.7 ms) are over half a frame, so no room, whatever another stream's rate is
+        let sixty = Window { load: 30 * (10 * MS * 1000 / (1000 * MS / 60)), ..clear() };
+        assert!(run(&mut w, 200, &vec![sixty; 30]).is_empty());
+        assert_eq!(w.level, 1);
     }
 
     #[test]
@@ -569,6 +624,51 @@ mod tests {
         e.set_floor(0);
         e.hold_full(false);
         assert_eq!(e.level(), 1);
+    }
+
+    #[test]
+    fn the_computers_power_saving_is_a_floor_of_its_own_beside_the_persons() {
+        let e = Effort::free();
+        e.set_machine_saving(true);
+        let snap = e.snapshot();
+        assert_eq!((e.level(), snap.floor, snap.machine_floor), (1, 0, 1), "the person's floor stays 0, the machine's is 1");
+        // Both ask: the person's floor is still what the setting says
+        e.set_floor(1);
+        e.set_machine_saving(false);
+        assert_eq!((e.level(), e.floor(), e.snapshot().machine_floor), (1, 1, 0));
+        e.set_floor(0);
+        assert_eq!(e.level(), FULL, "each goes without the other");
+        // It is one step from the level it holds, like any floor
+        e.set_machine_saving(true);
+        let mut st = e.state.lock().unwrap();
+        e.judged(&mut st, 100 * SECOND, behind());
+        e.judged(&mut st, 101 * SECOND, behind());
+        drop(st);
+        assert_eq!(e.level(), 2);
+        assert_eq!(e.snapshot().auto_level, 2, "stepping down went on from the floor");
+    }
+
+    #[test]
+    fn keeping_full_quality_lets_go_of_the_computers_power_saving_but_not_the_persons() {
+        let e = Effort::free();
+        e.set_machine_saving(true);
+        e.hold_full(true);
+        assert_eq!((e.level(), e.snapshot().machine_floor), (FULL, 0));
+        e.set_floor(1);
+        assert_eq!(e.level(), 1, "power-saving effects still holds");
+        e.set_floor(0);
+        e.hold_full(false);
+        assert_eq!((e.level(), e.snapshot().machine_floor), (1, 1), "the machine's ask comes back when full quality isn't kept");
+    }
+
+    #[test]
+    fn the_computers_power_saving_is_one_move_with_no_reason_of_its_own() {
+        let e = Effort::free();
+        e.set_machine_saving(true);
+        e.set_machine_saving(true);
+        e.set_machine_saving(false);
+        let moves: Vec<_> = e.snapshot().moves.iter().map(|m| (m.from, m.to, m.why)).collect();
+        assert_eq!(moves, [(0, 1, Why::Override), (1, 0, Why::Override)], "nothing in the stats says why");
     }
 
     #[test]

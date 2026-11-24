@@ -1,4 +1,4 @@
-//! Windows: fetch adb from Google when the person asks for it, rather than shipping it (platform/adb_download.py).
+//! Windows: fetch adb from Google when the person asks for it, rather than shipping it.
 //! adb's licence doesn't allow passing it on, so this reads Google's own SDK index for the current Windows
 //! platform-tools, downloads that zip, checks its size and SHA-1, and keeps only what adb needs in downloaded_dir().
 
@@ -429,7 +429,6 @@ pub fn get_adb(own: Option<&str>, progress: &dyn Fn(&str)) -> Result<String, Str
 pub type DownloadJob = Arc<dyn Fn(&dyn Fn(&str)) -> Result<String, String> + Send + Sync>;
 
 /// One download at a time, shared by Add device and Advanced, so closing the dialog doesn't lose one under way
-/// (widgets/adb.py's AdbDownload).
 #[derive(Clone)]
 pub struct AdbDownloader {
     running: Arc<std::sync::atomic::AtomicBool>,

@@ -309,7 +309,7 @@ fn with_several_streams_it_follows_the_one_the_panels_show() {
     host.focused = Some("phone-b".into());
     plugin.on_focus_gained(&mut host, &telescope_core::plugin::StreamInfo { source_id: "phone-b".into(), url: String::new(), session: 1 });
     let p = props(&host);
-    assert_eq!(p["source-name"], "Stream on virtual camera 1");
+    assert_eq!(p["source-name"], "Stream on virtual camera 2", "the second camera, as apps list it");
     assert!(row(&p, "Frames in")["value"].as_str().unwrap().starts_with("2"), "the second's 25 frames, not the first's 10");
 }
 
@@ -877,4 +877,55 @@ fn a_pinned_plugin_timing_is_still_offered_when_it_is_not_among_the_listed_slowe
 #[test]
 fn the_declared_settings_round_trip() {
     telescope_core::testing::settings_round_trip(&mut StatsPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
+
+#[test]
+fn the_steps_row_says_where_the_shown_stream_s_steps_run() {
+    // Another stream's steps moved to the processor; the one shown kept its own on the card
+    let balance = Arc::new(Balance::free());
+    let other = balance.lane();
+    (0..6).for_each(|_| other.note_wait(25 * MS));
+    let hub = Hub::with_balance(balance);
+    let shown = hub.register("phone", 0);
+    shown.set_target_fps(30);
+    let place = |snap: &telescope_core::stats::Snapshot| {
+        rows(snap, &snap.sources[0], View::Nerd, &Context::default()).iter().find(|r| r.label == "Frame steps run on").unwrap().value.clone()
+    };
+    let now = telescope_core::time::monotonic_ns();
+    assert_eq!(place(&hub.snapshot_at(now + SECOND, None, None)), "The processor", "before it said, the app's");
+    shown.set_steps_on_card(true);
+    assert_eq!(place(&hub.snapshot_at(now + 2 * SECOND, None, None)), "The graphics card");
+}
+
+#[test]
+fn the_camera_number_starts_at_one_like_the_names_apps_list() {
+    let hub = Hub::new();
+    let a = hub.register("phone-a", 0);
+    let b = hub.register("phone-b", 1);
+    a.received(10, 0);
+    b.received(10, 0);
+    let snap = hub.snapshot_at(telescope_core::time::monotonic_ns() + SECOND, None, None);
+    let (mut plugin, mut host) = set_up(snap);
+    host.focused = Some("phone-a".into());
+    plugin.on_focus_gained(&mut host, &telescope_core::plugin::StreamInfo { source_id: "phone-a".into(), url: String::new(), session: 1 });
+    assert_eq!(props(&host)["source-name"], "Stream on virtual camera 1");
+}
+
+#[test]
+fn a_poll_for_a_phone_the_panels_moved_off_is_dropped() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    host.streaming = true;
+    plugin.on_stream_start(&mut host, &telescope_core::plugin::StreamInfo { source_id: "phone".into(), url: String::new(), session: 1 });
+    plugin.on_event(&mut host, &Event::PhonePolled { source_id: "gone".into(), session: 1, shown: true, state: new_phone_state() });
+    assert!(plugin.phone.as_ref().and_then(|p| p.encode_ms).is_none());
+}
+
+#[test]
+fn a_preset_that_picks_the_nerd_view_turns_the_numbers_on() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    plugin.apply_preset(&mut host, &json!({"view": "nerd"})).unwrap();
+    assert_eq!(props(&host)["view"], 1);
+    assert!(plugin.wanting, "the hub is asked for the per-step times the Nerd view shows");
 }

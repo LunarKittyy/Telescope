@@ -100,4 +100,10 @@ object UpdateLogic {
     fun installStuck(sinceMs: Long, nowMs: Long): Boolean = nowMs - sinceMs >= INSTALL_STUCK_MS
 
     const val INSTALL_STUCK_MS = 60_000L
+
+    /** No session is expected: an installer result that names one is from an attempt already given up on. */
+    const val NO_SESSION = -2
+
+    // A result naming a session other than the live attempt's is from an earlier one; one naming none can't be told apart
+    fun fromActiveSession(reported: Int, active: Int): Boolean = reported < 0 || reported == active
 }

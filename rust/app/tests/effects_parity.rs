@@ -342,7 +342,7 @@ fn the_game_boy_makes_pythons_four_shades() {
     assert!(g.over <= 0.02, "{g:?}");
 }
 
-/// test_fun_pack.py's _room with a person in it, four times the size in each direction.
+/// A room with a person in it, four times the size in each direction.
 fn big_room() -> Frame {
     let (w, h) = (160usize, 90usize);
     let mut room = Rgb::new(w, h);

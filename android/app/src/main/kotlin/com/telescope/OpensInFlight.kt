@@ -13,19 +13,19 @@ class OpensInFlight {
                 pending--
                 if (pending == 0) take() else null
             }
-            run?.invoke()
+            run?.forEach { it() }
         }
     }
 
     private var pending = 0
-    private var waiting: (() -> Unit)? = null
+    private val waiting = ArrayList<() -> Unit>()
 
     fun begin(): Open = synchronized(this) { pending++; Open() }
 
-    // Runs block now when nothing is opening, else once the last open is answered or giveUp() is called; once only
+    // Runs block now when nothing is opening, else once the last open is answered or giveUp() is called; once only, and every waiting block runs
     fun whenSettled(block: () -> Unit) {
         val now = synchronized(this) {
-            if (pending == 0) block else { waiting = block; null }
+            if (pending == 0) block else { waiting.add(block); null }
         }
         now?.invoke()
     }
@@ -33,8 +33,8 @@ class OpensInFlight {
     // Stops waiting: the camera service never answered
     fun giveUp() {
         val run = synchronized(this) { take() }
-        run?.invoke()
+        run?.forEach { it() }
     }
 
-    private fun take(): (() -> Unit)? = waiting.also { waiting = null }
+    private fun take(): List<() -> Unit>? = if (waiting.isEmpty()) null else waiting.toList().also { waiting.clear() }
 }

@@ -1,4 +1,4 @@
-//! The desktop log and Copy diagnostics (diagnostics.py): every line is sanitized first, so no tokens, addresses or home paths.
+//! The desktop log and Copy diagnostics: every line is sanitized first, so no tokens, addresses or home paths.
 
 use crate::i18n::{tr, Fields};
 use crate::redact::{self, Hidden, Who};

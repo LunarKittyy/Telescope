@@ -1,4 +1,4 @@
-//! Setting up the extra virtual cameras when a second stream needs one (app.py _set_up_slots, _ask_slots, _on_slots_ready):
+//! Setting up the extra virtual cameras when a second stream needs one:
 //! it takes a password, so it asks first, and what wanted a camera in the meantime starts once they're there.
 
 use telescope_core::i18n::Fields;

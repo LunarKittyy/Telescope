@@ -1,4 +1,4 @@
-//! test_colour_grading.py's tests of what's on screen: the card in a real offscreen window, the plugin among the real built-ins.
+//! Tests of what's on screen: the card in a real offscreen window, the plugin among the real built-ins.
 
 use i_slint_backend_testing::ElementHandle;
 use serde_json::{json, Value as Json};
@@ -11,7 +11,7 @@ use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::grade::monotone_curve;
 use telescope_shell::offscreen;
-use telescope_shell::source::from_json;
+use telescope_shell::slint_source::from_json;
 
 /// The card's width; CARD_WIDTH tries another for a look at how it lays out.
 fn width() -> f32 {
@@ -178,7 +178,9 @@ fn the_ring_is_as_thick_on_every_side_of_the_disc() {
         feed(&w, &host);
         let rgba = offscreen::draw(w.window(), card_width, HEIGHT, scale).expect("a picture").rgba;
         let wide = (card_width * scale).round() as usize;
-        for found in ElementHandle::find_by_element_type_name(&w, "ColourWheel") {
+        let wheels: Vec<_> = ElementHandle::find_by_element_type_name(&w, "ColourWheel").collect();
+        assert!(!wheels.is_empty(), "the card shows its colour wheels");
+        for found in wheels {
             let (at, size) = (found.absolute_position(), found.size());
             let (cx, cy) = (((at.x + size.width / 2.0) * scale).round() as usize, ((at.y + size.height / 2.0) * scale).round() as usize);
             let radius = ((size.height.min(size.width) / 2.0 - 11.0) * scale) as usize;

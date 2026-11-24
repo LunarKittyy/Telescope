@@ -28,7 +28,7 @@ pub fn is_fingerprint(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 
-/// The HMAC the phone sends as `proof` when it pairs (pairing.py pairing_proof).
+/// The HMAC the phone sends as `proof` when it pairs.
 pub fn pairing_proof(token: &str, nonce: &str, phone_id: &str, cert_sha256: &str) -> String {
     let key = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, token.as_bytes());
     let message = format!("telescope-pair-v4\n{nonce}\n{phone_id}\n{cert_sha256}");

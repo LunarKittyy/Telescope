@@ -171,6 +171,8 @@ fn a_long_tooltip_sizes_to_its_text_stays_in_the_window_and_draws_over_what_is_b
     move_to(&w, at(BUTTON.0, BUTTON.1));
     let before = draw(&w);
     wait(&w, 900);
+    // The tip's fade starts at the frame that first draws it, so it needs a wait of its own to be fully in
+    wait(&w, 300);
     let after = draw(&w);
     assert_eq!(popups(&w), 1);
     // The box is what changed: its edges, where its three lines of text end, and the switch row it covers
@@ -649,6 +651,8 @@ fn a_tip_of_a_control_in_a_dialog_draws_over_the_dialog() {
     wait(&w, 900);
     assert_eq!(popups(&w), 1, "the tip of a control in the pop-up comes up");
     assert_eq!(says(&w), "From inside the dialog");
+    // Past its fade-in, so the picture has the whole tip however quickly it was drawn
+    wait(&w, 400);
     let (x0, y0, x1, y1) = box_between(&before, &draw(&w));
     // Over the dialog's face, below the button, where the pop-up's own layer draws it
     assert!(x0 < 140 && x1 > 140 && y0 > 120 && y1 < 330, "over the dialog, under its button: {x0},{y0} to {x1},{y1}");

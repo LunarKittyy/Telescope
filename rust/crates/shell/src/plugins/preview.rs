@@ -1,4 +1,4 @@
-//! plugins/preview.py: the video stage in the middle of the window and the camera button under it. The frames
+//! The preview plugin: the video stage in the middle of the window and the camera button under it. The frames
 //! themselves are drawn by the window (preview.rs); this keeps what the stage says and the toolbar.
 
 use serde_json::{json, Value};

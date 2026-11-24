@@ -1,4 +1,4 @@
-//! Person masks and people's positions, once per stream, for the plugins that ask (vision.py's Vision). MediaPipe loads on first
+//! Person masks and people's positions, once per stream, for the plugins that ask. MediaPipe loads on first
 //! use; every call is safe before it's ready (None, nothing). A frame step gets the newest mask at once and leaves its frame for a
 //! thread of the stream's own, so the model and the work around it never hold a frame up, and a mask is a frame or so behind the
 //! picture and never over MASK_MAX_AGE_S behind (past that a step gets None). People come from another such thread, about 12 times a second
@@ -418,6 +418,8 @@ pub(crate) struct PeopleState {
     pub(crate) quit: Option<Arc<AtomicBool>>,
     pub(crate) wake: bool,
     pub(crate) fed: f64,
+    /// How many times the view had turned when `frame` was fed: a report made from it after another turn is of the wrong way round and is dropped.
+    pub(crate) turns: u64,
 }
 
 /// One stream's models and its people thread.
@@ -442,7 +444,7 @@ impl StreamVision {
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
             mask_done: Condvar::new(),
-            people: Mutex::new(PeopleState { frame: None, at: 0.0, probed: 0.0, motion: Motion::default(), thread: None, quit: None, wake: false, fed: 0.0 }),
+            people: Mutex::new(PeopleState { frame: None, at: 0.0, probed: 0.0, motion: Motion::default(), thread: None, quit: None, wake: false, fed: 0.0, turns: 0 }),
             woken: Condvar::new(),
             stopping: AtomicBool::new(false),
             posing: AtomicBool::new(false),
@@ -578,17 +580,22 @@ impl Vision {
             self.inner.set_state(LOADING);
         }
         let inner = self.inner.clone();
-        let _ = std::thread::Builder::new().name("vision-load".into()).spawn(move || inner.load_now());
+        if let Err(e) = std::thread::Builder::new().name("vision-load".into()).spawn(move || inner.load_now()) {
+            // nothing will load, so it reads OFF again and the next ask tries once more
+            log::error!("Couldn't start the vision loader: {e}");
+            self.inner.set_state(OFF);
+        }
     }
 
-    /// The pack was just downloaded: after MISSING it reads OFF again, so the next ask loads it straight away.
+    /// The pack was just downloaded: after MISSING or FAILED it reads OFF again, so the next ask loads it straight away.
     pub fn pack_downloaded(&self) {
         {
             let mut looked_at = self.inner.looked_at.lock().unwrap();
-            if self.inner.closed.load(Ordering::SeqCst) || *self.inner.state.lock().unwrap() != MISSING {
+            if self.inner.closed.load(Ordering::SeqCst) || ![MISSING, FAILED].contains(&*self.inner.state.lock().unwrap()) {
                 return;
             }
             *looked_at = -LOOK_AGAIN_S;
+            self.inner.problem.lock().unwrap().clear();
         }
         self.inner.set_state(OFF);
         if self.wants_people() {
@@ -696,19 +703,23 @@ impl Vision {
             *looked_at = monotonic();
             self.inner.set_cutout_state(&cutout, LOADING);
         }
-        let inner = self.inner.clone();
-        let _ = std::thread::Builder::new().name("matting-load".into()).spawn(move || inner.load_cutout_now(&cutout));
+        let (inner, slot) = (self.inner.clone(), cutout.clone());
+        if let Err(e) = std::thread::Builder::new().name("matting-load".into()).spawn(move || inner.load_cutout_now(&slot)) {
+            log::error!("Couldn't start the cutout loader: {e}");
+            self.inner.set_cutout_state(&cutout, OFF);
+        }
     }
 
-    /// The cutout's download just finished: after MISSING it reads OFF again, so the next ask loads it straight away.
+    /// The cutout's download just finished: after MISSING or FAILED it reads OFF again, so the next ask loads it straight away.
     pub fn cutout_downloaded(&self) {
         let Some(cutout) = self.cutout_slot() else { return };
         {
             let mut looked_at = cutout.looked_at.lock().unwrap();
-            if self.inner.closed.load(Ordering::SeqCst) || *cutout.state.lock().unwrap() != MISSING {
+            if self.inner.closed.load(Ordering::SeqCst) || ![MISSING, FAILED].contains(&*cutout.state.lock().unwrap()) {
                 return;
             }
             *looked_at = -LOOK_AGAIN_S;
+            cutout.problem.lock().unwrap().clear();
         }
         self.inner.set_cutout_state(&cutout, OFF);
     }
@@ -1096,6 +1107,7 @@ impl Vision {
         let Some(frame) = picture() else { return };
         p.motion.used();
         p.at = now;
+        p.turns = self.inner.turns.load(Ordering::SeqCst);
         let (w, h) = people_size(frame.w, frame.h, PEOPLE_WIDTH);
         p.frame = Some((if (frame.w, frame.h) == (w, h) { frame } else { frame.area(w, h) }, upright));
         if p.thread.is_none() && !self.inner.hold_people.load(Ordering::SeqCst) {
@@ -1157,7 +1169,6 @@ impl Vision {
                 if let Some(quit) = &p.quit {
                     quit.store(true, Ordering::SeqCst);
                 }
-                p.wake = true;
                 p.thread = None;
                 p.frame = None;
                 p.motion = Motion::default();
@@ -1190,6 +1201,8 @@ impl Vision {
             let Some(sv) = self.inner.streams.lock().unwrap().remove(&key) else { continue };
             sv.stopping.store(true, Ordering::SeqCst);
             sv.wake();
+            // A report already on its way finishes before this returns, and none starts after: the caller can clear what the stream left behind
+            drop(self.inner.callback_lock.lock().unwrap());
             // A mask being made holds the lock for as long as the model takes: its thread closes the model when it's done (see mask_loop)
             if let Ok(mut m) = sv.mask.try_lock() {
                 m.segment = None;
@@ -1396,10 +1409,47 @@ fn compatible_geometry(old: Option<Geometry>, new: Option<Geometry>) -> bool {
 
 // Sample the held mask in its original crop, so repeated moves never resample an already resampled mask.
 fn remap_mask(src: &[u8], w: usize, h: usize, out_w: usize, out_h: usize, old: &Geometry, new: &Geometry) -> Vec<u8> {
-    let mut out = vec![0; out_w * out_h];
     if w == 0 || h == 0 || out_w == 0 || out_h == 0 || src.len() != w * h {
-        return out;
+        return vec![0; out_w * out_h];
     }
+    if quarter_turned(old) || quarter_turned(new) {
+        return remap_each(src, w, h, out_w, out_h, old, new);
+    }
+    // Without a quarter turn each axis maps on its own, so remap_each's sums are worked out once per column and once per row
+    let mut out = vec![0; out_w * out_h];
+    let cols: Vec<_> = (0..out_w).map(|x| axis_tap((x as f64 + 0.5) / out_w as f64, w, old, new, |p| p.0)).collect();
+    for (y, row) in out.chunks_exact_mut(out_w).enumerate() {
+        let Some((y0, y1, fy)) = axis_tap((y as f64 + 0.5) / out_h as f64, h, old, new, |p| p.1) else { continue };
+        let (above, below) = (&src[y0 * w..][..w], &src[y1 * w..][..w]);
+        for (pixel, col) in row.iter_mut().zip(&cols) {
+            let Some((x0, x1, fx)) = *col else { continue };
+            let top = above[x0] as f64 * (1.0 - fx) + above[x1] as f64 * fx;
+            let bottom = below[x0] as f64 * (1.0 - fx) + below[x1] as f64 * fx;
+            *pixel = (top * (1.0 - fy) + bottom * fy).round() as u8;
+        }
+    }
+    out
+}
+
+/// Whether the view is turned a quarter, which swaps the picture's axes.
+fn quarter_turned(g: &Geometry) -> bool {
+    matches!(g.rotation, Some(90) | Some(270))
+}
+
+/// One axis of remap_each's sampling for views with no quarter turn: the two neighbours and the weight between them, None outside the stretched picture.
+fn axis_tap(t: f64, len: usize, old: &Geometry, new: &Geometry, pick: fn((f64, f64)) -> f64) -> Option<(usize, usize, f64)> {
+    if !(0.0..=1.0).contains(&pick(telescope_core::view::unstretch(t, t, new.stretch_x, new.stretch_y))) {
+        return None;
+    }
+    let (x, y) = shown_to_view(t, t, new);
+    let s = (pick(view_to_shown(x, y, old)) * len as f64 - 0.5).clamp(0.0, (len - 1) as f64);
+    let i0 = s.floor() as usize;
+    Some((i0, (i0 + 1).min(len - 1), s - i0 as f64))
+}
+
+/// remap_mask worked out for every pixel on its own, which a quarter turn needs.
+fn remap_each(src: &[u8], w: usize, h: usize, out_w: usize, out_h: usize, old: &Geometry, new: &Geometry) -> Vec<u8> {
+    let mut out = vec![0; out_w * out_h];
     for (y, row) in out.chunks_exact_mut(out_w).enumerate() {
         for (x, pixel) in row.iter_mut().enumerate() {
             let (u, v) = ((x as f64 + 0.5) / out_w as f64, (y as f64 + 0.5) / out_h as f64);
@@ -1488,16 +1538,18 @@ fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<
     while !done() {
         let waiting = {
             let mut p = sv.people.lock().unwrap();
-            while !p.wake {
+            // a retired worker leaves the wake alone: it belongs to the one that replaced it
+            while !p.wake && !done() {
                 p = sv.woken.wait(p).unwrap();
             }
-            p.wake = false;
             if done() {
                 break;
             }
-            p.frame.take()
+            p.wake = false;
+            let turns = p.turns;
+            p.frame.take().map(|(frame, upright)| (frame, upright, turns))
         };
-        let Some((frame, upright)) = waiting else { continue };
+        let Some((frame, upright, turns)) = waiting else { continue };
         let t0 = std::time::Instant::now();
         let prepared = if upright.turn == Default::default() { frame } else { turned(&frame, upright.turn) };
         let follow_faces = inner.following_heads() && (faces.is_some() || match backend.faces() {
@@ -1568,7 +1620,8 @@ fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<
         }
         Vision { inner: inner.clone() }.note("people", t0);
         let _held = inner.callback_lock.lock().unwrap();
-        if !inner.closed.load(Ordering::SeqCst) {
+        // not for a stream that ended or a worker that was replaced meanwhile, nor for a picture from before the view turned
+        if !inner.closed.load(Ordering::SeqCst) && !done() && inner.turns.load(Ordering::SeqCst) == turns {
             (inner.on_people)(&key, people);
         }
     }

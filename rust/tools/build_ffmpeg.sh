@@ -22,8 +22,12 @@ work=$out.work
 
 fetch() {
     local url=$1 file=$downloads/$2 sum=$3
-    [ -f "$file" ] || curl -fsSL --connect-timeout 30 --retry 3 --retry-all-errors --retry-delay 10 -o "$file" "$url" \
-        || { [ -z "${4:-}" ] || curl -fsSL --connect-timeout 30 --retry 3 --retry-all-errors --retry-delay 10 -o "$file" "$4"; }
+    if [ ! -f "$file" ]; then
+        # Into a .part file first, so a download cut short is never taken for the real one on the next run
+        download() { curl -fsSL --connect-timeout 30 --retry 3 --retry-all-errors --retry-delay 10 -o "$file.part" "$1"; }
+        download "$url" || { [ -n "${4:-}" ] && download "$4"; } || { rm -f "$file.part"; echo "Couldn't download $2" >&2; return 1; }
+        mv "$file.part" "$file"
+    fi
     echo "$sum  $file" | sha256sum -c --quiet -
 }
 

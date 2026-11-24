@@ -1,4 +1,4 @@
-//! test_vision_pack.py, by name.
+//! Tests for the vision pack.
 
 use super::*;
 use std::io::Cursor;
@@ -442,4 +442,22 @@ fn installing_an_older_pack_zip_keeps_this_versions_pack() {
     std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
     install_zip(&newer, &f.folder, &zip).unwrap();
     assert!(newer.installed(&f.folder), "{:?}", names(&f.folder));
+}
+
+#[test]
+fn zip_paths_that_change_meaning_on_windows_are_refused() {
+    assert!(inside("models/a.task").is_some());
+    assert!(inside("a/../C:/evil").is_none());
+    assert!(inside("..\\..\\evil").is_none());
+    assert!(inside("C:evil").is_none());
+}
+
+#[test]
+fn removing_the_download_leaves_a_zip_the_person_kept_there() {
+    let dir = scratch_dir("vision-pack-remove");
+    std::fs::create_dir_all(dir.join("0123456789abcdef")).unwrap();
+    std::fs::write(dir.join(".x.zip.part"), b"x").unwrap();
+    std::fs::write(dir.join("Telescope-vision-linux-0123456789abcdef.zip"), b"x").unwrap();
+    remove(&dir, None).unwrap();
+    assert_eq!(names(&dir), ["Telescope-vision-linux-0123456789abcdef.zip".to_string()]);
 }

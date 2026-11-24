@@ -159,12 +159,17 @@ pub struct Codec {
     /// What to fail on purpose, and how many pictures have been good so far.
     pub forced: Option<(Forced, u32)>,
     pictures: u32,
+    /// A picture came out with decode errors FFmpeg covered up (concealment, missing references) since take_damaged last said so.
+    damaged: bool,
     /// Tests: each picture's copy off the card, first and then again with the decoder surely done, in nanoseconds.
     #[cfg(test)]
     pub copy_ns: Option<Vec<(u64, u64)>>,
     /// Tests: this many pictures are refused as a card that can't take the stream would.
     #[cfg(test)]
     pub refusals: u32,
+    /// Tests: how long each decode call and each copy off the card seem to take on the speed check's clock.
+    #[cfg(test)]
+    pub delays: (std::time::Duration, std::time::Duration),
     // A JPEG decoder: JFIF pictures are always full range BT.601, whatever the frame says (OpenCV decodes them so)
     jpeg: bool,
     converter: yuv::Converter,
@@ -182,6 +187,9 @@ pub struct Codec {
     import: std::sync::Arc<import_mod::Stream>,
     #[cfg(surfaces)]
     import_node: Option<String>,
+    /// Copies D3D11VA pictures into memory waiting on a fence, not on Map (which spins a core on some drivers).
+    #[cfg(all(windows, ffmpeg))]
+    copier: crate::d3d11_copy::Copier,
 }
 
 /// Copies data into buf followed by the AV_INPUT_BUFFER_PADDING_SIZE zero bytes FFmpeg requires after any input.
@@ -199,6 +207,24 @@ impl Codec {
     /// H.264 with low delay, in software (two slice threads) or on hw with no software fallback.
     pub fn h264(hw: Option<Hw>) -> Result<Codec, String> {
         Codec::open(ff::AVCodecID::AV_CODEC_ID_H264, hw, true)
+    }
+
+    /// Tests: copy pictures off the card the way FFmpeg does.
+    #[cfg(all(test, windows, ffmpeg))]
+    pub(crate) fn fenced_copy_off(&mut self) {
+        self.copier.disable();
+    }
+
+    /// Tests: the driver has no fences.
+    #[cfg(all(test, windows, ffmpeg))]
+    pub(crate) fn fence_unavailable(&self) -> bool {
+        self.copier.fence_unavailable()
+    }
+
+    /// Tests: whether the fenced copy is still in use.
+    #[cfg(all(test, windows, ffmpeg))]
+    pub(crate) fn fenced_copy_works(&self) -> bool {
+        self.copier.usable()
     }
 
     /// Whether the next pictures may stay on the card for import (VA-API only); the pool is sized at the first picture, so a decoder started without the wish copies to memory until it is opened again.
@@ -255,10 +281,13 @@ impl Codec {
                 card_gives_i420: false,
                 forced: if hw.is_some() { Forced::asked() } else { None },
                 pictures: 0,
+                damaged: false,
                 #[cfg(test)]
                 copy_ns: None,
                 #[cfg(test)]
                 refusals: 0,
+                #[cfg(test)]
+                delays: Default::default(),
                 jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
                 converter: yuv::Converter::default(),
                 sws_out: Padded::default(),
@@ -272,11 +301,13 @@ impl Codec {
                 import: std::sync::Arc::default(),
                 #[cfg(surfaces)]
                 import_node: None,
+                #[cfg(all(windows, ffmpeg))]
+                copier: crate::d3d11_copy::Copier::default(),
             };
             if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || c.held.is_null() || (parse && c.parser.is_null()) {
                 return Err("out of memory opening a decoder".into());
             }
-            // Show each frame as soon as it's decoded instead of holding some back for reordering (h264_reader.py)
+            // Show each frame as soon as it's decoded instead of holding some back for reordering
             if !threads.whole_frames {
                 (*c.ctx).flags |= ff::AV_CODEC_FLAG_LOW_DELAY as i32;
             }
@@ -406,11 +437,18 @@ impl Codec {
             }
             ff::av_frame_unref(self.frame);
             ff::av_frame_move_ref(self.frame, self.held);
+            #[cfg(test)]
+            crate::slow::advance(self.delays.1);
             let began = monotonic_ns();
             let taken = self.take_frame()?;
             span("take_frame", began);
             Ok(Some(taken))
         }
+    }
+
+    /// Whether any picture since the last call carried errors FFmpeg concealed, which makes it a picture that isn't the stream's.
+    pub fn take_damaged(&mut self) -> bool {
+        std::mem::take(&mut self.damaged)
     }
 
     /// Lets go of the picture decode_newest kept.
@@ -431,6 +469,8 @@ impl Codec {
             Some(Forced::Silent) => return Ok(0),
             _ => {}
         }
+        #[cfg(test)]
+        crate::slow::advance(self.delays.0);
         let mut count = 0;
         let input = padded(&mut self.unit_buf, unit).as_ptr();
         // SAFETY: the packet points at a padded copy of unit for the length of send_packet, which copies it (the packet
@@ -468,6 +508,10 @@ impl Codec {
                     return Err(Fault::Broken(err_text(r)));
                 }
                 count += 1;
+                // SAFETY (the read): frame was just filled by receive_frame
+                if (*self.frame).decode_error_flags != 0 || (*self.frame).flags & ff::AV_FRAME_FLAG_CORRUPT != 0 {
+                    self.damaged = true;
+                }
                 match done.as_mut() {
                     Some(done) => {
                         let began = monotonic_ns();
@@ -502,6 +546,32 @@ impl Codec {
         if self.card_gives_i420 {
             (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
         }
+        #[cfg(all(windows, ffmpeg))]
+        if self.hw == Some(Hw::D3d11va) && !self.card_gives_i420 && self.copier.usable() && self.forced_now() != Some(Forced::Copy) {
+            #[cfg(test)]
+            let measured = self.copy_ns.is_some();
+            #[cfg(not(test))]
+            let measured = false;
+            if !measured {
+                let began = monotonic_ns();
+                match self.copier.copy(self.frame, self.sw_frame) {
+                    Ok(true) => {
+                        span("transfer", began);
+                        transfers::decoded_down();
+                        return Ok(());
+                    }
+                    Ok(false) => {}
+                    Err(why) if self.copier.device_removed() => {
+                        // FFmpeg's copy would make its staging texture on the removed device and could return with the device lock held
+                        return Err(Fault::Broken(format!("the card's device was removed during a copy ({why})")));
+                    }
+                    Err(why) => {
+                        log::warn!("Copying a decoded picture with a fence failed ({why}); FFmpeg's copy takes over for this decoder");
+                        ff::av_frame_unref(self.sw_frame);
+                    }
+                }
+            }
+        }
         #[cfg(test)]
         let started = std::time::Instant::now();
         let began = monotonic_ns();
@@ -529,8 +599,29 @@ impl Codec {
         Ok(())
     }
 
-    /// The decoded picture as one packed I420 frame (NV12 from the card is split into U and V), and the pts its packet had.
+    /// take_picture, with what a copy off the card cost noted on the frame (Frame::copied_off_card) when only the frame steps' wish made it:
+    /// this decoder could have left the picture on the card for them. A copy that every way pays isn't noted.
     unsafe fn take_frame(&mut self) -> Result<(Frame, Option<i64>), Fault> {
+        let began = monotonic_ns();
+        let spared = self.could_leave_on_card();
+        let (frame, pts) = self.take_picture()?;
+        let copied = spared && frame.surface().is_none();
+        Ok((if copied { frame.with_copied_off_card(monotonic_ns().saturating_sub(began)) } else { frame }, pts))
+    }
+
+    /// Whether the picture in hand would have stayed on the card had the frame steps wished it.
+    #[cfg(surfaces)]
+    unsafe fn could_leave_on_card(&self) -> bool {
+        !self.defer_surfaces && self.surface_room && self.forced.is_none() && (*self.frame).format == import_mod::HW.pixel_format() as i32 && self.import.enabled()
+    }
+
+    #[cfg(not(surfaces))]
+    unsafe fn could_leave_on_card(&self) -> bool {
+        false
+    }
+
+    /// The decoded picture as one packed I420 frame (NV12 from the card is split into U and V), and the pts its packet had.
+    unsafe fn take_picture(&mut self) -> Result<(Frame, Option<i64>), Fault> {
         // Read off the decoder's own frame (on a card that's the surface, which the copy to memory leaves be)
         let pts = Some((*self.frame).pts).filter(|&p| p != ff::AV_NOPTS_VALUE);
         #[cfg(surfaces)]
@@ -1373,6 +1464,33 @@ pub(crate) mod decode_bench {
                 println!("{name:11} as {}: copy {:.2} ms waiting on the decoder, {:.2} ms with it done; {} pictures", if i420 { "I420" } else { "NV12" },
                          ms(times.iter().map(|t| t.0).collect()), ms(times.iter().map(|t| t.1).collect()), r.frames.len());
             }
+        }
+    }
+
+    /// Where a VA-API card's decoding time shows up: in the decode call, or in the copy that waits for the picture (the second copy has nothing to wait for).
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture where_a_cards_decoding_time_shows_up
+    #[test]
+    #[ignore = "a measurement, needs the clips and a VA-API card"]
+    fn where_a_cards_decoding_time_shows_up() {
+        for name in ["p1080.h264", "p4k.h264"] {
+            let Some(packets) = packets(name) else { continue };
+            let mut codec = Codec::h264(Some(Hw::Vaapi)).expect("VA-API");
+            codec.copy_ns = Some(Vec::new());
+            let mut decode_ms = Vec::new();
+            for p in &packets {
+                let began = Instant::now();
+                let mut count = 0;
+                codec.parse(p, |c, unit| count += c.decode_newest(unit).unwrap());
+                if count > 0 {
+                    decode_ms.push(began.elapsed().as_secs_f64() * 1000.0);
+                    codec.take_newest().unwrap();
+                }
+            }
+            let copies = codec.copy_ns.take().unwrap();
+            let first: Vec<f64> = copies[30..].iter().map(|t| t.0 as f64 / 1e6).collect();
+            let again: Vec<f64> = copies[30..].iter().map(|t| t.1 as f64 / 1e6).collect();
+            println!("{name:11}: decode call {:.2} ms, first copy {:.2} ms, same copy again {:.2} ms (medians over {} pictures)",
+                     pct(&decode_ms[30..], 0.5), pct(&first, 0.5), pct(&again, 0.5), first.len());
         }
     }
 

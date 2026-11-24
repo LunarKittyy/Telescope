@@ -15,10 +15,11 @@ png = "0.18"
 # Finds where things are in a window for scenes and tests (pinned: its API follows Slint's internals)
 i-slint-backend-testing = "=1.18.1"
 i-slint-core = "=1.18.1"
-# internal: ComponentDefinition::properties_and_callbacks, which has the declared types plugin data is filled out to (source::fill)
+# internal: ComponentDefinition::properties_and_callbacks, which has the declared types plugin data is filled out to (slint_source::fill)
 slint-interpreter = { workspace = true, features = ["internal"] }
 i-slint-compiler = { version = "=1.18.1", default-features = false }
 telescope-ui-kit.workspace = true
+bytemuck.workspace = true
 
 
 [target.'cfg(target_os = "linux")'.dependencies]

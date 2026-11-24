@@ -1,4 +1,4 @@
-//! The update check for added plugins as the window runs it (widgets/plugin_updater.py): a while after start, then hourly to see whether a
+//! The update check for added plugins as the window runs it: a while after start, then hourly to see whether a
 //! day has passed. With the auto-update switch on it also installs a newer release of a plugin that's on and switches it on again, from the
 //! next start. The asking and downloading happen on a thread; installing happens in poll(), on the caller's thread.
 
@@ -208,12 +208,13 @@ impl PluginUpdater {
 
     /// Puts a downloaded update in place and switches it on, if auto-update is still on and so is the plugin.
     fn install(&mut self, folder: &PluginFolder, name: &str, zip: &Path, tag: &str) {
-        // Tried once: a release that doesn't install isn't fetched daily
-        self.cache.auto_installed.insert(name.to_string(), Value::String(tag.to_string()));
         let Some(current) = folder.find(name) else { return };
+        // Switched off while it downloaded: the release stays untried for when it's switched on again
         if !self.auto(folder) || current.dev || !current.enabled {
             return;
         }
+        // Tried once: a release that doesn't install isn't fetched daily
+        self.cache.auto_installed.insert(name.to_string(), Value::String(tag.to_string()));
         let result = (|| -> Result<(), String> {
             if zip_plugin_name(zip).map_err(|e| e.to_string())? != name {
                 return Err(format!("its .zip holds another plugin, not {name}"));
@@ -222,7 +223,7 @@ impl PluginUpdater {
             if !updates::is_newer(&version, &current.version) {
                 return Err(format!("its .zip is version {}, not newer than {}", or_q(&version), or_q(&current.version)));
             }
-            let item = folder.install_zip(zip, true).map_err(|e| e.to_string())?;
+            let item = folder.update_zip(zip).map_err(|e| e.to_string())?;
             if item.problem.is_empty() {
                 folder.set_enabled(&item, true).map_err(|e| e.to_string())?;
                 log::info!("Updated {name} to {tag} by itself");
@@ -269,6 +270,25 @@ mod tests {
         let dir = private_dir_in(&base, "telescope-plugin-2").unwrap();
         assert_eq!(std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    struct Offline;
+    impl Fetch for Offline {
+        fn get(&self, _url: &str, _headers: &[(&str, &str)]) -> Result<crate::updates::Reply, String> {
+            Err("offline".into())
+        }
+    }
+
+    #[test]
+    fn a_download_finished_with_auto_update_off_doesnt_use_up_the_release() {
+        let root = base("cancel");
+        let folder = root.join("plugins");
+        std::fs::create_dir_all(folder.join("extra")).unwrap();
+        let plugins = PluginFolder::new(folder, crate::switches::Switches::new(telescope_core::config::ConfigFile::at(root.join("c.json"))), []);
+        let mut u = PluginUpdater::new(root.join("u.json"), Arc::new(Offline));
+        u.install(&plugins, "extra", &root.join("none.zip"), "v2");
+        assert_eq!(u.cache.auto_installed("extra"), None);
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

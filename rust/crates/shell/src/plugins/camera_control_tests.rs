@@ -1,4 +1,4 @@
-//! tests/test_camera_control.py, test for test.
+//! Tests for the Camera card.
 
 use super::*;
 use telescope_core::testing::FakeHost;
@@ -685,7 +685,6 @@ fn lens_labels_become_tiles() {
     assert_eq!(split_lens_label("Main"), ("Main".into(), String::new(), String::new()));
 }
 
-// tests/test_widgets.py::test_ns_to_display
 #[test]
 fn ns_to_display_reads_exposure_times() {
     for (value, expected) in [(0, "?"), (-1, "?"), (1_000_000_000, "1.0 s"), (2_500_000_000, "2.5 s"), (500_000_000, "1/2"), (1_000_000, "1/1,000")] {
@@ -693,7 +692,6 @@ fn ns_to_display_reads_exposure_times() {
     }
 }
 
-// tests/test_widgets.py::test_integer_log_slider_syncs_slider_spin_and_signal
 #[test]
 fn integer_log_slider_syncs_slider_spin_and_signal() {
     let mut row = LogRow::new(10.0, 1000.0, 1.0, false, false);
@@ -706,7 +704,6 @@ fn integer_log_slider_syncs_slider_spin_and_signal() {
     assert_eq!(row.to_spin(row.get_value()), 1000.0);
 }
 
-// tests/test_widgets.py::test_double_log_slider_converts_scaled_spin_value
 #[test]
 fn double_log_slider_converts_scaled_spin_value() {
     let mut row = LogRow::new(100_000.0, 1_000_000_000.0, 1e-6, true, true);
@@ -728,7 +725,6 @@ fn double_log_slider_converts_scaled_spin_value() {
     assert_eq!(iso.spin_text(), "400");
 }
 
-// tests/test_widgets.py::test_log_slider_range_and_enabled_state
 #[test]
 fn log_slider_range_and_enabled_state() {
     let mut row = LogRow::new(10.0, 1000.0, 1.0, false, false);
@@ -741,7 +737,6 @@ fn log_slider_range_and_enabled_state() {
     assert!(close(row.get_value(), 100.0, 0.01));
 }
 
-// tests/test_widgets.py::test_empty_lenses_show_a_placeholder
 #[test]
 fn empty_lenses_show_a_placeholder() {
     let mut lenses = Lenses::new();
@@ -750,7 +745,6 @@ fn empty_lenses_show_a_placeholder() {
     assert_eq!(lenses.placeholder, "No cameras available");
 }
 
-// tests/test_widgets.py::test_lens_panel_load_select_placeholder_and_clear
 #[test]
 fn lens_panel_load_select_placeholder_and_clear() {
     let mut lenses = Lenses::new();
@@ -768,14 +762,12 @@ fn lens_panel_load_select_placeholder_and_clear() {
     assert_eq!(lenses.placeholder, "Start streaming to load lenses");
 }
 
-// tests/test_widgets.py::test_lens_labels_keep_the_zoom_factor_when_shortened
 #[test]
 fn lens_labels_keep_the_zoom_factor_when_shortened() {
     assert_eq!(shorten_lens_label("Back Telephoto 3x [phys]", true), "Tele 3x");
     assert_eq!(shorten_lens_label("Back ~24mm OIS [auto]", true), "Auto ~24mm OIS");
 }
 
-// tests/test_widgets.py::test_lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows
 #[test]
 fn lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows() {
     assert_eq!(split_lens_label("Auto ~24mm OIS"), ("24".into(), "mm".into(), "Auto · OIS".into()));
@@ -801,7 +793,7 @@ fn the_card_compiles_and_has_every_property_the_plugin_sets() {
     }
 }
 
-// ── tests/test_presets.py, the ones about the Camera card ──
+// ── Presets, the ones about the Camera card ──
 
 fn cams() -> Value {
     json!([{"id": "0", "label": "Back camera", "current": true}, {"id": "2", "label": "Back camera (wide)", "current": false}])
@@ -904,7 +896,7 @@ fn a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts() {
     assert_eq!(switches, [json!({"action": "camera", "id": "2"})]);
 }
 
-// test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked, the Camera card's part (the mic's is the
+// The Camera card's part (the mic's is the
 // Microphone card's)
 #[test]
 fn phone_only_cards_hide_while_a_source_is_picked() {
@@ -1007,7 +999,7 @@ fn a_keys_range_and_choices_move_with_the_lens() {
     assert!(!r.host.calls.iter().any(|c| c == "refresh_actions"), "only when something moved");
 }
 
-// shortcuts.py gives every action its widgets: the control is where a right-click offers it
+// Every action gets its widgets: the control is where a right-click offers it
 #[test]
 fn every_camera_action_is_offered_on_its_control() {
     let mut r = Rig::new();

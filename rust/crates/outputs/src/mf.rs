@@ -8,6 +8,8 @@ use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::output::VideoOutput;
 
 pub const SHARED_NAME: &str = "Global\\TelescopeCamera";
+/// The camera's event for a new frame, which a camera of an earlier version doesn't make.
+pub const FRAME_EVENT_NAME: &str = "Global\\TelescopeCameraFrame";
 pub const MAGIC: u32 = 0x4D43_5354; // "TSCM"
 pub const PROTOCOL: u32 = 1;
 pub const NV12: u32 = 1;
@@ -21,6 +23,8 @@ pub const WATCH_LINGER: Duration = Duration::from_secs(3);
 pub trait Mapping: Send {
     /// Runs f on the mapped bytes.
     fn with(&mut self, f: &mut dyn FnMut(&mut [u8]));
+    /// Tells the camera a frame has landed, so it needn't poll for one.
+    fn signal(&mut self) {}
 }
 
 /// The header's fields: magic, version, data_offset, data_capacity, consumer_state, consumer_width, consumer_height,
@@ -115,7 +119,8 @@ impl SharedView {
             b[FRAME_AT + 4..FRAME_AT + 8].copy_from_slice(&frame.height.to_le_bytes());
             b[FRAME_AT + 8..FRAME_AT + 12].copy_from_slice(&NV12.to_le_bytes());
             b[COUNTER_AT..COUNTER_AT + 8].copy_from_slice(&(counter + 2).to_le_bytes());
-        })
+        });
+        self.map.signal();
     }
 }
 
@@ -130,6 +135,8 @@ pub struct MfCamera {
     view: Option<SharedView>,
     beat: Option<u64>,
     beat_at: Instant,
+    /// The heartbeat a reader stopped on when it was let go: a mapping that still shows it is the stalled reader, not a new request.
+    stalled: Option<u64>,
     linger: Duration,
     last_write: Option<(Instant, u32, u32)>,
     /// Whether the slot still goes to the Windows 11 camera.
@@ -138,7 +145,7 @@ pub struct MfCamera {
 
 impl MfCamera {
     pub fn new(width: u32, height: u32, device: String, open: Opener, still_mf: Box<dyn Fn() -> bool + Send>) -> MfCamera {
-        MfCamera { width, height, device, open, view: None, beat: None, beat_at: Instant::now(), linger: WATCH_LINGER, last_write: None, still_mf }
+        MfCamera { width, height, device, open, view: None, beat: None, beat_at: Instant::now(), stalled: None, linger: WATCH_LINGER, last_write: None, still_mf }
     }
 
     /// The shared memory while an app reads the camera. Let go of once it stops (or stops asking for frames), so the
@@ -151,16 +158,26 @@ impl MfCamera {
                 self.beat = Some(beat);
                 self.beat_at = now;
             }
-            if view.reader_size().is_none() || now - self.beat_at > self.linger {
+            if view.reader_size().is_none() {
+                self.stalled = None;
+                self.view = None;
+            } else if now - self.beat_at > self.linger {
+                self.stalled = self.beat;
                 self.view = None;
             }
         }
         if self.view.is_none() {
             self.last_write = None;
             self.view = (self.open)();
-            if let Some(view) = self.view.as_mut() {
-                self.beat = Some(view.header().heartbeat);
-                self.beat_at = now;
+            match self.view.as_mut().map(|view| view.header().heartbeat) {
+                // The same mapping, still not beating (a paused or hung reader): nothing is sent until it beats again
+                Some(beat) if self.stalled == Some(beat) => self.view = None,
+                Some(beat) => {
+                    self.stalled = None;
+                    self.beat = Some(beat);
+                    self.beat_at = now;
+                }
+                None => self.stalled = None,
             }
         }
         self.view.as_mut()
@@ -237,15 +254,31 @@ pub fn peek(open: &dyn Fn() -> Option<SharedView>) -> Option<(bool, u64)> {
 /// The real thing: Global\TelescopeCamera<slot> mapped while it exists.
 #[cfg(windows)]
 pub fn open_shared(slot: u32) -> Option<SharedView> {
-    struct Win(crate::win::View);
+    struct Win {
+        view: crate::win::View,
+        slot: u32,
+        event: Option<crate::win::Owned>,
+        /// When the event was last looked for, so a camera without one is asked again about once a second.
+        tried: Option<std::time::Instant>,
+    }
     impl Mapping for Win {
         fn with(&mut self, f: &mut dyn FnMut(&mut [u8])) {
-            f(self.0.buf())
+            f(self.view.buf())
+        }
+        fn signal(&mut self) {
+            let slot = self.slot;
+            if self.event.is_none() && self.tried.is_none_or(|t| t.elapsed() >= std::time::Duration::from_secs(1)) {
+                self.tried = Some(std::time::Instant::now());
+                self.event = crate::win::open_event(&format!("{FRAME_EVENT_NAME}{slot}"), crate::win::EVENT_MODIFY_STATE);
+            }
+            if let Some(event) = &self.event {
+                crate::win::set_event(event);
+            }
         }
     }
     let access = crate::win::FILE_MAP_READ | crate::win::FILE_MAP_WRITE;
     let view = crate::win::View::open(&format!("{SHARED_NAME}{slot}"), access)?;
-    let mut shared = SharedView::new(Box::new(Win(view)));
+    let mut shared = SharedView::new(Box::new(Win { view, slot, event: None, tried: None }));
     shared.valid().then_some(shared)
 }
 
@@ -278,10 +311,11 @@ pub(crate) mod tests {
         pub buf: Arc<Mutex<Option<Vec<u8>>>>,
         pub opened: Arc<AtomicUsize>,
         pub closed: Arc<AtomicUsize>,
+        pub signals: Arc<AtomicUsize>,
     }
 
     /// A view of the shared buffer; once the camera takes its memory away (None) it keeps the copy it last saw.
-    struct View(Arc<Mutex<Option<Vec<u8>>>>, Arc<AtomicUsize>);
+    struct View(Arc<Mutex<Option<Vec<u8>>>>, Arc<AtomicUsize>, Arc<AtomicUsize>);
 
     impl Mapping for View {
         fn with(&mut self, f: &mut dyn FnMut(&mut [u8])) {
@@ -290,6 +324,9 @@ pub(crate) mod tests {
                 Some(b) => f(b),
                 None => f(&mut [0u8; 64]),
             }
+        }
+        fn signal(&mut self) {
+            self.2.fetch_add(1, Ordering::SeqCst);
         }
     }
 
@@ -308,12 +345,12 @@ pub(crate) mod tests {
             Box::new(move || {
                 me.buf.lock().unwrap().as_ref()?;
                 me.opened.fetch_add(1, Ordering::SeqCst);
-                Some(SharedView::new(Box::new(View(me.buf.clone(), me.closed.clone()))))
+                Some(SharedView::new(Box::new(View(me.buf.clone(), me.closed.clone(), me.signals.clone()))))
             })
         }
         pub fn header(&self) -> Header {
             let b = self.buf.lock().unwrap().clone().unwrap();
-            SharedView::new(Box::new(View(Arc::new(Mutex::new(Some(b))), Arc::default()))).header()
+            SharedView::new(Box::new(View(Arc::new(Mutex::new(Some(b))), Arc::default(), Arc::default()))).header()
         }
         pub fn set(&self, at: usize, value: u8) {
             if let Some(b) = self.buf.lock().unwrap().as_mut() {
@@ -333,7 +370,6 @@ pub(crate) mod tests {
         c.send(frame).unwrap();
     }
 
-    // test_vcam.py::test_the_windows_11_camera_gets_nv12_at_the_readers_size
     #[test]
     fn the_windows_11_camera_gets_nv12_at_the_readers_size() {
         let o = Opener::new(Some(reading(8, 4)));
@@ -350,6 +386,20 @@ pub(crate) mod tests {
         assert_eq!((h.counter, h.frame_width, h.frame_height, h.frame_format), (2, 8, 4, NV12));
         c.send_at(&frame, now + Duration::from_millis(34)).unwrap();
         assert_eq!(o.header().counter, 4);
+    }
+
+    #[test]
+    fn the_camera_is_told_after_each_frame_that_is_written_and_not_for_one_that_is_thinned() {
+        let o = Opener::new(Some(reading(8, 4)));
+        let mut c = cam(&o, 8, 4);
+        let frame = grey(8, 4, 235);
+        let now = Instant::now();
+        c.send_at(&frame, now).unwrap();
+        assert_eq!(o.signals.load(Ordering::SeqCst), 1);
+        c.send_at(&frame, now + Duration::from_millis(5)).unwrap();
+        assert_eq!(o.signals.load(Ordering::SeqCst), 1, "thinned");
+        c.send_at(&frame, now + Duration::from_millis(40)).unwrap();
+        assert_eq!(o.signals.load(Ordering::SeqCst), 2);
     }
 
     #[test]
@@ -449,7 +499,6 @@ pub(crate) mod tests {
         assert_eq!(o.header().counter, 4);
     }
 
-    // test_vcam.py::test_a_frame_of_another_size_is_fitted_to_what_the_app_picked
     #[test]
     fn a_frame_of_another_size_is_fitted_to_what_the_app_picked() {
         let o = Opener::new(Some(reading(8, 4)));
@@ -473,7 +522,6 @@ pub(crate) mod tests {
         assert_eq!(c.fit_size(), Some((4, 2)));
     }
 
-    // test_vcam.py::test_frames_are_dropped_until_an_app_opens_the_camera
     #[test]
     fn frames_are_dropped_until_an_app_opens_the_camera() {
         let o = Opener::new(None);
@@ -484,7 +532,6 @@ pub(crate) mod tests {
         assert_eq!(o.header().counter, 2);
     }
 
-    // test_vcam.py::test_a_write_cut_off_half_way_is_finished_with_an_even_count
     #[test]
     fn a_write_cut_off_half_way_is_finished_with_an_even_count() {
         let o = Opener::new(Some(shared(8, 4, 1, 0, 5, None, MAGIC)));
@@ -493,7 +540,6 @@ pub(crate) mod tests {
         assert_eq!(o.header().counter, 8);
     }
 
-    // test_vcam.py::test_the_camera_is_let_go_once_the_app_stops_reading
     #[test]
     fn the_camera_is_let_go_once_the_app_stops_reading() {
         let o = Opener::new(Some(reading(8, 4)));
@@ -506,7 +552,6 @@ pub(crate) mod tests {
         assert!(!c.is_open());
     }
 
-    // test_vcam.py::test_an_app_that_stopped_asking_for_frames_counts_as_gone
     #[test]
     fn an_app_that_stopped_asking_for_frames_counts_as_gone() {
         let o = Opener::new(Some(shared(8, 4, 1, 7, 0, None, MAGIC)));
@@ -515,11 +560,29 @@ pub(crate) mod tests {
         send(&mut c, &o, &grey(8, 4, 0));
         std::thread::sleep(Duration::from_millis(40));
         send(&mut c, &o, &grey(8, 4, 0));
-        assert_eq!(o.closed.load(Ordering::SeqCst), 1, "let go, then looked for again");
+        assert_eq!(o.closed.load(Ordering::SeqCst), 2, "let go, looked for again, and let go once more: it still isn't beating");
         assert_eq!(o.opened.load(Ordering::SeqCst), 2);
+        assert_eq!(o.header().counter, 2, "nothing was written for the stalled reader");
+        assert!(!c.is_open());
     }
 
-    // test_vcam.py::test_a_size_too_big_for_the_shared_memory_is_never_written
+    #[test]
+    fn a_stalled_reader_gets_frames_again_once_it_beats() {
+        let o = Opener::new(Some(shared(8, 4, 1, 7, 0, None, MAGIC)));
+        let mut c = cam(&o, 8, 4);
+        c.linger = Duration::from_millis(20);
+        send(&mut c, &o, &grey(8, 4, 0));
+        std::thread::sleep(Duration::from_millis(40));
+        send(&mut c, &o, &grey(8, 4, 0));
+        send(&mut c, &o, &grey(8, 4, 0));
+        assert_eq!(o.header().counter, 2);
+        // The reader wakes up and asks for a frame
+        o.set(32, 8);
+        send(&mut c, &o, &grey(8, 4, 0));
+        assert_eq!(o.header().counter, 4);
+        assert!(c.is_open());
+    }
+
     #[test]
     fn a_size_too_big_for_the_shared_memory_is_never_written() {
         let o = Opener::new(Some(shared(8, 4, 1, 0, 0, Some(10), MAGIC)));
@@ -529,14 +592,13 @@ pub(crate) mod tests {
         assert_eq!(o.header().counter, 0);
     }
 
-    // test_vcam.py::test_memory_from_another_program_is_refused
     #[test]
     fn memory_from_another_program_is_refused() {
         assert!(!Opener::new(Some(shared(8, 4, 1, 0, 0, None, 0x1234))).opener()().unwrap().valid());
         assert!(Opener::new(Some(reading(8, 4))).opener()().unwrap().valid());
     }
 
-    // test_vcam.py::test_the_windows_11_camera_only_takes_rgb_or_bgr (here: I420 or RGBA)
+    // Here: I420 or RGBA
     #[test]
     fn the_windows_11_camera_only_takes_i420_or_rgba() {
         let o = Opener::new(None);
@@ -546,7 +608,6 @@ pub(crate) mod tests {
         assert!(c.send(&Frame::new(8, 4, PixelFormat::Rgba, vec![0; 128])).is_ok());
     }
 
-    // test_vcam.py::test_camera_changed_compares_the_kind_with_the_slots_camera
     #[test]
     fn a_camera_whose_slot_moved_off_the_windows_11_camera_is_outdated() {
         let o = Opener::new(None);
@@ -558,7 +619,6 @@ pub(crate) mod tests {
         assert!(c.outdated());
     }
 
-    // test_vcam.py::test_the_python_side_matches_the_dlls_shared_memory_layout
     #[test]
     fn the_layout_matches_the_dlls_shared_memory() {
         let header = include_str!("../../../windows/virtualcamera/shared_frame.h");

@@ -27,7 +27,7 @@ These apply live without restarting the camera.
 
 Mirror, Upside down and rotation also apply to non-RAW [photos](effects.md#photos). The photo cards have a **Use zoom** switch for a lossless crop to your manual zoom and position. HEIC and Ultra HDR photos get the orientation but not the crop. Stretch, Lens correction and Auto framing do not apply to photos.
 
-Zooming in gets sharper because it crops from the full sensor first and hops to the telephoto lens once your framing fits inside it. Dots on the zoom slider mark where a longer lens is used.
+Zooming in gets sharper because it crops from the full sensor first and hops to the telephoto lens once your framing fits inside it. With an up-to-date phone app, zooming further than that lens is cropped on your computer, because Android phones stop cropping once they switch to a longer lens. Dots on the zoom slider mark where a longer lens is used.
 
 ## Presets
 
@@ -53,6 +53,7 @@ A phone that can't do Light switches to Heavy.
 - **Hardware acceleration** under Video in Settings decodes Light on the graphics card rather than the processor, which helps most at 4K or on a laptop. It works on Windows with any graphics card and on Linux through VA-API or NVIDIA's CUDA. The line under the switch shows which one it found. On Linux it's on by default when the card is VA-API and off everywhere else. Telescope decodes on the processor for a few minutes if the card falls behind and then tries the card again
 - **Graphics card** under Video in Settings picks which card Telescope uses. **Automatic** follows what the system picks and the list contains each card the computer has. The window and the picture steps run on it. Hardware decoding opens the render node of that card on Linux. A change applies after a restart and the row offers a **Restart now** button. A picked card that fails or was skipped after a crash is replaced by another one
 - Light only lists resolutions the phone's encoder can take
+- A resolution bigger than the virtual camera can use costs the computer decoding work for nothing. While frames run late Telescope asks the phone for the smallest size that still fills the camera and says so under [Adjustments](output.md#monitoring)
 
 <details>
 <summary><b>UDP on Wi-Fi (experimental)</b></summary>

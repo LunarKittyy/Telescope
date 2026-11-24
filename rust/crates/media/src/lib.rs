@@ -34,6 +34,8 @@ mod yuv;
 mod vaapi_import;
 #[cfg(all(windows, ffmpeg))]
 mod d3d11_import;
+#[cfg(all(windows, ffmpeg))]
+mod d3d11_copy;
 #[cfg(test)]
 mod guard_alloc;
 #[cfg(all(test, ffmpeg, target_os = "linux"))]

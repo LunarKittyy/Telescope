@@ -356,7 +356,7 @@ fn coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again() {
     r.pump();
 }
 
-// test_widgets.py's LogSliderRow and LensPanel on the real Camera card in the real window, with the real mouse.
+// LogSliderRow and LensPanel on the real Camera card in the real window, with the real mouse.
 
 fn shown(name: &str) -> Rig {
     let r = with_camera(name);

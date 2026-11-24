@@ -1,4 +1,4 @@
-// The real program started the way main.py is in test_main.py. Rust has no PyAV build to stage, so what a command or a duplicate launch must leave
+// The real program started the way the Python app was. Rust has no PyAV build to stage, so what a command or a duplicate launch must leave
 // alone is what Rust has of that kind: the stale mic source a fresh start clears, here a pactl that leaves a mark.
 #![cfg(target_os = "linux")]
 
@@ -33,7 +33,7 @@ static STARTS: Mutex<()> = Mutex::new(());
 
 const COMMANDS: [&[&str]; 2] = [&["--list-actions"], &["--action", "microphone.mute", "mode=toggle"]];
 
-// test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone, with nothing running
+// With nothing running
 #[test]
 fn commands_leave_what_the_running_copy_owns_alone() {
     let dir = telescope_core::testing::scratch_dir("commands");
@@ -82,7 +82,7 @@ fn commands_and_a_duplicate_launch_leave_a_running_copy_alone() {
     assert!(!called.exists(), "what the running copy owns stays");
 }
 
-// test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it: the real startup cleans up only once it owns the lock.
+// The real startup cleans up only once it owns the lock.
 // The cleanup's pactl asks the program itself whether a copy is answering on the lock, then ends it there, before a window.
 #[test]
 fn a_new_copy_cleans_up_once_it_has_the_lock() {

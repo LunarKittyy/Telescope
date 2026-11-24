@@ -1,5 +1,4 @@
 // Browser camera in the real window: the real plugin and its sources, with a stand-in for its network server, as
-// test_browser_camera.py's window tests.
 mod rig;
 
 use rig::{FakeLink, Listener, Picker, Rig};

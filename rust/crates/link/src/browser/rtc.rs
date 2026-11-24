@@ -1,4 +1,4 @@
-//! The Browser camera's WebRTC side (browser_rtc.py): answers a page's offer and hands its video and mic on.
+//! The Browser camera's WebRTC side: answers a page's offer and hands its video and mic on.
 //!
 //! str0m does the WebRTC on UDP sockets and a thread of its own per browser. Python's aiortc decoded the video there;
 //! here the frames go on still encoded (H.264 as Annex B, or VP8), so the stream decodes them like a phone's, on the
@@ -146,6 +146,12 @@ pub struct StrSession {
     codec: String,
     stop: Arc<AtomicBool>,
     keyframe: Arc<AtomicBool>,
+}
+
+/// Makes a StrSession per offer, offering the addresses `addresses` gives at that moment.
+pub fn str_maker(addresses: impl Fn() -> Vec<IpAddr> + Send + Sync + 'static,
+                 opus: Arc<dyn Fn() -> Option<Box<dyn AudioDecoder>> + Send + Sync>) -> RtcMaker {
+    Arc::new(move |video, audio| Box::new(StrSession::new(addresses(), opus.clone(), video, audio)) as Box<dyn RtcSession>)
 }
 
 impl StrSession {

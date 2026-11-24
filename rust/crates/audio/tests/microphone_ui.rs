@@ -31,7 +31,7 @@ export component Wrapper inherits Window {
     assert!(result.component("Wrapper").is_some());
 }
 
-// test_vb_cable.py::test_the_question_names_vb_audio_and_says_what_they_ask, on the drawn card
+// On the drawn card
 #[test]
 fn the_question_names_vb_audio_and_closing_it_is_a_no() {
     use i_slint_backend_testing::ElementHandle;

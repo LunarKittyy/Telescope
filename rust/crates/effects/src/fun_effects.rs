@@ -1,4 +1,4 @@
-//! The Fun pack's picture effects (fun_effects.py): plain structs over RGB pictures. An effect keeps what it needs between frames (a
+//! The Fun pack's picture effects: plain structs over RGB pictures. An effect keeps what it needs between frames (a
 //! trail, a few frames back) and is called as effect.run(frame, look) -> picture, with look the frozen settings. A new one starts
 //! afresh. Game Boy is a shader instead (game_boy.wgsl) and never comes through here.
 

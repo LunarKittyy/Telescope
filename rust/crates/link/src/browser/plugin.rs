@@ -1,4 +1,4 @@
-//! Browser camera (plugins/browser_camera.py): stream from any device with a browser, no Telescope app on it.
+//! Browser camera: stream from any device with a browser, no Telescope app on it.
 //!
 //! "Browser camera" in the phone picker runs the server and shows this card with the code to scan. Each browser that
 //! connects is a StreamSource of its own, listed in the picker by its device while it's there, and starts streaming by
@@ -14,7 +14,7 @@
 
 use telescope_core::i18n::Fields;
 use super::feed::{BrowserFeed, BrowserHub, BrowserVideo, Sent};
-use super::rtc::{RtcMaker, RtcSession, StrSession};
+use super::rtc::str_maker;
 use super::server::{BrowserServer, BROWSER_PORT};
 use serde_json::{json, Map, Value};
 use telescope_core::settings::{off_default, reset_config};
@@ -275,13 +275,12 @@ pub fn system_server(web: Arc<dyn Web>, folder: PathBuf, media: Arc<dyn Media>) 
     Box::new(move |hub, on_change| {
         let hosts = web.addresses();
         let certificate = web.certificate(&folder, &hosts)?;
-        let addresses: Vec<IpAddr> = hosts.iter().filter_map(|h| h.parse().ok()).collect();
         let media = media.clone();
         let opus: Arc<dyn Fn() -> Option<Box<dyn telescope_core::media::AudioDecoder>> + Send + Sync> =
             Arc::new(move || media.opus_decoder().map_err(|e| log::warn!("Browser camera: no mic: {e}")).ok());
-        let rtc: RtcMaker = Arc::new(move |video, audio| {
-            Box::new(StrSession::new(addresses.clone(), opus.clone(), video, audio)) as Box<dyn RtcSession>
-        });
+        // Read at each offer: this computer's address can change (another network, a resume) while the server stays up
+        let live = web.clone();
+        let rtc = str_maker(move || live.addresses().iter().filter_map(|h| h.parse::<IpAddr>().ok()).collect(), opus);
         let server = BrowserServer::new(hub, web.clone(), certificate, move || on_change(), BROWSER_PORT, "", rtc);
         Ok(Box::new(server) as Box<dyn Serving>)
     })

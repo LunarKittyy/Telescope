@@ -1,4 +1,4 @@
-//! The Plugins tab of Settings (widgets/plugins_panel.py) as data: every plugin, built in or added, as a tile with its switch, grouped by
+//! The Plugins tab of Settings as data: every plugin, built in or added, as a tile with its switch, grouped by
 //! what it's for, with the search and the All / On / Off filter, the Added plugins box, the update switches and the vision download.
 //!
 //! Nothing here draws. A change is asked for with `request`, which says whether the person has to answer a question first; `commit` then

@@ -1,4 +1,4 @@
-//! The Wait screen plugin (plugins/wait_screen.py): what the virtual camera shows while nothing streams, and whether an app is
+//! The Wait screen plugin: what the virtual camera shows while nothing streams, and whether an app is
 //! reading it. The picture itself is drawn and held on the camera by wait_screen.rs; this decides when, at what size and which
 //! picture, and holds the settings and the card.
 //!

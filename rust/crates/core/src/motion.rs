@@ -1,4 +1,4 @@
-//! Motion in zones of the picture, for the plugins that ask (motion.py): a small grey copy of each frame compared with a background
+//! Motion in zones of the picture, for the plugins that ask: a small grey copy of each frame compared with a background
 //! that slowly takes in light changes. A shared host service, since any plugin can watch (Host::watch_motion); the shell feeds it
 //! the shown stream's frames before the view.
 

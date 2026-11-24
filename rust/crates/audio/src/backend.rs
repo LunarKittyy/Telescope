@@ -1,4 +1,4 @@
-//! What the Microphone plugin needs from this computer (microphone.py's LinuxMic and WindowsMic): whether the
+//! What the Microphone plugin needs from this computer: whether the
 //! virtual mic can exist here, setting it up and removing it, and the output the worker writes to.
 
 use telescope_core::i18n::Fields;

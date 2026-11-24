@@ -1,4 +1,4 @@
-// The kit's widgets on the checks of tests/test_widgets.py that still mean something with Slint: names for screen
+// The kit's widgets on the checks that still mean something with Slint: names for screen
 // readers, where a switch takes a click, the plugin colours, Tab order and the icons. Driven through Slint's testing
 // backend: nothing reaches the desktop.
 use i_slint_backend_testing::ElementHandle;
@@ -307,7 +307,6 @@ fn turning_plugin_colours_off_repaints_every_card_in_the_app_purple() {
     assert_eq!(ui.get_property("camera-hue").unwrap(), camera);
 }
 
-// test_tooltips.py::test_a_long_tooltip_wraps_and_a_short_one_stays_on_one_line
 #[test]
 fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
     let ui = rig();
@@ -328,7 +327,6 @@ fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
     assert!(long_h >= short_h + 2.0 * 15.0, "several lines: {long_h} against {short_h}");
 }
 
-// test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text
 #[test]
 fn a_picked_segment_keeps_room_for_its_bold_text() {
     let ui = rig();
@@ -511,7 +509,7 @@ fn wait(ms: u64) {
     i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(ms));
 }
 
-// test_tooltips.py::test_tooltips_show_sooner: Qt's own wait is 700 ms and Python's 250. Slint 1.18 keeps Tooltip's at 500 and
+// Qt's own wait is 700 ms and Python's 250. Slint 1.18 keeps Tooltip's at 500 and
 // doesn't let a program change it, so the kit draws its own tip (ui/widgets/tip.slint) and this holds it to sooner than Qt's.
 #[test]
 fn tooltips_show_sooner() {

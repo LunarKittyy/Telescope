@@ -1,4 +1,4 @@
-//! Calm people tracking on top of the vision service's people (people.py): steady ids, smoothed boxes and faces, and a
+//! Calm people tracking on top of the vision service's people: steady ids, smoothed boxes and faces, and a
 //! people count that's quick to notice someone new and slow to let them go, since the pose model drops people and finds
 //! them again all the time. The host runs one PeopleTracking for every stream and hands out its Tracks; Privacy blur and
 //! Expose for my face read them back with Track::from_value and pick you with main().

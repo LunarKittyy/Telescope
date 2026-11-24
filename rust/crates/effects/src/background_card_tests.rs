@@ -254,8 +254,8 @@ fn the_balance_can_still_move_the_step_to_the_cpu_where_it_gives_the_cpu_picture
     let balance = Arc::new(Balance::free());
     let mut pipeline = Pipeline::with_balance(balance.clone());
     pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step }]);
-    (0..8).for_each(|_| balance.note_wait(50_000_000));
-    assert_eq!(balance.place(), Place::Cpu);
+    (0..8).for_each(|_| pipeline.lane().note_wait(50_000_000));
+    assert_eq!(pipeline.lane().place(), Place::Cpu);
     let out = pipeline.process(frame.clone(), &ctx);
     // this pipeline's own count, so a frame another test sends to the card doesn't show here
     assert_eq!(pipeline.last_transfers(), (0, 0), "nothing went up or came down");
@@ -408,8 +408,8 @@ fn picture_mode_never_flashes_dark_through_masks_settings_and_the_balance_moving
     run(&mut pipeline, &Ctx::new(Some(mask.clone())), 2);
     pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step: step_for(8) }]);
     run(&mut pipeline, &Ctx::new(Some(mask.clone())), 3);
-    (0..8).for_each(|_| balance.note_wait(50_000_000));
-    assert_eq!(balance.place(), Place::Cpu);
+    (0..8).for_each(|_| pipeline.lane().note_wait(50_000_000));
+    assert_eq!(pipeline.lane().place(), Place::Cpu);
     run(&mut pipeline, &Ctx::new(Some(mask.clone())), 3);
     run(&mut pipeline, &Ctx::new(None), 2);
     let (lo, hi) = means.iter().fold((f64::MAX, 0.0f64), |(l, h), &m| (l.min(m), h.max(m)));

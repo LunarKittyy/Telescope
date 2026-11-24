@@ -142,11 +142,13 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     let mode = conv.settings.x & 7u;
     if mode <= 2u {
         let taps = conv.settings.y;
+        // A plane read stretched (SCALE_UV): the factors are in the first two terms of the matrix, as f32 bits
+        let stretch = select(vec2<f32>(1.0), vec2<f32>(bitcast<f32>(conv.matrix.x), bitcast<f32>(conv.matrix.y)), (conv.settings.x & 128u) != 0u);
         if (conv.settings.x & 8u) != 0u && mode <= 1u && taps <= 1u {
             return vec4<f32>(source_by_block(in.uv, mode), 1.0);
         }
         if taps <= 1u {
-            return vec4<f32>(source(in.uv, mode), 1.0);
+            return vec4<f32>(source(in.uv * stretch, mode), 1.0);
         }
         // One output pixel covers this much of the picture; average a taps x taps grid inside it
         let step = vec2<f32>(dpdxFine(in.uv.x), dpdyFine(in.uv.y)) / f32(taps);
@@ -154,7 +156,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         for (var j = 0u; j < taps; j++) {
             for (var i = 0u; i < taps; i++) {
                 let off = (vec2<f32>(f32(i), f32(j)) + 0.5 - f32(taps) * 0.5) * step;
-                sum += source(in.uv + off, mode);
+                sum += source((in.uv + off) * stretch, mode);
             }
         }
         return vec4<f32>(sum / f32(taps * taps), 1.0);

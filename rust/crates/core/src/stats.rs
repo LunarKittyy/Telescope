@@ -20,6 +20,8 @@ use std::sync::{Arc, LazyLock, Mutex};
 pub const KEPT: usize = 60;
 /// How often the hub makes a snapshot.
 pub const EVERY_MS: u64 = 1000;
+/// The computer's power saving is asked about every this many ticks of that.
+const POWER_EVERY: u32 = 5;
 
 const SECOND: u64 = 1_000_000_000;
 
@@ -190,7 +192,7 @@ impl Timer {
     #[inline]
     pub fn add(&self, ns: u64) {
         let us = (ns / 1000).min(u32::MAX as u64) as u32;
-        // Count last, and a take reads it first: a sample that is counted has its time and its peak in too
+        // Count last, and a take reads it first: a sample that is counted has its time in, though a sample landing mid-take can split between two takes
         self.max_us.fetch_max(us, Ordering::Release);
         self.sum_us.fetch_add(us as u64, Ordering::Release);
         self.count.fetch_add(1, Ordering::Release);
@@ -276,6 +278,10 @@ struct Meta {
     transport: Option<Transport>,
 }
 
+const STEPS_UNKNOWN: u8 = 0;
+const STEPS_ON_CARD: u8 = 1;
+const STEPS_ON_CPU: u8 = 2;
+
 /// One stream's live numbers, written by its threads and read by the hub. Everything is a relaxed atomic.
 pub struct SourceStats {
     started_ns: u64,
@@ -286,7 +292,13 @@ pub struct SourceStats {
     repeated: AtomicU64,
     drops: [AtomicU64; 7],
     stages: [StageAcc; STAGES.len()],
+    /// Meta's target_fps, for the frame path to read without the lock.
+    fps: AtomicU32,
+    /// Where this stream's frame steps that can run either way ran last: STEPS_UNKNOWN, STEPS_ON_CARD or STEPS_ON_CPU.
+    steps_on: AtomicU8,
     steps: Timers,
+    /// Goes up whenever this stream's frame steps change.
+    steps_epoch: AtomicU64,
     meta: Mutex<Meta>,
 }
 
@@ -301,7 +313,10 @@ impl SourceStats {
             repeated: AtomicU64::new(0),
             drops: [const { AtomicU64::new(0) }; 7],
             stages: std::array::from_fn(|_| StageAcc::default()),
+            fps: AtomicU32::new(0),
+            steps_on: AtomicU8::new(STEPS_UNKNOWN),
             steps: Timers::new(detailed),
+            steps_epoch: AtomicU64::new(0),
             meta: Mutex::new(Meta { source_id: source_id.into(), slot, url: String::new(), plugin_source: false, target_fps: 0, transport: None }),
         }
     }
@@ -322,6 +337,11 @@ impl SourceStats {
     #[inline]
     pub fn decoded(&self, frames: u64) {
         self.decoded.fetch_add(frames, Ordering::Relaxed);
+    }
+
+    /// This stream's frame steps changed, which changes how many frames get through.
+    pub fn steps_changed(&self) {
+        self.steps_epoch.fetch_add(1, Ordering::Relaxed);
     }
 
     /// A new frame went to the virtual camera.
@@ -362,6 +382,17 @@ impl SourceStats {
 
     pub fn set_target_fps(&self, fps: u32) {
         self.meta.lock().unwrap_or_else(|p| p.into_inner()).target_fps = fps;
+        self.fps.store(fps, Ordering::Relaxed);
+    }
+
+    /// Where this stream's frame steps that can run either way ran on its last frame.
+    pub fn set_steps_on_card(&self, on_card: bool) {
+        self.steps_on.store(if on_card { STEPS_ON_CARD } else { STEPS_ON_CPU }, Ordering::Relaxed);
+    }
+
+    /// The rate the stream is meant to keep, 0 before it is set.
+    pub fn target_fps(&self) -> u32 {
+        self.fps.load(Ordering::Relaxed)
     }
 
     fn totals(&self) -> Counts {
@@ -424,6 +455,16 @@ pub(crate) fn note_stage(index: usize, ns: u64) {
 /// The decoder finished this many frames on this thread's stream.
 pub fn note_decoded(frames: u64) {
     with_current(|s| s.decoded(frames));
+}
+
+/// How many new frames this thread's stream has sent to the virtual camera so far, or None on a thread no stream is bound to.
+pub fn delivered_total() -> Option<u64> {
+    BOUND.try_with(|b| b.try_borrow().ok().and_then(|b| b.as_deref().map(|s| s.delivered.load(Ordering::Relaxed)))).ok().flatten()
+}
+
+/// How many times this thread's stream's frame steps have changed, or None on a thread no stream is bound to.
+pub fn steps_epoch() -> Option<u64> {
+    BOUND.try_with(|b| b.try_borrow().ok().and_then(|b| b.as_deref().map(|s| s.steps_epoch.load(Ordering::Relaxed)))).ok().flatten()
 }
 
 /// The feed on this thread's stream carries its video this way now, whatever its URL said.
@@ -517,6 +558,9 @@ pub struct SourceSnapshot {
     /// Each plugin's frame step, while something asked for it.
     pub plugins: Vec<NamedTiming>,
     pub series: SourceSeries,
+    /// Whether this stream's frame steps that can run either way run on the card, None before it said.
+    #[serde(default)]
+    pub steps_on_card: Option<bool>,
 }
 
 /// A move of the balancer: frame steps that can run either way went to the card or the CPU.
@@ -623,6 +667,9 @@ pub struct Hub {
     had_sources: AtomicBool,
     bus: Mutex<Option<BusSender>>,
     ticking: AtomicBool,
+    /// Whether the effects follow the computer's power saving (an Adjustments switch), and the ticks since it was last asked.
+    power_aware: AtomicBool,
+    power_ticks: AtomicU32,
 }
 
 static SHARED: LazyLock<Arc<Hub>> = LazyLock::new(|| Arc::new(Hub::with_parts(Balance::shared(), Effort::shared())));
@@ -660,6 +707,8 @@ impl Hub {
             had_sources: AtomicBool::new(false),
             bus: Mutex::new(None),
             ticking: AtomicBool::new(false),
+            power_aware: AtomicBool::new(false),
+            power_ticks: AtomicU32::new(0),
         }
     }
 
@@ -694,6 +743,32 @@ impl Hub {
         } else if system.0.remove(owner) && system.0.is_empty() {
             // The next reading after a pause would average over the whole pause, so it starts over
             system.1 = Monitor::new();
+        }
+    }
+
+    /// The effects run at Power-saving level while the computer says it is saving power, or stop doing that. Off until a plugin says so.
+    pub fn set_power_aware(&self, on: bool) {
+        self.power_aware.store(on, Ordering::Relaxed);
+        if !on {
+            self.effort.set_machine_saving(false);
+        }
+    }
+
+    /// What the computer says about saving power, as far as it can tell: only a clear yes moves the effects.
+    pub fn note_power(&self, saving: Option<bool>) {
+        if self.power_aware.load(Ordering::Relaxed) {
+            self.effort.set_machine_saving(saving == Some(true));
+        }
+    }
+
+    /// One tick of the stats thread: while a stream runs and the effects follow power saving, asks the computer every POWER_EVERY ticks (at once when a stream begins).
+    fn follow_power(&self, streaming: bool, ask: impl FnOnce() -> Option<bool>) {
+        if !streaming || !self.power_aware.load(Ordering::Relaxed) {
+            self.power_ticks.store(0, Ordering::Relaxed);
+            return;
+        }
+        if self.power_ticks.fetch_add(1, Ordering::Relaxed).is_multiple_of(POWER_EVERY) {
+            self.note_power(ask());
         }
     }
 
@@ -754,7 +829,7 @@ impl Hub {
             wait_ms: m.wait_ns as f32 / 1e6,
         }).collect();
         BalanceSnapshot {
-            on_card: self.balance.place() == Place::Card,
+            on_card: self.balance.all_on_card(),
             pinned: self.balance.is_pinned(),
             moves: self.balance.swaps(),
             last_wait_ms: self.balance.last_wait() as f32 / 1e6,
@@ -784,6 +859,8 @@ impl Hub {
             if let Some(bus) = bus.as_ref().filter(|_| hub.told_effort.swap(level, Ordering::Relaxed) != level) {
                 bus.emit(Event::EffortChanged { level });
             }
+            let streaming = !hub.sources.lock().unwrap_or_else(|p| p.into_inner()).is_empty();
+            hub.follow_power(streaming, crate::monitor::power_saver);
             if let Some(bus) = bus.filter(|_| hub.worth_sending()) {
                 bus.emit(Event::StatsUpdated { snapshot: hub.snapshot() });
             }
@@ -853,6 +930,11 @@ fn sample(e: &mut Entry, now_ns: u64) -> SourceSnapshot {
         stages: stages.into_iter().filter(|s| s.timing.count > 0).collect(),
         plugins: e.stats.steps.take_all(),
         series: e.series.clone(),
+        steps_on_card: match e.stats.steps_on.load(Ordering::Relaxed) {
+            STEPS_ON_CARD => Some(true),
+            STEPS_ON_CPU => Some(false),
+            _ => None,
+        },
     }
 }
 

@@ -57,7 +57,6 @@ impl Rig {
     }
 }
 
-// test_presets.py::test_save_snapshots_each_section_and_replaces_by_name
 #[test]
 fn save_snapshots_each_section_and_replaces_by_name() {
     let mut r = Rig::new(&[("camera_control", json!({"iso": 100})), ("transforms", json!({"zoom": 2.0}))]);
@@ -73,7 +72,6 @@ fn save_snapshots_each_section_and_replaces_by_name() {
     assert_eq!(r.saves(), 3);
 }
 
-// test_presets.py::test_any_plugin_in_presets_is_saved_and_an_older_preset_leaves_it_alone
 #[test]
 fn any_plugin_in_presets_is_saved_and_an_older_preset_leaves_it_alone() {
     let mut r = Rig::new(&[("transforms", json!({"zoom": 2.0})), ("framing", json!({"on": true}))]);
@@ -91,7 +89,6 @@ fn any_plugin_in_presets_is_saved_and_an_older_preset_leaves_it_alone() {
     assert_eq!(r.config_of("transforms"), json!({"zoom": 1.0}));
 }
 
-// test_presets.py::test_blank_names_are_ignored
 #[test]
 fn blank_names_are_ignored() {
     let mut r = Rig::new(&[]);
@@ -100,7 +97,6 @@ fn blank_names_are_ignored() {
     assert_eq!(r.saves(), 0);
 }
 
-// test_presets.py::test_overwriting_a_preset_keeps_the_settings_of_plugins_that_are_off
 #[test]
 fn overwriting_a_preset_keeps_the_settings_of_plugins_that_are_off() {
     let mut r = Rig::new(&[("transforms", json!({"zoom": 3.0}))]);
@@ -115,7 +111,6 @@ fn overwriting_a_preset_keeps_the_settings_of_plugins_that_are_off() {
     assert_eq!(r.config_of("background"), json!({"mode": "picture", "picture": "desk.png"}));
 }
 
-// test_presets.py::test_names_lose_control_characters_when_saved_renamed_and_loaded
 #[test]
 fn names_lose_control_characters_when_saved_renamed_and_loaded() {
     let mut r = Rig::new(&[]);
@@ -129,7 +124,6 @@ fn names_lose_control_characters_when_saved_renamed_and_loaded() {
     assert_eq!(r.names(), ["Load"]);
 }
 
-// test_presets.py::test_apply_hands_sections_to_the_host_camera_first
 #[test]
 fn apply_hands_sections_to_the_host_in_registration_order() {
     let mut r = Rig::new(&[("camera_control", json!({})), ("stream_output", json!({})), ("transforms", json!({}))]);
@@ -145,7 +139,6 @@ fn apply_hands_sections_to_the_host_in_registration_order() {
     assert_eq!(r.saves(), 1, "only the preset that exists is saved");
 }
 
-// test_presets.py::test_rename_and_delete
 #[test]
 fn rename_and_delete() {
     let mut r = Rig::new(&[]);
@@ -173,7 +166,6 @@ fn a_rename_is_announced_so_shortcuts_can_follow_it() {
     assert!(r.host.events.is_empty(), "nothing renamed, nothing said");
 }
 
-// test_presets.py::test_clean_presets_drops_malformed_and_duplicate_entries
 #[test]
 fn clean_presets_drops_malformed_and_duplicate_entries() {
     let raw = json!([{"name": "A", "camera": {"iso": 1}, "stream": "bad"}, {"name": ""}, "junk", {"name": "A"}, {"name": "B", "extra": 1}]);
@@ -184,7 +176,6 @@ fn clean_presets_drops_malformed_and_duplicate_entries() {
     assert_eq!(clean_presets(Some(&json!([{"name": 5}, {"x": 1}]))).len(), 1);
 }
 
-// test_presets.py::test_menu_lists_presets_then_save_rename_delete
 #[test]
 fn the_menu_lists_the_presets_and_delete_removes_one() {
     let mut r = Rig::new(&[]);
@@ -200,7 +191,6 @@ fn the_menu_lists_the_presets_and_delete_removes_one() {
     assert_eq!(r.shown("names"), json!(["B"]));
 }
 
-// test_presets.py::test_an_ampersand_in_a_name_shows_in_the_menu
 #[test]
 fn an_ampersand_in_a_name_shows_in_the_menu() {
     // Qt's menus read "&" as a shortcut marker, which Slint's don't, so the name goes in as it is
@@ -210,7 +200,6 @@ fn an_ampersand_in_a_name_shows_in_the_menu() {
     assert_eq!(r.shown("names"), json!(["Desk & window"]));
 }
 
-// test_presets.py::test_save_suggests_a_name_no_preset_has
 #[test]
 fn save_suggests_a_name_no_preset_has() {
     let mut r = Rig::new(&[]);
@@ -223,7 +212,6 @@ fn save_suggests_a_name_no_preset_has() {
     assert_eq!((r.shown("dialog"), r.shown("dialog-text"), r.shown("dialog-title")), (json!("name"), json!("Preset 2"), json!("Save preset")));
 }
 
-// test_presets.py::test_saving_or_renaming_onto_another_preset_asks_first
 #[test]
 fn saving_or_renaming_onto_another_preset_asks_first() {
     let mut r = Rig::new(&[("transforms", json!({"zoom": 1.0}))]);

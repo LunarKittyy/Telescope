@@ -1,4 +1,4 @@
-//! Monitoring (plugins/monitoring.py): the Phone card with the battery and temperature of the stream the panels show, and
+//! Monitoring: the Phone card with the battery and temperature of the stream the panels show, and
 //! warnings when either crosses its threshold. Every 15 s it asks each phone stream for its state, the ones behind the panels
 //! too, and judges those by the thresholds saved for that phone. A warning notifies once per crossing (it re-arms 5 below
 //! or above the line); Stop the stream stops on every reading past the line, until Start anyway lets it carry on.
@@ -46,8 +46,8 @@ impl Thresholds {
         let mut t = Thresholds::default();
         let flag = |key: &str, default: bool| saved.get(key).and_then(Value::as_bool).unwrap_or(default);
         let whole = |key: &str, default: i64| saved.get(key).and_then(py::whole).unwrap_or(default);
-        t.battery_alert = whole("battery_alert", t.battery_alert);
-        t.temp_alert = whole("temp_alert", t.temp_alert);
+        t.battery_alert = whole("battery_alert", t.battery_alert).clamp(BATTERY_RANGE.0, BATTERY_RANGE.1);
+        t.temp_alert = whole("temp_alert", t.temp_alert).clamp(TEMP_RANGE.0, TEMP_RANGE.1);
         t.battery_notify = flag("battery_notify", t.battery_notify);
         t.battery_stop = flag("battery_stop", t.battery_stop);
         t.temp_notify = flag("temp_notify", t.temp_notify);
@@ -233,6 +233,9 @@ impl MonitoringPlugin {
 
     fn forget_shown(&mut self, host: &mut dyn Host) {
         self.shown = None;
+        // So a late poll for it finds nothing to fill in, and a stop doesn't drop another stream's warnings
+        self.shown_session = None;
+        self.sid = None;
         self.clear_readings(host);
     }
 
@@ -474,6 +477,16 @@ impl Plugin for MonitoringPlugin {
         // The phone's own health, beside its camera
         Some(CardSpec { ui: UiSpec { source: SlintSource::Text(UI.into()), component: "MonitoringCard".into(), props: self.props() },
                         region: "right".into() })
+    }
+
+    fn on_profile_applied(&mut self, host: &mut dyn Host) {
+        self.show(host);
+    }
+
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        self.set_config(cfg)?;
+        self.show(host);
+        Ok(())
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {

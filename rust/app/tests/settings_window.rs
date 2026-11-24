@@ -1,4 +1,4 @@
-// The settings window (tests/test_settings_window.py), with sections of the test's own in a real one.
+// The settings window, with sections of the test's own in a real one.
 mod rig;
 
 use rig::Rig;

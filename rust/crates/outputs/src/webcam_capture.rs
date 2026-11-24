@@ -329,7 +329,7 @@ pub mod v4l2 {
     const VIDIOC_STREAMON: u32 = 0x4004_5612;
     const VIDIOC_STREAMOFF: u32 = 0x4004_5613;
     const VIDIOC_S_PARM: u32 = 0xc0cc_5616;
-    /// How long a read waits for a frame before the camera counts as silent (main.py's OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT).
+    /// How long a read waits for a frame before the camera counts as silent.
     const READ_TIMEOUT_MS: i32 = 3000;
 
     pub struct V4l2Capture {
@@ -480,7 +480,7 @@ pub mod v4l2 {
         use super::*;
         use std::os::fd::FromRawFd;
 
-        // main.py sets OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT: a webcam that stops sending drops after 3 s rather than 10
+        // OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT is set elsewhere: a webcam that stops sending drops after 3 s rather than 10
         #[test]
         fn a_webcam_that_stops_sending_drops_after_three_seconds() {
             let mut ends = [0; 2];
@@ -550,7 +550,6 @@ mod tests {
         Arc::new(move |_, _| Ok(Box::new(FakeCap(list.lock().unwrap().take().unwrap_or_default())) as Box<dyn Capture>))
     }
 
-    // test_webcams.py::test_the_reader_hands_out_the_frame_it_checked_first
     #[test]
     fn the_reader_hands_out_the_frame_it_checked_first() {
         let r = rig(frames(vec![Ok(vec![1]), Ok(vec![2])]), "");
@@ -561,7 +560,6 @@ mod tests {
         assert_eq!(choice.describe(), "1280×720, MJPEG, 30 fps");
     }
 
-    // test_webcams.py::test_a_raw_frame_counts_what_crossed_the_cable_not_the_decoded_size
     #[test]
     fn a_raw_frame_counts_what_crossed_the_cable() {
         let mut r = rig(frames(vec![Ok(vec![0; 640 * 480 * 2])]), "");
@@ -571,7 +569,6 @@ mod tests {
         assert_eq!(feed.read().unwrap().data.len(), 640 * 480 * 2);
     }
 
-    // test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders
     #[test]
     fn mjpeg_goes_to_the_streams_decoders_and_raw_to_our_own() {
         assert!(is_jpeg(&Choice { fourcc: "MJPG".into(), width: 2, height: 2, fps: 30.0 }));
@@ -611,7 +608,6 @@ mod tests {
         assert_eq!((choice.width, choice.height), (2, 2));
     }
 
-    // test_webcams.py::test_an_unplugged_webcam_waits_to_be_plugged_back_in
     #[test]
     fn an_unplugged_webcam_waits_to_be_plugged_back_in() {
         let r = rig(frames(vec![]), "");
@@ -622,7 +618,6 @@ mod tests {
         assert_eq!(r.reports.lock().unwrap()[0].0, "gone");
     }
 
-    // test_webcams.py::test_a_webcam_another_program_holds_says_which
     #[test]
     fn a_webcam_another_program_holds_says_which() {
         struct Released(FakeCap, Arc<Mutex<bool>>);
@@ -649,7 +644,6 @@ mod tests {
         assert_eq!(*r.reports.lock().unwrap(), [("busy".to_string(), "zoom".to_string())]);
     }
 
-    // test_webcams.py::test_a_webcam_that_wont_open_counts_as_busy
     #[test]
     fn a_webcam_that_wont_open_counts_as_busy() {
         let r = rig(Arc::new(|_, _| Err((false, "refused".into()))), "");
@@ -664,7 +658,6 @@ mod tests {
         assert_eq!(*r.reports.lock().unwrap(), [("denied".to_string(), String::new())]);
     }
 
-    // test_webcams.py::test_an_open_webcam_that_sends_nothing_says_so
     #[test]
     fn an_open_webcam_that_sends_nothing_says_so() {
         let r = rig(frames(vec![]), "");
@@ -674,7 +667,6 @@ mod tests {
         assert_eq!(r.reports.lock().unwrap()[0].0, "silent");
     }
 
-    // test_webcams.py::test_unplugging_mid_stream_drops_the_stream_and_says_so
     #[test]
     fn unplugging_mid_stream_drops_the_stream_and_says_so() {
         let r = rig(frames(vec![Ok(vec![1])]), "");

@@ -1,4 +1,4 @@
-//! The jitter buffer (audio.py's JitterBuffer): holds the phone's audio for the writer, playing up to MAX_SKEW faster
+//! The jitter buffer: holds the phone's audio for the writer, playing up to MAX_SKEW faster
 //! or slower to stay near the target, skipping quiet moments when far behind, and learning how unevenly audio arrives.
 
 use std::collections::VecDeque;

@@ -1,4 +1,4 @@
-//! test_vision.py, by name, against a fake MediaPipe (the real one is in tests/parity.rs).
+//! Vision service tests, against a fake MediaPipe (the real one is in tests/parity.rs).
 
 use super::*;
 use std::sync::mpsc;
@@ -434,6 +434,60 @@ fn test_people_detection_finishing_after_shutdown_does_not_notify_the_window() {
     wait(|| r.backend.closed().contains(&"pose"));
     assert!(r.people.lock().unwrap().is_empty());
     assert_eq!(r.backend.closed(), ["pose"]);
+}
+
+/// A pose model that holds its detection until released, so a test can do something while it's in progress.
+fn slow_people(r: &Ready) -> mpsc::Sender<()> {
+    let (entered_tx, entered_rx) = mpsc::channel::<()>();
+    let (finish_tx, finish_rx) = mpsc::channel::<()>();
+    let (entered_tx, finish_rx) = (Mutex::new(entered_tx), Mutex::new(finish_rx));
+    *r.backend.detect.lock().unwrap() = Arc::new(move || {
+        entered_tx.lock().unwrap().send(()).unwrap();
+        finish_rx.lock().unwrap().recv_timeout(Duration::from_secs(2)).unwrap();
+        vec![Person::default()]
+    });
+    r.v.want_people("test", true);
+    feed(&r.v, "a", &Rgb::filled(8, 8, 0));
+    entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    finish_tx
+}
+
+#[test]
+fn people_found_after_their_stream_ended_are_not_reported() {
+    let r = ready();
+    let finish = slow_people(&r);
+    r.v.drop_stream("a");
+    finish.send(()).unwrap();
+    wait(|| r.backend.closed().contains(&"pose"));
+    assert!(r.people.lock().unwrap().is_empty());
+}
+
+#[test]
+fn people_found_in_a_picture_from_before_the_view_turned_are_not_reported() {
+    let r = ready();
+    let finish = slow_people(&r);
+    r.v.drop_masks();
+    finish.send(()).unwrap();
+    // the next report would come after the cadence, so give this one time to have been wrongly sent
+    std::thread::sleep(Duration::from_millis(200));
+    assert!(r.people.lock().unwrap().is_empty());
+    r.v.shutdown();
+}
+
+#[test]
+fn a_reinstalled_pack_clears_a_failed_vision() {
+    let fixed = Arc::new(AtomicBool::new(false));
+    let f = fixed.clone();
+    let (v, states, _p) = make(Box::new(move || {
+        if f.load(Ordering::SeqCst) { Ok(Fake::new() as Arc<dyn Backend>) } else { Err(LoadError::Failed(VisionError::new("OSError", "can't open"))) }
+    }));
+    v.want_people("Auto framing", true);
+    wait(|| v.state() == FAILED);
+    fixed.store(true, Ordering::SeqCst);
+    v.pack_downloaded();
+    wait(|| v.state() == READY);
+    assert!(v.problem().is_empty());
+    assert_eq!(*states.lock().unwrap(), [LOADING, FAILED, OFF, LOADING, READY]);
 }
 
 #[test]
@@ -1978,4 +2032,22 @@ fn someone_still_and_turned_away_costs_a_pose_run_a_second_at_the_lightest_level
     // 21 seconds: about one run a second, and the face finder looks no more often than that
     assert!((18..=22).contains(&posed), "{posed} pose runs in 21 s");
     assert!((18..=22).contains(&r.backend.log.lock().unwrap().faced.len()), "faces looked for as often");
+}
+
+#[test]
+fn a_mask_remapped_by_axis_is_the_one_remapped_pixel_by_pixel() {
+    let (w, h) = (64usize, 36usize);
+    let src: Vec<u8> = (0..w * h).map(|i| ((i * 37 + i / w * 11) % 256) as u8).collect();
+    let old = Geometry { zoom: 1.3, pan_x: -0.4, pan_y: 0.2, ..Geometry::default() };
+    for (zoom, pan_x, pan_y) in [(1.0, 0.0, 0.0), (1.6, 0.3, -0.2), (2.4, -0.9, 0.7), (1.1, 1.0, 1.0)] {
+        for (flip_h, flip_v, rotation) in [(false, false, None), (true, false, Some(180)), (false, true, Some(0)), (true, true, None)] {
+            for (stretch_x, stretch_y) in [(1.0, 1.0), (1.2, 0.9), (0.8, 1.0)] {
+                let new = Geometry { zoom, pan_x, pan_y, flip_h, flip_v, rotation, stretch_x, stretch_y, ..Geometry::default() };
+                for (ow, oh) in [(64, 36), (480, 270), (97, 53)] {
+                    assert_eq!(remap_mask(&src, w, h, ow, oh, &old, &new), remap_each(&src, w, h, ow, oh, &old, &new), "{new:?} at {ow}x{oh}");
+                    assert_eq!(remap_mask(&src, w, h, ow, oh, &new, &old), remap_each(&src, w, h, ow, oh, &new, &old), "back from {new:?} at {ow}x{oh}");
+                }
+            }
+        }
+    }
 }

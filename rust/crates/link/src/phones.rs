@@ -1,4 +1,4 @@
-//! Paired phones and how to reach them (phones.py). adb, the session client and LAN discovery are passed in.
+//! Paired phones and how to reach them. adb, the session client and LAN discovery are passed in.
 //!
 //! Every resolve starts from scratch and prefers USB whenever this phone answers over a cable. "Answers" is checked: a
 //! plugged-in device only counts once its /v1/hello says the paired phone's id. Whenever the result isn't USB the
@@ -78,6 +78,8 @@ pub struct UsbTunnels {
     /// Removes a forward before returning (the normal one hands it to a thread), for quitting.
     unforward_now: Option<Unforward>,
     held: Arc<Mutex<HashMap<(String, u16), Held>>>,
+    /// Held while `adb forward` runs, so two opens of one forward don't both run it without blocking `held` meanwhile.
+    opening: Mutex<()>,
     lingers: HashMap<u16, Duration>,
 }
 
@@ -92,7 +94,7 @@ struct Held {
 impl UsbTunnels {
     pub fn new(forward: impl Fn(&str, u16) -> Option<u16> + Send + Sync + 'static,
                unforward: impl Fn(&str, u16) + Send + Sync + 'static) -> UsbTunnels {
-        UsbTunnels { forward: Box::new(forward), unforward: Arc::new(unforward), unforward_now: None, held: Arc::default(), lingers: HashMap::new() }
+        UsbTunnels { forward: Box::new(forward), unforward: Arc::new(unforward), unforward_now: None, held: Arc::default(), opening: Mutex::new(()), lingers: HashMap::new() }
     }
 
     /// How shutdown removes forwards without a thread that quitting would cut short.
@@ -137,15 +139,26 @@ impl UsbTunnels {
 
     /// Like acquire, and whether the forward was one that only lingered (so an adb restart may have dropped it).
     pub fn acquire_noting(&self, serial: &str, remote_port: u16) -> Option<(u16, bool)> {
-        let mut held = self.held.lock().unwrap();
-        if let Some(entry) = held.get_mut(&(serial.to_string(), remote_port)) {
-            let lingered = entry.refs == 0;
-            entry.refs += 1;
-            return Some((entry.local, lingered));
+        if let Some(found) = self.join(serial, remote_port) {
+            return Some(found);
+        }
+        // adb can take seconds: `held` stays free meanwhile so a release on the window's thread never waits for it
+        let _opening = self.opening.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(found) = self.join(serial, remote_port) {
+            return Some(found);
         }
         let local = (self.forward)(serial, remote_port)?;
-        held.insert((serial.to_string(), remote_port), Held { local, refs: 1, idle: 0 });
+        self.held.lock().unwrap().insert((serial.to_string(), remote_port), Held { local, refs: 1, idle: 0 });
         Some((local, false))
+    }
+
+    /// Takes another hold on a forward that exists: its local port and whether it only lingered.
+    fn join(&self, serial: &str, remote_port: u16) -> Option<(u16, bool)> {
+        let mut held = self.held.lock().unwrap();
+        let entry = held.get_mut(&(serial.to_string(), remote_port))?;
+        let lingered = entry.refs == 0;
+        entry.refs += 1;
+        Some((entry.local, lingered))
     }
 
     /// The local port of a forward someone holds, without holding it too.
@@ -872,6 +885,29 @@ pub(crate) mod tests {
         assert_eq!(*calls.lock().unwrap(), ["fwd A"]);
         tunnels.release("A", 7480);
         assert_eq!(*calls.lock().unwrap(), ["fwd A", "unfwd A 5000"]);
+    }
+
+    #[test]
+    fn a_slow_forward_does_not_block_releasing_another() {
+        let (gate_tx, gate_rx) = std::sync::mpsc::channel::<()>();
+        let (started_tx, started_rx) = std::sync::mpsc::channel::<()>();
+        let (gate_rx, started_tx) = (Mutex::new(gate_rx), Mutex::new(started_tx));
+        let tunnels = Arc::new(UsbTunnels::new(move |s, _| {
+            if s == "SLOW" {
+                started_tx.lock().unwrap().send(()).unwrap();
+                gate_rx.lock().unwrap().recv_timeout(Duration::from_secs(5)).ok()?;
+            }
+            Some(5000)
+        }, |_, _| {}));
+        assert_eq!(tunnels.acquire("A", 7480), Some(5000));
+        let slow = { let t = tunnels.clone(); std::thread::spawn(move || t.acquire("SLOW", 7480)) };
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let release = { let t = tunnels.clone(); std::thread::spawn(move || { t.release("A", 7480); t.held_port("A", 7480) }) };
+        let released = (0..50).any(|_| { std::thread::sleep(Duration::from_millis(40)); release.is_finished() });
+        gate_tx.send(()).unwrap();
+        assert!(released, "release waited for the slow adb forward");
+        assert_eq!(release.join().unwrap(), None);
+        assert_eq!(slow.join().unwrap(), Some(5000));
     }
 
     #[test]

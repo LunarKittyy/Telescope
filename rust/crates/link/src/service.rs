@@ -306,11 +306,12 @@ impl Link for LinkService {
         // Unpair on the phone too when it's reachable, so it stops accepting a forgotten computer
         let res = self.check(phone, RoutePreference::Auto);
         let auth = auth_of(phone);
-        with_session(Some(&auth), res.route.as_ref(), &*self.tunnels, |client| {
-            if let Some(c) = client {
-                c.unpair();
+        let local_only = (res.status == PhoneStatus::LocalOnly && res.route.is_none()).then(|| self.resolver().wifi_candidates(phone));
+        for route in unpair_routes(&res, local_only.unwrap_or_default()) {
+            if with_session(Some(&auth), Some(&route), &*self.tunnels, |client| client.is_some_and(|c| c.unpair())) {
+                break;
             }
-        });
+        }
     }
 
     fn adb_available(&self) -> bool {
@@ -537,6 +538,37 @@ pub(crate) struct Offer {
     adb: Arc<dyn Fn() -> Adb + Send + Sync>,
 }
 
+/// Who set up the adb reverse of each (serial, port) last. A removal holds the slot's lock, so it can't overlap a setup's claim.
+type ReverseSlot = Arc<Mutex<Option<String>>>;
+
+fn reverse_slot(serial: &str, port: u16) -> ReverseSlot {
+    static SLOTS: Mutex<Option<HashMap<(String, u16), ReverseSlot>>> = Mutex::new(None);
+    SLOTS.lock().unwrap().get_or_insert_with(HashMap::new).entry((serial.to_string(), port)).or_default().clone()
+}
+
+/// Sets up the tunnel for the offer called owner, which owns it from the start of the call (a removal by an older offer
+/// then skips it), and again at the end unless a newer offer has taken it. The adb call itself runs unlocked, so a
+/// revoke needn't wait for a stalled one.
+fn reverse_for(owner: &str, adb: &Adb, serial: &str, port: u16) {
+    let slot = reverse_slot(serial, port);
+    *slot.lock().unwrap() = Some(owner.to_string());
+    adb.reverse(port, Some(serial));
+    let mut held_by = slot.lock().unwrap();
+    if held_by.is_none() {
+        *held_by = Some(owner.to_string()); // its own revoke removed it meanwhile; the tunnel is back
+    }
+}
+
+/// Takes the tunnel down unless a newer offer on the same port has set it up since (its removal would cut that one).
+fn unreverse_for(owner: &str, adb: &Adb, serial: &str, port: u16) {
+    let slot = reverse_slot(serial, port);
+    let mut held_by = slot.lock().unwrap();
+    if held_by.as_deref() == Some(owner) {
+        adb.unreverse(port, Some(serial));
+        *held_by = None;
+    }
+}
+
 impl Offer {
     fn start(computer_id: &str, computer_name: &str, adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> Result<Offer, String> {
         Offer::start_on(computer_id, computer_name, None, adb)
@@ -568,18 +600,19 @@ impl Offer {
     fn offer_to(&self, adb: &Adb, serial: &str, package: &str) -> bool {
         let b64 = crate::util::base64(self.server.offer.usb_payload.as_bytes());
         let ports = self.usb_ports();
-        let Some(fresh) = self.reversed.lock().unwrap().as_mut().map(|r| r.insert(serial.to_string())) else { return false };
-        if fresh {
-            for port in &ports {
-                adb.reverse(*port, Some(serial));
-            }
+        match self.reversed.lock().unwrap().as_mut() {
+            Some(reversed) => reversed.insert(serial.to_string()),
+            None => return false,
+        };
+        // Every time, not only the first: unplugging makes adb drop the tunnel, and a first reverse can fail
+        let owner = &self.server.offer.nonce;
+        for port in &ports {
+            reverse_for(owner, adb, serial, *port);
         }
         if self.reversed.lock().unwrap().is_none() {
             // Revoked during that reverse: its removal may have gone first
-            if fresh {
-                for port in &ports {
-                    adb.unreverse(*port, Some(serial));
-                }
+            for port in &ports {
+                unreverse_for(owner, adb, serial, *port);
             }
             return false;
         }
@@ -624,9 +657,10 @@ impl PairingOffer for Offer {
         for serial in serials {
             let adb = self.adb.clone();
             let ports = ports.clone();
+            let owner = self.server.offer.nonce.clone();
             std::thread::spawn(move || {
                 for port in ports {
-                    adb().unreverse(port, Some(&serial));
+                    unreverse_for(&owner, &adb(), &serial, port);
                 }
             });
         }
@@ -636,6 +670,15 @@ impl PairingOffer for Offer {
 impl Drop for Offer {
     fn drop(&mut self) {
         self.revoke();
+    }
+}
+
+/// Where to ask a phone to unpair: its route, or for a Local only phone, which keeps no route, each address that may answer.
+fn unpair_routes(res: &Resolution, addresses: Vec<String>) -> Vec<RouteSpec> {
+    match &res.route {
+        Some(route) => vec![route.clone()],
+        None if res.status == PhoneStatus::LocalOnly => addresses.into_iter().map(|address| RouteSpec::Network { address }).collect(),
+        None => Vec::new(),
     }
 }
 
@@ -654,6 +697,32 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
+
+    #[test]
+    fn an_old_offers_cleanup_leaves_a_newer_offers_tunnel_alone() {
+        let calls: Arc<Mutex<Vec<String>>> = Arc::default();
+        let record = calls.clone();
+        let adb = Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _, _| {
+            record.lock().unwrap().push(cmd[3..].join(" "));
+            (0, String::new(), String::new())
+        }) };
+        reverse_for("old", &adb, "cable-7", 7479);
+        reverse_for("new", &adb, "cable-7", 7479); // the old offer's cleanup hasn't run yet
+        unreverse_for("old", &adb, "cable-7", 7479);
+        assert_eq!(*calls.lock().unwrap(), ["reverse tcp:7479 tcp:7479", "reverse tcp:7479 tcp:7479"], "the old cleanup removed the new tunnel");
+        unreverse_for("new", &adb, "cable-7", 7479);
+        assert_eq!(calls.lock().unwrap().last().unwrap(), "reverse --remove tcp:7479");
+    }
+
+    #[test]
+    fn a_local_only_phone_is_asked_to_unpair_over_its_addresses() {
+        let addresses = vec!["192.168.1.7".to_string(), "10.0.0.2".to_string()];
+        let network = |a: &str| RouteSpec::Network { address: a.into() };
+        assert_eq!(unpair_routes(&Resolution::new(PhoneStatus::LocalOnly), addresses.clone()), [network("192.168.1.7"), network("10.0.0.2")]);
+        let ready = Resolution { route: Some(network("192.168.1.9")), ..Resolution::new(PhoneStatus::Ready) };
+        assert_eq!(unpair_routes(&ready, addresses.clone()), [network("192.168.1.9")]);
+        assert!(unpair_routes(&Resolution::new(PhoneStatus::Unreachable), addresses).is_empty());
+    }
 
     #[test]
     fn headless_requests_send_the_version_without_a_connection_plugin() {
@@ -860,6 +929,16 @@ mod tests {
         assert!(seen.recv_timeout(Duration::from_secs(2)).is_ok_and(|cmd| removes_reverse(&cmd)));
         assert!(!PairingOffer::offer_to(&*offer, "serial-2", "app"), "revoked stays revoked");
         assert!(seen.try_recv().is_err());
+    }
+
+    #[test]
+    fn every_usb_offer_puts_the_reverse_back_in_case_the_cable_was_replugged() {
+        let (adb, seen, _free) = stalling_adb("never");
+        let offer = Offer::start_with(None, "computer", "desk", None, adb).unwrap();
+        assert!(Offer::offer_to(&offer, &(offer.adb)(), "serial-1", "app"));
+        assert!(Offer::offer_to(&offer, &(offer.adb)(), "serial-1", "app"));
+        let reversed = seen.try_iter().filter(|c| c.iter().any(|a| a == "reverse") && !removes_reverse(c)).count();
+        assert_eq!(reversed, 2);
     }
 
     #[test]

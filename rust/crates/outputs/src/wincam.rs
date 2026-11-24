@@ -1,4 +1,4 @@
-//! Which Windows camera a slot goes to (platform/windows.py): the Windows 11 one (rust/windows/virtualcamera) where it's
+//! Which Windows camera a slot goes to: the Windows 11 one (rust/windows/virtualcamera) where it's
 //! registered and Windows really has it, else UnityCapture. The registry is behind a trait so this runs anywhere.
 
 /// MFCreateVirtualCamera arrived with Windows 11.
@@ -113,10 +113,18 @@ pub fn uc_is_ours(reg: &dyn Registry, num: u32, uc_dir: &Path) -> bool {
         .any(|f| f.join(UC_DLL_64).to_string_lossy().to_lowercase() == value.to_lowercase())
 }
 
-/// The number pyvirtualcam would give the camera called name, or the first registered one, as open_camera falls back to.
-pub fn uc_number(reg: &dyn Registry, name: &str) -> u32 {
+/// The UnityCapture camera slot's picture goes to: the one named for the slot, else (the main camera only) Telescope's own
+/// filter registered before it was named Telescope, never another app's. The writer, the watcher and the probe all go by this.
+pub fn uc_filter_for(reg: &dyn Registry, uc_dir: &Path, slot: u32) -> Option<u32> {
     let names = uc_names(reg);
-    names.iter().find(|(_, n)| n == name).or(names.first()).map_or(0, |(n, _)| *n)
+    let label = slot_label(slot);
+    if let Some((num, _)) = names.iter().find(|(_, n)| *n == label) {
+        return Some(*num);
+    }
+    if slot != 0 {
+        return None;
+    }
+    names.iter().find(|(num, _)| uc_is_ours(reg, *num, uc_dir)).map(|(num, _)| *num)
 }
 
 /// A UnityCapture shared object's name ("Want", "Sent", "Mutx", "Data") for camera number num.
@@ -135,7 +143,7 @@ pub fn slot_ready(reg: &dyn Registry, slot: u32) -> bool {
 pub enum FilterProbe {
     /// The Windows 11 camera's shared memory exists.
     Shared,
-    /// UnityCapture's shared image exists. Only the main camera has a filter to watch for.
+    /// UnityCapture's shared image exists.
     Image,
 }
 
@@ -144,7 +152,8 @@ pub fn filter_probe_for(reg: &dyn Registry, slot: u32) -> Option<FilterProbe> {
     if use_mf(reg, slot) {
         return Some(FilterProbe::Shared);
     }
-    (slot == 0).then_some(FilterProbe::Image)
+    // An extra camera has a filter of its own once it is registered under its numbered name
+    (slot == 0 || uc_names(reg).iter().any(|(_, n)| *n == slot_label(slot))).then_some(FilterProbe::Image)
 }
 
 /// An older Telescope's Windows 11 camera is installed, and this one has a newer one (with its DLL at dll) to put
@@ -203,6 +212,7 @@ pub fn setup_status(reg: &dyn Registry, uc_dir: &Path, mf_dir: &Path) -> telesco
         registered_name: uc_registered_name(reg, uc_dir).unwrap_or_default(),
         in_app_folder: uc_in_app_folder(reg, uc_dir),
         installable: mf_installable(reg, mf_dir),
+        driver_files: crate::wininstall::UC_SHA256.iter().all(|(name, _)| uc_dir.join(name).exists()),
         ..Default::default()
     }
 }
@@ -345,7 +355,6 @@ pub(crate) mod tests {
         }
     }
 
-    // test_vcam.py::test_windows_slots_need_their_numbered_registration
     #[test]
     fn windows_slots_need_their_numbered_registration() {
         let reg = FakeRegistry::uc(&[(0, "Telescope"), (2, "Telescope #2")]);
@@ -354,20 +363,31 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn windows_opens_the_camera_named_telescope_or_any_older_registration() {
-        assert_eq!(uc_number(&FakeRegistry::uc(&[(0, "OBS"), (3, "Telescope")]), UC_NAME), 3);
-        assert_eq!(uc_number(&FakeRegistry::uc(&[(2, "Telescope Webcam"), (5, "Other")]), UC_NAME), 2, "the first one there is");
-        assert_eq!(uc_number(&FakeRegistry::uc(&[]), UC_NAME), 0);
+    fn windows_opens_the_camera_named_telescope_or_its_own_older_registration() {
+        let dir = Path::new(r"C:\Telescope\UnityCapture");
+        let dll = dir.join(UC_DLL_64);
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[(0, "OBS"), (3, "Telescope")]), dir, 0), Some(3));
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[(2, "Telescope Webcam"), (5, "Other")]).with_uc_dll(2, &dll), dir, 0), Some(2));
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[(2, "Telescope Webcam"), (5, "Other")]), dir, 0), None, "never another app's");
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[]), dir, 0), None);
+        assert_eq!(uc_filter_for(&FakeRegistry::uc(&[(0, "Telescope")]), dir, 1), None);
     }
 
-    // test_vcam.py::test_unitycapture_event_follows_the_camera_number
+    #[test]
+    fn the_filter_to_watch_is_the_one_the_writer_picks() {
+        // Another app's filter first, Telescope's own older one at a higher number
+        let dir = Path::new(r"C:\Telescope\UnityCapture");
+        let reg = FakeRegistry::uc(&[(0, "Unity Video Capture"), (3, "Telescope Webcam")]).with_uc_dll(3, &dir.join(UC_DLL_64));
+        assert_eq!(uc_filter_for(&reg, dir, 0), Some(3));
+    }
+
     #[test]
     fn unitycapture_objects_follow_the_camera_number() {
+        let dir = Path::new("");
         let reg = FakeRegistry::uc(&[(0, "Unity Video Capture"), (1, "Telescope")]);
-        assert_eq!(uc_object_name("Want", uc_number(&reg, "Telescope")), "UnityCapture_Want1");
-        assert_eq!(uc_object_name("Data", uc_number(&reg, "Something else")), "UnityCapture_Data");
-        let without_first = FakeRegistry::uc(&[(1, "Telescope")]);
-        assert_eq!(uc_object_name("Want", uc_number(&without_first, "Something else")), "UnityCapture_Want1");
+        assert_eq!(uc_object_name("Want", uc_filter_for(&reg, dir, 0).unwrap()), "UnityCapture_Want1");
+        assert_eq!(uc_object_name("Data", 0), "UnityCapture_Data");
+        assert_eq!(uc_object_name("Want", 1), "UnityCapture_Want1");
     }
 
     #[test]
@@ -396,7 +416,6 @@ pub(crate) mod tests {
         reg.classes.lock().unwrap().insert((path.to_string(), String::new()), value.to_string());
     }
 
-    // test_platform_windows.py::test_the_windows_11_camera_needs_windows_11
     #[test]
     fn the_windows_11_camera_needs_windows_11() {
         for (build, forced, allowed) in [(22000, "", true), (26200, "", true), (19045, "", false), (0, "", false), (22621, "UnityCapture", false)] {
@@ -405,7 +424,6 @@ pub(crate) mod tests {
         }
     }
 
-    // test_platform_windows.py::test_it_installs_only_with_the_dll_bundled
     #[test]
     fn it_installs_only_with_the_dll_bundled() {
         let dir = telescope_core::testing::scratch_dir("mf-dll");
@@ -416,7 +434,6 @@ pub(crate) mod tests {
         assert!(!mf_installable(&FakeRegistry { build: 19045, ..FakeRegistry::default() }, &dir), "Windows 10 keeps UnityCapture");
     }
 
-    // test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered
     #[test]
     fn a_slot_streams_to_the_windows_11_camera_once_its_registered() {
         let mut reg = FakeRegistry::default().with_mf(&[1]);
@@ -436,7 +453,6 @@ pub(crate) mod tests {
         assert!(!use_mf(&reg, 1));
     }
 
-    // test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces
     #[test]
     fn the_cameras_windows_has_are_read_from_their_device_interfaces() {
         let ours = r"##?#SWD#VCAMDEVAPI#2B26#{e5323777-f976-4f5b-9b55-b94699c46e44}";
@@ -457,7 +473,6 @@ pub(crate) mod tests {
         assert!(mf_cameras(&reg).is_empty());
     }
 
-    // test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment
     #[test]
     fn protected_folder_comes_from_the_known_folder_not_the_environment() {
         let reg = FakeRegistry { env: Some("/somewhere/the/environment/says".into()), program_files: Some(PathBuf::from(r"D:\Programs")), ..FakeRegistry::default() };
@@ -466,7 +481,6 @@ pub(crate) mod tests {
         assert_eq!(protected_dir(&FakeRegistry::default(), "VirtualCamera"), PathBuf::from(r"C:\Program Files").join("Telescope").join("VirtualCamera"));
     }
 
-    // test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence
     #[test]
     fn uc_is_registered_scans_registry_and_handles_absence() {
         let uc = Path::new("/app/unitycapture");
@@ -491,7 +505,6 @@ pub(crate) mod tests {
         reg
     }
 
-    // test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page
     #[test]
     fn registered_name_reads_the_filter_key_and_skips_the_property_page() {
         let uc = Path::new("/app/unitycapture");
@@ -504,7 +517,6 @@ pub(crate) mod tests {
         assert_eq!(uc_registered_name(&filter_registry(&dll, None), uc).as_deref(), Some(UC_DEFAULT_NAME));
     }
 
-    // test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged
     #[test]
     fn a_registration_from_the_app_folder_is_flagged() {
         let (app, protected) = (PathBuf::from("/app/unitycapture"), PathBuf::from("/pf").join("Telescope").join("UnityCapture"));

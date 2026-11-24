@@ -1,4 +1,4 @@
-//! Moving an unzipped Windows copy to an installed one (updates.py, "Moving an unzipped copy to an installed one (Windows)").
+//! Moving an unzipped Windows copy to an installed one.
 //!
 //! Updating an unzipped copy runs the release's TelescopeSetup.exe instead of swapping files in place: the installed copy starts, and
 //! once it has started fine it removes the folder it replaced. What decides this is plain data (`Place`), so the rules can be checked
@@ -214,7 +214,7 @@ pub fn note_installed_version_in(directory: &Path, version: &str, registry: &dyn
     true
 }
 
-/// The same for the packaged app on this computer (main.py runs it once started, on Windows).
+/// The same for the packaged app on this computer (run once started, on Windows).
 #[cfg(windows)]
 pub fn note_installed_version(directory: &Path) -> bool {
     directory.join(EXE_NAME).is_file() && note_installed_version_in(directory, crate::version::version(), &Machine)

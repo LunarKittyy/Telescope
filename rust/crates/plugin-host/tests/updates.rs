@@ -1,4 +1,4 @@
-//! The update check for added plugins: versions, GitHub's answers, and staying quiet offline or rate limited (test_plugin_updates.py).
+//! The update check for added plugins: versions, GitHub's answers, and staying quiet offline or rate limited.
 
 use serde_json::json;
 use std::collections::VecDeque;

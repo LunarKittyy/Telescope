@@ -1,4 +1,4 @@
-//! The Privacy blur plugin (plugins/privacy_blur.py): when more than one person is in the picture, blurs all of it or puts the wait screen up instead. Kept as small as it can be, so anything it gets wrong is the people detection's doing.
+//! The Privacy blur plugin: when more than one person is in the picture, blurs all of it or puts the wait screen up instead. Kept as small as it can be, so anything it gets wrong is the people detection's doing.
 
 use crate::cpu::Rgb;
 use crate::shared::Paired;
@@ -137,8 +137,8 @@ pub struct PrivacyBlurPlugin {
     behind: HashMap<String, Trigger>,
     covered: bool,
     asked_cover: bool,
-    /// What the host was last told with set_hiding: None until it has been.
-    told_hiding: Option<bool>,
+    /// What the host was last told with set_hiding for each stream (an empty id is no stream), so a frozen stream keeps its own answer.
+    told_hiding: HashMap<String, bool>,
     shown_blurs: Arc<AtomicBool>,
     held: HashMap<String, Option<bool>>,
     paired: Paired,
@@ -172,7 +172,7 @@ impl PrivacyBlurPlugin {
             behind: HashMap::new(),
             covered: false,
             asked_cover: false,
-            told_hiding: None,
+            told_hiding: HashMap::new(),
             shown_blurs: Arc::new(AtomicBool::new(false)),
             held: HashMap::new(),
             paired: Paired::default(),
@@ -208,9 +208,16 @@ impl PrivacyBlurPlugin {
         self.work_out();
         self.shown_blurs.store(self.active, Ordering::Relaxed);
         // Only blurring or covering hides anything: the step it always hands out does nothing the rest of the time
-        if self.told_hiding != Some(self.active) {
-            self.told_hiding = Some(self.active);
-            host.set_hiding(NAME, None, self.active);
+        // A stream with its own answer is read by it; the every-stream one ("") is for the others, and says blurring while any stream still is
+        let sid = host.focused_source_id().unwrap_or_default();
+        if !sid.is_empty() && self.told_hiding.get(&sid) != Some(&self.active) {
+            self.told_hiding.insert(sid.clone(), self.active);
+            host.set_hiding(NAME, Some(sid.as_str()), self.active);
+        }
+        let any = self.active || self.told_hiding.iter().any(|(id, on)| !id.is_empty() && *on);
+        if self.told_hiding.get("") != Some(&any) {
+            self.told_hiding.insert(String::new(), any);
+            host.set_hiding(NAME, None, any);
         }
         if before != (self.active, self.covered && self.wants_cover()) {
             host.refresh_frame_step();
@@ -337,8 +344,10 @@ impl Plugin for PrivacyBlurPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
-        if self.told_hiding.take() == Some(true) {
-            host.set_hiding(NAME, None, false);
+        for (sid, on) in std::mem::take(&mut self.told_hiding) {
+            if on {
+                host.set_hiding(NAME, (!sid.is_empty()).then_some(sid.as_str()), false);
+            }
         }
         if self.asked_cover {
             host.emit(Event::CoverRequested { owner: TITLE.into(), on: false, note: None });

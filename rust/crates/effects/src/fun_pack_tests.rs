@@ -240,6 +240,46 @@ fn switching_camera_calls_off_taking_the_empty_room() {
 }
 
 #[test]
+fn a_room_taken_as_the_focus_moved_on_is_not_kept_for_the_new_camera() {
+    let mut r = Rig::new();
+    r.pick("cloak");
+    r.count_down("plate", 3);
+    let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+    let mut f = frame_of(&room());
+    step.process(&mut f, &Ctx("phone"));
+    // the panels moved to another camera before the plugin heard of what was taken
+    r.host.focused = Some("other".into());
+    for (token, data) in r.host.take_posted() {
+        r.event(Event::Posted { owner: NAME.into(), token, data });
+    }
+    assert!(r.plugin.plate.is_none() && r.look().plate.is_none());
+}
+
+#[test]
+fn light_trails_start_again_after_the_pipeline_forgets_history() {
+    let mut r = Rig::new();
+    r.pick("light");
+    let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+    let dark = Rgb::new(W, H);
+    let mut bright = Rgb::new(W, H);
+    for y in 0..H {
+        for x in 0..W {
+            bright.set(x, y, [255, 255, 255]);
+        }
+    }
+    let mut f = frame_of(&bright);
+    step.process(&mut f, &Ctx("phone"));
+    let mut held = frame_of(&dark);
+    step.process(&mut held, &Ctx("phone"));
+    assert_ne!(Rgb::from_frame(&held).unwrap(), dark, "the trail is still there");
+    // the stream paused and came back to another scene
+    step.forget_history("phone");
+    let mut after = frame_of(&dark);
+    step.process(&mut after, &Ctx("phone"));
+    assert_eq!(Rgb::from_frame(&after).unwrap(), dark);
+}
+
+#[test]
 fn a_clone_without_the_empty_room_or_vision_says_what_to_do() {
     let mut r = Rig::new();
     r.pick("clones");

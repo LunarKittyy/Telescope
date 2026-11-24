@@ -14,6 +14,7 @@ import re
 import signal
 import statistics
 import subprocess
+import threading
 import time
 
 TICK = os.sysconf("SC_CLK_TCK")
@@ -69,41 +70,67 @@ def startup(cmd, runs):
         proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
                                 start_new_session=True)
         found = {}
-        deadline = time.monotonic() + 30
-        for line in proc.stdout:
-            m = re.match(r"(first-\w+-ms) ([\d.]+)", line)
-            if m:
-                found[m.group(1)] = float(m.group(2))
-            if "first-paint-ms" in found or time.monotonic() > deadline:
-                break
-        os.killpg(proc.pid, signal.SIGTERM)
-        proc.wait()
+        # A program that prints nothing would block the read below, so a timer ends it after 30 s
+        timer = threading.Timer(30, lambda: os.killpg(proc.pid, signal.SIGTERM))
+        timer.start()
+        try:
+            for line in proc.stdout:
+                m = re.match(r"(first-\w+-ms) ([\d.]+)", line)
+                if m:
+                    found[m.group(1)] = float(m.group(2))
+                if "first-paint-ms" in found:
+                    break
+        finally:
+            timer.cancel()
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            proc.wait()
         times.append(found)
         time.sleep(1.5)
-    print(json.dumps({"runs": times, "first_paint_median_ms": statistics.median(t["first-paint-ms"] for t in times)}))
+    painted = [t["first-paint-ms"] for t in times if "first-paint-ms" in t]
+    if len(painted) < len(times):
+        print(json.dumps({"runs": times, "error": f"{len(times) - len(painted)} of {len(times)} runs printed no first-paint-ms"}))
+        return
+    print(json.dumps({"runs": times, "first_paint_median_ms": statistics.median(painted)}))
+
+
+def stop_group(proc):
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
 
 
 def stream(cmd, warmup, seconds, camera):
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    time.sleep(warmup / 2)
-    reader = subprocess.Popen(["ffmpeg", "-hide_banner", "-f", "v4l2", "-i", camera, "-f", "null", "-"],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, start_new_session=True)
-    time.sleep(warmup / 2)
-    pids = tree(proc.pid)
-    start_cpu, start = cpu_ticks(pids), time.monotonic()
-    samples = []
-    while time.monotonic() - start < seconds:
-        time.sleep(1)
-        samples.append(memory(tree(proc.pid)))
-    cpu = (cpu_ticks(tree(proc.pid)) - start_cpu) / TICK / (time.monotonic() - start)
-    reader.send_signal(signal.SIGINT)
-    err = reader.communicate(timeout=10)[1]
-    frames = [int(f) for f in re.findall(r"frame=\s*(\d+)", err)]
-    os.killpg(proc.pid, signal.SIGTERM)
+    reader = None
     try:
-        proc.wait(15)
-    except subprocess.TimeoutExpired:
-        os.killpg(proc.pid, signal.SIGKILL)
+        time.sleep(warmup / 2)
+        reader = subprocess.Popen(["ffmpeg", "-hide_banner", "-f", "v4l2", "-i", camera, "-f", "null", "-"],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, start_new_session=True)
+        time.sleep(warmup / 2)
+        pids = tree(proc.pid)
+        start_cpu, start = cpu_ticks(pids), time.monotonic()
+        samples = []
+        while time.monotonic() - start < seconds:
+            time.sleep(1)
+            samples.append(memory(tree(proc.pid)))
+        cpu = (cpu_ticks(tree(proc.pid)) - start_cpu) / TICK / (time.monotonic() - start)
+        reader.send_signal(signal.SIGINT)
+        err = reader.communicate(timeout=10)[1]
+        frames = [int(f) for f in re.findall(r"frame=\s*(\d+)", err)]
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            proc.wait(15)
+        except subprocess.TimeoutExpired:
+            pass
+    finally:
+        # Whatever went wrong, neither program is left running
+        stop_group(proc)
+        if reader:
+            stop_group(reader)
     rss = [s[0] for s in samples]
     pss = [s[1] for s in samples]
     print(json.dumps({

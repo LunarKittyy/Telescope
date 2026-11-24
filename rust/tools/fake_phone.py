@@ -32,6 +32,7 @@ import ipaddress
 import re
 import os
 import secrets
+import shutil
 import socket
 import ssl
 import subprocess
@@ -806,6 +807,7 @@ def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None, adb_state=Non
         for server in servers:
             server.shutdown()
             server.server_close()
+        shutil.rmtree(folder, ignore_errors=True)
     entry = {"id": phone_id, "name": name, "token": phone.token, "ips": [host], "active_ip": host,
              "cert_sha256": pin}
     return phone, entry, stop

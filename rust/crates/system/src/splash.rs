@@ -107,7 +107,7 @@ pub fn show_text(splash: Option<Arc<dyn SplashWindow>>, chosen_language: impl Fn
 }
 
 /// Title and text of the box said when it's opened from inside the zip, before anything can load (the launcher shows it in
-/// every language, scripts/build_bootloader.py).
+/// every language).
 pub fn extract_first() -> (String, String) {
     // Translators: title of a message box shown when Telescope is opened straight from its zip without extracting it
     let title = tr("Extract Telescope first");
@@ -148,7 +148,6 @@ mod tests {
         i18n::use_folder(dir);
     }
 
-    // test_splash.py::test_the_splash_text_is_in_the_chosen_language
     #[test]
     fn the_splash_text_is_in_the_chosen_language() {
         let _l = LANGUAGE.lock().unwrap_or_else(|e| e.into_inner());
@@ -163,7 +162,6 @@ mod tests {
         i18n::load(Some("en"));
     }
 
-    // test_splash.py::test_without_the_packaged_build_nothing_happens
     #[test]
     fn without_the_packaged_build_nothing_happens() {
         let asked = Mutex::new(false);
@@ -174,7 +172,6 @@ mod tests {
         assert!(!*asked.lock().unwrap());
     }
 
-    // test_splash.py::test_the_line_about_the_scan_waits_until_the_start_is_slow
     #[test]
     fn the_line_about_the_scan_waits_until_the_start_is_slow() {
         let _l = LANGUAGE.lock().unwrap_or_else(|e| e.into_inner());

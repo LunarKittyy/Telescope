@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use telescope_core::i18n::po;
 
 /// The files that read or write the calls themselves, so their examples aren't texts.
-const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
+const READERS: [&str; 4] = ["slint_source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -81,7 +81,7 @@ fn after_call(rest: &str, with_context_first: bool) -> Option<(String, String)> 
 fn texts_in(path: &Path, text: &str) -> Vec<(String, String, String)> {
     let mut found = Vec::new();
     let is_slint = path.extension().is_some_and(|e| e == "slint");
-    let calls: &[(&str, bool)] = if is_slint { &[("@tr(", false)] } else { &[("tr(", false), ("n_(", false), ("trn(", false), ("tr_ctx(", true), ("tr_with(", false), ("trn_with(", false)] };
+    let calls: &[(&str, bool)] = if is_slint { &[("@tr(", false)] } else { &[("tr(", false), ("n_(", false), ("trn(", false), ("trn_open(", false), ("tr_ctx(", true), ("tr_with(", false), ("trn_with(", false)] };
     for (name, ctx_first) in calls {
         for (at, _) in text.match_indices(name) {
             let before = text[..at].chars().next_back();
@@ -127,7 +127,7 @@ fn every_text_in_the_code_is_in_the_template() {
     assert!(missing.is_empty(), "{} texts that aren't in telescope.pot, run `python tools/i18n.py extract` in rust/:\n{}", missing.len(), missing.join("\n"));
 }
 
-// test_i18n.py::test_every_text_can_be_found: a text built with format!() can't be found by an extractor, and so can't be translated
+// A text built with format!() can't be found by an extractor, and so can't be translated
 #[test]
 fn no_text_is_built_from_pieces() {
     let mut files = Vec::new();
@@ -136,7 +136,7 @@ fn no_text_is_built_from_pieces() {
     let mut bad = Vec::new();
     for file in files.iter().filter(|f| f.extension().is_some_and(|e| e == "rs")) {
         let text = std::fs::read_to_string(file).unwrap();
-        for name in ["tr(", "n_(", "tr_ctx(", "tr_with(", "trn(", "trn_with("] {
+        for name in ["tr(", "n_(", "tr_ctx(", "tr_with(", "trn(", "trn_open(", "trn_with("] {
             for (at, _) in text.match_indices(name) {
                 if text[..at].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '_') {
                     continue;
@@ -193,7 +193,7 @@ fn chained_fields(after: &str) -> Option<BTreeSet<String>> {
     got
 }
 
-// test_i18n.py::test_every_text_can_be_found, what find_texts checks: n_() and trn() take plain literals, the fields filled in are the
+// What find_texts checks: n_() and trn() take plain literals, the fields filled in are the
 // text's own, and one text has one plural
 #[test]
 fn every_text_can_be_found() {
@@ -248,7 +248,7 @@ fn every_text_can_be_found() {
     assert!(bad.is_empty(), "{} texts can't be found or filled in:\n{}", bad.len(), bad.join("\n"));
 }
 
-// test_i18n.py::test_the_template_has_every_text_in_the_code: what the template holds is in the code, and a plural is the template's plural
+// What the template holds is in the code, and a plural is the template's plural
 #[test]
 fn the_template_has_nothing_the_code_lacks() {
     let template = std::fs::read_to_string(root().join("locale/telescope.pot")).unwrap();

@@ -34,13 +34,21 @@ fn make(name: &str) -> Result<Box<dyn Plugin>, String> {
     })
 }
 
+/// The bytes of one RGBA frame, which is never empty (a read of nothing would succeed forever).
+fn frame_len(w: u32, h: u32) -> Result<usize, String> {
+    if w == 0 || h == 0 {
+        return Err("the width and height have to be more than 0".into());
+    }
+    usize::try_from(w).ok().and_then(|w| w.checked_mul(usize::try_from(h).ok()?)).and_then(|n| n.checked_mul(4)).ok_or_else(|| "that frame size is too big".to_string())
+}
+
 pub fn run(words: &[String]) -> Result<(), String> {
     let value = |flag: &str| words.iter().position(|w| w == flag).and_then(|i| words.get(i + 1)).cloned();
     let (name, w, h) = match words {
         [n, w, h, ..] => (n.clone(), w.parse::<u32>().map_err(|_| "bad width")?, h.parse::<u32>().map_err(|_| "bad height")?),
         _ => return Err("usage: telescope-rs effect PLUGIN W H [--config JSON | --config-lines FILE] < frames.rgba > out.rgba".into()),
     };
-    let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| format!("settings aren't JSON: {e}"));
+    let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| format!("settings aren't JSON: {e}")).and_then(|v| if v.is_object() { Ok(v) } else { Err("settings have to be a JSON object".to_string()) });
     let configs: Vec<Value> = match (value("--config-lines"), value("--config")) {
         (Some(f), _) => std::fs::read_to_string(&f).map_err(|e| format!("{f}: {e}"))?.lines().filter(|l| !l.trim().is_empty()).map(parse).collect::<Result<_, _>>()?,
         (None, Some(j)) => vec![parse(&j)?],
@@ -53,7 +61,7 @@ pub fn run(words: &[String]) -> Result<(), String> {
     let mut host = FakeHost::new();
     plugin.setup(&mut host);
     let mut pipeline = telescope_media::FfmpegMedia.pipeline()?;
-    let size = (w * h * 4) as usize;
+    let size = frame_len(w, h)?;
     let (mut stdin, mut stdout) = (std::io::stdin().lock(), std::io::BufWriter::new(std::io::stdout().lock()));
     let mut buf = vec![0u8; size];
     let mut last: Option<usize> = None;
@@ -96,4 +104,18 @@ pub fn run(words: &[String]) -> Result<(), String> {
         }
     }
     stdout.flush().map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_frame_is_four_bytes_a_pixel_and_never_empty_or_overflowing() {
+        assert_eq!(frame_len(2, 3), Ok(24));
+        assert!(frame_len(0, 10).is_err() && frame_len(10, 0).is_err());
+        assert!(frame_len(u32::MAX, u32::MAX).is_err(), "too big rather than wrapped");
+        let words: Vec<String> = ["desk", "2", "2", "--config", "[]"].iter().map(|s| s.to_string()).collect();
+        assert!(run(&words).unwrap_err().contains("JSON object"));
+    }
 }

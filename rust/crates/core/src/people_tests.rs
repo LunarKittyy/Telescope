@@ -1,4 +1,4 @@
-//! test_people.py, by name.
+//! Tests for people tracking.
 
 use super::*;
 

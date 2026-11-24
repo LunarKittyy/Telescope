@@ -1,4 +1,4 @@
-//! The Webcam plugin (plugins/webcam.py): stream from a webcam or capture card plugged into this computer.
+//! The Webcam plugin: stream from a webcam or capture card plugged into this computer.
 //!
 //! Each webcam is a StreamSource of its own, listed in the phone picker by its name while it's plugged in, and streams
 //! like a phone does. One that's unplugged while it streams keeps its place and carries on when it's plugged back in;

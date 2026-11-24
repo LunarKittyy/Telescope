@@ -265,7 +265,7 @@ impl HostStreams for Ctx<'_> {
         self.state.plugin_config("setup").map_or((None, None), |setup| telescope_core::canvas::canvas_dims(&setup))
     }
     fn restart_vcam_canvas(&mut self, _width: u32, _height: u32, shows_command: bool) -> RequestId {
-        // The sizes aren't needed: the restart reads the canvas from Setup's settings, as app.py's does
+        // The sizes aren't needed: the restart reads the canvas from Setup's settings, as the window's does
         let request = self.state.request_id();
         self.state.effects.push(Effect::RestartCanvas { plugin: self.me.clone(), request, shows_command });
         request
@@ -858,6 +858,9 @@ impl Host for Ctx<'_> {
     }
     fn set_effects_step_down(&mut self, on: bool) {
         telescope_core::effort::Effort::shared().set_auto(on);
+    }
+    fn set_effects_follow_power(&mut self, on: bool) {
+        telescope_core::stats::Hub::shared().set_power_aware(on);
     }
     fn hold_effects_full(&mut self, on: bool) {
         telescope_core::effort::Effort::shared().hold_full(on);

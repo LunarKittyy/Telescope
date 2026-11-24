@@ -1,4 +1,4 @@
-//! tests/test_browser_camera.py, test for test, the plugin's part: a host that keeps its own list of streams and a
+//! The Browser camera plugin's part: a host that keeps its own list of streams and a
 //! stand-in server, as the Python tests' _Host and _Server.
 
 use super::*;

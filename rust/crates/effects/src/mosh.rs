@@ -1,4 +1,4 @@
-//! Datamosh on H.264 access units (h264_mosh.py): keyframes dropped, frames repeated, and the headers fixed up so the decoder takes it.
+//! Datamosh on H.264 access units: keyframes dropped, frames repeated, and the headers fixed up so the decoder takes it.
 //!
 //! Dropping a keyframe alone doesn't mosh: the decoder throws away the frames after it, since their frame numbers and picture order
 //! counts don't follow on from the last frame it showed. So once a frame has been dropped or repeated, every slice header gets

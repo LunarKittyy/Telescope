@@ -1,4 +1,4 @@
-//! What the Cinema tools draw over the preview, and the layer the preview asks (tests/test_cinema.py).
+//! What the Cinema tools draw over the preview, and the layer the preview asks.
 
 use super::*;
 use std::sync::atomic::{AtomicU64, Ordering};

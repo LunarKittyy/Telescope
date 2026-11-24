@@ -1,13 +1,16 @@
-// test_release_checklist.py: .github/checklist_due.py's map of files to checklist sections names every tracked file, rust/ included.
+// .github/checklist_due.py's map of files to checklist sections names every tracked file, rust/ included.
 use std::path::Path;
 use std::process::Command;
 
-// test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored
+/// The first of python3 and python that runs (Windows has only the second).
+fn python() -> &'static str {
+    ["python3", "python"].into_iter().find(|p| Command::new(p).arg("--version").output().is_ok_and(|o| o.status.success())).expect("Python is installed")
+}
+
 #[test]
 fn every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored() {
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.github/checklist_due.py");
-    let out = ["python3", "python"].iter().find_map(|python| Command::new(python).arg(&script).arg("--check-map").output().ok())
-        .expect("the map check is a Python script");
+    let out = Command::new(python()).arg(&script).arg("--check-map").output().expect("the map check is a Python script");
     assert!(out.status.success(), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
 }
 
@@ -37,6 +40,6 @@ fn deleted_files_are_not_reported_as_unmapped() {
     git(&["tag", "v1"]);
     git(&["rm", "-q", "scratch.txt"]);
     git(&["commit", "-qm", "remove"]);
-    let out = Command::new("python3").arg(repo.join(".github/checklist_due.py")).arg("v1").output().expect("python3 runs");
+    let out = Command::new(python()).arg(repo.join(".github/checklist_due.py")).arg("v1").output().expect("python runs");
     assert!(out.status.success(), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
 }

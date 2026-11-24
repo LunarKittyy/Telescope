@@ -1,4 +1,4 @@
-//! core::i18n against telescope/i18n.py and tests/test_i18n.py: the catalogs load as Python loads them, a translation can't break a
+//! core::i18n: the catalogs load as the Python app loaded them, a translation can't break a
 //! text, and the language follows the system unless one was picked. fixtures/i18n.json is what Python made
 //! of the real catalogs. The language is global, so every test holds the lock.
 
@@ -125,7 +125,6 @@ fn the_pseudo_language_writes_what_python_writes() {
     }
 }
 
-// test_i18n.py::test_each_language_has_the_template_and_working_fields
 #[test]
 fn each_language_has_the_template_and_working_fields() {
     let template = std::fs::read_to_string(real_locale().join("telescope.pot")).unwrap();
@@ -156,7 +155,6 @@ fn each_language_has_the_template_and_working_fields() {
 
 // ── Looking texts up ────────────────────────────────────────────────────────
 
-// test_i18n.py::test_english_is_what_the_code_says
 #[test]
 fn english_is_what_the_code_says() {
     let _q = quiet();
@@ -166,7 +164,6 @@ fn english_is_what_the_code_says() {
     assert_eq!(i18n::trn("{n} phone", "{n} phones", 3), "3 phones");
 }
 
-// test_i18n.py::test_a_translation_is_used_with_its_fields_and_plural_forms
 #[test]
 fn a_translation_is_used_with_its_fields_and_plural_forms() {
     let _q = quiet();
@@ -233,7 +230,6 @@ msgstr "{seconds:.1f} s"
     assert_eq!(catalog.get("Took {seconds} s").unwrap()[0].field("seconds", 2.25), "2.2 s");
 }
 
-// test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english
 #[test]
 fn a_broken_or_unfinished_translation_shows_the_english() {
     let _q = quiet();
@@ -249,7 +245,6 @@ fn a_broken_or_unfinished_translation_shows_the_english() {
     assert_eq!(i18n::tr("Stray {"), "Stray {");
 }
 
-// test_i18n.py::test_a_language_with_three_plural_forms
 #[test]
 fn a_language_with_three_plural_forms() {
     let _q = quiet();
@@ -261,7 +256,6 @@ fn a_language_with_three_plural_forms() {
     assert_eq!(shown, ["1 telefon", "3 telefony", "5 telefonów", "22 telefony"]);
 }
 
-// test_i18n.py::test_a_text_keeps_its_english_when_another_is_translated_alike
 #[test]
 fn a_text_keeps_its_english_when_another_is_translated_alike() {
     let _q = quiet();
@@ -276,7 +270,6 @@ fn a_text_keeps_its_english_when_another_is_translated_alike() {
     assert_eq!(i18n::english("Ljus"), "Ljus");
 }
 
-// test_i18n.py::test_a_list_reads_naturally
 #[test]
 fn a_list_reads_naturally() {
     let _q = quiet();
@@ -286,7 +279,6 @@ fn a_list_reads_naturally() {
     assert_eq!(list(&["Camera", "Microphone", "Preview"]), "Camera, Microphone and Preview");
 }
 
-// test_i18n.py::test_shown_numbers_follow_the_language
 #[test]
 fn shown_numbers_follow_the_language() {
     let _q = quiet();
@@ -308,7 +300,6 @@ fn shown_numbers_follow_the_language() {
     assert_eq!(i18n::number(1.0, 1, false), "1.0");
 }
 
-// test_i18n.py::test_the_language_follows_the_system_unless_set
 #[test]
 fn the_language_follows_the_system_unless_set() {
     let _q = quiet();
@@ -326,7 +317,6 @@ fn the_language_follows_the_system_unless_set() {
     assert_eq!(i18n::load(None), "sv");
 }
 
-// test_i18n.py::test_the_language_picked_in_settings_wins_over_the_system
 #[cfg(not(windows))] // the system language comes from the environment
 #[test]
 fn the_language_picked_in_settings_wins_over_the_system() {
@@ -343,7 +333,6 @@ fn the_language_picked_in_settings_wins_over_the_system() {
     assert_eq!(i18n::native_name("en"), "English");
 }
 
-// test_i18n.py::test_a_first_draft_says_so
 #[test]
 fn a_first_draft_says_so() {
     let _q = quiet();
@@ -370,7 +359,6 @@ fn a_first_draft_with_windows_line_endings_still_says_so() {
     assert!(i18n::is_draft("fr"));
 }
 
-// test_i18n.py::test_an_unreadable_catalog_leaves_english
 #[test]
 fn an_unreadable_catalog_leaves_english() {
     let _q = quiet();
@@ -380,7 +368,6 @@ fn an_unreadable_catalog_leaves_english() {
     assert_eq!(i18n::language(), "en");
 }
 
-// test_i18n.py::test_a_field_can_have_any_name
 #[test]
 fn a_field_can_have_any_name() {
     let _q = quiet();
@@ -389,7 +376,6 @@ fn a_field_can_have_any_name() {
     assert_eq!(i18n::trn_with("{n} of {singular}", "{n} of {singular}", 2, "", &[("singular", &"x")]), "2 of x");
 }
 
-// test_i18n.py::test_the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in
 #[test]
 fn the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in() {
     let shown = i18n::pseudo("Made by <a href=\"{url}\">LunarKittyy</a>\nsecond line");
@@ -399,7 +385,6 @@ fn the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in()
     assert!(i18n::pseudo("Start streaming").chars().count() as f64 >= "Start streaming".len() as f64 * 1.4);
 }
 
-// test_i18n.py::test_the_pseudo_language_can_be_picked_to_try_a_layout
 #[test]
 fn the_pseudo_language_can_be_picked_to_try_a_layout() {
     let _q = quiet();

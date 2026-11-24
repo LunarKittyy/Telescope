@@ -1,11 +1,11 @@
-//! The settings window (widgets/settings_window.py): tabs down the left, one scrolling page of plugins' sections for
+//! The settings window: tabs down the left, one scrolling page of plugins' sections for
 //! each, the Plugins tab, and the search over all of it. Built from the plugins' SettingsSections the first time it
 //! opens, then kept.
 
 use crate::doc::{self, Piece, SectionPlace};
 use crate::plugins_tab::{self, group_icon, Commit, Download, Filter, NoticeKind, Notice, Outcome, Panel, Question, Request, Step, VisionDownload};
 use crate::search::{search_ex, Entry};
-use crate::source::{scan, to_json, to_property};
+use crate::slint_source::{scan, to_json, to_property};
 use crate::window::Window;
 use crate::texts::fill;
 use i_slint_core::accessibility::AccessibleStringProperty;

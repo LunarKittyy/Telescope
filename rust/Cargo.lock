@@ -5859,6 +5859,7 @@ dependencies = [
  "unicode-segmentation",
  "windows",
  "yeslogic-fontconfig-sys",
+ "zbus",
 ]
 
 [[package]]
@@ -5982,6 +5983,7 @@ dependencies = [
 name = "telescope-shell"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "i-slint-backend-testing",
  "i-slint-compiler",
  "i-slint-core",

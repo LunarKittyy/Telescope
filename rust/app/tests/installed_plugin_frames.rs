@@ -1,4 +1,4 @@
-//! A plugin from the plugins folder, loaded and run on the graphics card (test_plugin_loader.py's first test). Without a graphics
+//! A plugin from the plugins folder, loaded and run on the graphics card. Without a graphics
 //! card the picture isn't checked.
 
 use serde_json::json;

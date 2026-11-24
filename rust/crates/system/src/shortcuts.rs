@@ -1,4 +1,4 @@
-//! Keyboard shortcuts (plugins/shortcuts.py): keys bound to any plugin's action, inside Telescope or everywhere.
+//! Keyboard shortcuts: keys bound to any plugin's action, inside Telescope or everywhere.
 //!
 //! Bindings are global settings, each running an action with its own settings, so "Exposure +1" and "Exposure -2" are
 //! two bindings of one action. A global one is also claimed from the system (hotkeys.rs); one the system wouldn't give
@@ -241,6 +241,10 @@ impl ShortcutsPlugin {
     }
 
     pub fn set_bindings(&mut self, host: &mut dyn Host, bindings: Vec<Binding>) {
+        // Held keys come up against the bindings they went down on: a removed binding's release would find nothing once the list is replaced
+        for id in self.held.keys().cloned().collect::<Vec<_>>() {
+            self.release(host, &id);
+        }
         let raw = Value::Array(bindings.iter().map(Binding::to_json).collect());
         self.bindings = clean_bindings(&raw);
         host.schedule_save();
@@ -486,7 +490,7 @@ fn shown_number(p: &Value, value: &Value) -> Option<String> {
     Some(actions::shown(n, p["decimals"].as_u64().unwrap_or(0) as usize, p["suffix"].as_str().unwrap_or(""), signed))
 }
 
-/// What the actions made by core::actions' builders say they do (describe in shortcuts.py): "Compensation: increase by 1.0 EV",
+/// What the actions made by core::actions' builders say they do: "Compensation: increase by 1.0 EV",
 /// "ISO: raise by 1 stop", "Lens: next". None for any other shape of params.
 fn builder_summary(action: &ActionSpec, params: &Map<String, Value>) -> Option<String> {
     let names: Vec<&str> = action.params.iter().filter_map(|p| p["name"].as_str()).collect();
@@ -1841,6 +1845,15 @@ mod tests {
     }
 
     #[test]
+    fn removing_a_held_shortcut_still_lets_go_of_it() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({"mode": "hold"}), true)]), false, true);
+        plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
+        plugin.set_bindings(&mut host, Vec::new());
+        assert_eq!(ran(&host), [r#"run_action microphone microphone.mute {"mode":"hold"}"#,
+                                r#"release_action microphone microphone.mute {"mode":"hold"}"#]);
+    }
+
+    #[test]
     fn a_background_press_notifies_only_when_asked() {
         let (mut plugin, mut host, _) = make(json!([b("a", "F9", "camera.torch", json!({}), true)]), true, true);
         host.action_answers.insert("camera.torch".into(), Some("Torch: on".into()));
@@ -1953,7 +1966,6 @@ mod tests {
         assert!(ran(&host)[1].starts_with("release_action"));
     }
 
-    // test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release
     #[test]
     fn hold_comes_back_by_scan_code_when_the_key_changes_on_release() {
         let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Shift+1", "microphone.mute", json!({"mode": "hold"}), false)]), false, true);

@@ -1,4 +1,4 @@
-// A logout during the first start, from test_update_guard.py, with real signals at a real process and an update from the real installer.
+// A logout during the first start, with real signals at a real process and an update from the real installer.
 
 #[cfg(unix)]
 mod unix {

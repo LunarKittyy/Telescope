@@ -44,16 +44,21 @@ void FrameChannel::Open(int slot, UINT32 width, UINT32 height, UINT32 fps) {
     SECURITY_ATTRIBUTES sa = {sizeof(sa), sd, FALSE};
     m_map = CreateFileMappingW(INVALID_HANDLE_VALUE, &sa, PAGE_READWRITE, 0, kDataOffset + kDataCapacity, name);
     DWORD error = GetLastError();
+    // Before an app is told the camera is in use, so a Telescope that sees the memory finds the event too
+    wchar_t event_name[64];
+    swprintf_s(event_name, L"%s%d", kFrameEventName, slot);
+    m_event = CreateEventW(&sa, FALSE, FALSE, event_name);
+    if (!m_event) Log(L"slot %d: can't make %s (%lu), polling for frames", slot, event_name, GetLastError());
     LocalFree(sd);
     if (!m_map) {
         Log(L"slot %d: can't make %s (%lu), showing the idle picture", slot, name, error);
+        Close();
         return;
     }
     m_header = static_cast<SharedHeader*>(MapViewOfFile(m_map, FILE_MAP_ALL_ACCESS, 0, 0, kDataOffset + kDataCapacity));
     if (!m_header) {
         Log(L"slot %d: can't map %s (%lu)", slot, name, GetLastError());
-        CloseHandle(m_map);
-        m_map = nullptr;
+        Close();
         return;
     }
     m_header->magic = kMagic;
@@ -78,6 +83,10 @@ void FrameChannel::Close() {
     if (m_map) {
         CloseHandle(m_map);
         m_map = nullptr;
+    }
+    if (m_event) {
+        CloseHandle(m_event);
+        m_event = nullptr;
     }
     m_have = false;
 }

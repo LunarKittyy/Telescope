@@ -221,7 +221,7 @@ fn finish_files(directory: &Path, staging: &Path, skipped: &mut Vec<String>, mv:
         if let Some(parent) = dst.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        if !replace_keeping_old(&src, &dst, &previous.join(&rel), mv) {
+        if !replace_keeping_old(&src, &dst, &previous.join(&rel), mv)? {
             // e.g. a UnityCapture DLL held open by OBS right now; it keeps working, just unchanged
             skipped.push(rel.to_string_lossy().replace('\\', "/"));
         }
@@ -230,18 +230,20 @@ fn finish_files(directory: &Path, staging: &Path, skipped: &mut Vec<String>, mv:
 }
 
 /// Moves dst to prev, then src to dst. A roll-back needs the old file, and a DLL that's loaded right now can be moved but not overwritten.
-fn replace_keeping_old(src: &Path, dst: &Path, prev: &Path, mv: Mover) -> bool {
+/// Err: dst is gone and couldn't be put back, so .previous is the only copy left and has to stay for the roll-back.
+fn replace_keeping_old(src: &Path, dst: &Path, prev: &Path, mv: Mover) -> io::Result<bool> {
     let moved = dst.exists() && !prev.exists();
     if moved && (prev.parent().is_some_and(|p| std::fs::create_dir_all(p).is_err()) || mv(dst, prev).is_err()) {
-        return false;
+        return Ok(false);
     }
     if move_patiently(mv, src, dst).is_ok() {
-        return true;
+        return Ok(true);
     }
-    if moved {
-        let _ = mv(prev, dst);
+    // Also when an earlier, cut-short try moved dst aside and this one found it gone
+    if moved || (!dst.exists() && prev.exists()) {
+        mv(prev, dst)?;
     }
-    false
+    Ok(false)
 }
 
 /// Puts back what finish_windows moved aside, so the old exe doesn't run on the new version's ui-kit and libraries.
@@ -329,21 +331,30 @@ fn same(a: &Path, b: &Path) -> bool {
 
 /// remember: the new build itself is to blame (it didn't start), so the updater stops offering it.
 pub fn roll_back(directory: &Path, journal: &Value, remember: bool, mv: Mover) -> io::Result<()> {
-    write_journal_with(directory, &with(journal, json!({"state": "rolling_back"})), mv)?;
+    // blame: a roll-back cut short is finished by the next start, which must still know whether the build was at fault
+    write_journal_with(directory, &with(journal, json!({"state": "rolling_back", "blame": remember})), mv)?;
     if journal["platform"] == "windows" {
         let (current, old) = (directory.join(EXE_NAME), directory.join(OLD_EXE_NAME));
         if old.exists() {
             let failed = directory.join(FAILED_EXE_NAME);
             if current.exists() {
                 remove(&failed)?;
-                mv(&current, &failed)?; // may be the running copy: renaming is allowed
-            }
-            if let Err(e) = mv(&old, &current) {
-                if failed.exists() && !current.exists() {
-                    // Never leave no exe at all: nothing could start to retry this
-                    mv(&failed, &current)?;
+                // The failed exe under its second name first, then the old one replaces it in a single rename: the exe's path is never empty,
+                // so a roll-back cut short anywhere leaves something to start (and to finish it)
+                if keep_as_old(&current, &failed, mv).is_err() || mv(&old, &current).is_err() {
+                    // An older Windows won't replace a running exe: it moves aside (allowed while it runs), then the old one goes in
+                    remove(&failed)?;
+                    mv(&current, &failed)?; // may be the running copy: renaming is allowed
+                    if let Err(e) = mv(&old, &current) {
+                        if failed.exists() && !current.exists() {
+                            // Never leave no exe at all: nothing could start to retry this
+                            mv(&failed, &current)?;
+                        }
+                        return Err(e);
+                    }
                 }
-                return Err(e);
+            } else {
+                mv(&old, &current)?;
             }
         }
         restore_previous(directory, mv)?;
@@ -399,6 +410,11 @@ pub fn recover(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn() ->
 
 pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn() -> bool, grace: Duration,
                     mv: Mover) -> Option<Vec<String>> {
+    recover_as(directory, wait, running_elsewhere, grace, mv, crate::version::build())
+}
+
+/// recover_with for a copy of this_build (0: unknown, a source build).
+fn recover_as(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn() -> bool, grace: Duration, mv: Mover, this_build: i64) -> Option<Vec<String>> {
     let journal = read_journal(directory).filter(|j| is_ours(j, appimage_name().as_deref()))?;
     let deadline = Instant::now() + wait;
     while running_elsewhere() {
@@ -419,8 +435,11 @@ pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn
                 }
             };
             write_journal_with(directory, &with(&journal, json!({"state": "trial", "started": false})), mv)?;
-            // Windows: a copy that just renamed itself out of the way is the old version, so start the new one
-            return Ok(swapped.then(|| relaunch_command(directory, true)));
+            // Windows: a copy that just renamed itself out of the way is the old version, so start the new one. Linux: an old binary that finished
+            // the swap (the installer was cut short before replacing it) must not carry on over the new files and confirm a build it never ran
+            let to_build = journal["to_build"].as_i64().unwrap_or(0);
+            let older = this_build != 0 && to_build != 0 && this_build != to_build;
+            return Ok((swapped || older).then(|| relaunch_command(directory, true)));
         }
         if state == "trial" && started && first_start_still_loading(&journal, running_elsewhere, grace) {
             return Ok(None); // a second launch while the new version was still starting up: that one takes the lock
@@ -432,7 +451,7 @@ pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn
             return Ok(None);
         }
         if state == "rolling_back" || (state == "trial" && started) {
-            roll_back(directory, &journal, true, mv)?;
+            roll_back(directory, &journal, journal["blame"].as_bool() != Some(false), mv)?;
             return Ok(Some(relaunch_command(directory, false)));
         }
         if state == "trial" {
@@ -470,6 +489,14 @@ fn first_start_still_loading(journal: &Value, running_elsewhere: &dyn Fn() -> bo
 pub fn confirm(directory: &Path) {
     if read_journal(directory).is_some_and(|j| j["state"] == "trial" && is_ours(&j, appimage_name().as_deref())) {
         let _ = clear_journal(directory);
+    }
+}
+
+/// confirm_build for this program's own build (confirm() for a source build, which has none).
+pub fn confirm_running(directory: &Path) {
+    match crate::version::build() {
+        0 => confirm(directory),
+        build => confirm_build(directory, build),
     }
 }
 
@@ -651,7 +678,7 @@ pub fn python_venv_left(directory: &Path, this_build: Option<i64>, data_home: &P
     (!cfg!(windows) && telescope_core::system::appimage().is_none() && !unconfirmed && directory.join("update_guard.py").is_file() && venv.join(".telescope-requirements").is_file()).then_some(venv)
 }
 
-/// main.py's start: recover first and hand over to the right version when needed. True: carry on starting.
+/// The start: recover first and hand over to the right version when needed. True: carry on starting.
 pub fn guard_start(directory: &Path, after_update: bool) -> bool {
     let wait = Duration::from_secs(if after_update { 15 } else { 0 });
     match recover(directory, wait, &|| another_copy_running(after_update), TRIAL_GRACE) {
@@ -834,6 +861,11 @@ mod tests {
 
     fn nobody() -> bool {
         false
+    }
+
+    /// recover() as the new build (131) starting, the usual case; the tests of an old binary starting call recover_as with 130.
+    fn recover(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn() -> bool, grace: Duration) -> Option<Vec<String>> {
+        recover_as(directory, wait, running_elsewhere, grace, &mut rename, 131)
     }
 
     fn root(name: &str) -> PathBuf {
@@ -1112,19 +1144,111 @@ mod tests {
         let counting = updated_windows_app(&base.join("count"));
         let trial = read_journal(&counting).unwrap();
         let total = count_moves(|mv| roll_back(&counting, &trial, true, mv).unwrap());
-        assert_eq!(total, 4, "the journal, the new exe aside, the old one back, the old apk back");
+        assert_eq!(total, 3, "the journal, the old exe over the new one, the old apk back");
         // Move 1 is the journal saying a roll-back began: dying on it, none did
         for k in 2..=total {
             let app = updated_windows_app(&base.join(format!("k{k}")));
             let journal = with(&read_journal(&app).unwrap(), json!({"started": true}));
             write_journal(&app, &journal).unwrap();
             let _ = catch_unwind(AssertUnwindSafe(|| roll_back(&app, &journal, true, &mut killed_at(k))));
+            // The shortcut still has an exe to start, which is what runs the guard that finishes this
+            assert!(app.join(EXE_NAME).exists(), "k={k}: no exe to start");
             assert_eq!(read_journal(&app).unwrap()["state"], "rolling_back");
             assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
             assert_eq!(read(&app.join(EXE_NAME)), "exe 130", "k={k}");
             assert_eq!(read(&app.join("Telescope.apk")), "apk 130", "k={k}");
             assert!(read_journal(&app).is_none());
+            assert_eq!(failed_build(&app), Some(131), "k={k}");
         }
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_roll_back_cut_short_between_keeping_the_failed_exe_and_replacing_it_is_finished() {
+        // The one step that isn't a move: the failed exe's second name is made, then the old exe goes over the new one
+        let base = root("roll-link");
+        let app = updated_windows_app(&base);
+        let journal = with(&read_journal(&app).unwrap(), json!({"started": true}));
+        write_journal(&app, &with(&journal, json!({"state": "rolling_back", "blame": true}))).unwrap();
+        std::fs::hard_link(app.join(EXE_NAME), app.join(FAILED_EXE_NAME)).unwrap();
+        assert_eq!((read(&app.join(EXE_NAME)), read(&app.join(OLD_EXE_NAME))), ("exe 131".into(), "exe 130".into()));
+        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
+        assert_eq!(read(&app.join(FAILED_EXE_NAME)), "exe 131");
+        assert!(read_journal(&app).is_none());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_windows_that_will_not_replace_a_running_exe_still_rolls_back() {
+        let base = root("roll-old-windows");
+        let app = updated_windows_app(&base);
+        let target = app.join(EXE_NAME);
+        let journal = with(&read_journal(&app).unwrap(), json!({"started": true}));
+        // Only a rename onto an exe that is there fails, as on a Windows before 10
+        let mut old_windows = |s: &Path, d: &Path| if d == target && d.exists() { Err(io::Error::from_raw_os_error(5)) } else { rename(s, d) };
+        roll_back(&app, &journal, true, &mut old_windows).unwrap();
+        assert_eq!(read(&target), "exe 130");
+        assert_eq!(read(&app.join(FAILED_EXE_NAME)), "exe 131");
+        // and one that fails for good puts the exe back instead of leaving none
+        let app = updated_windows_app(&base.join("stuck"));
+        let target = app.join(EXE_NAME);
+        let mut stuck = |s: &Path, d: &Path| if d == target && s.ends_with(OLD_EXE_NAME) { Err(io::Error::from_raw_os_error(5)) } else { rename(s, d) };
+        assert!(roll_back(&app, &journal, true, &mut stuck).is_err());
+        assert_eq!(read(&target), "exe 131", "the new exe is still there to start");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_roll_back_that_was_not_the_builds_fault_stays_that_way_when_cut_short() {
+        let base = root("roll-blame");
+        let app = updated_windows_app(&base);
+        let journal = read_journal(&app).unwrap();
+        let _ = catch_unwind(AssertUnwindSafe(|| roll_back(&app, &journal, false, &mut killed_at(3))));
+        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
+        assert_eq!(failed_build(&app), None, "an installer's own failure doesn't hide the build from the updater");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_resumed_install_that_cant_place_a_file_puts_it_back_from_previous() {
+        let base = root("resumed-file");
+        let app = windows_app(&base);
+        write(&app.join("ui-kit/ui-kit.slint"), "kit 130");
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131"), ("ui-kit/ui-kit.slint", b"kit 131")]);
+        // The first try is cut short right after it moved the old file aside
+        let kit = app.join("ui-kit/ui-kit.slint");
+        let mut cut = |s: &Path, d: &Path| {
+            if s.ends_with("ui-kit/ui-kit.slint") && s.starts_with(app.join(STAGING_DIR)) {
+                resume_unwind(Box::new("killed"));
+            }
+            rename(s, d)
+        };
+        let _ = catch_unwind(AssertUnwindSafe(|| install_windows(&archive, &app, 131, &mut cut)));
+        assert!(!kit.exists() && app.join(PREVIOUS_DIR).join("ui-kit/ui-kit.slint").exists());
+        // The next start can't place it either: the old file must come back, and the update must not claim to have skipped nothing
+        let mut stuck = |s: &Path, d: &Path| if d == kit && s.starts_with(app.join(STAGING_DIR)) { Err(io::Error::from_raw_os_error(5)) } else { rename(s, d) };
+        let journal = read_journal(&app).unwrap();
+        assert_eq!(finish_swap(&app, &journal, &mut Vec::new(), &mut stuck).ok(), Some(false));
+        assert_eq!(read(&kit), "kit 130");
+        assert!(!app.join(PREVIOUS_DIR).join("ui-kit/ui-kit.slint").exists());
+        // If it can't even be put back, that is an error and the copy in .previous stays
+        let app = windows_app(&base.join("two"));
+        write(&app.join("ui-kit/ui-kit.slint"), "kit 130");
+        let kit = app.join("ui-kit/ui-kit.slint");
+        let archive = zip_of(&base.join("two").join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131"), ("ui-kit/ui-kit.slint", b"kit 131")]);
+        let mut cut = |s: &Path, d: &Path| {
+            if s.ends_with("ui-kit/ui-kit.slint") && s.starts_with(app.join(STAGING_DIR)) {
+                resume_unwind(Box::new("killed"));
+            }
+            rename(s, d)
+        };
+        let _ = catch_unwind(AssertUnwindSafe(|| install_windows(&archive, &app, 131, &mut cut)));
+        let mut hopeless = |s: &Path, d: &Path| if d == kit { Err(io::Error::from_raw_os_error(5)) } else { rename(s, d) };
+        let journal = read_journal(&app).unwrap();
+        assert!(finish_swap(&app, &journal, &mut Vec::new(), &mut hopeless).is_err());
+        assert!(app.join(PREVIOUS_DIR).join("ui-kit/ui-kit.slint").exists(), "the only copy is kept for the roll-back");
         std::fs::remove_dir_all(&base).unwrap();
     }
 
@@ -1476,6 +1600,69 @@ mod tests {
     }
 
     #[test]
+    fn an_old_binary_that_finishes_a_cut_short_swap_hands_over_instead_of_confirming_it() {
+        let base = root("lin-old-binary");
+        let total = count_moves(|mv| {
+            let dir = base.join("count");
+            let app = linux_app(&dir);
+            install_linux(&linux_tarball(&dir.join("u.tar.gz")), &app, 131, mv).unwrap();
+        });
+        let mut checked = 0;
+        for k in 2..=total {
+            let dir = base.join(format!("k{k}"));
+            let app = linux_app(&dir);
+            let archive = linux_tarball(&dir.join("u.tar.gz"));
+            let _ = catch_unwind(AssertUnwindSafe(|| install_linux(&archive, &app, 131, &mut killed_at(k))));
+            if read_journal(&app).is_none_or(|j| j["state"] != "swapping") {
+                continue;
+            }
+            // Build 130 is what started: the one that was running when the installer was cut short
+            let relaunch = recover_as(&app, Duration::ZERO, &nobody, Duration::ZERO, &mut rename, 130).expect("hands over to the new build");
+            assert_eq!(relaunch.last().unwrap(), "--after-update", "k={k}");
+            assert_eq!(tree(&app), new_tree(), "k={k}");
+            // It is on trial, and the old binary's own exit does not confirm it
+            confirm_build(&app, 130);
+            assert_eq!(read_journal(&app).unwrap()["state"], "trial", "k={k}");
+            assert_eq!(read(&app.join(PREVIOUS_DIR).join("main.py")), "main 130", "k={k}");
+            // The new one starting is the first start of the trial, and confirms it
+            assert_eq!(recover_as(&app, Duration::ZERO, &nobody, Duration::ZERO, &mut rename, 131), None, "k={k}");
+            confirm_build(&app, 131);
+            assert!(read_journal(&app).is_none(), "k={k}");
+            checked += 1;
+        }
+        assert!(checked >= 3, "cut-short swaps were exercised: {checked}");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_linux_roll_back_cut_short_anywhere_is_finished_by_the_next_start() {
+        let base = root("lin-roll-cut");
+        let installed = |dir: &Path| {
+            let app = linux_app(dir);
+            install_linux(&linux_tarball(&dir.join("u.tar.gz")), &app, 131, &mut rename).unwrap();
+            let journal = with(&read_journal(&app).unwrap(), json!({"started": true}));
+            write_journal(&app, &journal).unwrap();
+            (app, journal)
+        };
+        let (counting, trial) = installed(&base.join("count"));
+        let total = count_moves(|mv| roll_back(&counting, &trial, true, mv).unwrap());
+        assert!(total >= 5, "the journal and each replaced entry: {total}");
+        for k in 2..=total {
+            let (app, journal) = installed(&base.join(format!("k{k}")));
+            let _ = catch_unwind(AssertUnwindSafe(|| roll_back(&app, &journal, true, &mut killed_at(k))));
+            // The files that start Telescope are replaced in one step, so there is always something to run
+            for name in ["start.sh", "main.py", "update_guard.py"] {
+                assert!(app.join(name).exists(), "k={k} {name}");
+            }
+            assert_eq!(read_journal(&app).unwrap()["state"], "rolling_back", "k={k}");
+            assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some(), "k={k}");
+            assert_eq!(tree(&app), old_tree(), "k={k}");
+            assert!(read_journal(&app).is_none() && failed_build(&app) == Some(131), "k={k}");
+        }
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
     fn a_linux_update_that_never_confirms_rolls_back() {
         let base = root("lin-roll");
         let app = linux_app(&base);
@@ -1549,7 +1736,6 @@ mod tests {
         }
     }
 
-    // test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts
     #[cfg(unix)]
     #[test]
     fn right_after_an_update_a_copy_from_before_the_per_user_lock_counts() {

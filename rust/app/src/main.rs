@@ -18,7 +18,7 @@
 //!
 //! --autostart starts streaming once the window is up and --quit-after SECS closes it, for measuring.
 //!
-//! main.py's own options: --action ID [NAME=VALUE ...] runs a shortcut action in the running copy, --list-actions
+//! The app's own options: --action ID [NAME=VALUE ...] runs a shortcut action in the running copy, --list-actions
 //! lists them, --minimized starts in the tray, --after-update and --restarted wait for the old copy to let go of
 //! the lock, --moved-from FOLDER is the unzipped copy the installed one replaced, which it removes once it has started fine.
 
@@ -64,7 +64,7 @@ fn chosen_less_memory() -> bool {
     telescope_core::gpu_pick::less_memory_for(saved, telescope_core::machine::total_memory_gb())
 }
 
-/// The language picked in Settings > General ("" for the system's), read before any window exists (main.py's _chosen_language).
+/// The language picked in Settings > General ("" for the system's), read before any window exists.
 fn chosen_language() -> String {
     let cfg = telescope_core::config::ConfigFile::default().load();
     cfg["plugin_configs"]["setup"]["language"].as_str().unwrap_or_default().to_string()
@@ -83,7 +83,7 @@ fn register_languages() {
 
 type Splash = Arc<dyn telescope_system::splash::SplashWindow>;
 
-/// The Windows start-up splash with its text in the person's language, for a start with a window; none elsewhere (main.py's splash.show_text).
+/// The Windows start-up splash with its text in the person's language, for a start with a window; none elsewhere.
 fn start_splash() -> Option<Splash> {
     #[cfg(windows)]
     {
@@ -104,12 +104,12 @@ fn close_splash(splash: &Option<Splash>) {
     }
 }
 
-/// Points the sign-in entry at this copy; a source build or a copy on a profile of its own mustn't repoint the real app's (main.py).
+/// Points the sign-in entry at this copy; a source build or a copy on a profile of its own mustn't repoint the real app's.
 fn refresh_sign_in_entry(source_build: bool, command: &[String], place: &telescope_system::autostart::Place) -> bool {
     owns_the_entries(source_build) && telescope_system::autostart::refresh(command, place)
 }
 
-/// Linux: the app menu entry follows this copy too, under the same rule (main.py's update_menu_entry). data is the data home, None for the real one.
+/// Linux: the app menu entry follows this copy too, under the same rule. data is the data home, None for the real one.
 fn refresh_menu_entry(source_build: bool, command: &[String], data: Option<&std::path::Path>) -> bool {
     owns_the_entries(source_build) && telescope_system::autostart::refresh_menu_entry(command, data)
 }
@@ -150,7 +150,7 @@ impl Machine {
         Machine { outputs: Arc::new({ let mut cameras = telescope_outputs::VirtualCameras::default(); cameras.device = device; cameras.hands_off_when_idle = hands_off_when_idle; cameras }), web: Arc::new(telescope_link::web::SystemWeb), quiet: false }
     }
 
-    /// As config_fixtures.py's quiet_system and quiet_plugin leave the Python window.
+    /// Quiet system and plugin settings, as the Python window left them.
     fn quiet() -> Machine {
         Machine { outputs: Arc::new(cli::NoCameras), web: Arc::new(cli::NoServers), quiet: true }
     }
@@ -214,7 +214,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
             let browser = machine.browser(browser_media.clone());
             let browser_mics = Arc::new(browser.mics());
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
-                // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
+                // In the order of the plugin list, which is also the order frames go through them within a stage
                 Box::new({
                     let mut setup = telescope_setup::setup::SetupPlugin::new(outputs.clone(), mic_link.clone(), setup_media.clone(), &telescope_system::version::display_version(), languages.clone());
                     // Open log is there once the desktop log is (diagnostics.events.path)
@@ -373,7 +373,7 @@ fn run_action(words: Option<Vec<String>>) -> i32 {
     if ok { 0 } else { 1 }
 }
 
-/// The single-instance lock for the window, or None after the running copy was asked to show itself (main.py's
+/// The single-instance lock for the window, or None after the running copy was asked to show itself (the
 /// acquire_single_instance, write_control_key and listen_for_raise). The lock's thread answers later launches.
 fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions, splash: &Option<Splash>) -> Option<()> {
     use telescope_system::single_instance as si;
@@ -410,7 +410,7 @@ fn remove_stale_mic() {
     }
 }
 
-/// The folder this program runs from, which an update replaces (main.py's APP_DIR).
+/// The folder this program runs from, which an update replaces.
 fn app_dir() -> PathBuf {
     telescope_system::app_dir()
 }
@@ -423,12 +423,12 @@ fn data_home() -> PathBuf {
 /// The new version has started fine this long after its window came up (or once it's closed normally).
 const STARTED_FINE: std::time::Duration = std::time::Duration::from_secs(3);
 
-/// main.py's started_fine: stop being ready to roll this version back, and delete what earlier ones left.
+/// Started fine: stop being ready to roll this version back, and delete what earlier ones left.
 fn started_fine() {
     static DONE: std::sync::Once = std::sync::Once::new();
     DONE.call_once(|| {
         let dir = app_dir();
-        telescope_system::update_guard::confirm(&dir);
+        telescope_system::update_guard::confirm_running(&dir);
         if let Some(venv) = telescope_system::update_guard::python_venv_left(&dir, Some(telescope_system::version::build()), &data_home()) {
             // Tens of thousands of files, and nothing waits for them
             std::thread::spawn(move || telescope_system::update_guard::remove(&venv));
@@ -451,7 +451,7 @@ fn started_fine() {
 /// Removing the replaced copy, which a process that's quitting has to wait for (a non-daemon thread in Python).
 static TIDYING: std::sync::Mutex<Option<std::thread::JoinHandle<()>>> = std::sync::Mutex::new(None);
 
-/// What only the copy holding the lock may do, after taking it (main.py): a command or a duplicate launch never gets here.
+/// What only the copy holding the lock may do, after taking it: a command or a duplicate launch never gets here.
 fn own_the_lock(take: impl FnOnce() -> Option<()>, clean_up: impl FnOnce()) -> Option<()> {
     take()?;
     clean_up();
@@ -496,7 +496,7 @@ fn take_value(words: &mut Vec<String>, name: &str) -> Option<String> {
     (i < words.len()).then(|| words.remove(i))
 }
 
-/// main.py's own options (parse_args), taken out of the words; what's left is for the commands.
+/// The app's own options, taken out of the words; what's left is for the commands.
 #[derive(Debug, Default, PartialEq)]
 struct Launch {
     minimized: bool,
@@ -559,7 +559,6 @@ fn main() {
     });
     // Before the decoder and the stream start their threads, which would each get a pool of their own
     telescope_system::memory::limit_malloc_arenas(2);
-    telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
     #[cfg(windows)]
     {
@@ -626,6 +625,10 @@ fn main() {
             }
             Start::Go => {}
         }
+        // Only a window start, so a bridge or a command ending on SIGTERM never confirms the build. The profile goes first, since choosing it
+        // sets an environment variable, which can't race the signal thread started next.
+        use_own_profile();
+        telescope_system::update_guard::confirm_on_terminate(app_dir());
     }
     // Once an update is settled, and before the rest loads, which is most of a first start's wait
     let splash = if words.is_empty() { start_splash() } else { None };
@@ -801,7 +804,7 @@ enum Start {
 }
 
 /// An update cut short is finished or rolled back first: it may be what left the folder without its ui-kit, and a release that
-/// lost its folder (the launcher's check in build_bootloader.py) can't draw anything.
+/// lost its folder can't draw anything.
 fn settle_start(guard: impl FnOnce() -> bool, left_its_folder: impl FnOnce() -> bool) -> Start {
     if !guard() {
         return Start::Done;
@@ -829,7 +832,7 @@ mod tests {
         assert_eq!(settle_start(|| true, || false), Start::Go);
     }
 
-    // main.py: no refresh for a dev checkout or a dev profile, and this app is on a profile of its own unless asked not to be
+    // No refresh for a dev checkout or a dev profile, and this app is on a profile of its own unless asked not to be
     #[test]
     fn the_sign_in_entry_is_the_real_apps_to_repoint_only_on_the_real_profile() {
         use telescope_system::autostart::{desktop_file, enable, Place};
@@ -860,7 +863,7 @@ mod tests {
         the_menu_entry_is_the_real_apps_to_write_only_on_the_real_profile();
     }
 
-    // main.py writes the app menu entry only where it repoints the sign-in one: never for a source build, a dev profile or the own profile
+    // The app menu entry is written only where it repoints the sign-in one: never for a source build, a dev profile or the own profile
     // (run by the sign-in entry's test, since both set the profile in the environment)
     #[cfg(target_os = "linux")]
     fn the_menu_entry_is_the_real_apps_to_write_only_on_the_real_profile() {
@@ -900,7 +903,7 @@ mod tests {
         }
     }
 
-    // test_main.py: a command or a duplicate launch changes nothing, and the one that gets the lock cleans up only after it has it
+    // A command or a duplicate launch changes nothing, and the one that gets the lock cleans up only after it has it
     #[test]
     fn only_the_copy_with_the_lock_touches_what_the_running_copy_owns() {
         let cleaned = std::cell::Cell::new(false);
@@ -911,7 +914,7 @@ mod tests {
         assert!(cleaned.get());
     }
 
-    // test_splash.py::test_the_splash_text_is_in_the_chosen_language's last step: the app's own close reaches the splash, and none is no splash
+    // The app's own close reaches the splash, and none is no splash
     #[test]
     fn the_app_closes_the_splash_it_opened() {
         #[derive(Default)]
@@ -952,7 +955,6 @@ mod tests {
         assert_eq!(words, ["-platform", "x"]);
     }
 
-    // test_move_to_installed.py::test_main_takes_the_moved_from_folder
     #[test]
     fn main_takes_the_moved_from_folder() {
         let mut words: Vec<String> = ["--after-update", "--moved-from", r"C:\Users\l\Downloads\Telescope", "-style", "x"].map(String::from).to_vec();

@@ -44,6 +44,8 @@ pub struct Frame {
     /// When the camera took the picture, on this computer's monotonic clock (crate::time::monotonic_ns), for a stream whose phone says so and whose
     /// clock offset is known; None otherwise. Every step that makes a new frame from another keeps it.
     pub capture_ns: Option<u64>,
+    /// The share of its view the phone's camera says this picture shows (the crop tag in the stream), for a phone that says so; None otherwise. Copies made before the view's crop keep it.
+    pub phone_share: Option<crate::view::PhoneZoom>,
     /// The view in full source coordinates, for remapping a held person mask; None is the unchanged source.
     pub geometry: Option<Box<crate::view::Geometry>>,
     /// Source field of view and any geometry that cannot be remapped in camera coordinates.
@@ -51,6 +53,18 @@ pub struct Frame {
     decoded: Option<Decoded>,
     /// How much of each pixel is the picture, for a frame whose background was cut out; None for a frame that is all picture, which is every frame today.
     alpha: Option<Arc<Alpha>>,
+    copied: Copied,
+}
+
+/// How long the decoder took to copy a frame's picture off the graphics card and pack it, when leaving it there would have spared that.
+/// Not part of the picture, so frames that differ only in this are equal.
+#[derive(Clone, Copy, Debug, Default)]
+struct Copied(Option<u64>);
+
+impl PartialEq for Copied {
+    fn eq(&self, _: &Copied) -> bool {
+        true
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -212,7 +226,7 @@ impl Frame {
     pub fn from_surface(width: u32, height: u32, format: PixelFormat, surface: Arc<dyn DecodedSurface>) -> Frame {
         let data = Arc::new(Vec::new());
         let decoded = Some(Decoded { of: Arc::downgrade(&data), picture: None, surface: Some(surface), size: (width, height, format) });
-        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded, alpha: None }
+        Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, phone_share: None, geometry: None, mask_space: MaskSpace::default(), decoded, alpha: None, copied: Copied::default() }
     }
 
     /// A flat dark picture: black luma and neutral chroma for the YUV formats, opaque black for the others.
@@ -227,7 +241,7 @@ impl Frame {
 
     /// The frame's size, format and stamps with no pixels and no hold on a decoder surface, for a record of a picture that is kept elsewhere.
     pub fn without_pixels(&self) -> Frame {
-        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, geometry: self.geometry.clone(), mask_space: self.mask_space, decoded: None, alpha: self.alpha.clone() }
+        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, phone_share: self.phone_share, geometry: self.geometry.clone(), mask_space: self.mask_space, decoded: None, alpha: self.alpha.clone(), copied: Copied::default() }
     }
 
     /// The surface while the frame still names the decoder's original picture.
@@ -235,11 +249,22 @@ impl Frame {
         self.decoded.as_ref().filter(|d| Weak::as_ptr(&d.of) == Arc::as_ptr(&self.data) && d.size == (self.width, self.height, self.format))?.surface.as_ref()
     }
 
+    /// This frame, noted as having cost the decoder ns to copy off the graphics card where it could have stayed.
+    pub fn with_copied_off_card(mut self, ns: u64) -> Frame {
+        self.copied = Copied(Some(ns));
+        self
+    }
+
+    /// What copying this frame off the graphics card cost the decoder, when leaving it there would have spared that (with_copied_off_card).
+    pub fn copied_off_card(&self) -> Option<u64> {
+        self.copied.0
+    }
+
     /// The packed RAM picture, made once by media when first needed, with this frame's stamps.
     pub fn materialise(&self) -> Frame {
         let Some(surface) = self.surface() else { return self.clone() };
         let mut frame = surface.ram().clone();
-        (frame.number, frame.time_ns, frame.capture_ns) = (self.number, self.time_ns, self.capture_ns);
+        (frame.number, frame.time_ns, frame.capture_ns, frame.phone_share) = (self.number, self.time_ns, self.capture_ns, self.phone_share);
         frame.geometry = self.geometry.clone();
         frame.mask_space = self.mask_space;
         frame.alpha = self.alpha.clone();
@@ -248,7 +273,7 @@ impl Frame {
 
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
-        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, geometry: None, mask_space: MaskSpace::default(), decoded: None, alpha: None }
+        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, phone_share: None, geometry: None, mask_space: MaskSpace::default(), decoded: None, alpha: None, copied: Copied::default() }
     }
 
     /// The alpha plane, while it is the size of the picture: one left behind by a step that changed the size reads as none.
@@ -587,6 +612,10 @@ pub trait CpuStep: Send {
     /// For the CPU half of an Either: whether card_textures always has pictures to give (Some(true)), never does (Some(false)) or can't be told without asking (None). Some(true) is never asked on a frame the card is still ahead of, so a mask it works out is asked for once, on the picture the card really made.
     fn card_textures_offered(&self) -> Option<bool> {
         None
+    }
+    /// For the CPU half of an Either: whether card_textures and card_cut_out read nothing of the frame but its size, format and person mask, so the card can keep the picture and hand the mask a small copy it makes (a frame still on the card has no pixels to read).
+    fn card_textures_from_mask(&self) -> bool {
+        false
     }
     /// For the CPU half of an Either that makes a cut-out (Frame::alpha): the plane for a frame the card is about to work on, asked with the frame on the CPU. The card's shader never gives one, so a step whose CPU way does has to say so here.
     fn card_cut_out(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Arc<Alpha>> {

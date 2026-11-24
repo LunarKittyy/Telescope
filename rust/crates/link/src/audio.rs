@@ -1,4 +1,4 @@
-//! The phone's microphone as it arrives (/v1/audio: 48 kHz mono s16le), for the audio crate's worker (audio.py's
+//! The phone's microphone as it arrives (/v1/audio: 48 kHz mono s16le), for the audio crate's worker (the
 //! reading half), and the reason the phone gives when it won't send it.
 
 use telescope_core::i18n::Fields;

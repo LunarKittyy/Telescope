@@ -1,4 +1,4 @@
-//! People in the picture as a shared host service (vision.py's Vision, vision_download.py and vision_status.py). The vision
+//! People in the picture as a shared host service. The vision
 //! crate implements VisionService and the binary hands it to the shell in Services; plugins never see it. They get:
 //! - FrameContext::person_mask in a frame step (Background, Privacy blur, Fun pack's cloak), or person_mask_at for one that works at a smaller size,
 //! - HostVision::want_people, then Event::PeopleSeen (Person records, Auto framing) and Event::PeopleTracked (Track records
@@ -23,6 +23,22 @@ pub const MISSING: &str = "missing";
 /// MediaPipe didn't load; VisionService::diagnostics says why.
 pub const FAILED: &str = "failed";
 
+/// The pixels the high quality cutout model takes of a frame (vision's matting::INPUT_PIXELS, which a test there keeps equal).
+const CUTOUT_PIXELS: f64 = 640.0 * 360.0;
+
+/// The size the high quality cutout model gets a w x h frame at, as vision works it out for the whole frame (matting::input_size, then ops::model_input_size); None when the frame is no bigger than that.
+/// A smaller copy of the frame made first must have exactly this size, or the model sees a different size than for the whole frame and starts its temporal state over.
+pub fn cutout_input_size(w: u32, h: u32) -> Option<(u32, u32)> {
+    let (w, h) = (w as f64, h as f64);
+    let scale = (CUTOUT_PIXELS / (w * h).max(1.0)).sqrt();
+    let wanted = ((w * scale).round().max(2.0), (h * scale).round().max(2.0));
+    let cover = (wanted.0 / w).max(wanted.1 / h);
+    if cover >= 1.0 {
+        return None;
+    }
+    Some(((w * cover).round_ties_even().max(1.0) as u32, (h * cover).round_ties_even().max(1.0) as u32))
+}
+
 /// The view's flips and turn (degrees clockwise), the part of it that moves people around the picture.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Turn {
@@ -37,7 +53,7 @@ impl Turn {
     }
 }
 
-/// A point in the picture as shown at zoom 1 with turn `old` to where it is with turn `new` (the remap app.py and Auto framing do
+/// A point in the picture as shown at zoom 1 with turn `old` to where it is with turn `new` (the remap Auto framing does
 /// when the view is flipped or turned).
 pub fn turned(old: Turn, new: Turn) -> impl Fn(f64, f64) -> (f64, f64) {
     move |x, y| {

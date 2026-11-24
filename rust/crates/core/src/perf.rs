@@ -217,6 +217,71 @@ fn foreground_on_windows() -> Foreground {
     }
 }
 
+/// Whether one window of another program above `window` (a Win32 window handle) in the stacking order hides all of it: shown, not
+/// minimised, not cloaked, not see-through, and covering its whole rectangle (a game or a film full screen, a maximised browser).
+#[cfg(windows)]
+pub fn hidden_behind_another_window(window: isize) -> bool {
+    use std::ffi::c_void;
+    #[repr(C)]
+    #[derive(Default)]
+    struct Rect {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn GetWindow(window: *mut c_void, cmd: u32) -> *mut c_void;
+        fn IsWindowVisible(window: *mut c_void) -> i32;
+        fn IsIconic(window: *mut c_void) -> i32;
+        fn GetWindowRect(window: *mut c_void, rect: *mut Rect) -> i32;
+        fn GetWindowLongW(window: *mut c_void, index: i32) -> i32;
+        fn GetWindowThreadProcessId(window: *mut c_void, process: *mut u32) -> u32;
+    }
+    #[link(name = "dwmapi")]
+    unsafe extern "system" {
+        fn DwmGetWindowAttribute(window: *mut c_void, attribute: u32, value: *mut c_void, size: u32) -> i32;
+    }
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GetCurrentProcessId() -> u32;
+    }
+    const GW_HWNDPREV: u32 = 3;
+    const GWL_EXSTYLE: i32 = -20;
+    const WS_EX_TRANSPARENT: i32 = 0x0000_0020;
+    const WS_EX_LAYERED: i32 = 0x0008_0000;
+    const DWMWA_CLOAKED: u32 = 14;
+    // SAFETY: every pointer goes to a local of the type the call documents, and a window that closes meanwhile just makes a call fail
+    unsafe {
+        let own = window as *mut c_void;
+        let mut mine = Rect::default();
+        if GetWindowRect(own, &mut mine) == 0 {
+            return false;
+        }
+        let me = GetCurrentProcessId();
+        let mut above = GetWindow(own, GW_HWNDPREV);
+        // The windows above are few; the bound only guards against a list that changes under the walk
+        for _ in 0..512 {
+            if above.is_null() {
+                return false;
+            }
+            let mut process = 0u32;
+            GetWindowThreadProcessId(above, &mut process);
+            let mut cloaked = 0u32;
+            let shown = IsWindowVisible(above) != 0 && IsIconic(above) == 0 && process != me
+                && (DwmGetWindowAttribute(above, DWMWA_CLOAKED, (&mut cloaked as *mut u32).cast(), 4) != 0 || cloaked == 0);
+            let solid = GetWindowLongW(above, GWL_EXSTYLE) & (WS_EX_TRANSPARENT | WS_EX_LAYERED) == 0;
+            let mut r = Rect::default();
+            if shown && solid && GetWindowRect(above, &mut r) != 0 && r.left <= mine.left && r.top <= mine.top && r.right >= mine.right && r.bottom >= mine.bottom {
+                return true;
+            }
+            above = GetWindow(above, GW_HWNDPREV);
+        }
+        false
+    }
+}
+
 /// Which decoder was at work.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DecoderKind {
@@ -349,8 +414,13 @@ impl StallWatch {
             return;
         }
         self.gap_in_window = true;
-        if self.pending.as_ref().is_some_and(|(p, _)| p.ms >= gap_ms) {
+        if self.pending.as_ref().is_some_and(|(p, w)| *w == self.window && p.ms >= gap_ms) {
             return;
+        }
+        // A stall from an earlier window is kept as it is before this bigger one takes its place
+        if self.pending.as_ref().is_some_and(|(_, w)| *w < self.window) {
+            let (stall, _) = self.pending.take().expect("checked just above");
+            (self.sink)(stall);
         }
         let (decoder, foreground) = context();
         let (stage, stage_ms) = peak.unwrap_or(("", 0.0));
@@ -416,7 +486,9 @@ static TIMELINE: Mutex<VecDeque<Sample>> = Mutex::new(VecDeque::new());
 pub fn note_window(slot: u32, now_ns: u64, fps: f32, mbps: f32) {
     let mut line = TIMELINE.lock().unwrap_or_else(|e| e.into_inner());
     line.push_back(Sample { ns: now_ns, slot, fps, mbps });
-    while line.len() > COLUMNS * 2 {
+    // By age, so several streams each keep the whole two minutes; the count is only a backstop
+    let oldest = now_ns.saturating_sub(COLUMNS as u64 * STEP_S * 1_000_000_000);
+    while line.front().is_some_and(|s| s.ns < oldest) || line.len() > COLUMNS * 16 {
         line.pop_front();
     }
 }

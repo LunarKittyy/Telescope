@@ -1,4 +1,4 @@
-//! One stream's session, and the bookkeeping of every stream the window runs (session.py).
+//! One stream's session, and the bookkeeping of every stream the window runs.
 //!
 //! Sessions holds which sources stream, which one the panels show, which one the plugins that stay put (the mic) are
 //! on, and what's starting or waiting to. It knows nothing about widgets or plugins' hooks.

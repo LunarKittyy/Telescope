@@ -1,10 +1,10 @@
-//! QR codes to show, as python-qrcode draws them (widgets/qr.py): error correction L, the same split into modes and the mask python-qrcode
+//! QR codes to show, as python-qrcode draws them: error correction L, the same split into modes and the mask python-qrcode
 //! scores best, so the code looks the same as the Qt app's. Pairing, the first-run checklist and the On Air sign all show one.
 
 use qrcode::canvas::{Canvas, MaskPattern};
 use qrcode::{bits::Bits, EcLevel, Version};
 
-/// The QR code's dark cells, as indexes row by row, and its size in modules (widgets/qr.py, error correction L). The mask
+/// The QR code's dark cells, as indexes row by row, and its size in modules. The mask
 /// is the one python-qrcode picks, so the code looks the same as the Qt app's.
 pub fn encode(data: &str) -> (Vec<usize>, usize) {
     let chunks = chunks(data.as_bytes());

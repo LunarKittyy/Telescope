@@ -1,4 +1,4 @@
-//! The Browser camera's server (BrowserServer in browser_server.py): any device with a browser streams its camera and
+//! The Browser camera's server: any device with a browser streams its camera and
 //! mic here, no app needed.
 //!
 //! The device opens https://<this computer>:<port>/#<token> and allows the camera. Browsers only allow that on HTTPS
@@ -16,7 +16,7 @@ use super::ws::{self, Closed, WsConnection};
 use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::i18n::tr;
@@ -29,6 +29,8 @@ const PING_EVERY: Duration = Duration::from_secs(3);
 const TICK: Duration = Duration::from_millis(500);
 /// Opened again on the same browser.
 pub const CLOSE_REPLACED: u16 = 4000;
+/// The server is stopping.
+const CLOSE_GOING_AWAY: u16 = 1001;
 /// Every camera is taken.
 pub const CLOSE_FULL: u16 = 4001;
 /// New link: this code doesn't work any more, so the page stops instead of retrying.
@@ -46,6 +48,8 @@ struct Shared {
     /// Connections open now, by an id of their own: the close code each is to end with, once it's asked to.
     open: Mutex<HashMap<u64, Option<u16>>>,
     next_id: AtomicU64,
+    /// Set by stop(): a connection that was accepted before it and registers after is turned away.
+    stopped: AtomicBool,
     /// (how often to ping, how long a quiet connection lasts): PING_EVERY and ws::IDLE_TIMEOUT, shorter in tests.
     timings: Mutex<(Duration, Duration)>,
 }
@@ -75,11 +79,17 @@ impl Shared {
             let ours = self.token.lock().unwrap_or_else(|e| e.into_inner());
             if !token_matches(&ours, token) {
                 Err(CLOSE_NEW_LINK)
-            } else if let Some((feed, gen)) = self.hub.join_connect(bid) {
-                self.open.lock().unwrap_or_else(|e| e.into_inner()).insert(id, None);
-                Ok((feed, gen))
             } else {
-                Err(CLOSE_FULL)
+                // stop() sets the flag before it closes what is open, so a connection is either seen by that or sees the flag
+                let mut open = self.open.lock().unwrap_or_else(|e| e.into_inner());
+                if self.stopped.load(Ordering::SeqCst) {
+                    Err(CLOSE_GOING_AWAY)
+                } else if let Some((feed, gen)) = self.hub.join_connect(bid) {
+                    open.insert(id, None);
+                    Ok((feed, gen))
+                } else {
+                    Err(CLOSE_FULL)
+                }
             }
         };
         let (feed, gen) = match joined {
@@ -186,13 +196,14 @@ impl Shared {
         let (video, audio) = (feed.clone(), feed.clone());
         let mut session = (self.rtc)(Box::new(move |codec, data, size, made| video.put_video(gen, codec, data, size, made)),
                                      Box::new(move |pcm| audio.put_audio(gen, &pcm)));
-        let answered = session.answer(offer, feed.max_kbps());
+        let max_kbps = feed.max_kbps();
+        let answered = session.answer(offer, max_kbps);
         let codec = session.codec();
         *rtc.borrow_mut() = Some(session);
         match answered {
             Ok(sdp) => {
                 feed.note_rtc(gen, &codec, "");
-                json!({"type": "answer", "sdp": sdp})
+                json!({"type": "answer", "sdp": sdp, "max_kbps": max_kbps})
             }
             Err(e) => {
                 log::warn!("Browser camera: couldn't answer the browser's offer: {}", e.0);
@@ -288,7 +299,7 @@ impl BrowserServer {
                port: u16, host: &str, rtc: RtcMaker) -> BrowserServer {
         let shared = Arc::new(Shared {
             hub, token: Mutex::new(crate::util::token_urlsafe(18)), on_change: Box::new(on_change), rtc, open: Mutex::default(),
-            next_id: AtomicU64::new(1), timings: Mutex::new((PING_EVERY, ws::IDLE_TIMEOUT)),
+            next_id: AtomicU64::new(1), stopped: AtomicBool::new(false), timings: Mutex::new((PING_EVERY, ws::IDLE_TIMEOUT)),
         });
         BrowserServer { shared, web, certificate, want_port: port, host: host.into(), server: Mutex::new(None) }
     }
@@ -335,6 +346,7 @@ impl BrowserServer {
 
     pub fn start(&self) -> Result<(), String> {
         let serve = Serve { port: self.want_port, host: self.host.clone(), label: "Browser camera".into() };
+        self.shared.stopped.store(false, Ordering::SeqCst);
         let server = self.web.serve(&self.certificate, &serve, Arc::new(Handler(self.shared.clone())))?;
         *self.server.lock().unwrap_or_else(|e| e.into_inner()) = Some(server);
         Ok(())
@@ -344,7 +356,8 @@ impl BrowserServer {
         if let Some(server) = self.server.lock().unwrap_or_else(|e| e.into_inner()).take() {
             server.stop();
         }
-        self.shared.close_all(1001);
+        self.shared.stopped.store(true, Ordering::SeqCst);
+        self.shared.close_all(CLOSE_GOING_AWAY);
     }
 }
 

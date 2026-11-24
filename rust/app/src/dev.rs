@@ -62,8 +62,10 @@ pub fn main(launch: &Launch, argv: &[String], run_app: &mut dyn FnMut(&[String],
     let others: Vec<String> = argv.iter().filter(|a| *a != "--keep" && *a != "--reset").cloned().collect();
     let (plugins, rest) = take_plugins(&others)?;
     if reset {
-        let _ = std::fs::remove_dir_all(launch.kept_folder());
-        println!("Removed {}", launch.kept_folder().display());
+        match std::fs::remove_dir_all(launch.kept_folder()) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(format!("Couldn't remove {}: {e}", launch.kept_folder().display())),
+            _ => println!("Removed {}", launch.kept_folder().display()),
+        }
         if !keep {
             return Ok(0);
         }
@@ -155,8 +157,8 @@ struct Process(std::process::Child);
 
 impl Child for Process {
     fn poll(&mut self) -> Option<i32> {
-        // A copy killed by a signal has no code; the shell's 128 + signal is the closest thing
-        self.0.try_wait().ok().flatten().map(|s| s.code().unwrap_or(1))
+        // A copy killed by a signal has no code; the shell's 128 + signal is what it would have shown
+        self.0.try_wait().ok().flatten().map(|s| s.code().unwrap_or_else(|| signal_code(&s)))
     }
     fn terminate(&mut self) {
         #[cfg(unix)]
@@ -168,8 +170,21 @@ impl Child for Process {
         let _ = self.0.kill();
     }
     fn kill(&mut self) {
+        // Waited for too, so the profile folder isn't removed under a copy that is still going and no zombie is left
         let _ = self.0.kill();
+        let _ = self.0.wait();
     }
+}
+
+#[cfg(unix)]
+fn signal_code(status: &std::process::ExitStatus) -> i32 {
+    use std::os::unix::process::ExitStatusExt;
+    status.signal().map_or(1, |n| 128 + n)
+}
+
+#[cfg(not(unix))]
+fn signal_code(_status: &std::process::ExitStatus) -> i32 {
+    1
 }
 
 static STOPPED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -187,7 +202,7 @@ fn run_app(args: &[String], env: &Env) -> i32 {
     let Ok(child) = command.spawn() else { return 1 };
     let mut child = Process(child);
     let stopped = || STOPPED.load(std::sync::atomic::Ordering::SeqCst);
-    // The app's own exit code, or 130 for Ctrl+C and 143 for SIGTERM, the shell's way of saying so
+    // The app's own exit code, or 130, the shell's way of saying Ctrl+C, when the launcher is stopped (SIGTERM counts the same)
     wait_for(&mut child, &stopped, Duration::from_secs(10), Duration::from_millis(100)).unwrap_or(130)
 }
 
@@ -294,5 +309,17 @@ mod tests {
         let mut done = Fake { running: false, terminated: &terminated };
         assert_eq!(wait_for(&mut done, &|| false, Duration::from_secs(1), Duration::ZERO), Some(0));
         assert_eq!(terminated.get(), 1);
+    }
+
+    #[test]
+    fn a_reset_that_cant_remove_the_profile_says_so() {
+        let launch = Launch { temp: scratch_dir("launcher-reset"), user: "luna".into() };
+        // A file where the folder should be can't be removed as a folder
+        std::fs::write(launch.kept_folder(), "").unwrap();
+        let mut run = |_: &[String], _: &Env| 0;
+        let e = main(&launch, &words(&["--reset"]), &mut run).unwrap_err();
+        assert!(e.contains("Couldn't remove"), "{e}");
+        std::fs::remove_file(launch.kept_folder()).unwrap();
+        assert_eq!(main(&launch, &words(&["--reset"]), &mut run), Ok(0), "nothing there is fine");
     }
 }

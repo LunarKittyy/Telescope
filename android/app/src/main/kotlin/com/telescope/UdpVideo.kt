@@ -519,7 +519,7 @@ class UdpTransmitter(
 
 // One desktop watching over UDP. Its HTTPS request stays open as the session: when that ends, so does this.
 class UdpVideoClient(
-    private val socket: Socket,
+    val socket: Socket,
     peer: InetSocketAddress,
     private val stillAuthorized: () -> Boolean = { true },
     private val feedbackTimeoutMs: Long = FEEDBACK_TIMEOUT_MS,

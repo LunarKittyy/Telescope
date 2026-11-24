@@ -1,4 +1,4 @@
-//! Setup (plugins/setup.py, its AdvancedSettings cards): no card in the window, only sections in Settings. The virtual
+//! Setup: no card in the window, only sections in Settings. The virtual
 //! camera and the phone app on Virtual camera & phone, the Video card (hardware decoding, power-saving effects, the Zoom
 //! slider's reach and the canvas size), the Microphone card (the Gain slider's reach and the limiter), the Look card (card
 //! colours and the language) and About. Its settings are what other parts read through the host: canvas_size(), the
@@ -39,11 +39,11 @@ pub const BUG_REPORT_URL: &str = "https://github.com/LunarKittyy/Telescope/issue
 pub const HELP_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md";
 pub const TRANSLATE_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/development/translating.md";
 
-/// platform/linux.py's devices and the message a refused password prompt comes back with (the outputs crate has the same).
+/// The Linux devices and the message a refused password prompt comes back with (the outputs crate has the same).
 pub const V4L2_PHONE_DEV: &str = "/dev/video11";
 pub const V4L2_OBS_DEV: &str = "/dev/video10";
 pub const CANCELLED: &str = "Cancelled.";
-/// platform/windows.py's UC_NAME: what Telescope registers UnityCapture as.
+/// UC_NAME: what Telescope registers UnityCapture as.
 pub const UC_NAME: &str = "Telescope";
 
 /// The decoder names the Hardware acceleration row says (_HW_NAMES).
@@ -631,7 +631,10 @@ impl SetupPlugin {
         } else {
             Line::new(tr("Not loaded - click Load"), "status_err")
         };
-        self.panel.persist_checked = persisted;
+        // While a switch is being applied its answer decides, not this read
+        if self.panel.persist_enabled {
+            self.panel.persist_checked = persisted;
+        }
     }
 
     fn set_up(&mut self, host: &mut dyn Host, token: &str, action: SetupAction) {
@@ -719,7 +722,7 @@ impl SetupPlugin {
         self.spawn(host, "win-checks", move |_| {
             let s = outputs.setup_status();
             let mf = if s.windows_camera { if s.outdated { "update" } else { "ready" } } else if s.installable { "offer" } else { "" };
-            json!({"uc_name": s.registered_name, "adb": link.adb_available(), "in_app_folder": s.in_app_folder, "mf": mf})
+            json!({"uc_name": s.registered_name, "adb": link.adb_available(), "in_app_folder": s.in_app_folder, "mf": mf, "dlls": s.driver_files})
         });
     }
 
@@ -784,6 +787,7 @@ impl SetupPlugin {
             p.uc = Line::new(tr("Ready"), "status_ok");
             p.uc_button = tr("Reinstall");
             p.uc_tip = String::new();
+            p.uc_primary = false;
         } else {
             p.uc = Line::new(tr("Failed: {message}").field("message", msg), "status_err");
             p.uc_button = tr("Retry");
@@ -1140,7 +1144,7 @@ impl SetupPlugin {
             "win-checks" => {
                 let s = |k: &str| data.get(k).and_then(Value::as_str).unwrap_or("").to_string();
                 let b = |k: &str| data.get(k).and_then(Value::as_bool).unwrap_or(false);
-                self.on_win_checks(&s("uc_name"), b("adb"), b("in_app_folder"), &s("mf"), false);
+                self.on_win_checks(&s("uc_name"), b("adb"), b("in_app_folder"), &s("mf"), b("dlls"));
                 vec!["virtual-camera"]
             }
             "uc-msg" => {
@@ -1473,6 +1477,13 @@ impl Plugin for SetupPlugin {
         self.appearance = Appearance::from_json(cfg.get("appearance"));
         self.language = cfg.get("language").and_then(Value::as_str).unwrap_or("").to_string();
         self.pending = true;
+        Ok(())
+    }
+
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        self.set_config(cfg)?;
+        self.catch_up(host);
+        self.refresh(host, &["virtual-camera", "video", "microphone", "look"]);
         Ok(())
     }
 }

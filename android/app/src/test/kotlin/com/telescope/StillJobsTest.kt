@@ -24,6 +24,15 @@ class StillJobsTest {
     }
 
     @Test
+    fun `files a killed run left behind go when the next one starts`() {
+        val left = File(dir, "IMG_20261123_101010_0123456789abcdef.dng").apply { writeBytes(ByteArray(10)) }
+        val part = File(dir, "IMG_20261123_101011_0123456789abcdef.jpg.part").apply { writeBytes(ByteArray(10)) }
+        jobs()
+        assertFalse(left.exists())
+        assertFalse(part.exists())
+    }
+
+    @Test
     fun `files are named by the wall clock, whatever count the interval clock is at`() {
         now = 5_000L  // an interval clock counts from boot
         val jobs = jobs()

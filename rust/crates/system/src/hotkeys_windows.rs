@@ -1,4 +1,4 @@
-//! Windows global shortcuts (platform/hotkeys_windows.py): RegisterHotKey on a thread of its own, whose message loop
+//! Windows global shortcuts: RegisterHotKey on a thread of its own, whose message loop
 //! gets the WM_HOTKEYs.
 //!
 //! Windows never says when the key comes back up, so for "while held" the thread watches the key (GetAsyncKeyState)
@@ -33,6 +33,8 @@ pub struct Registrar<U: User32> {
     pub user32: U,
     /// RegisterHotKey's id: (hotkey id, virtual-key code, modifier flags).
     by_number: HashMap<i32, (String, u32, u32)>,
+    /// The next RegisterHotKey id: never one a message still queued from an earlier set could carry.
+    next_number: i32,
     hotkeys: Vec<Hotkey>,
     /// Hotkey id: virtual-key code, while its key is down.
     held: HashMap<String, u32>,
@@ -42,15 +44,17 @@ pub struct Registrar<U: User32> {
 
 impl<U: User32> Registrar<U> {
     pub fn new(user32: U, statuses: Statuses, signals: Signals) -> Registrar<U> {
-        Registrar { user32, by_number: HashMap::new(), hotkeys: Vec::new(), held: HashMap::new(), statuses, signals }
+        Registrar { user32, by_number: HashMap::new(), next_number: 1, hotkeys: Vec::new(), held: HashMap::new(), statuses, signals }
     }
 
     pub fn apply(&mut self, hotkeys: &[Hotkey]) {
         self.hotkeys = hotkeys.to_vec();
         self.unregister_all();
         let mut statuses = HashMap::new();
-        for (i, hk) in hotkeys.iter().enumerate() {
-            let number = i as i32 + 1;
+        for hk in hotkeys {
+            let number = self.next_number;
+            // 0x0000 to 0xBFFF belong to the app
+            self.next_number = if number >= 0xBFFF { 1 } else { number + 1 };
             let user32 = &self.user32;
             let Some((flags, vk)) = keys::to_windows(&hk.keys, Some(&|ch| user32.vk_scan(ch))) else {
                 statuses.insert(hk.id.clone(), HotkeyStatus::new(false, tr("Windows can't use this key everywhere")));
@@ -111,7 +115,14 @@ impl<U: User32> Registrar<U> {
 
     /// One WM_HOTKEY for the thread's loop: from here it watches for the release.
     #[cfg_attr(not(any(windows, test)), allow(dead_code))]
-    fn hotkey_came(&mut self, number: i32, watching: &mut bool) {
+    fn hotkey_came(&mut self, number: i32, lparam: isize, watching: &mut bool) {
+        // A message queued before a new set was registered can carry a number now meaning another key: its keys say so
+        const MODS: u32 = keys::MOD_ALT | keys::MOD_CONTROL | keys::MOD_SHIFT | keys::MOD_WIN;
+        let came = ((lparam as usize & 0xFFFF) as u32 & MODS, ((lparam as usize >> 16) & 0xFFFF) as u32);
+        match self.by_number.get(&number) {
+            Some((_, vk, flags)) if came == (flags & MODS, *vk) => {}
+            _ => return,
+        }
         self.on_hotkey(number);
         *watching = true;
     }
@@ -240,7 +251,7 @@ mod real {
                     // SAFETY: msg is a live Msg for each call
                     while unsafe { PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) } != 0 {
                         if msg.message == WM_HOTKEY {
-                            reg.hotkey_came(msg.wparam as i32, &mut watching);
+                            reg.hotkey_came(msg.wparam as i32, msg.lparam, &mut watching);
                         }
                     }
                     for cmd in rx.try_iter() {
@@ -385,11 +396,12 @@ mod tests {
         let mut watching = false;
         assert_eq!(reg.next_wait(&mut watching), None, "nothing to watch yet: it sleeps until a message comes");
         reg.user32.down.insert(0x20);
-        reg.hotkey_came(1, &mut watching);
+        let lparam = (MOD_CONTROL as isize) | (0x20 << 16);
+        reg.hotkey_came(1, lparam, &mut watching);
         // Still down: not pressed twice
-        reg.hotkey_came(1, &mut watching);
+        reg.hotkey_came(1, lparam, &mut watching);
         // Not ours
-        reg.hotkey_came(99, &mut watching);
+        reg.hotkey_came(99, lparam, &mut watching);
         assert_eq!(reg.next_wait(&mut watching), Some(RELEASE_POLL_MS), "the loop comes back by itself");
         assert_eq!(presses(&posted), ["pressed a"]);
         assert_eq!(reg.next_wait(&mut watching), Some(RELEASE_POLL_MS));
@@ -425,5 +437,24 @@ mod tests {
         assert!(reg.user32.registered.is_empty());
         reg.suspend(false);
         assert_eq!(reg.user32.registered.values().copied().collect::<Vec<_>>(), [(MOD_CONTROL | MOD_NOREPEAT, 0x70)]);
+    }
+
+    #[test]
+    fn a_message_queued_before_a_new_set_does_not_run_the_new_binding() {
+        let (mut reg, posted) = registrar(Fake::default());
+        reg.apply(&[hk("a", "Ctrl+F1")]);
+        let stale = (MOD_CONTROL as isize) | (0x70 << 16);
+        // The set changes before the loop gets to the message: the old number must not mean the new key
+        reg.apply(&[hk("b", "Ctrl+F2")]);
+        let mut watching = false;
+        reg.hotkey_came(1, stale, &mut watching);
+        assert!(presses(&posted).is_empty() && !watching);
+        let number = *reg.user32.registered.keys().next().unwrap();
+        assert_ne!(number, 1, "a number is not reused by the next set");
+        // The same number with the wrong keys is refused too, and with the right ones it runs
+        reg.hotkey_came(number, stale, &mut watching);
+        assert!(presses(&posted).is_empty());
+        reg.hotkey_came(number, (MOD_CONTROL as isize) | (0x71 << 16), &mut watching);
+        assert_eq!(presses(&posted), ["pressed b"]);
     }
 }

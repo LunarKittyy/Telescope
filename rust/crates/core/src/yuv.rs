@@ -1,4 +1,4 @@
-//! I420 planes to RGB, RGBA or BGRA 32 pixels at a time on AVX2, in 16 bit lanes with 6 fractional bits (BT.601 video range, each chroma sample shared by its two pixels). Within 1 of the float formulas for every Y, U and V. What it doesn't do (the tail of a row, a processor without AVX2) is left to the caller's plain loop.
+//! I420 planes to RGB, RGBA or BGRA 32 pixels at a time on AVX2 (or SSE4.1 for a processor without it, 16 at a time with the same bytes), in 16 bit lanes with 6 fractional bits (BT.601 video range, each chroma sample shared by its two pixels). Within 1 of the float formulas for every Y, U and V. What it doesn't do (the tail of a row, a processor without SSE4.1) is left to the caller's plain loop.
 
 /// Output layouts: bytes a pixel in memory order (alpha is opaque).
 pub const RGB: u8 = 0;
@@ -17,7 +17,7 @@ pub fn row<const L: u8>(_y: &[u8], _u: &[u8], _v: &[u8], _floored: bool, _out: &
 #[cfg(target_arch = "x86_64")]
 mod avx2 {
     use super::{BGRA, RGB};
-    use crate::image::avx2_wanted;
+    use crate::image::{avx2_wanted, sse41_wanted};
     use std::arch::x86_64::*;
 
     /// 0.164383, 0.596027, 0.017232, 0.391762 and 0.812968 at 15 fractional bits: a gain over 1 is its whole part plus one of these, as a lane can't hold 1.164 at that scale.
@@ -28,23 +28,76 @@ mod avx2 {
     const GREEN_V: i16 = -26640;
 
     /// How many pixels, a whole number of 32s, one row converts here: its colours into `out` in layout `L` with the alpha opaque.
-    /// With `floored` luma under 16 counts as 16. The rest of the row is left for the caller, who gets 0 when there is no AVX2.
+    /// With `floored` luma under 16 counts as 16. The rest of the row is left for the caller, who gets 0 when there is neither AVX2 nor SSE4.1.
     pub fn row<const L: u8>(y: &[u8], u: &[u8], v: &[u8], floored: bool, out: &mut [u8]) -> usize {
         let bytes = if L == RGB { 3 } else { 4 };
         let blocks = y.len().min(out.len() / bytes).min(u.len() * 2).min(v.len() * 2) / 32;
-        if blocks == 0 || !avx2_wanted() {
+        if blocks == 0 {
             return 0;
         }
-        // SAFETY: the processor was just asked whether it has AVX2, and `blocks` keeps every read and write below inside the slices
-        unsafe { blocks_avx2::<L>(y, u, v, floored, out, blocks) }
-        blocks * 32
+        if avx2_wanted() {
+            // SAFETY: the processor was just asked whether it has AVX2, and `blocks` keeps every read and write below inside the slices
+            unsafe { blocks_avx2::<L>(y, u, v, floored, out, blocks) }
+            return blocks * 32;
+        }
+        if sse41_wanted() {
+            // SAFETY: the processor was just asked whether it has SSE4.1, and `blocks` keeps every read and write below inside the slices
+            unsafe { blocks_sse41::<L>(y, u, v, floored, out, blocks) }
+            return blocks * 32;
+        }
+        0
+    }
+
+    /// The same arithmetic as blocks_avx2 on 128 bit lanes, 16 pixels at a time, so a processor with SSE4.1 but no AVX2 gets the same bytes.
+    #[target_feature(enable = "sse4.1")]
+    pub(super) unsafe fn blocks_sse41<const L: u8>(y: &[u8], u: &[u8], v: &[u8], floored: bool, out: &mut [u8], blocks: usize) {
+        let (c16, c128, half, opaque) = (_mm_set1_epi16(16), _mm_set1_epi16(128), _mm_set1_epi16(HALF), _mm_set1_epi16(255));
+        let (k_luma, k_red, k_blue, k_gu, k_gv) = (_mm_set1_epi16(LUMA_EXTRA), _mm_set1_epi16(RED_EXTRA), _mm_set1_epi16(BLUE_EXTRA), _mm_set1_epi16(GREEN_U), _mm_set1_epi16(GREEN_V));
+        let lowest = _mm_set1_epi16(if floored { 0 } else { -16 });
+        let drop_alpha = _mm_setr_epi8(0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, -1, -1, -1, -1);
+        for b in 0..blocks * 2 {
+            // 8 chroma samples, each as (value - 128) at 6 fractional bits
+            let (us, vs) = (_mm_loadl_epi64(u.as_ptr().add(b * 8).cast()), _mm_loadl_epi64(v.as_ptr().add(b * 8).cast()));
+            let d = _mm_slli_epi16::<6>(_mm_sub_epi16(_mm_cvtepu8_epi16(us), c128));
+            let e = _mm_slli_epi16::<6>(_mm_sub_epi16(_mm_cvtepu8_epi16(vs), c128));
+            let red = _mm_add_epi16(_mm_add_epi16(e, _mm_mulhrs_epi16(e, k_red)), half);
+            let green = _mm_add_epi16(_mm_add_epi16(_mm_mulhrs_epi16(d, k_gu), _mm_mulhrs_epi16(e, k_gv)), half);
+            let blue = _mm_add_epi16(_mm_add_epi16(_mm_add_epi16(d, d), _mm_mulhrs_epi16(d, k_blue)), half);
+            let twice = |x: __m128i| (_mm_unpacklo_epi16(x, x), _mm_unpackhi_epi16(x, x));
+            let (red, green, blue) = (twice(red), twice(green), twice(blue));
+            let ys = y.as_ptr().add(b * 16);
+            for (half_of, (r, g, bl)) in [(red.0, green.0, blue.0), (red.1, green.1, blue.1)].into_iter().enumerate() {
+                let luma = _mm_cvtepu8_epi16(_mm_loadl_epi64(ys.add(half_of * 8).cast()));
+                let a = _mm_slli_epi16::<6>(_mm_max_epi16(_mm_sub_epi16(luma, c16), lowest));
+                let c = _mm_add_epi16(a, _mm_mulhrs_epi16(a, k_luma));
+                let shift = |x: __m128i| _mm_srai_epi16::<6>(x);
+                let (r, g, bl) = (shift(_mm_adds_epi16(c, r)), shift(_mm_adds_epi16(c, g)), shift(_mm_adds_epi16(c, bl)));
+                let (first, third) = if L == BGRA { (bl, r) } else { (r, bl) };
+                let (even, odd) = (_mm_packus_epi16(first, third), _mm_packus_epi16(g, opaque));
+                let (pairs, tops) = (_mm_unpacklo_epi8(even, odd), _mm_unpackhi_epi8(even, odd));
+                // Pixels 0 to 3 and 4 to 7 of these 8
+                let (lo, hi) = (_mm_unpacklo_epi16(pairs, tops), _mm_unpackhi_epi16(pairs, tops));
+                if L == RGB {
+                    let at = out.as_mut_ptr().add(b * 48 + half_of * 24);
+                    _mm_storeu_si128(at.cast(), _mm_shuffle_epi8(lo, drop_alpha));
+                    // The last 12 bytes exactly, so nothing is written past the pixels
+                    let last = _mm_shuffle_epi8(hi, drop_alpha);
+                    _mm_storel_epi64(at.add(12).cast(), last);
+                    at.add(20).cast::<i32>().write_unaligned(_mm_extract_epi32::<2>(last));
+                } else {
+                    let at = out.as_mut_ptr().add(b * 64 + half_of * 32);
+                    _mm_storeu_si128(at.cast(), lo);
+                    _mm_storeu_si128(at.add(16).cast(), hi);
+                }
+            }
+        }
     }
 
     /// Half a level at 6 fractional bits, added to every sum so the shift that drops them rounds.
     const HALF: i16 = 32;
 
     #[target_feature(enable = "avx2")]
-    unsafe fn blocks_avx2<const L: u8>(y: &[u8], u: &[u8], v: &[u8], floored: bool, out: &mut [u8], blocks: usize) {
+    pub(super) unsafe fn blocks_avx2<const L: u8>(y: &[u8], u: &[u8], v: &[u8], floored: bool, out: &mut [u8], blocks: usize) {
         let (c16, c128, half, opaque) = (_mm256_set1_epi16(16), _mm256_set1_epi16(128), _mm256_set1_epi16(HALF), _mm256_set1_epi16(255));
         let (k_luma, k_red, k_blue, k_gu, k_gv) = (_mm256_set1_epi16(LUMA_EXTRA), _mm256_set1_epi16(RED_EXTRA), _mm256_set1_epi16(BLUE_EXTRA), _mm256_set1_epi16(GREEN_U), _mm256_set1_epi16(GREEN_V));
         // The lowest luma step (luma - 16) that counts: -16 is every luma there is
@@ -160,6 +213,28 @@ mod tests {
             }
         }
         eprintln!("largest difference {most}, {:.2}% of channel values differ", differing as f64 * 100.0 / (256.0 * 256.0 * 256.0 * 18.0));
+    }
+
+    #[test]
+    fn the_sse41_blocks_make_the_bytes_the_avx2_blocks_do() {
+        if !std::arch::is_x86_feature_detected!("avx2") {
+            return;
+        }
+        let (y, u, v) = (noise(32 * 40, 11), noise(16 * 40, 12), noise(16 * 40, 13));
+        for floored in [false, true] {
+            for (bytes, layout) in [(3usize, RGB), (4, RGBA), (4, BGRA)] {
+                let (mut wide, mut narrow) = (vec![0u8; y.len() * bytes], vec![0u8; y.len() * bytes]);
+                // SAFETY: both were asked above (AVX2 implies SSE4.1), and 40 blocks of 32 pixels fit every slice
+                unsafe {
+                    match layout {
+                        RGB => (avx2::blocks_avx2::<RGB>(&y, &u, &v, floored, &mut wide, 40), avx2::blocks_sse41::<RGB>(&y, &u, &v, floored, &mut narrow, 40)),
+                        RGBA => (avx2::blocks_avx2::<RGBA>(&y, &u, &v, floored, &mut wide, 40), avx2::blocks_sse41::<RGBA>(&y, &u, &v, floored, &mut narrow, 40)),
+                        _ => (avx2::blocks_avx2::<BGRA>(&y, &u, &v, floored, &mut wide, 40), avx2::blocks_sse41::<BGRA>(&y, &u, &v, floored, &mut narrow, 40)),
+                    };
+                }
+                assert!(wide == narrow, "layout {layout} floored {floored}");
+            }
+        }
     }
 
     #[test]

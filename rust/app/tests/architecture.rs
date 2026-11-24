@@ -1,4 +1,4 @@
-//! Crates only meet through core: no crate but the binary depends on another Phase 1 crate (the Rust side of test_architecture.py).
+//! Crates only meet through core: no crate but the binary depends on another Phase 1 crate.
 
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use std::collections::HashMap;
@@ -56,7 +56,7 @@ fn crates_only_meet_through_core() {
     }
 }
 
-// ── Who may use whom inside a crate (the rest of test_architecture.py) ───────────────────────────────────────────────────
+// ── Who may use whom inside a crate ───────────────────────────────────────────────────
 
 fn rust_files(dir: &std::path::Path, out: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
@@ -331,7 +331,6 @@ fn the_path_reader_sees_every_way_of_naming_a_module() {
     }
 }
 
-// test_architecture.py::test_a_plugin_imports_no_other_plugin
 #[test]
 fn a_plugin_uses_no_other_plugin() {
     let all = sources();
@@ -347,7 +346,6 @@ fn a_plugin_uses_no_other_plugin() {
     assert!(broken.is_empty(), "share it through a module that isn't a plugin, the bus or the host:\n{}", broken.join("\n"));
 }
 
-// test_architecture.py::test_a_plugin_imports_neither_the_window_nor_the_sessions
 #[test]
 fn a_plugin_uses_neither_the_window_nor_the_sessions() {
     let all = sources();
@@ -360,11 +358,10 @@ fn a_plugin_uses_neither_the_window_nor_the_sessions() {
     assert!(broken.is_empty(), "{}", broken.join("\n"));
 }
 
-// test_architecture.py::test_the_pieces_the_window_drives_dont_import_it
 #[test]
 fn the_pieces_the_window_drives_dont_use_it() {
     let crates = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates");
-    // plugin.py's twin is the Plugin trait in core
+    // The Plugin trait lives in core
     for name in ["shell/src/sources.rs", "shell/src/session.rs", "shell/src/stream_flow.rs", "core/src/plugin.rs"] {
         let file = crates.join(name);
         let text = std::fs::read_to_string(&file).unwrap();
@@ -373,7 +370,6 @@ fn the_pieces_the_window_drives_dont_use_it() {
     }
 }
 
-// test_architecture.py::test_sessions_needs_no_qt
 #[test]
 fn sessions_needs_no_toolkit() {
     let text = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates/shell/src/session.rs")).unwrap();
@@ -409,7 +405,6 @@ fn styled_kinds(slint: &str) -> Vec<String> {
     styled
 }
 
-// test_architecture.py::test_status_kinds_are_ones_the_theme_styles
 #[test]
 fn status_kinds_are_ones_the_cards_style() {
     // A kind the cards don't colour leaves its text unstyled, as "warn" did for Notes, Desk, Chroma key and QR reader

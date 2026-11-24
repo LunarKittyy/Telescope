@@ -25,7 +25,7 @@ fn a_settings_section_hears_its_plugin_after_the_settings_window_opens() {
     telescope_shell::settings::forget();
 }
 
-// test_shortcuts_plugin.py::test_editor_search_narrows_the_controls: the editor starts at its search box, so a key lands there
+// The editor starts at its search box, so a key lands there
 #[test]
 fn the_shortcut_editor_starts_at_its_search() {
     use slint::platform::WindowEvent;
@@ -68,7 +68,7 @@ impl telescope_core::system::Autostart for NoSignIn {
     }
 }
 
-// test_startup.py::test_start_and_stop_choices_reflect_and_change_the_settings, its controls: what an idle stop switches on
+// Its controls: what an idle stop switches on
 #[test]
 fn the_notice_and_the_mic_note_come_on_with_an_idle_stop() {
     use i_slint_backend_testing::ElementHandle;
@@ -121,7 +121,7 @@ impl telescope_core::plugin::Plugin for Heard {
     }
 }
 
-// test_shortcuts_plugin.py::test_keys_reach_a_window_where_nothing_takes_focus: Settings is a window of its own
+// Settings is a window of its own
 #[test]
 fn keys_reach_a_window_where_nothing_takes_focus() {
     use slint::ComponentHandle;

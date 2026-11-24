@@ -1,4 +1,4 @@
-//! Webcams plugged into this computer, for the Webcam plugin (webcams.py): finding them, picking how to capture and
+//! Webcams plugged into this computer, for the Webcam plugin: finding them, picking how to capture and
 //! which ones are virtual. Linux finds them in sysfs and asks each V4L2 node what it is and which formats it has.
 //! Telescope's own virtual cameras and other loopback or virtual ones are never listed, so a stream can't feed back
 //! into itself.

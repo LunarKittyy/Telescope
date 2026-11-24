@@ -1,4 +1,4 @@
-//! The name tag's drawing (telescope/name_tag.py): a lower third with a name, pronouns and an optional second line.
+//! The name tag's drawing: a lower third with a name, pronouns and an optional second line.
 //!
 //! `layout` works out where everything goes on a canvas of a given size, `render` paints it once into a small tile, and
 //! `TagCache` keeps that tile until the text, the look or the canvas changes, so a frame only costs one blend of the tile's

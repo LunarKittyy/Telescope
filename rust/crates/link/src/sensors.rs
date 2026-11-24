@@ -1,4 +1,4 @@
-//! The phone's motion and light sensors for plugins (HostSensors), from its /v1/sensors (sensors.py).
+//! The phone's motion and light sensors for plugins (HostSensors), from its /v1/sensors.
 //!
 //! Plugins say which kinds they want, each under its own owner name. The shown stream's phone streams what anyone
 //! wants of what it has, and stops as soon as nobody wants anything, so the phone's sensors are only on while used.

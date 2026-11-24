@@ -45,14 +45,14 @@ impl Capabilities {
 
 /// libavutil/hwcontext_d3d11va.h's AVD3D11VADeviceContext.
 #[repr(C)]
-struct DeviceContext {
-    device: *mut c_void,
-    device_context: *mut c_void,
-    video_device: *mut c_void,
-    video_context: *mut c_void,
-    lock: Option<unsafe extern "C" fn(*mut c_void)>,
-    unlock: Option<unsafe extern "C" fn(*mut c_void)>,
-    lock_ctx: *mut c_void,
+pub(crate) struct DeviceContext {
+    pub(crate) device: *mut c_void,
+    pub(crate) device_context: *mut c_void,
+    pub(crate) video_device: *mut c_void,
+    pub(crate) video_context: *mut c_void,
+    pub(crate) lock: Option<unsafe extern "C" fn(*mut c_void)>,
+    pub(crate) unlock: Option<unsafe extern "C" fn(*mut c_void)>,
+    pub(crate) lock_ctx: *mut c_void,
 }
 
 /// One shared texture: made by FFmpeg's D3D11 device, opened by the pipeline's device for every picture that uses it.
@@ -459,7 +459,7 @@ impl Stream {
 }
 
 /// The device context, texture and array slice of a D3D11 frame (data[0] is the texture, data[1] the slice index).
-unsafe fn frame_parts(frame: *const ff::AVFrame) -> Result<(&'static DeviceContext, *mut c_void, u32), String> {
+pub(crate) unsafe fn frame_parts(frame: *const ff::AVFrame) -> Result<(&'static DeviceContext, *mut c_void, u32), String> {
     // SAFETY: the caller holds the frame; hwctx of a D3D11VA device context is an AVD3D11VADeviceContext.
     unsafe {
         let frames = &*((*(*frame).hw_frames_ctx).data as *const ff::AVHWFramesContext);

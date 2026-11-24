@@ -1,4 +1,4 @@
-//! The window's side of the stream flow (app.py's _FlowHost and _SourceHost, and the worker's signals): sources by
+//! The window's side of the stream flow: sources by
 //! id, workers, the footer and tiles, and what phones' threads report back.
 
 use telescope_core::i18n::Fields;
@@ -78,7 +78,7 @@ pub struct Streams {
     sources: RefCell<BTreeMap<String, SourceRef>>,
     /// Sources plugins offer (HostSources), by id.
     pub plugin_sources: RefCell<BTreeMap<String, crate::sources::SharedSource>>,
-    /// The ids waiting for the extra cameras while they're set up (app.py _slots_then), and the question about them.
+    /// The ids waiting for the extra cameras while they're set up, and the question about them.
     pub(crate) slots: crate::extra_cameras::SlotSetup,
     workers: RefCell<Vec<Rc<ShellWorker>>>,
     next_worker: Cell<u64>,
@@ -1005,6 +1005,9 @@ impl Window {
                 }
                 self.process();
             }
+            WorkerEvent::CameraFit(w, h) => {
+                self.state.borrow_mut().bus.emit(Event::CameraFit { source_id: source.id_str().into(), width: w, height: h });
+            }
             WorkerEvent::FrameSizeChanged(w, h) => {
                 self.state.borrow_mut().bus.emit(Event::FrameSizeChanged { source_id: source.id_str().into(), width: w, height: h });
             }
@@ -1506,7 +1509,7 @@ impl Window {
         self.with_flow(|flow, host| if camera_off { flow.mic_reconnected(host, source) } else { flow.stream_reconnected(host, source) });
     }
 
-    /// Picks id as Connection does before a start, so its settings are in (app.py _start_source's conn.select): the event is
+    /// Picks id as Connection does before a start, so its settings are in: the event is
     /// delivered here, as the start runs right after.
     fn selected_now(&self) -> Option<String> {
         self.services.as_ref().and_then(|s| s.link.picked_source()).or_else(|| self.state.borrow().selected.clone())

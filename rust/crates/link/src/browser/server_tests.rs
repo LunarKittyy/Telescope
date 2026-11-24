@@ -1,4 +1,4 @@
-//! tests/test_browser_server.py, test for test: a client stands in for the browser over TLS and a WebSocket, and FakeRtc
+//! A client stands in for the browser over TLS and a WebSocket, and FakeRtc
 //! for its WebRTC side (rtc_tests.rs runs the real one).
 
 use super::feed::{BrowserAudio, BrowserFeed, BrowserHub, BrowserVideo, Frame, Sent};
@@ -427,7 +427,7 @@ fn an_offer_is_answered_and_the_browsers_video_and_mic_come_out() {
     b.text(json!({"type": "hello", "device": "Safari on <iPhone>", "mic_error": ""}));
     assert!(wait(|| feed.device() == "Safari on iPhone", FIVE));
 
-    assert_eq!(b.offer("offer-sdp"), json!({"type": "answer", "sdp": "answer to offer-sdp"}));
+    assert_eq!(b.offer("offer-sdp"), json!({"type": "answer", "sdp": "answer to offer-sdp", "max_kbps": max_kbps_for(1280, 720, 30)}));
     let rtc = run.last();
     assert_eq!(json!(*rtc.max_kbps.lock().unwrap()), config["max_kbps"]);
     assert_eq!(feed.codec(), "H264");
@@ -460,7 +460,7 @@ fn a_new_offer_replaces_the_connection_before_it() {
     b.recv_json();
     b.offer("first");
     let first = run.last();
-    assert_eq!(b.offer("second"), json!({"type": "answer", "sdp": "answer to second"}));
+    assert_eq!(b.offer("second")["sdp"], "answer to second");
     assert!(first.closed() && !run.last().closed());
 }
 
@@ -680,6 +680,35 @@ fn a_new_link_that_lands_while_a_browser_is_still_joining_cuts_it_off_too() {
     let said = ws::close_frame(CLOSE_NEW_LINK, "");
     assert!(wait(|| wrote.lock().unwrap().windows(said.len()).any(|w| w == said.as_slice()), Duration::from_millis(900)),
             "the old link's browser was told to stop");
+}
+
+#[test]
+fn a_browser_that_finishes_connecting_after_stop_is_turned_away() {
+    let web = Arc::new(FakeWeb::default());
+    let (maker, _) = fake_rtc(false);
+    let server = BrowserServer::new(Arc::new(BrowserHub::single(Arc::new(BrowserFeed::new()))), web.clone(), cert(), || {}, 0, "127.0.0.1", maker);
+    server.set_timings(Duration::from_millis(50), Duration::from_secs(5));
+    server.start().unwrap();
+    let (handler, stats) = {
+        let served = web.served.lock().unwrap();
+        (served[0].handler.clone(), served[0].stats.clone())
+    };
+    let request = Request {
+        method: "GET".into(),
+        target: format!("/ws?token={}", server.token()),
+        headers: vec![("Upgrade".into(), "websocket".into()), ("Sec-WebSocket-Key".into(), "dGhlIHNhbXBsZSBub25jZQ==".into()),
+                      ("Sec-WebSocket-Version".into(), "13".into())],
+    };
+    // The handshake passed, and the server is stopped before the connection registers
+    let upgrade = handler.upgrade(&request, &stats).expect("the token was good");
+    server.stop();
+    let wrote: Arc<Mutex<Vec<u8>>> = Arc::default();
+    let sock = Mute { wrote: wrote.clone(), born: Instant::now(), wait: None };
+    let run = upgrade.run;
+    std::thread::spawn(move || run(Box::new(sock)));
+    let said = ws::close_frame(1001, "");
+    assert!(wait(|| wrote.lock().unwrap().windows(said.len()).any(|w| w == said.as_slice()), Duration::from_millis(900)), "it was turned away");
+    assert!(!server.feed().unwrap().connected(), "and never took the feed");
 }
 
 #[test]

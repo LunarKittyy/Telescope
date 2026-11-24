@@ -1,6 +1,6 @@
 //! People in the picture for the plugins that look at them: the vision pack's download (pack), MediaPipe from it (mediapipe),
 //! the picture work around the models (ops) and the per-stream scheduling (service). VisionHost puts them together as core's
-//! VisionService, adding the steady people tracking app.py does (core::people) and the app's one download (VisionDownload).
+//! VisionService, adding the steady people tracking (core::people) and the app's one download (VisionDownload).
 
 pub mod heads;
 pub mod matting;
@@ -187,7 +187,13 @@ fn find_pack(dir: &Path, info: &PackInfo, load: &dyn Fn(&Path) -> Result<Arc<dyn
     for pack in info.installed_packs(dir) {
         let folder = pack.folder(dir);
         let refused = match whole(&folder, &pack) {
-            Some(true) => return load(&folder),
+            Some(true) => match load(&folder) {
+                Ok(backend) => return Ok(backend),
+                Err(e) => {
+                    log::warn!("The vision pack in {} didn't load; trying an older one if there is one", folder.display());
+                    e
+                }
+            },
             Some(false) => damaged(&folder, "vision pack"),
             None => LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack couldn't be checked, so it wasn't loaded")),
         };
@@ -475,8 +481,9 @@ impl VisionService for VisionHost {
     }
 
     fn drop_stream(&self, source_id: &str) {
-        self.shared.tracking.lock().unwrap().drop_stream(source_id);
+        // the worker is retired first, so nothing it was still working on lands in the tracking this clears
         self.shared.vision.drop_stream(source_id);
+        self.shared.tracking.lock().unwrap().drop_stream(source_id);
         self.shared.warmed.lock().unwrap().remove(source_id);
     }
 

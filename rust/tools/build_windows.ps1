@@ -23,9 +23,11 @@ $env:TELESCOPE_CHANNEL = $Channel
 $env:TELESCOPE_COMMIT = $Commit
 # The C runtime goes into the program, as with the camera's DLL: a clean Windows may not have the VC++ redistributable
 $env:RUSTFLAGS = '-C target-feature=+crt-static'
-cargo build --release --locked -p telescope-app --features ffmpeg-windows
+# Only a stable release waits for the slowest, most optimised build (Cargo.toml's nightly profile)
+$cargoProfile = if ($Channel -eq 'stable') { 'release' } else { 'nightly' }
+cargo build --profile $cargoProfile --locked -p telescope-app --features ffmpeg-windows
 if ($LASTEXITCODE) { throw 'cargo build failed' }
-$exe = "$target\release\telescope-rs.exe"
+$exe = "$target\$cargoProfile\telescope-rs.exe"
 
 # The Windows 11 camera, with the wait screen this program draws built into it. It's a window program, so PowerShell has to be told to wait
 $work = "$target\virtualcamera"
@@ -45,7 +47,9 @@ Copy-Item $exe "$Out\TelescopeDesktop.exe"
 # The window's .slint files and icons are read at run time (telescope_ui_kit::library_path)
 Copy-Item -Recurse crates\ui-kit\ui "$Out\ui-kit"
 foreach ($dll in 'avcodec', 'avutil', 'swresample', 'swscale') {
-    Copy-Item "$env:FFMPEG_DIR\bin\$dll-*.dll" $Out
+    $found = @(Get-ChildItem "$env:FFMPEG_DIR\bin\$dll-*.dll")
+    if (-not $found) { throw "No $dll-*.dll in $env:FFMPEG_DIR\bin" }
+    Copy-Item $found $Out
 }
 Copy-Item -Recurse "$rust\windows\unitycapture" "$Out\unitycapture"
 Copy-Item "$work\build\Release\TelescopeCamera.dll" "$Out\virtualcamera\"

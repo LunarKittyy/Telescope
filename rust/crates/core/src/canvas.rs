@@ -1,4 +1,4 @@
-//! Setup's canvas sizes (CANVAS_PRESETS and canvas_dims in plugins/setup.py): Setup saves them, and the window and the virtual
+//! Setup's canvas sizes: Setup saves them, and the window and the virtual
 //! camera read them from Setup's settings.
 
 use crate::i18n::n_;
@@ -80,7 +80,6 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    // test_plugins.py::test_setup_plugin_canvas_config's cases
     #[test]
     fn setup_plugin_canvas_config() {
         let cases = [

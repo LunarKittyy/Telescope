@@ -32,15 +32,17 @@ impl Drop for FakePhone {
     }
 }
 
-fn free_port() -> u16 {
-    std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+/// Two different free ports: both are held until each is known, so the second can't be the first again.
+fn free_ports() -> (u16, u16) {
+    let (a, b) = (std::net::TcpListener::bind("127.0.0.1:0").unwrap(), std::net::TcpListener::bind("127.0.0.1:0").unwrap());
+    (a.local_addr().unwrap().port(), b.local_addr().unwrap().port())
 }
 
 fn start() -> FakePhone {
     let tools = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tools");
     let clip = scratch_dir("fake-phone-clip").join("clip.h264");
     std::fs::write(&clip, b"not a video: nothing here streams it").unwrap();
-    let (session, stream) = (free_port(), free_port());
+    let (session, stream) = free_ports();
     let mut child = Command::new("python3")
         .arg("-I").arg(tools.join("fake_phone.py")).arg(&clip)
         .args(["--host", "127.0.0.1", "--token", "test-token", "--legacy-presence", "--session-port", &session.to_string(), "--stream-port", &stream.to_string()])

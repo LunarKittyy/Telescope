@@ -1,5 +1,5 @@
 //! HTTPS to a paired phone, trusting only the certificate fingerprint it gave at pairing, checked before any request
-//! byte is sent (pinned_https.py). A small HTTP/1.1 client: one request per connection, never following redirects and
+//! byte is sent. A small HTTP/1.1 client: one request per connection, never following redirects and
 //! never going through a proxy. Plain http only goes out without a pin, for tests' local servers.
 
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};

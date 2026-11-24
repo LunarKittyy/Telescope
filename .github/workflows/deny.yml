@@ -19,4 +19,4 @@ jobs:
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
           manifest-path: rust/Cargo.toml
-          arguments: --locked
+          arguments: --all-features --locked

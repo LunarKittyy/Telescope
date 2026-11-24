@@ -1,4 +1,4 @@
-//! test_diagnostics.py, test by test.
+//! Tests for diagnostics.
 
 use super::*;
 use crate::testing::scratch_dir;

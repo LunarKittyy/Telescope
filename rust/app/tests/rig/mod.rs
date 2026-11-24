@@ -51,6 +51,8 @@ pub struct Control {
     pub stalled: AtomicBool,
     /// Asks by the checks a test drives; the two below count on threads of their own, so they aren't mixed up with them.
     pub asked: AtomicU32,
+    /// Those asks whose answer was read, just before it goes back.
+    pub answered: AtomicU32,
     /// The ask a moment after a stream began, on a clock of its own.
     pub fetched: AtomicU32,
     /// The ask after the panels came back to a stream.
@@ -85,7 +87,9 @@ impl PhoneControl for Control {
         if std::thread::current().name() == Some("state-refresh") {
             return self.refresh_answer.lock().unwrap().clone();
         }
-        self.state.lock().unwrap().clone()
+        let answer = self.state.lock().unwrap().clone();
+        self.answered.fetch_add(1, Ordering::SeqCst);
+        answer
     }
     fn retarget(&self, stream_base: &str) {
         self.retargeted.lock().unwrap().push(stream_base.into());
@@ -225,6 +229,11 @@ impl FakeLink {
 
     pub fn logged(&self, what: &str) -> usize {
         self.log.lock().unwrap().iter().filter(|l| l.as_str() == what).count()
+    }
+
+    /// How many logged calls start with this (for the ones that end in a route's details).
+    pub fn logged_starting(&self, what: &str) -> usize {
+        self.log.lock().unwrap().iter().filter(|l| l.starts_with(what)).count()
     }
 
     pub fn answers_recovery(&self, id: &str, res: Resolution) {
@@ -657,7 +666,8 @@ pub struct Rig {
 impl Drop for Rig {
     fn drop(&mut self) {
         // Threads asking these phones about their state stop now, not on the next test's window
-        self.link.controls.lock().unwrap().values().for_each(|c| c.close());
+        // A test that panicked may have poisoned the lock, and a second panic here would abort the whole run
+        self.link.controls.lock().unwrap_or_else(|e| e.into_inner()).values().for_each(|c| c.close());
         window::forget();
         offscreen::drop_jobs();
     }
@@ -861,7 +871,10 @@ impl Rig {
     }
 
     pub fn flag(&self, name: &str) -> bool {
-        self.w.ui.get_property(name) == Ok(SValue::Bool(true))
+        match self.w.ui.get_property(name) {
+            Ok(SValue::Bool(b)) => b,
+            other => panic!("{name} is {other:?}, not a flag"),
+        }
     }
 
     /// The rows of a window property, each as (field, value) text by name.

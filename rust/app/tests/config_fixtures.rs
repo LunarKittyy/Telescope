@@ -1,4 +1,4 @@
-// test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says: `telescope-rs config-snapshot` starts the real window offscreen with every
+// `telescope-rs config-snapshot` starts the real window offscreen with every
 // built-in plugin in a throwaway profile, applies the fixture's settings, saves and prints what came of it. Nothing is left out of the comparison.
 // Linux only: the expected files are recorded there
 #![cfg(target_os = "linux")]
