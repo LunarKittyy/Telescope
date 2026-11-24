@@ -753,7 +753,7 @@ mod tests {
         use telescope_core::balance::{Balance, Place};
         use telescope_core::media::FramePipeline;
         if !crate::pipeline::plain_allowed() {
-            return eprintln!("a plain stream converting on the card is switched off (TELESCOPE_PLAIN_ON_CARD=0); skipped");
+            return eprintln!("a plain stream converting on the card is opt-in on Windows (TELESCOPE_PLAIN_ON_CARD=1); skipped");
         }
         let Some(gpu) = card() else { return eprintln!("no graphics card; skipped") };
         if gpu.adapter_name.contains("Vulkan") && std::env::var_os("TELESCOPE_VULKAN_SURFACE_IMPORT").is_none() {
