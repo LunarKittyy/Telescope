@@ -571,10 +571,10 @@ class CameraSessionController(
         val point = focusPoint ?: return false
         val cam = currentCamera ?: return false
         val rect = meteringRect(point, cam) ?: return false
-        builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-        builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
-        builder.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(rect))
-        if (cam.maxAeRegions > 0 && currentIso == null) builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(rect))
+        setControl(builder, CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+        setControl(builder, CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
+        setControl(builder, CaptureRequest.CONTROL_AF_REGIONS, arrayOf(rect))
+        if (cam.maxAeRegions > 0 && currentIso == null) setControl(builder, CaptureRequest.CONTROL_AE_REGIONS, arrayOf(rect))
         return true
     }
 
@@ -582,7 +582,7 @@ class CameraSessionController(
         val point = meterPoint ?: return
         val cam = currentCamera ?: return
         if (cam.maxAeRegions <= 0 || currentIso != null) return
-        builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(meteringRect(point, cam) ?: return))
+        setControl(builder, CaptureRequest.CONTROL_AE_REGIONS, arrayOf(meteringRect(point, cam) ?: return))
     }
 
     // point: x, y and size in the stream frame, mapped onto the sensor through the zoom
@@ -1243,6 +1243,30 @@ class CameraSessionController(
     private fun requestTemplate(): Int =
         if (codec == H264Stream.CODEC_H264) CameraDevice.TEMPLATE_RECORD else CameraDevice.TEMPLATE_PREVIEW
 
+    // The keys this camera's lens takes in its own settings copy, read once per lens
+    private var lensKeysFor: Pair<String, Set<CaptureRequest.Key<*>>>? = null
+    private fun lensKeys(cam: CameraEntry): Set<CaptureRequest.Key<*>> {
+        lensKeysFor?.takeIf { it.first == cam.id }?.let { return it.second }
+        val keys = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                (context.getSystemService(Context.CAMERA_SERVICE) as CameraManager)
+                    .getCameraCharacteristics(cam.logicalId ?: return emptySet())
+                    .availablePhysicalCameraRequestKeys?.toSet().orEmpty()
+            else emptySet()
+        } catch (_: Exception) { emptySet() }
+        lensKeysFor = cam.id to keys
+        return keys
+    }
+
+    // Into the request, and into the lens's own copy when it has one that takes the key, which would otherwise keep its defaults
+    private fun <T> setControl(builder: CaptureRequest.Builder, key: CaptureRequest.Key<T>, value: T) {
+        builder.set(key, value)
+        val cam = currentCamera ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || cam.logicalId == null || cam.cropZoomMax <= 1f) return
+        val lens = CameraRequestSelection.physicalKeyTarget(cam, lensKeys(cam), key) ?: return
+        try { builder.setPhysicalCameraKey(key, value, lens) } catch (_: Exception) { }
+    }
+
     // A lens of a logical camera that can be cropped gets its own settings in the request, or applyZoom can't set the crop
     private fun newRequest(device: CameraDevice, template: Int): CaptureRequest.Builder {
         val lens = currentCamera?.let { CameraRequestSelection.physicalSettingsId(it) }
@@ -1269,14 +1293,14 @@ class CameraSessionController(
             if (cam != null) applyZoom(this, cam, wholePhoto)
 
             // Use CONTROL_MODE_AUTO even in manual AE so AF keeps running independently
-            set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+            setControl(this, CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
             // A recording template may turn stabilisation on, which crops: framing and zoom here assume the full view
-            set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
+            setControl(this, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
             // Set in manual exposure too, where AE ignores it: it's also what the session is set up for.
             // Unsupported ranges can fail on some devices; use advertised range
             CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), fps, currentLowLight)?.let { range ->
                 android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$fps)")
-                set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+                setControl(this, CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
             }
             // Read once: Auto can clear either from another thread between the check and the use
             val manualIso = currentIso
@@ -1284,67 +1308,67 @@ class CameraSessionController(
             if (manualIso != null && manualShutter != null && cam != null && cam.supportsManualSensor) {
                 val iso = CameraRequestSelection.clamp(manualIso, cam.isoMin, cam.isoMax)
                 val sht = CameraRequestSelection.clamp(manualShutter, cam.shutterMinNs, cam.shutterMaxNs)
-                set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-                set(CaptureRequest.SENSOR_SENSITIVITY,   iso)
-                set(CaptureRequest.SENSOR_EXPOSURE_TIME, sht)
+                setControl(this, CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+                setControl(this, CaptureRequest.SENSOR_SENSITIVITY,   iso)
+                setControl(this, CaptureRequest.SENSOR_EXPOSURE_TIME, sht)
                 val targetFrameNs = 1_000_000_000L / fps
-                set(CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
+                setControl(this, CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
             } else {
-                set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                setControl(this, CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
             }
 
             if (currentFocusMode == "point" && applyFocusRegion(this)) {
                 // AF_MODE_AUTO with the picked region; set by applyFocusRegion
             } else if (currentFocusMode == "manual" && cam != null && cam.supportsManualFocus) {
-                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-                set(CaptureRequest.LENS_FOCUS_DISTANCE,
+                setControl(this, CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+                setControl(this, CaptureRequest.LENS_FOCUS_DISTANCE,
                     CameraRequestSelection.clamp(currentFocusDistance, 0f, cam.minFocusDistance))
             } else {
-                set(CaptureRequest.CONTROL_AF_MODE,
+                setControl(this, CaptureRequest.CONTROL_AF_MODE,
                     CameraRequestSelection.pickAfMode(cam?.afModes ?: emptySet(), wantContinuousVideo = true))
             }
             applyMeterRegion(this)
 
-            set(CaptureRequest.JPEG_QUALITY, currentJpegQuality.toByte())
+            setControl(this, CaptureRequest.JPEG_QUALITY, currentJpegQuality.toByte())
 
             // White balance - desktop sends pre-computed RGGB gains
             val gains = currentWbGains
             if (gains != null && cam?.supportsManualWB == true) {
-                set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
-                set(CaptureRequest.COLOR_CORRECTION_MODE,
+                setControl(this, CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+                setControl(this, CaptureRequest.COLOR_CORRECTION_MODE,
                     CameraMetadata.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
-                set(CaptureRequest.COLOR_CORRECTION_GAINS, gains)
-                lastCCM?.let { set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, it) }
+                setControl(this, CaptureRequest.COLOR_CORRECTION_GAINS, gains)
+                lastCCM?.let { setControl(this, CaptureRequest.COLOR_CORRECTION_TRANSFORM, it) }
             } else {
-                set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
-                set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_FAST)
+                setControl(this, CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+                setControl(this, CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_FAST)
             }
 
             // OIS - only ever requested ON if this camera actually advertises it.
-            set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+            setControl(this, CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                 if (currentOis && cam?.hasOis == true) CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                 else CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF)
 
             // NR/edge modes set only if camera advertises them; omit otherwise.
             val nr = if (currentLowLight) CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY else currentNrMode
             CameraRequestSelection.pickNrMode(cam?.nrModes ?: emptySet(), nr)?.let {
-                set(CaptureRequest.NOISE_REDUCTION_MODE, it)
+                setControl(this, CaptureRequest.NOISE_REDUCTION_MODE, it)
             }
             CameraRequestSelection.pickEdgeMode(cam?.edgeModes ?: emptySet(), currentEdgeMode)?.let {
-                set(CaptureRequest.EDGE_MODE, it)
+                setControl(this, CaptureRequest.EDGE_MODE, it)
             }
 
             // AE exposure compensation (only meaningful in auto AE)
             if (currentIso == null) {
                 val comp = if (cam != null) CameraRequestSelection.clamp(currentAeComp, cam.aeCompMin, cam.aeCompMax)
                            else currentAeComp
-                set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, comp)
+                setControl(this, CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, comp)
             }
 
-            set(CaptureRequest.BLACK_LEVEL_LOCK, currentBlackLevelLock)
+            setControl(this, CaptureRequest.BLACK_LEVEL_LOCK, currentBlackLevelLock)
 
             // Torch - only if this camera actually has a flash unit.
-            set(CaptureRequest.FLASH_MODE,
+            setControl(this, CaptureRequest.FLASH_MODE,
                 if (currentTorch && cam?.supportsFlash == true) CaptureRequest.FLASH_MODE_TORCH
                 else CaptureRequest.FLASH_MODE_OFF)
         }
