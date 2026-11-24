@@ -37,3 +37,12 @@ slow-timeout = { period = "15s", terminate-after = 2 }
 [[profile.default.overrides]]
 filter = "test(four_1080p_streams_draw_quickly)"
 threads-required = "num-cpus"
+
+# The slowest tests (a minute or more each on a CI runner) start first, so a run doesn't end on one of them alone
+[[profile.default.overrides]]
+filter = "binary(appearance_render) | binary(plugin_removal) | binary(view_hand_over) | binary(specimen)"
+priority = 50
+
+# What CI runs: the same, plus how long each test took
+[profile.ci.junit]
+path = "junit.xml"

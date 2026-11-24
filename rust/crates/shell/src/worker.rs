@@ -303,6 +303,7 @@ pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     fitted.number = frame.number;
     fitted.time_ns = frame.time_ns;
     fitted.capture_ns = frame.capture_ns;
+    fitted.phone_share = frame.phone_share;
     fitted
 }
 
@@ -318,6 +319,7 @@ pub fn to_nv12(frame: &Frame) -> Frame {
     let mut nv = Frame::new(frame.width, frame.height, PixelFormat::Nv12, out);
     nv.number = frame.number;
     nv.capture_ns = frame.capture_ns;
+    nv.phone_share = frame.phone_share;
     nv
 }
 
@@ -932,6 +934,10 @@ impl Shared {
     fn open_cap(&self) -> Result<Cap, String> {
         let opener = self.opener.lock().unwrap().clone();
         let (cap, clock) = self.open_cap_with(&opener)?;
+        // A new connection: the crop the last one's frames had says nothing of this one's, whenever the window hears of it
+        if let Some(gate) = &self.gate {
+            gate.connection_reset(&self.source_id);
+        }
         self.slot.set_phone_clock(clock);
         *self.stopper.lock().unwrap() = Some(cap.stopper());
         if self.stopped() {
@@ -977,7 +983,7 @@ impl Shared {
         }
         let pipeline = publish.0.as_mut();
         let arrived = frame.time_ns;
-        let Ok((out, entered)) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let Ok(prepared) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             // what the steps that keep pictures of their own hold is from before the gap
             if resumed {
                 pipeline.forget_history();
@@ -986,6 +992,11 @@ impl Shared {
         })) else {
             log::error!("Frame processing failed; dropping this frame");
             self.stats.dropped(DropReason::StepFailed, 1);
+            return false;
+        };
+        // A frame whose crop isn't known while the phone's is changing: the picture before it stays up a moment longer
+        let Some((out, entered)) = prepared else {
+            self.stats.dropped(DropReason::Paced, 1);
             return false;
         };
         self.newest_arrival.store(arrived, Ordering::Relaxed);
@@ -1161,8 +1172,8 @@ impl Shared {
     }
 
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
-    /// Hands back the epoch the pipeline was in when the steps began on the frame too.
-    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> (telescope_core::media::PipelineFrame, u64) {
+    /// Hands back the epoch the pipeline was in when the steps began on the frame too; None for a frame to hold back (ViewGate::for_frame_checked).
+    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> Option<(telescope_core::media::PipelineFrame, u64)> {
         let next_steps = self.next_steps.lock().unwrap().take();
         let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some((steps, epoch)) = next_steps {
@@ -1199,12 +1210,15 @@ impl Shared {
         frame.mask_space = mask_space;
         // Its number before the steps see it: what a person mask is worked out once by (slot.publish numbers what goes out)
         frame.number = seq;
+        // The phone's window this frame shows, when its tags say (vision maps what it finds through it)
+        let mut phone_crop = None;
         if let Some(gate) = &self.gate {
-            let (snapshot, unsure) = gate.for_frame_labelled(&self.source_id, &frame, crate::shell::now_s(), replaced);
-            if let Some((view, source_crop)) = snapshot {
+            let checked = gate.for_frame_checked(&self.source_id, &frame, crate::shell::now_s(), replaced)?;
+            if let Some((view, source_crop)) = checked.changed {
                 pipeline.replace_steps("view", telescope_core::frame::FrameStage::View, telescope_core::view_step::steps_in(&view, source_crop));
             }
-            frame.mask_space.crop_unsure = unsure;
+            frame.mask_space.crop_unsure = checked.unsure;
+            phone_crop = checked.crop;
         }
         if let Some(feed) = &self.vision {
             let size = (frame.width, frame.height);
@@ -1230,17 +1244,19 @@ impl Shared {
         if let (true, Some(seen)) = (people_due, &seen) {
             let feed = self.vision.as_ref().expect("a feed");
             let upright = feed.upright.lock().unwrap().for_frame(seen.width, seen.height);
+            let upright = telescope_core::vision::Upright { sent: phone_crop.unwrap_or(upright.sent), ..upright };
             feed.service.feed_raw(&self.source_id, seen, upright);
         }
         if let (true, Some(seen)) = (motion_due, &seen) {
             let feed = self.vision.as_ref().expect("a feed");
             let upright = feed.upright.lock().unwrap().for_frame(seen.width, seen.height);
+            let upright = telescope_core::vision::Upright { sent: phone_crop.unwrap_or(upright.sent), ..upright };
             feed.motion.as_ref().expect("a watch").feed(seen, &self.source_id, Some(&upright), now_s);
         }
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
         let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered, hurried: false, superseded: None };
-        (pipeline.process_picture(frame, &ctx), entered)
+        Some((pipeline.process_picture(frame, &ctx), entered))
     }
 
     /// Whether the frame steps and vision are paused: only the main camera's stream, once an app has not read the camera and nothing has
@@ -1783,7 +1799,7 @@ impl Shared {
             fitted_on_card.retain(|(n, _)| queued.iter().any(|(f, _)| f.number == *n) || shown.as_ref().is_some_and(|f| f.number == *n));
             let next = match pacer.pick(Instant::now(), &mut queued, fitted.is_some()) {
                 Pick::Wait => continue,
-                Pick::New(frame, at) => Some((frame, at)),
+                Pick::New(frame, at) => Some((*frame, at)),
                 Pick::Resend => None,
             };
             // A hiding that came after the frame was taken: it's not sent, the next pass takes the hidden one
@@ -1958,7 +1974,7 @@ enum Pick {
     /// Nothing is due yet.
     Wait,
     /// A picture waiting in the queue goes out, with how many had been published when it was.
-    New(Frame, u64),
+    New(Box<Frame>, u64),
     /// Nothing new came in time, so the last picture goes again.
     Resend,
 }
@@ -1993,7 +2009,7 @@ impl Pacer {
         let due = self.ended.is_none_or(|t| now.saturating_duration_since(t) >= 2 * self.period);
         if !paced {
             if let Some((frame, at)) = queue.pop_front() {
-                return Pick::New(frame, at);
+                return Pick::New(Box::new(frame), at);
             }
         }
         if paced || !due || !have_last { Pick::Wait } else { Pick::Resend }
@@ -2104,6 +2120,7 @@ fn stretch(frame: &Frame, width: u32, height: u32) -> Frame {
     f.number = frame.number;
     f.time_ns = frame.time_ns;
     f.capture_ns = frame.capture_ns;
+    f.phone_share = frame.phone_share;
     f
 }
 

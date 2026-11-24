@@ -213,6 +213,8 @@ pub struct H264 {
     ask_keyframe: Option<Box<dyn Fn() + Send>>,
     /// The phone's clock offset, which turns the capture times in the stream into this computer's clock.
     clock: Option<Arc<PhoneClock>>,
+    /// The crops a newer phone tags its pictures with, until each picture comes out.
+    crops: stamp::CropTags,
     /// When the card gave up, until software has a picture.
     swapped_at: Option<Instant>,
     /// Whether the stream's frame steps start on the graphics card, which is what lets a decoded picture stay there (none: always in memory).
@@ -368,6 +370,8 @@ struct Rig {
     steps: Option<Steps>,
     step_generation: u64,
     gate: Gate,
+    /// The crops its own pictures are tagged with, which become the running decoder's at the switch.
+    crops: stamp::CropTags,
     #[cfg(test)]
     hold: Option<Arc<Mutex<()>>>,
 }
@@ -384,7 +388,7 @@ impl Rig {
             return Report::Stale;
         }
         // Nothing before the keyframe is decoded, so whatever it refuses after that is its fault, or damage in the stream
-        match decode(&mut self.codec, self.steps.as_ref(), data, true, None, true, Some(&mut self.gate)) {
+        match decode(&mut self.codec, self.steps.as_ref(), data, true, None, true, &mut self.crops, Some(&mut self.gate)) {
             Ok(fed) => {
                 if self.codec.take_damaged() || damaged {
                     self.gate.waiting = true;
@@ -613,6 +617,7 @@ impl H264 {
             counted: false,
             ask_keyframe: None,
             clock: None,
+            crops: stamp::CropTags::default(),
             swapped_at: None,
             #[cfg(surfaces)]
             surface_wish: None,
@@ -668,10 +673,10 @@ impl H264 {
         let result = if std::mem::take(&mut self.break_next) {
             Err("the driver failed after receiving setup".to_string())
         } else {
-            decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take, None)
+            decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take, &mut self.crops, None)
         };
         #[cfg(not(test))]
-        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take, None);
+        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref(), take, &mut self.crops, None);
         // A picture left on the decoder was never waited for (a card decodes in the background until its picture is taken), so it says nothing about keeping up
         let timed = |fed: &Fed| if take { fed.count } else { 0 };
         match result {
@@ -819,6 +824,7 @@ impl H264 {
             steps,
             step_generation,
             gate: Gate { waiting: true, headers: Headers::default() },
+            crops: stamp::CropTags::default(),
             #[cfg(test)]
             hold: self.hold.clone(),
         };
@@ -916,6 +922,8 @@ impl H264 {
         self.codec = rig.codec;
         self.steps = rig.steps;
         self.step_generation = rig.step_generation;
+        // The candidate read the tags of every picture it decoded, and the old decoder's pending ones belong to pictures that are gone
+        self.crops = rig.crops;
         #[cfg(surfaces)]
         {
             let wish = self.wish();
@@ -1125,7 +1133,7 @@ impl H264 {
         // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
         let setup = [&self.headers.setup(), data].concat();
         self.swapped_at = Some(Instant::now());
-        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref(), true, None).map_or((None, 0), |fed| (fed.newest, fed.count));
+        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref(), true, &mut self.crops, None).map_or((None, 0), |fed| (fed.newest, fed.count));
         self.note_picture_back(fed.1);
         fed
     }
@@ -1216,7 +1224,7 @@ struct Fed {
 /// refuses is the decoder's fault (a card that can't take the stream), not something to skip. Each access unit's capture time
 /// (the SEI the phone puts in front of a picture) is read before the steps change the unit and goes with it as the packet's pts, so the
 /// picture that comes out has its own time however the decoder delays or reorders; clock turns it into this computer's.
-fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, clock: Option<&PhoneClock>, take: bool, mut gate: Option<&mut Gate>) -> Result<Fed, String> {
+fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, clock: Option<&PhoneClock>, take: bool, crops: &mut stamp::CropTags, mut gate: Option<&mut Gate>) -> Result<Fed, String> {
     let mut newest = None;
     let mut count = 0;
     let mut units_in = 0;
@@ -1236,7 +1244,9 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
             None => std::borrow::Cow::Borrowed(unit),
         };
         let unit = &unit[..];
-        let pts = stamp::find(unit).and_then(Stamp::to_pts);
+        let (found, crop) = stamp::read(unit);
+        let pts = found.and_then(Stamp::to_pts);
+        crops.note(pts, crop);
         let units = match steps {
             Some(s) => s.step(unit),
             None => vec![unit.to_vec()],
@@ -1270,6 +1280,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
             Ok(taken) => {
                 newest = taken.map(|(mut frame, pts)| {
                     frame.capture_ns = pts.and_then(Stamp::from_pts).and_then(|s| clock?.to_desktop(s.clock, s.ns));
+                    frame.phone_share = crops.take(pts);
                     frame
                 })
             }
@@ -2326,7 +2337,7 @@ pub(crate) mod tests {
     }
 
     fn rig() -> Rig {
-        Rig { codec: Codec::h264(None).unwrap(), steps: None, step_generation: 0, gate: Gate { waiting: true, headers: Headers::default() }, hold: None }
+        Rig { codec: Codec::h264(None).unwrap(), steps: None, step_generation: 0, gate: Gate { waiting: true, headers: Headers::default() }, crops: stamp::CropTags::default(), hold: None }
     }
 
     fn named(report: &Report) -> &'static str {
@@ -2685,6 +2696,24 @@ pub(crate) mod tests {
     fn stamped_greys() -> Option<Vec<Vec<u8>>> {
         let packets = testenc::h264(&GREYS, 64, 48, 5)?;
         Some(packets.iter().enumerate().map(|(i, p)| stamped(p, 0, phone_ns(i))).collect())
+    }
+
+    #[test]
+    fn each_frame_comes_out_with_the_crop_its_packet_was_tagged_with() {
+        let Some(packets) = testenc::h264(&GREYS, 64, 48, 5) else { return };
+        let crop = |i: usize| telescope_core::view::PhoneZoom { ratio: 1.0, crop: 1.0 + i as f64 / 4.0, x: 0.5, y: 0.5 };
+        let mut dec = software();
+        for (i, p) in packets.iter().enumerate() {
+            let at = start_codes(p).into_iter().find(|&(_, e)| matches!(p[e] & 31, 1 | 5)).map(|(s, _)| s).expect("a slice");
+            // Fed in pieces, so a picture comes out after the next packet's tag has been read
+            let tagged = [&p[..at], &crate::stamp::sei_with_crop(0, phone_ns(i), crop(i)), &p[at..]].concat();
+            let frame = tagged.chunks(97).filter_map(|c| dec.feed(c).0).last().or_else(|| dec.feed(AUD).0).expect("a frame for every packet");
+            assert_eq!((which(&frame, &GREYS), frame.phone_share), (i, Some(crop(i))));
+        }
+        // An older phone tags nothing
+        let mut dec = software();
+        let frame = dec.feed(&stamped(&packets[0], 0, phone_ns(0))).0.expect("a frame");
+        assert_eq!(frame.phone_share, None);
     }
 
     #[test]
