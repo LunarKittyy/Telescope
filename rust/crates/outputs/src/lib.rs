@@ -291,11 +291,7 @@ impl Outputs for VirtualCameras {
             linger: mf::WATCH_LINGER,
             #[cfg(windows)]
             uc_want: Arc::new(move || {
-                // Only the main camera has a UnityCapture filter to listen to
-                if slot != 0 {
-                    return None;
-                }
-                let num = wincam::uc_filter_for(&wincam::System, &wininstall::unitycapture_dir(), 0)?;
+                let num = wincam::uc_filter_for(&wincam::System, &wininstall::unitycapture_dir(), slot)?;
                 let event = win::open_event(&wincam::uc_object_name("Want", num), win::SYNCHRONIZE)?;
                 Some(Box::new(watch::WinWant(event)) as Box<dyn watch::WantEvent>)
             }),
@@ -440,8 +436,8 @@ fn filter_probe(slot: u32) -> Option<wait_screen::FilterProbe> {
                 Some(Box::new(move || mf::open_shared(slot).is_some()) as Box<dyn Fn() -> bool + Send>)
             }),
             // An app's filter makes the shared image when it opens the camera; until then every send goes nowhere
-            wincam::FilterProbe::Image => Arc::new(|| {
-                let num = wincam::uc_filter_for(&wincam::System, &wininstall::unitycapture_dir(), 0)?;
+            wincam::FilterProbe::Image => Arc::new(move || {
+                let num = wincam::uc_filter_for(&wincam::System, &wininstall::unitycapture_dir(), slot)?;
                 let name = wincam::uc_object_name("Data", num);
                 Some(Box::new(move || win::mapping_exists(&name)) as Box<dyn Fn() -> bool + Send>)
             }),
@@ -541,6 +537,16 @@ mod tests {
         assert_eq!(wincam::filter_probe_for(reg.as_ref(), 1), None);
         assert_eq!(wincam::filter_probe_for(reg.as_ref(), 2), Some(wincam::FilterProbe::Shared));
         assert_eq!(wincam::filter_probe_for(&FakeRegistry::uc(&[(0, "Telescope")]), 0), Some(wincam::FilterProbe::Image));
+    }
+
+    #[test]
+    fn an_extra_unitycapture_camera_is_watched_through_its_own_filter() {
+        let reg = FakeRegistry::uc(&[(0, "Telescope"), (2, "Telescope #2")]);
+        assert_eq!(wincam::filter_probe_for(&reg, 1), Some(wincam::FilterProbe::Image));
+        assert_eq!(wincam::filter_probe_for(&reg, 2), None, "no filter of that name to watch");
+        // The objects the watcher and the probe open are the numbered ones the writer streams to
+        let num = wincam::uc_filter_for(&reg, std::path::Path::new(""), 1).unwrap();
+        assert_eq!(wincam::uc_object_name("Want", num), "UnityCapture_Want2");
     }
 
     const UC_DIR: &str = r"C:\app\unitycapture";

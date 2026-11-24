@@ -308,7 +308,8 @@ impl PhototrapPlugin {
         choices.insert("use_zoom".into(), json!(self.use_zoom));
         let burst = caps.burst_max >= 2;
         choices.insert("shots".into(), json!(if burst { "burst" } else { "single" }));
-        choices.insert("burst".into(), json!(self.count_now().max(2)));
+        // the saved count, not count_now: that is capped by the camera on screen, and build_options caps it for this one
+        choices.insert("burst".into(), json!(i64::from(self.count).max(2)));
         let night = self.night && Self::night_in(caps);
         if night {
             choices.insert("mode".into(), json!("night"));

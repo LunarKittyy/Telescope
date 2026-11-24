@@ -193,6 +193,7 @@ fn the_real_models_mask_keeps_up_with_someone_moving_across() {
         }
         std::thread::sleep(Duration::from_millis(33).saturating_sub(began.elapsed()));
     }
+    assert!(!behind.is_empty(), "the person's mask never came back, so nothing was measured");
     let worst = behind.iter().cloned().fold(0.0, f64::max);
     eprintln!("Frames behind, moving {STEP} of {} pixels a frame: {behind:.1?}", SIZE.0);
     assert!(worst < 3.0, "the mask is {worst:.1} frames behind");

@@ -43,6 +43,7 @@ let running = false;
 let retries = 0;
 let retryTimer = null;
 let pc = null;
+let answeredKbps = 0;  // the bitrate cap the computer's answer used, 0 until it comes
 let videoSender = null;
 let micSender = null;
 let downTimer = null;  // a disconnected peer connection gets this long to come back
@@ -155,6 +156,7 @@ async function openMic() {
     micError = "";
     sendHello();  // the computer retries its microphone once the browser's recording works again
   } catch (_) {
+    if (gen !== mediaGen || !running) return;  // an old reopen failing says nothing about the new mic
     micError = "The browser couldn't record the microphone.";
     sendHello();
   }
@@ -322,6 +324,8 @@ function applyConfig(msg) {
   updateMicSender();
   if (changed && camera) resize();
   else applyLimits();
+  // The cap went into the answer and the computer's feedback, so a new one takes a new offer
+  if (pc && answeredKbps && answeredKbps !== config.max_kbps) negotiate();
 }
 
 // A new size or rate: the camera is asked for it, and opened again where the browser ignores that (Safari often does).
@@ -331,8 +335,8 @@ async function resize() {
     await track.applyConstraints(cameraConstraints());
   } catch (_) { /* reopened below */ }
   const s = track.getSettings ? track.getSettings() : {};
-  const near = (a, b) => !a || Math.abs(a - b) < 64;
-  const fits = near(Math.max(s.width, s.height), Math.max(config.width, config.height)) && near(s.frameRate, config.fps);
+  const near = (a, b, within) => !a || Math.abs(a - b) < within;
+  const fits = near(Math.max(s.width, s.height), Math.max(config.width, config.height), 64) && near(s.frameRate, config.fps, 5);
   if (track === camera && !fits && running) await restartCamera();
   applyLimits();
 }
@@ -400,6 +404,7 @@ async function onAnswer(msg) {
     if (pc === peer) show(`The video connection didn't start (${err.name || err}).`, "err");
     return;
   }
+  if (pc === peer) answeredKbps = msg.max_kbps | 0;
   applyLimits();
 }
 
@@ -428,6 +433,7 @@ function closePeer() {
   adaptTimer = null;
   const peer = pc;
   pc = videoSender = micSender = null;
+  answeredKbps = 0;
   if (peer) {
     peer.onconnectionstatechange = null;
     try { peer.close(); } catch (_) { /* already closed */ }

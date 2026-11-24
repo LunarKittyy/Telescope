@@ -203,7 +203,7 @@ fn h264_too_much_for_the_encoder_stops_and_offers_heavy() {
     r.phone_says("oneplus", state_with(json!({"codecs": ["mjpeg", "h264"], "codec": "mjpeg",
         "codec_error": "H.264 isn't available at 4096x3072 on this phone", "codec_unsupported": true})));
     r.until("the stop", |r| r.streaming() == ["pixel"]);
-    assert_eq!(r.link.logged("reconnect"), 0);
+    assert_eq!(starts(&r, "oneplus"), 1, "the stopped phone isn't started again on its own");
     let banner = r.banner("encoder").expect("a banner");
     assert_eq!(banner["title"], "Too much for the phone's H.264 encoder");
     assert!(banner["text"].starts_with("H.264 isn't available at 4096x3072") && banner["text"].contains("lower resolution or FPS"), "{}", banner["text"]);

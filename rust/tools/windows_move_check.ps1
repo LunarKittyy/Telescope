@@ -31,6 +31,7 @@ if ($running.HasExited) { $problems += "the installed copy exited with $($runnin
 else { Stop-Process -Id $running.Id -Force }
 
 $p = Start-Process -FilePath "$installed\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+if ($p.ExitCode) { $problems += "the uninstaller exited with $($p.ExitCode)" }
 for ($i = 0; $i -lt 60 -and (Test-Path $installed); $i++) { Start-Sleep -Seconds 1 }
 Remove-Item -Recurse -Force $downloads
 

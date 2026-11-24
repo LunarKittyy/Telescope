@@ -101,6 +101,8 @@ pub struct Feed {
     built: AtomicU64,
     max_size: (u32, u32),
     proof_wait: Duration,
+    /// Where each headset reads the pipeline epoch just before a picture goes out, so one made before a hiding step came on is never sent.
+    epochs: Mutex<Option<Arc<dyn FrameStore>>>,
 }
 
 /// Holds one of the places for a headset until it's dropped, and says which run and link it was given under.
@@ -156,6 +158,7 @@ impl Feed {
             job_ready: Condvar::new(),
             shown_changed: Condvar::new(),
             built: AtomicU64::new(0),
+            epochs: Mutex::new(None),
             max_size,
             proof_wait: PROOF_WAIT,
         }
@@ -283,6 +286,22 @@ impl Feed {
             }
             let left = deadline.checked_duration_since(Instant::now()).filter(|d| !d.is_zero())?;
             state = self.job_ready.wait_timeout(state, left).unwrap_or_else(|e| e.into_inner()).0;
+        }
+    }
+
+    /// Sends the pipeline epochs of this store to the headsets' final check.
+    pub fn watch_epochs(&self, store: Arc<dyn FrameStore>) {
+        *self.epochs.lock().unwrap_or_else(|e| e.into_inner()) = Some(store);
+    }
+
+    /// The message as a headset may have it right now, or none: a picture made before the pipeline's latest change is held back, so the headset keeps its last picture until the worker sends the new one or black.
+    fn vet(&self, seq: u64, message: Message) -> Option<Message> {
+        let Some(store) = self.epochs.lock().unwrap_or_else(|e| e.into_inner()).clone() else { return Some(message) };
+        let made = self.lock().shown.as_ref().filter(|s| s.seq == seq).map(|s| s.epoch);
+        match (&message, made) {
+            (Message::Jpeg(_), Some(epoch)) if epoch < store.pipeline_epoch() => None,
+            (Message::Jpeg(_), None) => None,
+            _ => Some(message),
         }
     }
 
@@ -501,12 +520,13 @@ fn serve_viewer(feed: Arc<Feed>, mut sock: Box<dyn Socket>, slot: Slot) {
         let valid = |state: &State| state.run == slot.run && state.token_gen == slot.generation;
         if let Some((seq, message)) = feed.next_where(seen, SEND_WAIT, &valid, &|m| !waiting_for_ack || *m == Message::Blank) {
             seen = seq;
-            let sent = match &message {
-                Message::Jpeg(jpeg) => {
+            let sent = match feed.vet(seq, message) {
+                Some(Message::Jpeg(jpeg)) => {
                     waiting_for_ack = true;
-                    send(&mut *sock, BINARY, jpeg)
+                    send(&mut *sock, BINARY, &jpeg)
                 }
-                Message::Blank => send(&mut *sock, TEXT, b"blank"),
+                Some(Message::Blank) => send(&mut *sock, TEXT, b"blank"),
+                None => Ok(()),
             };
             if sent.is_err() {
                 return;

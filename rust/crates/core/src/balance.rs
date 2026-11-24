@@ -382,7 +382,7 @@ impl Balance {
     /// A new stream's own way in, starting on the card: where its steps run, its rate and what they cost the CPU are its own, and gone with it.
     pub fn lane(self: &Arc<Self>) -> Lane {
         let id = NEXT_STREAM.fetch_add(1, Ordering::Relaxed);
-        self.lanes.lock().unwrap().watch(id);
+        self.lanes.lock().unwrap_or_else(|e| e.into_inner()).watch(id);
         Lane(Arc::new(LaneOf { balance: self.clone(), id }))
     }
 
@@ -403,7 +403,7 @@ impl Balance {
         let before = self.runtime.swap(if on { RUNTIME_CARD } else { RUNTIME_FREE }, Ordering::Relaxed);
         if on && before != RUNTIME_CARD {
             // Whatever was seen is stale once frames are held on the card, and letting go starts from the card
-            self.lanes.lock().unwrap().watches.values_mut().for_each(Watch::held);
+            self.lanes.lock().unwrap_or_else(|e| e.into_inner()).watches.values_mut().for_each(Watch::held);
         }
     }
 
@@ -415,7 +415,7 @@ impl Balance {
     fn place_of(&self, id: u64) -> Place {
         match self.pin_now() {
             Pin::To(place) => place,
-            Pin::Free => self.lanes.lock().unwrap().watch(id).place,
+            Pin::Free => self.lanes.lock().unwrap_or_else(|e| e.into_inner()).watch(id).place,
         }
     }
 
@@ -428,7 +428,7 @@ impl Balance {
     pub fn all_on_card(&self) -> bool {
         match self.pin_now() {
             Pin::To(place) => place == Place::Card,
-            Pin::Free => self.lanes.lock().unwrap().watches.values().all(|w| w.place == Place::Card),
+            Pin::Free => self.lanes.lock().unwrap_or_else(|e| e.into_inner()).watches.values().all(|w| w.place == Place::Card),
         }
     }
 
@@ -436,7 +436,7 @@ impl Balance {
         self.last_wait.store(wait_ns, Ordering::Relaxed);
         if self.free_now() {
             let now = monotonic_ns();
-            self.lanes.lock().unwrap().on(id, |w| ((), w.note_frame(wait_ns, now)));
+            self.lanes.lock().unwrap_or_else(|e| e.into_inner()).on(id, |w| ((), w.note_frame(wait_ns, now)));
         }
     }
 
@@ -445,14 +445,14 @@ impl Balance {
             return None;
         }
         let now = monotonic_ns();
-        self.lanes.lock().unwrap().on(id, |w| w.trial_due(now))
+        self.lanes.lock().unwrap_or_else(|e| e.into_inner()).on(id, |w| w.trial_due(now))
     }
 
     fn trial_done_for(&self, id: u64, ticket: u64, wait_ns: Option<u64>) {
         self.last_wait.store(wait_ns.unwrap_or(TRIAL_FAILED), Ordering::Relaxed);
         let now = monotonic_ns();
         let free = self.free_now();
-        self.lanes.lock().unwrap().on(id, |w| {
+        self.lanes.lock().unwrap_or_else(|e| e.into_inner()).on(id, |w| {
             if free {
                 ((), w.trial_done(ticket, wait_ns, now))
             } else {
@@ -474,7 +474,7 @@ impl Balance {
 
     /// That trial came back: what it waited, or None when it failed.
     pub fn trial_done(&self, wait_ns: Option<u64>) {
-        let ticket = self.lanes.lock().unwrap().watch(NO_STREAM).trial.map(|(ticket, _)| ticket);
+        let ticket = self.lanes.lock().unwrap_or_else(|e| e.into_inner()).watch(NO_STREAM).trial.map(|(ticket, _)| ticket);
         if let Some(ticket) = ticket {
             self.trial_done_for(NO_STREAM, ticket, wait_ns);
         }
@@ -482,7 +482,7 @@ impl Balance {
 
     /// That trial was stopped before it saw anything: the next one may go, and the card isn't blamed.
     pub fn trial_called_off(&self) {
-        self.lanes.lock().unwrap().watch(NO_STREAM).trial = None;
+        self.lanes.lock().unwrap_or_else(|e| e.into_inner()).watch(NO_STREAM).trial = None;
     }
 
     /// The newest wait heard, in ns.
@@ -492,12 +492,12 @@ impl Balance {
 
     /// How many times a stream's frames have moved.
     pub fn swaps(&self) -> u32 {
-        self.lanes.lock().unwrap().swaps
+        self.lanes.lock().unwrap_or_else(|e| e.into_inner()).swaps
     }
 
     /// The latest moves of every stream, oldest first, with why.
     pub fn moves(&self) -> Vec<Move> {
-        self.lanes.lock().unwrap().moves.iter().copied().collect()
+        self.lanes.lock().unwrap_or_else(|e| e.into_inner()).moves.iter().copied().collect()
     }
 
     /// Whether TELESCOPE_FRAME_STEPS holds frames in one place.
@@ -523,7 +523,7 @@ pub struct Lane(Arc<LaneOf>);
 
 impl Lane {
     fn with<T>(&self, f: impl FnOnce(&mut Watch) -> T) -> T {
-        f(self.0.balance.lanes.lock().unwrap().watch(self.0.id))
+        f(self.0.balance.lanes.lock().unwrap_or_else(|e| e.into_inner()).watch(self.0.id))
     }
 
     /// Where this stream's frame steps that can run either way should run this frame.
@@ -751,15 +751,15 @@ mod tests {
         let b = Balance::free();
         (0..4).for_each(|_| b.note_wait(40 * MS));
         let due = |b: &Balance| {
-            b.lanes.lock().unwrap().watch(NO_STREAM).next_trial = 0;
+            b.lanes.lock().unwrap_or_else(|e| e.into_inner()).watch(NO_STREAM).next_trial = 0;
             b.trial_due()
         };
         assert!(due(&b));
         b.trial_done(Some(2 * MS));
-        assert!(b.lanes.lock().unwrap().watch(NO_STREAM).clear_since.is_some());
+        assert!(b.lanes.lock().unwrap_or_else(|e| e.into_inner()).watch(NO_STREAM).clear_since.is_some());
         assert!(due(&b));
         b.trial_done(None);
-        assert_eq!(b.lanes.lock().unwrap().watch(NO_STREAM).clear_since, None);
+        assert_eq!(b.lanes.lock().unwrap_or_else(|e| e.into_inner()).watch(NO_STREAM).clear_since, None);
         assert!(due(&b));
         b.trial_called_off();
         assert!(due(&b), "called off lets the next go");
@@ -1067,8 +1067,8 @@ mod tests {
         b.keep_on_card(false);
         let other = lane.clone();
         drop(lane);
-        assert_eq!(b.lanes.lock().unwrap().watches.len(), 1, "a clone is the same stream");
+        assert_eq!(b.lanes.lock().unwrap_or_else(|e| e.into_inner()).watches.len(), 1, "a clone is the same stream");
         drop(other);
-        assert!(b.lanes.lock().unwrap().watches.is_empty());
+        assert!(b.lanes.lock().unwrap_or_else(|e| e.into_inner()).watches.is_empty());
     }
 }

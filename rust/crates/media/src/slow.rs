@@ -81,6 +81,21 @@ pub const START_LIMIT: Duration = Duration::from_secs(8);
 /// Software must deliver this much more than the card, new pictures a second, to be called better: the same rate is a tie, and a tie goes to the card.
 pub const RATE_MARGIN: f64 = 1.05;
 
+/// A decoder beside the running one has to be timed this long once it gives pictures, and given this many, before it's called behind.
+const BEHIND_SPAN: Duration = Duration::from_secs(2);
+const BEHIND_PICTURES: u64 = 5;
+
+/// Whether a decoder that gave `pictures` over `span` since its first, fed `sent` pieces over `fed`, with `backlog` of them unanswered, decodes slower
+/// than the stream comes and so can never catch up: it has to be a full second of the stream behind and falling further.
+pub fn falling_behind(pictures: u64, span: Duration, sent: u64, fed: Duration, backlog: u64) -> bool {
+    if pictures < BEHIND_PICTURES || span < BEHIND_SPAN || fed.is_zero() {
+        return false;
+    }
+    let decoded = (pictures - 1) as f64 / span.as_secs_f64();
+    let coming = sent as f64 / fed.as_secs_f64();
+    decoded < coming / RATE_MARGIN && backlog as f64 >= coming
+}
+
 /// Whether software, at software_ms a picture, is clearly quicker than a card at card_ms.
 pub fn software_quicker(card_ms: f64, software_ms: f64) -> bool {
     software_ms < card_ms * CLEARLY_QUICKER
@@ -251,6 +266,19 @@ impl Timings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_decoder_slower_than_the_stream_is_behind_but_one_catching_up_is_not() {
+        let s = Duration::from_secs;
+        // 12 pictures a second of a 30 a second stream, a second and more behind
+        assert!(falling_behind(25, s(2), 90, s(3), 60));
+        // Fast enough: the backlog is only the start-up queue
+        assert!(!falling_behind(61, s(2), 90, s(3), 60));
+        // Slow but not yet a second behind, too few pictures, or too early
+        assert!(!falling_behind(25, s(2), 90, s(3), 10));
+        assert!(!falling_behind(3, s(2), 90, s(3), 60));
+        assert!(!falling_behind(25, Duration::from_millis(900), 90, s(3), 60));
+    }
 
     #[test]
     fn speed_reads_the_median_p95_and_max() {

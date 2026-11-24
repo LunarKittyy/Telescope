@@ -561,3 +561,26 @@ fn a_disconnected_merge_worker_reports_failure_and_releases_capacity() {
     assert_eq!(posted[0]["ok"], false);
     assert_eq!(queue.used.load(std::sync::atomic::Ordering::SeqCst), 0);
 }
+
+#[test]
+fn a_damaged_photo_is_never_deleted_with_its_raw() {
+    let folder = std::env::temp_dir().join(format!("focus-merge-bad-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).unwrap();
+    let mut files = Vec::new();
+    for i in 0..3 {
+        let path = folder.join(format!("BAD_{i}.jpg"));
+        let mut bytes = encode_jpeg(&photo(i, 0.0, (0.0, 0.0)), 92, None).unwrap();
+        if i == 2 {
+            // the header is whole, so it passes the size check, but the picture isn't
+            let scan = bytes.windows(2).position(|w| w == [0xFF, 0xDA]).unwrap();
+            bytes.truncate(scan + 12);
+        }
+        std::fs::write(&path, bytes).unwrap();
+        files.push(path.display().to_string());
+    }
+    let result = merge_files(&files, 90, false, Kind::Focus, 3);
+    // refused up front or kept: nothing is deleted either way
+    assert!(result["ok"] == json!(false) || result["kept"] == json!(true), "{result}");
+    assert!(files.iter().all(|f| Path::new(f).exists()));
+    let _ = std::fs::remove_dir_all(&folder);
+}

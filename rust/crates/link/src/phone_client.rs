@@ -242,8 +242,13 @@ impl ControlClient {
         if self.closed() {
             return;
         }
-        let action = get(params, "action").and_then(Value::as_str).map(str::to_string);
         let mut st = self.inner.state.lock().unwrap();
+        self.enqueue(&mut st, params);
+    }
+
+    /// send with the state already locked, so a resend decided under that lock can't land after a newer value.
+    fn enqueue(&self, st: &mut State, params: &Value) {
+        let action = get(params, "action").and_then(Value::as_str).map(str::to_string);
         if let Some(a) = &action {
             st.resent.remove(a);
             if SETTINGS.contains(&a.as_str()) {
@@ -278,26 +283,32 @@ impl ControlClient {
 
     /// Sends a setting again when the phone's state doesn't show it; once per value, as the phone may clamp it.
     pub fn resync(&self, state: &Value) {
-        let stale: Vec<Value> = {
-            let st = self.inner.state.lock().unwrap();
-            drifted_settings(&st.settings, state).into_iter().filter(|p| {
-                let action = get(p, "action").and_then(Value::as_str).map(str::to_string);
-                !st.pending.contains_key(&action) && action.as_ref().and_then(|a| st.resent.get(a)) != Some(p)
-            }).collect()
-        };
+        if self.closed() {
+            return;
+        }
+        // Chosen and queued under one lock: a value sent in between would otherwise be superseded by this older one
+        let mut st = self.inner.state.lock().unwrap();
+        let stale: Vec<Value> = drifted_settings(&st.settings, state).into_iter().filter(|p| {
+            let action = get(p, "action").and_then(Value::as_str).map(str::to_string);
+            !st.pending.contains_key(&action) && action.as_ref().and_then(|a| st.resent.get(a)) != Some(p)
+        }).collect();
         for params in stale {
             let action = get(&params, "action").and_then(Value::as_str).unwrap_or("").to_string();
             log::info!("The phone doesn't show the {action} sent, sending it again");
-            self.send(&params);
-            self.inner.state.lock().unwrap().resent.insert(action, params);
+            self.enqueue(&mut st, &params);
+            st.resent.insert(action, params);
         }
     }
 
     /// Sends the phone every setting again, for a stream that came back while the panels showed another.
     pub fn resend_settings(&self) {
-        let settings: Vec<Value> = self.inner.state.lock().unwrap().settings.iter().map(|(_, p)| p.clone()).collect();
+        if self.closed() {
+            return;
+        }
+        let mut st = self.inner.state.lock().unwrap();
+        let settings: Vec<Value> = st.settings.iter().map(|(_, p)| p.clone()).collect();
         for params in settings {
-            self.send(&params);
+            self.enqueue(&mut st, &params);
         }
     }
 

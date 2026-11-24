@@ -28,9 +28,14 @@ if [ -n "$APPIMAGE" ]; then
     journal=$folder/.update.json
 fi
 
+# Only a journal that names this AppImage is this launcher's; another AppImage or a tarball install may share the folder
+ours() {
+    [ -n "$journal" ] && [ -f "$journal" ] && [ "$(tr -d '\n' < "$journal" | sed -n 's/.*"appimage": *"\([^"]*\)".*/\1/p')" = "$name" ]
+}
+
 # The new AppImage is on trial and can't run, so its own guard (update_guard.rs) never will: this puts the old file back in one rename
 roll_back() {
-    [ -n "$journal" ] && grep -q '"state": *"trial"' "$journal" 2>/dev/null && [ -f "$folder/.previous/$name" ] || return 1
+    ours && grep -q '"state": *"trial"' "$journal" 2>/dev/null && [ -f "$folder/.previous/$name" ] || return 1
     build=$(sed -n 's/.*"to_build": *\([0-9]*\).*/\1/p' "$journal")
     mv -f "$folder/.previous/$name" "$APPIMAGE" || return 1
     [ -n "$build" ] && [ "$build" != 0 ] && printf '{"build":%s}' "$build" > "$folder/.update-failed"
@@ -65,14 +70,14 @@ $gone"
     exit 1
 fi
 
-if [ -z "$journal" ] || [ ! -f "$journal" ]; then
+if ! ours; then
     exec "$program" "$@"
 fi
 
 # A first start that fails shouldn't wait for someone to try again: the next run's guard rolls it back, or this does if the guard never ran
 "$program" "$@"
 code=$?
-if [ "$code" -ne 0 ] && [ -f "$journal" ]; then
+if [ "$code" -ne 0 ] && ours; then
     if grep -q '"started": *true' "$journal"; then
         exec "$program"
     elif roll_back; then

@@ -127,7 +127,9 @@ combining with Telescope's AGPL-3.0.
 
 def crates(target: str) -> list:
     """Every crate the program's own code reaches on this target, without what's only for tests or build scripts."""
-    data = json.loads(subprocess.run(["cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", target],
+    # The Windows package is built with FFmpeg linked in (build_windows.ps1), which brings ffmpeg-sys-next
+    features = ["--features", "telescope-app/ffmpeg-windows"] if target.endswith("windows-msvc") else []
+    data = json.loads(subprocess.run(["cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", target, *features],
                                      cwd=RUST, capture_output=True, encoding="utf-8", check=True).stdout)
     packages = {p["id"]: p for p in data["packages"]}
     nodes = {n["id"]: n for n in data["resolve"]["nodes"]}

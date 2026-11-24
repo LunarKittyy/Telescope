@@ -192,7 +192,7 @@ impl Timer {
     #[inline]
     pub fn add(&self, ns: u64) {
         let us = (ns / 1000).min(u32::MAX as u64) as u32;
-        // Count last, and a take reads it first: a sample that is counted has its time and its peak in too
+        // Count last, and a take reads it first: a sample that is counted has its time in, though a sample landing mid-take can split between two takes
         self.max_us.fetch_max(us, Ordering::Release);
         self.sum_us.fetch_add(us as u64, Ordering::Release);
         self.count.fetch_add(1, Ordering::Release);
@@ -385,12 +385,12 @@ impl SourceStats {
         self.fps.store(fps, Ordering::Relaxed);
     }
 
-    /// The rate the stream is meant to keep, 0 before it is set.
     /// Where this stream's frame steps that can run either way ran on its last frame.
     pub fn set_steps_on_card(&self, on_card: bool) {
         self.steps_on.store(if on_card { STEPS_ON_CARD } else { STEPS_ON_CPU }, Ordering::Relaxed);
     }
 
+    /// The rate the stream is meant to keep, 0 before it is set.
     pub fn target_fps(&self) -> u32 {
         self.fps.load(Ordering::Relaxed)
     }
