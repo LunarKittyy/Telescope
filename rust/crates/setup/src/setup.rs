@@ -242,6 +242,8 @@ pub struct SetupPlugin {
     /// The graphics card picked in Video as `gpu_pick::card_id` text, empty for Automatic, and the name it was shown by.
     pub gpu_card: String,
     gpu_card_name: String,
+    /// How Windows drives the graphics card, as the person left it: `processor`, `memory`, or empty until they pick (then the computer's memory decides).
+    pub graphics_mode: String,
     pub plugin_hues: bool,
     /// The look of the windows (Appearance)
     pub look: Look,
@@ -283,6 +285,7 @@ impl SetupPlugin {
             power_saving: false,
             gpu_card: String::new(),
             gpu_card_name: String::new(),
+            graphics_mode: String::new(),
             plugin_hues: true,
             look: Look::Dark,
             appearance: Appearance::default(),
@@ -410,15 +413,33 @@ impl SetupPlugin {
         (cards.into_iter().map(|(_, name)| name).collect(), current)
     }
 
-    /// The card is opened once when Telescope starts, so a change waits for the next start.
+    /// Whether the shown choice is "Use less memory", the saved one or the computer's own default.
+    fn less_memory(&self) -> bool {
+        telescope_core::gpu_pick::less_memory_for(&self.graphics_mode, telescope_core::machine::total_memory_gb())
+    }
+
+    /// Intel's cards stay on DX12 (their Vulkan driver crashes), so the choice can't do anything once one is open.
+    fn graphics_mode_locked(&self) -> bool {
+        telescope_core::gpu_pick::opened_is_intel()
+    }
+
+    /// The card and the way it is driven are set once when Telescope starts, so a change waits for the next start.
     fn gpu_restart_needed(&self) -> bool {
-        !self.gpu_card.trim().eq_ignore_ascii_case(telescope_core::gpu_pick::choice().trim())
+        let mode = !self.linux && !self.graphics_mode_locked() && self.less_memory() != telescope_core::gpu_pick::less_memory_set();
+        mode || !self.gpu_card.trim().eq_ignore_ascii_case(telescope_core::gpu_pick::choice().trim())
     }
 
     /// Which card the window opened, so a choice that couldn't be used (a card that was skipped or unplugged) shows.
     fn gpu_line(&self) -> String {
         let opened = telescope_core::gpu_pick::opened();
-        if opened.is_empty() { String::new() } else { tr("Using {card}").field("card", &opened) }
+        if opened.is_empty() {
+            return String::new();
+        }
+        match telescope_core::gpu_pick::opened_api() {
+            Some(telescope_core::gpu_pick::Api::Dx12) if cfg!(windows) => tr("Using {card} with DirectX 12").field("card", &opened),
+            Some(telescope_core::gpu_pick::Api::Vulkan) if cfg!(windows) => tr("Using {card} with Vulkan").field("card", &opened),
+            _ => tr("Using {card}").field("card", &opened),
+        }
     }
 
     pub fn video_props(&self) -> Value {
@@ -434,6 +455,8 @@ impl SetupPlugin {
         json!({
             "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode() && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
             "gpu-items": gpu_items, "gpu-current": gpu_current, "gpu-restart": self.gpu_restart_needed(), "gpu-line": self.gpu_line(),
+            "mode-shown": !self.linux, "mode-items": [tr("Use less processor"), tr("Use less memory")],
+            "mode-current": usize::from(self.less_memory() && !self.graphics_mode_locked()), "mode-locked": self.graphics_mode_locked(),
             "saving-checked": self.power_saving,
             "zoom-text": format!("{}×", self.max_zoom),
             "canvas-items": self.canvas_items(), "canvas-current": p.canvas_current,
@@ -936,8 +959,8 @@ impl SetupPlugin {
     fn reset_kept(section: &str) -> &'static [&'static str] {
         match section {
             "video" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_gain", "limiter", "look", "appearance", "plugin_hues", "language"],
-            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "look", "appearance", "plugin_hues", "language"],
-            _ => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "max_gain", "limiter"],
+            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "graphics_mode", "power_saving", "look", "appearance", "plugin_hues", "language"],
+            _ => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "graphics_mode", "power_saving", "max_gain", "limiter"],
         }
     }
 
@@ -1008,6 +1031,12 @@ impl SetupPlugin {
         let (id, name) = cards.iter().find(|(_, n)| !shown.is_empty() && n == shown).or_else(|| cards.get(index)).cloned().unwrap_or_default();
         self.gpu_card_name = if id.is_empty() { String::new() } else { name.trim_end_matches(&format!(" {}", tr("(not found)"))).to_string() };
         self.gpu_card = id;
+        host.schedule_save();
+    }
+
+    /// How Windows drives the card for the next start: index 0 is "Use less processor", 1 is "Use less memory".
+    pub fn on_graphics_mode(&mut self, host: &mut dyn Host, index: usize) {
+        self.graphics_mode = if index == 1 { "memory" } else { "processor" }.to_string();
         host.schedule_save();
     }
 
@@ -1292,6 +1321,7 @@ impl Plugin for SetupPlugin {
             ("video", "hw-toggled") => self.on_hw_decode(host, on),
             ("video", "gpu-picked") => self.on_gpu_card(host, index.max(0) as usize, event.args.get(1).and_then(Value::as_str).unwrap_or("")),
             ("video", "restart-clicked") => { host.restart_app(); }
+            ("video", "mode-picked") => self.on_graphics_mode(host, index.max(0) as usize),
             ("video", "saving-toggled") => self.on_power_saving(host, on),
             ("video", "zoom-committed") => {
                 if let Some(v) = zoom_number(&text) {
@@ -1403,6 +1433,9 @@ impl Plugin for SetupPlugin {
             cfg["gpu_card"] = json!(self.gpu_card.trim());
             cfg["gpu_card_name"] = json!(self.gpu_card_name);
         }
+        if !self.graphics_mode.is_empty() {
+            cfg["graphics_mode"] = json!(self.graphics_mode);
+        }
         // Written only once chosen, so a config that never touched the theme stays as an older Telescope wrote it
         if self.look != Look::Dark {
             cfg["look"] = json!(self.look.name());
@@ -1429,6 +1462,7 @@ impl Plugin for SetupPlugin {
         self.power_saving = cfg.get("power_saving") == Some(&Value::Bool(true));
         self.gpu_card = cfg.get("gpu_card").and_then(Value::as_str).unwrap_or("").trim().to_ascii_lowercase();
         self.gpu_card_name = cfg.get("gpu_card_name").and_then(Value::as_str).unwrap_or("").to_string();
+        self.graphics_mode = cfg.get("graphics_mode").and_then(Value::as_str).filter(|m| matches!(*m, "processor" | "memory")).unwrap_or("").to_string();
         self.plugin_hues = cfg.get("plugin_hues") != Some(&Value::Bool(false));
         // A config an older Telescope wrote says classic_theme instead
         self.look = match cfg.get("look").and_then(Value::as_str).and_then(Look::from_name) {

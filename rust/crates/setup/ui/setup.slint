@@ -183,6 +183,10 @@ export component VideoSettings inherits Card {
     in-out property <int> gpu-current;
     in property <bool> gpu-restart;
     in property <string> gpu-line;
+    in property <bool> mode-shown;
+    in property <[string]> mode-items;
+    in-out property <int> mode-current;
+    in property <bool> mode-locked;
     in-out property <bool> saving-checked;
     in-out property <string> zoom-text: "10×";
     in property <[string]> canvas-items;
@@ -199,6 +203,7 @@ export component VideoSettings inherits Card {
     in property <string> canvas-command;
     callback hw-toggled(bool);
     callback gpu-picked(int, string);
+    callback mode-picked(int);
     callback restart-clicked;
     callback saving-toggled(bool);
     callback zoom-committed(string);
@@ -255,20 +260,40 @@ export component VideoSettings inherits Card {
             }
         }
         StatusRow { text: gpu-line; kind: "status_dim"; detail: gpu-line; }
+        if mode-shown: RailRow {
+            icon: Icons.chip;
+            label: @tr("Graphics priority");
+            tip: @tr("What the graphics should save");
+            tip-detail: mode-locked ? @tr("Intel graphics always uses DirectX 12. This choice has no effect on it.") : @tr("Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart.");
+            named: true;
+            hue: root.hue;
+            enabled: !mode-locked;
+            keywords: @tr("search" => "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows");
+            ChoiceField {
+                preferred-width: Theme.control-w;
+                min-width: Theme.control-min;
+                max-width: Theme.control-w;
+                compact: true;
+                name: @tr("Graphics priority");
+                items: root.mode-items;
+                current <=> root.mode-current;
+                picked(i) => { root.mode-current = i; root.mode-picked(i); }
+            }
+        }
         Unfolding {
             open: gpu-restart;
             RailRow {
                 has-icon: false;
                 HorizontalLayout {
                     spacing: Theme.gap;
-                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to use the graphics card you picked."); kind: "warn"; horizontal: "end"; }
+                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to use the graphics choices you made."); kind: "warn"; horizontal: "end"; }
                     Button {
                         text: @tr("Restart now");
                         has-icon: true;
                         icon: Icons.repeat;
                         icon-tint: Theme.ink2;
                         tip: @tr("Restart");
-                        tip-detail: @tr("Restart Telescope with the graphics card you picked.");
+                        tip-detail: @tr("Restart Telescope with the graphics choices you made.");
                         clicked => { root.restart-clicked(); }
                     }
                 }

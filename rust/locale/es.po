@@ -2161,6 +2161,9 @@ msgstr "Tamaño del grano"
 msgid "Graphics card"
 msgstr ""
 
+msgid "Graphics priority"
+msgstr ""
+
 msgid "Green"
 msgstr "Verde"
 
@@ -2532,6 +2535,9 @@ msgstr "Instalando…"
 msgid "Instant"
 msgstr ""
 
+msgid "Intel graphics always uses DirectX 12. This choice has no effect on it."
+msgstr ""
+
 msgid "Invisibility cloak"
 msgstr "Capa de invisibilidad"
 
@@ -2678,6 +2684,9 @@ msgstr "Contornos de los lentes"
 
 msgid "Lens switch"
 msgstr "Cambio de lente"
+
+msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
+msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Un rango menor ofrece pasos más precisos. Un rango mayor ayuda a un teléfono con poco volumen."
@@ -4473,10 +4482,10 @@ msgstr "Reinicia Telescope para aplicar los cambios."
 msgid "Restart Telescope to switch to the new language."
 msgstr "Reinicia Telescope para cambiar al nuevo idioma."
 
-msgid "Restart Telescope to use the graphics card you picked."
+msgid "Restart Telescope to use the graphics choices you made."
 msgstr ""
 
-msgid "Restart Telescope with the graphics card you picked."
+msgid "Restart Telescope with the graphics choices you made."
 msgstr ""
 
 msgid "Restart now"
@@ -7389,6 +7398,12 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr "Usa verde, azul o un color elegido en la vista previa como color de fondo."
 
+msgid "Use less memory"
+msgstr ""
+
+msgid "Use less processor"
+msgstr ""
+
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Usa menos procesador y batería mientras Fondo o Encuadre automático estén activados. Ambos reaccionan a los movimientos rápidos un poco más tarde."
 
@@ -7426,6 +7441,14 @@ msgstr ""
 
 #, python-brace-format
 msgid "Using {card}"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with DirectX 12"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with Vulkan"
 msgstr ""
 
 msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
@@ -7597,6 +7620,9 @@ msgstr "Qué sucede cuando hay más de una persona en la imagen."
 
 msgid "What is sent when the sign turns on or off."
 msgstr "Lo que se envía cuando el cartel se activa o se desactiva."
+
+msgid "What the graphics should save"
+msgstr ""
 
 msgid "What the shortcut does"
 msgstr "Qué hace el atajo"
@@ -8107,6 +8133,10 @@ msgstr "retraso tiempo de espera inactivo segundos minutos cuanto tiempo periodo
 
 msgctxt "search"
 msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+msgctxt "search"
+msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
 msgstr ""
 
 msgid "down"

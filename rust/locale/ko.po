@@ -2158,6 +2158,9 @@ msgstr "그레인 크기"
 msgid "Graphics card"
 msgstr ""
 
+msgid "Graphics priority"
+msgstr ""
+
 msgid "Green"
 msgstr "녹색"
 
@@ -2529,6 +2532,9 @@ msgstr "설치 중…"
 msgid "Instant"
 msgstr ""
 
+msgid "Intel graphics always uses DirectX 12. This choice has no effect on it."
+msgstr ""
+
 msgid "Invisibility cloak"
 msgstr "투명 망토"
 
@@ -2672,6 +2678,9 @@ msgstr "렌즈 윤곽선"
 
 msgid "Lens switch"
 msgstr "렌즈 전환"
+
+msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
+msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "범위가 좁을수록 더 세밀하게 조절할 수 있어요. 범위가 넓으면 소리가 작은 휴대폰에 도움이 돼요."
@@ -4464,10 +4473,10 @@ msgstr "변경 사항을 적용하려면 Telescope를 다시 시작하세요."
 msgid "Restart Telescope to switch to the new language."
 msgstr "새 언어로 전환하려면 Telescope를 다시 시작하세요."
 
-msgid "Restart Telescope to use the graphics card you picked."
+msgid "Restart Telescope to use the graphics choices you made."
 msgstr ""
 
-msgid "Restart Telescope with the graphics card you picked."
+msgid "Restart Telescope with the graphics choices you made."
 msgstr ""
 
 msgid "Restart now"
@@ -7372,6 +7381,12 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr "초록색, 파란색 또는 미리보기에서 선택한 색상을 배경막 색상으로 사용해요."
 
+msgid "Use less memory"
+msgstr ""
+
+msgid "Use less processor"
+msgstr ""
+
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "배경 또는 자동 프레이밍이 켜져 있는 동안 프로세서와 배터리를 적게 사용해요. 두 기능 모두 빠른 움직임에 대한 반응이 약간 느려져요."
 
@@ -7409,6 +7424,14 @@ msgstr ""
 
 #, python-brace-format
 msgid "Using {card}"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with DirectX 12"
+msgstr ""
+
+#, python-brace-format
+msgid "Using {card} with Vulkan"
 msgstr ""
 
 msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
@@ -7580,6 +7603,9 @@ msgstr "화면에 두 명 이상이 있을 때 실행할 동작이에요."
 
 msgid "What is sent when the sign turns on or off."
 msgstr "표시등이 켜지거나 꺼질 때 전송되는 내용이에요."
+
+msgid "What the graphics should save"
+msgstr ""
 
 msgid "What the shortcut does"
 msgstr "단축키 동작"
@@ -8089,6 +8115,10 @@ msgstr "지연 대기 시간 타임아웃 유휴 초 분 유예 기간 자동 �
 
 msgctxt "search"
 msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+msgctxt "search"
+msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
 msgstr ""
 
 msgid "down"

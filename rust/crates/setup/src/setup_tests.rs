@@ -752,6 +752,22 @@ fn the_graphics_card_choice_is_saved_by_id_and_waits_for_a_restart() {
 }
 
 #[test]
+fn the_graphics_priority_is_saved_once_picked_hidden_on_linux_and_waits_for_a_restart() {
+    let mut r = Rig::windows();
+    assert!(r.plugin.get_config().get("graphics_mode").is_none(), "nothing is written before a pick");
+    assert_eq!((&r.plugin.video_props()["mode-shown"], &r.plugin.video_props()["mode-items"][1]), (&json!(true), &json!("Use less memory")));
+    r.ui("video", "mode-picked", vec![json!(0)]);
+    let props = r.plugin.video_props();
+    assert_eq!((&r.plugin.get_config()["graphics_mode"], &props["mode-current"], &props["gpu-restart"]), (&json!("processor"), &json!(0), &json!(false)));
+    r.ui("video", "mode-picked", vec![json!(1)]);
+    let props = r.plugin.video_props();
+    assert_eq!((&r.plugin.get_config()["graphics_mode"], &props["mode-current"], &props["gpu-restart"]), (&json!("memory"), &json!(1), &json!(true)), "a change waits for a restart");
+    r.plugin.set_config(&json!({"graphics_mode": "nonsense"})).unwrap();
+    assert!(r.plugin.get_config().get("graphics_mode").is_none(), "an unknown value counts as no choice");
+    assert_eq!(Rig::linux().plugin.video_props()["mode-shown"], json!(false));
+}
+
+#[test]
 fn hardware_decoding_follows_the_card_until_a_choice_is_made() {
     let mut r = Rig::linux();
     let fresh = r.plugin.get_config();

@@ -124,6 +124,11 @@ impl telescope_audio::backend::MicBackend for TestMic {
     fn teardown(&self) {}
 }
 
+thread_local! {
+    /// Whether the Setup plugin builds the Windows cards (the rest of the tests draw the Linux ones).
+    static WINDOWS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 /// Every built-in plugin there is.
 fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
     let link: Arc<dyn Link> = Arc::new(NoLink);
@@ -133,7 +138,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
     let web: Arc<dyn telescope_core::web::Web> = Arc::new(telescope_link::web::SystemWeb);
     let server = telescope_link::browser::plugin::system_server(web, std::env::temp_dir(), media.clone());
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
-        Box::new(telescope_setup::setup::SetupPlugin::new(outputs.clone(), link.clone(), media, "1.0", telescope_setup::setup::Language::found(&[])).for_platform(true)),
+        Box::new(telescope_setup::setup::SetupPlugin::new(outputs.clone(), link.clone(), media, "1.0", telescope_setup::setup::Language::found(&[])).for_platform(!WINDOWS.with(|w| w.get()))),
         Box::new(telescope_link::plugin::ConnectionPlugin::new(link, telescope_link::shared::Shared::new(Arc::new(NoTunnels))).with_outputs(outputs.clone())),
         Box::new(telescope_link::browser::plugin::BrowserCameraPlugin::new(server, Vec::new)),
         Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
@@ -1055,4 +1060,31 @@ fn the_main_window_on_a_short_screen_gets_as_short_as_the_screen_and_its_columns
     problems.sort();
     problems.dedup();
     assert!(problems.is_empty(), "{} things wrong:\n{}", problems.len(), problems.join("\n"));
+}
+
+// The Windows-only Graphics priority row, in the narrowest Settings window in every look: it fits, it stays in its card, and the picture is saved
+// when APPEARANCE_SHOTS is set.
+#[test]
+fn the_graphics_priority_row_fits_the_narrowest_settings_window_on_windows() {
+    WINDOWS.with(|w| w.set(true));
+    let w = build("appearance-render-windows");
+    telescope_shell::settings::open(&w, "video");
+    let settings = telescope_shell::settings::current().expect("the settings window");
+    assert!(settings.show_tab("video"));
+    let mut problems = Vec::new();
+    for (name, look) in [("dark", 0.0), ("light", 3.0)] {
+        w.ui.set_global_property("Theme", "look", Value::Number(look)).unwrap();
+        settings.ui.set_global_property("Theme", "look", Value::Number(look)).unwrap();
+        w.process();
+        settle(&w);
+        let seen = look_at(&settings.ui, &format!("windows {name}"), SETTINGS_LEAST_W, None);
+        problems.extend(seen.problems.iter().cloned());
+        if let Some(dir) = shots() {
+            seen.picture.save_png(&dir.join(format!("graphics-priority-{name}-narrowest.png"))).unwrap();
+        }
+    }
+    telescope_shell::settings::forget();
+    w.shut_down();
+    WINDOWS.with(|w| w.set(false));
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
