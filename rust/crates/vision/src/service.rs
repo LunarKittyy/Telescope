@@ -1473,6 +1473,8 @@ fn remap_each(src: &[u8], w: usize, h: usize, out_w: usize, out_h: usize, old: &
 }
 
 fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>, which: Which) {
+    // The frame path takes the newest finished mask and never waits for this thread
+    telescope_core::priority::behind_the_frames_unless_testing();
     let vision = Vision { inner };
     loop {
         let job = {
@@ -1521,6 +1523,8 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
 }
 
 fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<AtomicBool>) {
+    // The frame path uses the people found last, so a result that comes a frame late costs nothing
+    telescope_core::priority::behind_the_frames_unless_testing();
     let Some(backend) = inner.backend.lock().unwrap().clone() else { return };
     let mut model = match backend.pose() {
         Ok(model) => model,

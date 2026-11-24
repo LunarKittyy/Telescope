@@ -41,6 +41,7 @@ pub mod plugin;
 pub mod plugin_admin;
 pub mod pose;
 pub mod preview;
+pub mod priority;
 pub mod qr;
 pub mod redact;
 pub mod services;
