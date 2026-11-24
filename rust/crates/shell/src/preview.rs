@@ -284,7 +284,7 @@ fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result
             })();
             match tried {
                 Ok(opened) => {
-                    gpu_pick::set_opened(&info.name);
+                    gpu_pick::set_opened(&info.name, info.vendor, if info.backend == wgpu::Backend::Dx12 { Api::Dx12 } else { Api::Vulkan });
                     return Ok(opened);
                 }
                 Err(e) => {

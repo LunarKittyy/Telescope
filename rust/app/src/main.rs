@@ -57,6 +57,13 @@ fn chosen_graphics_card() -> String {
     cfg["plugin_configs"]["setup"]["gpu_card"].as_str().unwrap_or_default().to_string()
 }
 
+/// Whether Settings > Video says "Use less memory" (Vulkan): its saved choice, or a computer with little memory when none was made.
+fn chosen_less_memory() -> bool {
+    let cfg = telescope_core::config::ConfigFile::default().load();
+    let saved = cfg["plugin_configs"]["setup"]["graphics_mode"].as_str().unwrap_or_default();
+    telescope_core::gpu_pick::less_memory_for(saved, telescope_core::machine::total_memory_gb())
+}
+
 /// The language picked in Settings > General ("" for the system's), read before any window exists (main.py's _chosen_language).
 fn chosen_language() -> String {
     let cfg = telescope_core::config::ConfigFile::default().load();
@@ -701,6 +708,7 @@ fn main() {
         Some("snapshot") => {
             let out = words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into());
             telescope_core::gpu_pick::set_choice(&chosen_graphics_card());
+            telescope_core::gpu_pick::set_less_memory(chosen_less_memory());
             // Cards the start guard skipped stay skipped here too, and nothing is marked
             telescope_core::gpu_marker::load_skipped(&telescope_core::config::config_path().parent().map(PathBuf::from).unwrap_or_default());
             telescope_shell::run(services(Machine::real(args.device.clone()), remote, false), args.window(Some(out), false, None))
@@ -746,6 +754,7 @@ fn main() {
 fn begin_window_start() {
     telescope_core::diagnostics::set_starting(true);
     telescope_core::gpu_pick::set_choice(&chosen_graphics_card());
+    telescope_core::gpu_pick::set_less_memory(chosen_less_memory());
     let folder = telescope_core::config::config_path().parent().map(PathBuf::from).unwrap_or_default();
     *CRASHED_ON.lock().unwrap_or_else(|e| e.into_inner()) = telescope_core::gpu_marker::begin_start(&folder);
 }

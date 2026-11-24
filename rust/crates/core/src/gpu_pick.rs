@@ -135,7 +135,7 @@ fn windows_gpu_preference() -> Result<Option<String>, u32> {
 }
 
 /// Whether TELESCOPE_VULKAN_FIRST asks Windows to try Vulkan before DX12 again, as up to 5.1.x (read once).
-pub fn vulkan_first_asked() -> bool {
+fn vulkan_first_env() -> bool {
     static ASKED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ASKED.get_or_init(|| {
         let asked = std::env::var_os("TELESCOPE_VULKAN_FIRST").is_some_and(|v| !v.is_empty() && v != "0");
@@ -144,6 +144,58 @@ pub fn vulkan_first_asked() -> bool {
         }
         asked
     })
+}
+
+/// Whether Vulkan goes before DX12 on Windows: the environment asks for it, or Settings says "Use less memory".
+pub fn vulkan_first_asked() -> bool {
+    vulkan_first_env() || less_memory()
+}
+
+/// Computers with less memory than this many GB start on "Use less memory" until the person picks.
+pub const LITTLE_MEMORY_GB: u64 = 8;
+
+/// Whether the saved choice (`memory`, `processor`, or empty for none yet) means "Use less memory" on a computer with `ram_gb` of memory.
+/// With no choice, only a computer with little memory (or one that can't say) starts there.
+pub fn less_memory_for(saved: &str, ram_gb: Option<u64>) -> bool {
+    match saved.trim() {
+        "memory" => true,
+        "processor" => false,
+        _ => ram_gb.is_none_or(|gb| gb < LITTLE_MEMORY_GB),
+    }
+}
+
+static LESS_MEMORY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static OPENED_VENDOR: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static OPENED_API: std::sync::Mutex<Option<Api>> = std::sync::Mutex::new(None);
+
+/// Sets what Settings said ("Use less memory" is true), once at start before the window opens a card. Only Windows has the choice.
+pub fn set_less_memory(on: bool) {
+    LESS_MEMORY.store(on && cfg!(windows), std::sync::atomic::Ordering::Relaxed);
+}
+
+/// What was set at start, whatever WGPU_BACKEND says: what Settings compares its own choice with to know a restart is due.
+pub fn less_memory_set() -> bool {
+    LESS_MEMORY.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Whether Settings' "Use less memory" counts: not when WGPU_BACKEND names the API itself (developers), which always wins.
+pub fn less_memory() -> bool {
+    less_memory_set() && std::env::var_os("WGPU_BACKEND").is_none_or(|v| v.is_empty())
+}
+
+/// Whether the card the window opened is Intel's, which stays on DX12 whatever Settings says (`order`).
+pub fn opened_is_intel() -> bool {
+    OPENED_VENDOR.load(std::sync::atomic::Ordering::Relaxed) == VENDOR_INTEL
+}
+
+/// Whether "Use less memory" really applies: set, and on a card that can take Vulkan.
+pub fn less_memory_in_effect() -> bool {
+    less_memory() && !opened_is_intel()
+}
+
+/// The API the window's card opened on, for the status line.
+pub fn opened_api() -> Option<Api> {
+    *OPENED_API.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Between the real ones `prefer`
@@ -213,8 +265,10 @@ pub fn choice() -> String {
 }
 
 /// Notes the card the window opened.
-pub fn set_opened(name: &str) {
+pub fn set_opened(name: &str, vendor: u32, api: Api) {
     *OPENED.lock().unwrap_or_else(|e| e.into_inner()) = name.trim().to_string();
+    OPENED_VENDOR.store(vendor, std::sync::atomic::Ordering::Relaxed);
+    *OPENED_API.lock().unwrap_or_else(|e| e.into_inner()) = Some(api);
 }
 
 /// The card the window opened (empty before one did, or when the window draws on the processor).
@@ -317,6 +371,23 @@ mod tests {
         assert_eq!(order_by(&[intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true)], Prefer::Unchanged, true), [1, 0], "Intel's Vulkan driver crashes");
         let linux = [c(Api::Dx12, Kind::Discrete, 0), c(Api::Vulkan, Kind::Discrete, 1)];
         assert_eq!(order_by(&linux, Prefer::Unchanged, true), order_by(&linux, Prefer::Unchanged, false), "nothing changes off Windows");
+    }
+
+    #[test]
+    fn less_memory_starts_only_on_a_computer_with_little_memory_until_chosen() {
+        assert!(less_memory_for("", Some(4)) && less_memory_for("", Some(6)) && less_memory_for("", None));
+        assert!(!less_memory_for("", Some(8)) && !less_memory_for("", Some(16)));
+        assert!(less_memory_for("memory", Some(32)) && !less_memory_for("processor", Some(4)));
+    }
+
+    #[test]
+    fn use_less_memory_never_moves_intel_to_vulkan() {
+        let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
+        assert_eq!(order_by(&[nvidia(Api::Dx12, 0), nvidia(Api::Vulkan, 1)], Prefer::Unchanged, true), [1, 0], "other cards go Vulkan first");
+        for prefer in [Prefer::Unchanged, Prefer::HighPerformance, Prefer::PowerSaving] {
+            let order = order_by(&[intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true)], prefer, true);
+            assert_eq!(order[0], 1, "Intel keeps DX12 first for {prefer:?}");
+        }
     }
 
     #[test]

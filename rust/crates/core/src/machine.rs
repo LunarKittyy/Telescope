@@ -52,6 +52,11 @@ pub fn ram_bucket_gb(bytes: u64) -> u64 {
     [2u64, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256].into_iter().find(|s| *s as f64 >= gb * 0.98).unwrap_or(gb.round() as u64)
 }
 
+/// The computer's memory in GB as it is sold (`ram_bucket_gb`), None when it can't tell.
+pub fn total_memory_gb() -> Option<u64> {
+    total_memory_bytes().map(ram_bucket_gb)
+}
+
 fn total_memory_bytes() -> Option<u64> {
     #[cfg(target_os = "linux")]
     {

@@ -196,13 +196,14 @@ impl Chain {
     }
 }
 
-/// Whether a plain stream may convert on the card: yes unless TELESCOPE_PLAIN_ON_CARD=0 switches it off.
+/// Whether a plain stream may convert on the card: yes unless TELESCOPE_PLAIN_ON_CARD=0 switches it off, or Settings says "Use less memory"
+/// (Vulkan, where every card path copies through memory anyway).
 pub(crate) fn plain_allowed() -> bool {
-    plain_gate(std::env::var_os("TELESCOPE_PLAIN_ON_CARD").as_deref())
+    plain_gate(std::env::var_os("TELESCOPE_PLAIN_ON_CARD").as_deref(), telescope_core::gpu_pick::less_memory_in_effect())
 }
 
-fn plain_gate(set: Option<&std::ffi::OsStr>) -> bool {
-    set.is_none_or(|v| v != "0")
+fn plain_gate(set: Option<&std::ffi::OsStr>, less_memory: bool) -> bool {
+    !less_memory && set.is_none_or(|v| v != "0")
 }
 
 /// A step that hides, as the frame last through the steps had it: what a frame sent again is compared with.
@@ -3687,9 +3688,10 @@ pub(crate) mod tests {
 
     #[test]
     fn a_plain_stream_converts_on_the_card_unless_switched_off() {
-        assert!(plain_gate(None), "on by default");
-        assert!(!plain_gate(Some("0".as_ref())), "switched off");
-        assert!(plain_gate(Some("1".as_ref())));
+        assert!(plain_gate(None, false), "on by default");
+        assert!(!plain_gate(None, true), "off with Use less memory");
+        assert!(!plain_gate(Some("0".as_ref()), false), "switched off");
+        assert!(plain_gate(Some("1".as_ref()), false));
     }
 
     #[test]
