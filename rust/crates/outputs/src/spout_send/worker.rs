@@ -108,7 +108,7 @@ impl Drop for Worker {
 }
 
 enum Next {
-    Picture(Frame, Option<Instant>),
+    Picture(Box<Frame>, Option<Instant>),
     /// No picture for the idle time.
     Quiet,
     Stopped,
@@ -121,7 +121,7 @@ fn next(slot: &Slot, idle: Duration) -> Next {
     if slot.stop.load(Ordering::SeqCst) {
         return Next::Stopped;
     }
-    latest.take().map_or(Next::Quiet, |(frame, retried)| Next::Picture(frame, retried))
+    latest.take().map_or(Next::Quiet, |(frame, retried)| Next::Picture(Box::new(frame), retried))
 }
 
 /// Puts a picture back to be taken again, unless a newer one has come meanwhile (which is then the one that goes out).
@@ -168,7 +168,7 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
                 }
                 break;
             }
-            Next::Picture(frame, retried) => (frame, retried),
+            Next::Picture(frame, retried) => (*frame, retried),
             Next::Quiet if keep => {
                 tell(State::Idle);
                 continue;

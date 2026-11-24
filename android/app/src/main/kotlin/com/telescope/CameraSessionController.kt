@@ -809,11 +809,22 @@ class CameraSessionController(
         } catch (_: Exception) { null }
     }
 
+    // What to add to an encoder timestamp (us) to put it on the clock the camera's results use, likeliest first (CropLog.begin).
+    private fun sensorOffsetsUs(): LongArray = CropLog.offsetsUs(
+        PhoneStats.shared.realtimeStamps, Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+        (SystemClock.elapsedRealtimeNanos() - System.nanoTime()) / 1000)
+
+    // The open lens's clock, for the crop tags and the Stats delay: it differs from lens to lens, and an encoder outlives a same-size lens switch
+    private fun refreshCropClock() {
+        PhoneStats.shared.realtimeStamps = stampsAreRealtime()
+        CropLog.shared.begin(sensorOffsetsUs())
+    }
+
     // The camera's stream output at the current size: the JPEG reader, or the H.264 encoder's
     // Surface. An encoder that won't start falls back to JPEG and reports it.
     private fun buildOutputs() {
         if (codec == H264Stream.CODEC_H264) {
-            PhoneStats.shared.realtimeStamps = stampsAreRealtime()
+            refreshCropClock()
             try {
                 lateinit var built: H264Encoder
                 // Queued behind a size change, a report from the old encoder must not count against the new one
@@ -832,6 +843,7 @@ class CameraSessionController(
                         if (!keep && previewRecovery.requestKeyframe(SystemClock.uptimeMillis())) built.requestKeyFrame()
                         keep
                     },
+                    cropFor = { ptsUs, waitMs -> CropLog.shared.take(ptsUs, waitMs) },
                     onPacket = onH264, onError = { e -> post { if (encoder === built) encoderFailed(e) } },
                     onReorder = { post { if (encoder === built && codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
                 encoder = built
@@ -1150,6 +1162,20 @@ class CameraSessionController(
             builder.setPhysicalCameraKey(CaptureRequest.SCALER_CROP_REGION, rect, cam.id)  // a lens of a logical camera
         else
             builder.set(CaptureRequest.SCALER_CROP_REGION, rect)
+    }
+
+    // The crop the camera says it took this frame with, as the `zoom` control's terms, for the encoder to tag the frame with:
+    // a camera may ignore or change the one asked for (Android ignores it at a zoom ratio above 1)
+    private fun reportedShare(result: TotalCaptureResult, cam: CameraEntry, area: SensorBox): FloatArray {
+        val physical = when {
+            cam.logicalId == null -> null
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> result.physicalCameraTotalResults[cam.id]
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P -> @Suppress("DEPRECATION") result.physicalCameraResults[cam.id]
+            else -> null
+        }
+        val rect = (physical ?: result).get(CaptureResult.SCALER_CROP_REGION)?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
+        val ratio = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) result.get(CaptureResult.CONTROL_ZOOM_RATIO) ?: 1f else 1f
+        return CameraRequestSelection.shareOf(area, rect, ratio, streamWidth, streamHeight)
     }
 
     // Labels each output with what it's for, on cameras that take that: some (a vivo) only run 60 fps for a
@@ -1486,6 +1512,10 @@ class CameraSessionController(
                 }
             }
             lastResult = result
+            val cam = currentCamera
+            val area = cam?.activeArray
+            val taken = result.get(CaptureResult.SENSOR_TIMESTAMP)
+            if (cam != null && area != null && taken != null) CropLog.shared.put(taken / 1000, reportedShare(result, cam, area))
             result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
             result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }
             result.get(CaptureResult.SENSOR_FRAME_DURATION)?.let { ns ->
@@ -1553,6 +1583,7 @@ class CameraSessionController(
                     open.end()
                     cameraDevice = camera
                     if (outputSurface() == null) buildOutputs()  // a reopen this switch overtook had released them
+                    else if (codec == H264Stream.CODEC_H264) refreshCropClock()  // the encoder stays, but this lens may stamp on another clock
                     createSession(camera, physId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {

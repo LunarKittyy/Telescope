@@ -40,32 +40,41 @@ object H264Stream {
 
     // "TELESCOPE-TIME11": the user_data_unregistered UUID that marks the capture time SEI
     private val TIME_UUID = "TELESCOPE-TIME11".toByteArray(Charsets.US_ASCII)
+    // "TELESCOPE-CROP11": the one that marks the crop the camera reported for the picture, a second message in the same SEI
+    private val CROP_UUID = "TELESCOPE-CROP11".toByteArray(Charsets.US_ASCII)
 
     /**
      * An SEI NAL unit carrying the frame's capture time, to go in front of its packet. [realtime] says which clock
-     * [timeNs] is on: true = elapsed realtime (clock byte 0), false = System.nanoTime (1); null sends none.
+     * [timeNs] is on: true = elapsed realtime (clock byte 0), false = System.nanoTime (1); null sends none. [share] is the
+     * crop the camera reported for the frame as the `zoom` control's ratio, crop, x and y; a computer finds the frame by its time, so it goes only with one.
      */
-    fun captureTimeSei(realtime: Boolean?, timeNs: Long): ByteArray {
+    fun captureTimeSei(realtime: Boolean?, timeNs: Long, share: FloatArray? = null): ByteArray {
         if (realtime == null) return ByteArray(0)
-        val payload = ByteArray(9)
-        payload[0] = if (realtime) 0 else 1
-        for (i in 0 until 8) payload[1 + i] = (timeNs ushr (56 - 8 * i)).toByte()
+        val rbsp = java.io.ByteArrayOutputStream()
+        // Payload type 5 (user data unregistered), size 25: the UUID, the clock byte and the time
+        rbsp.write(5); rbsp.write(25); rbsp.write(TIME_UUID)
+        rbsp.write(if (realtime) 0 else 1)
+        for (i in 0 until 8) rbsp.write((timeNs ushr (56 - 8 * i)).toInt())
+        if (share != null && share.size == 4) {
+            rbsp.write(5); rbsp.write(32); rbsp.write(CROP_UUID)
+            for (v in share) { val bits = v.toRawBits(); for (i in 0 until 4) rbsp.write(bits ushr (24 - 8 * i)) }
+        }
+        rbsp.write(0x80)
+        // Emulation prevention: an 03 goes in after each 00 00 that a 00..03 follows, so nothing in it looks like a start code
         val escaped = java.io.ByteArrayOutputStream()
+        escaped.write(byteArrayOf(0, 0, 0, 1, 0x06))
         var zeros = 0
-        for (b in payload) {
+        for (b in rbsp.toByteArray()) {
             if (zeros >= 2 && (b.toInt() and 0xFF) <= 3) { escaped.write(3); zeros = 0 }
             escaped.write(b.toInt())
             zeros = if (b.toInt() == 0) zeros + 1 else 0
         }
-        // Payload size 25 counts the UUID and the unescaped bytes, as the reader sees them after removing emulation prevention
-        val head = byteArrayOf(0, 0, 0, 1, 0x06, 0x05, 25)
-        // The UUID has no zero bytes, so the escape state starts clean at the clock byte
-        return head + TIME_UUID + escaped.toByteArray() + byteArrayOf(0x80.toByte())
+        return escaped.toByteArray()
     }
 
     // Read the codec bytes straight into the packet, between its capture time and delimiter
-    fun packet(codec: ByteBuffer, realtime: Boolean?, timeNs: Long): ByteArray {
-        val sei = captureTimeSei(realtime, timeNs)
+    fun packet(codec: ByteBuffer, realtime: Boolean?, timeNs: Long, share: FloatArray? = null): ByteArray {
+        val sei = captureTimeSei(realtime, timeNs, share)
         val size = codec.remaining()
         val packet = ByteArray(sei.size + size + AUD.size)
         sei.copyInto(packet)
@@ -185,5 +194,106 @@ class H264ClientQueue(
         queuedAt.clear()
         isKey.clear()
         waitingForKey = true
+    }
+}
+
+/**
+ * The crop the camera reported for each recent frame, by its sensor time in microseconds, for the encoder to tag the frame
+ * with. A frame gets the crop logged at its own time, give or take TOLERANCE_US (a time cut to microseconds, an offset between
+ * clocks sampled a little off), which is far less than a frame at any rate, so it never gets its neighbour's. The encoder's
+ * time is on one of a few clocks ([begin]): the likeliest is tried first and waited for a little, as the camera's result now
+ * and then comes a few ms after the frame; a clock that keeps matching when the likeliest doesn't becomes the likeliest.
+ */
+class CropLog(private val capacity: Int = 64) {
+    private val lock = ReentrantLock()
+    private val arrived = lock.newCondition()
+    private val shares = java.util.TreeMap<Long, FloatArray>()
+    // What to add to an encoder time to put it on the camera's clock, likeliest first
+    private var offsets = longArrayOf(0L)
+    // Frames in a row found on a clock other than the likeliest
+    private var elsewhere = 0
+
+    fun put(timeUs: Long, share: FloatArray) = lock.withLock {
+        shares[timeUs] = share
+        while (shares.size > capacity) shares.pollFirstEntry()
+        arrived.signalAll()
+    }
+
+    /** A new encoder, whose times are on the camera's clock once [offsetsUs] (likeliest first) is added. */
+    fun begin(offsetsUs: LongArray) = lock.withLock {
+        shares.clear()
+        offsets = offsetsUs.distinct().toLongArray().takeIf { it.isNotEmpty() } ?: longArrayOf(0L)
+        elsewhere = 0
+    }
+
+    /**
+     * The crop of the frame the encoder stamped [encoderUs], or null when its result hasn't come. Waits up to [waitMs], only
+     * while that frame's result on the likeliest clock is the next one due, so a lost result or a wrong clock never holds the caller long.
+     */
+    fun take(encoderUs: Long, waitMs: Long): FloatArray? = lock.withLock {
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitMs)
+        // Only the likeliest clock until the wait is over: on another, an earlier frame's result can sit at this one's time
+        var share = at(encoderUs + offsets[0])?.also { found(0) }
+        while (share == null && due(encoderUs)) {
+            val left = deadline - System.nanoTime()
+            if (left <= 0) break
+            arrived.awaitNanos(left)
+            share = at(encoderUs + offsets[0])?.also { found(0) }
+        }
+        share ?: find(encoderUs)
+    }
+
+    private fun find(encoderUs: Long): FloatArray? {
+        for (i in offsets.indices) {
+            val share = at(encoderUs + offsets[i]) ?: continue
+            found(i)
+            return share
+        }
+        return null
+    }
+
+    // The frame's result on the likeliest clock hasn't come and is the next one due
+    private fun due(encoderUs: Long): Boolean {
+        if (shares.isEmpty()) return false
+        val first = encoderUs + offsets[0]
+        val newest = shares.lastKey()
+        return first > newest && first - newest <= MAX_GAP_US
+    }
+
+    // The frame matched on clock i: three in a row on the same other clock make that one the likeliest
+    private fun found(i: Int) {
+        if (i == 0) { elsewhere = 0; return }
+        if (++elsewhere < PROMOTE) return
+        val o = offsets[i]; offsets[i] = offsets[0]; offsets[0] = o
+        elsewhere = 0
+    }
+
+    // The crop logged within TOLERANCE_US of timeUs
+    private fun at(timeUs: Long): FloatArray? {
+        val best = listOfNotNull(shares.floorEntry(timeUs), shares.ceilingEntry(timeUs)).minByOrNull { kotlin.math.abs(it.key - timeUs) } ?: return null
+        return best.value.takeIf { kotlin.math.abs(best.key - timeUs) <= TOLERANCE_US }
+    }
+
+    companion object {
+        // Well under a frame at 240 fps (4.2 ms)
+        const val TOLERANCE_US = 1_000L
+        // A result this far past the newest one is still the next due: a frame at the slowest rate a camera runs (a few fps)
+        private const val MAX_GAP_US = 500_000L
+        private const val PROMOTE = 3
+
+        /**
+         * The offsets for [begin]: an encoder's times are on the monotonic clock unless the camera stamps on the realtime one
+         * ([realtime]) and the encoder's output is set to keep the sensor's own clock ([sensorBase], Android 13 on), in which case
+         * they are its own. The camera's results are on its own clock, ahead of the monotonic one by the time asleep ([asleepUs]).
+         * The other clock comes second, for a camera that does otherwise.
+         */
+        fun offsetsUs(realtime: Boolean?, sensorBase: Boolean, asleepUs: Long): LongArray = when {
+            realtime == false -> longArrayOf(0L)
+            realtime == true && !sensorBase -> longArrayOf(asleepUs, 0L)
+            else -> longArrayOf(0L, asleepUs)
+        }
+
+        // One camera streams H.264 at a time: its session writes here and its encoder reads
+        val shared = CropLog()
     }
 }

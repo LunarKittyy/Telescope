@@ -12,6 +12,9 @@ use telescope_core::link::PhoneControl;
 
 /// Each Next or Previous counts, so these go out one by one.
 const NON_COALESCING: &[&str] = &["camera", "notes_scroll"];
+/// Actions that go out at most once in this long, the latest value: each `zoom` makes the camera rebuild its repeating request, which at
+/// 30 a second costs a third of a phone core and twice the skipped frames, and the crop this computer does covers the moves in between.
+const PACED: &[(&str, Duration)] = &[("zoom", Duration::from_millis(100))];
 /// What a phone that restarted its stream has forgotten, and gets again from resend_settings().
 const SETTINGS: &[&str] = &["auto", "iso", "shutter", "wb_auto", "wb_gains", "ois", "focus_mode", "focus_distance", "ae_comp",
                             "nr_mode", "edge_mode", "black_level_lock", "jpeg_quality", "bitrate", "fps_target", "zoom", "low_light"];
@@ -166,6 +169,16 @@ struct State {
     settings: Vec<(String, Value)>,
     /// action: params sent again because the phone's state didn't show them, once each.
     resent: HashMap<String, Value>,
+    /// When each paced action last went out.
+    paced_at: HashMap<Option<String>, Instant>,
+}
+
+impl State {
+    /// How long a paced action has to wait before it may go out again; None when it may now.
+    fn too_soon(&self, action: &Option<String>) -> Option<Duration> {
+        let gap = PACED.iter().find(|(a, _)| action.as_deref() == Some(*a))?.1;
+        gap.checked_sub(self.paced_at.get(action)?.elapsed()).filter(|d| !d.is_zero())
+    }
 }
 
 pub type Sender = Box<dyn Fn(&str, &Value) -> bool + Send + Sync>;
@@ -349,11 +362,22 @@ impl ControlClient {
                 Item::Each(p) => p,
                 Item::Latest(action, seq) => {
                     let mut st = self.inner.state.lock().unwrap();
-                    match st.pending.get(&action) {
-                        // Sent already, or a newer value waits further back
-                        Some((queued, _)) if *queued == seq => st.pending.remove(&action).unwrap().1,
-                        _ => continue,
+                    // Sent already, or a newer value waits further back
+                    if !matches!(st.pending.get(&action), Some((queued, _)) if *queued == seq) {
+                        continue;
                     }
+                    if let Some(wait) = st.too_soon(&action) {
+                        // Too soon after the last: whatever else waits goes first, and with nothing else this waits (a newer value replaces it meanwhile)
+                        if st.queue.is_empty() {
+                            st = self.inner.queued.wait_timeout(st, wait).unwrap().0;
+                        }
+                        st.queue.push_back(Item::Latest(action, seq));
+                        continue;
+                    }
+                    if PACED.iter().any(|(a, _)| action.as_deref() == Some(*a)) {
+                        st.paced_at.insert(action.clone(), Instant::now());
+                    }
+                    st.pending.remove(&action).unwrap().1
                 }
             };
             self.deliver(&params);
@@ -513,6 +537,37 @@ mod tests {
         assert_eq!(phone.received(), [json!({"action": "camera", "id": "hold"}), json!({"action": "iso", "value": 300}),
                                       json!({"action": "camera", "id": "after-iso"})]);
         client.close();
+    }
+
+    #[test]
+    fn zoom_goes_out_at_most_ten_times_a_second_without_holding_anything_else_back() {
+        let sent: Arc<Mutex<Vec<(Instant, Value)>>> = Arc::default();
+        let log = sent.clone();
+        let sender: Sender = Box::new(move |_: &str, params: &Value| {
+            log.lock().unwrap().push((Instant::now(), params.clone()));
+            true
+        });
+        let client = ControlClient::unstarted("http://phone/video", PhoneAuth::new("tok", ""), Retry::default(), Some(sender));
+        let worker = client.clone();
+        let thread = std::thread::spawn(move || worker.run_worker());
+        // A framing that moves every frame for half a second
+        for k in 0..15 {
+            client.send(&json!({"action": "zoom", "crop": k}));
+            if k == 1 {
+                client.send(&json!({"action": "iso", "value": 100}));
+            }
+            std::thread::sleep(Duration::from_millis(33));
+        }
+        std::thread::sleep(Duration::from_millis(250));
+        client.end_queue();
+        thread.join().unwrap();
+        let sent = sent.lock().unwrap();
+        let zooms: Vec<&(Instant, Value)> = sent.iter().filter(|(_, p)| p["action"] == "zoom").collect();
+        assert!(zooms.windows(2).all(|w| w[1].0 - w[0].0 >= Duration::from_millis(95)), "{sent:?}");
+        assert!(zooms.len() <= 6, "{} zooms", zooms.len());
+        assert_eq!(zooms.last().unwrap().1["crop"], 14, "the last framing gets there");
+        let iso = sent.iter().position(|(_, p)| p["action"] == "iso").unwrap();
+        assert!(iso <= 2, "a zoom that waits holds nothing else back: {sent:?}");
     }
 
     #[test]

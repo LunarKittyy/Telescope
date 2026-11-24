@@ -352,15 +352,23 @@ fn round4(v: f64) -> f64 {
 
 /// The framing asked for, as the phone's share plus what's left for this computer (split_zoom).
 pub fn split_zoom(zoom: f64, pan_x: f64, pan_y: f64, caps: Option<&PhoneZoomCaps>, current_ratio: f64) -> ZoomSplit {
+    split_zoom_tagged(zoom, pan_x, pan_y, caps, current_ratio, false)
+}
+
+/// split_zoom for a phone that tags its frames with the crop its camera used (`cropTags`). Android crops inside the picture only at a zoom ratio of 1
+/// (SCALER_CROPPING_TYPE) and ignores the crop on a longer lens, so such a phone gets none there and this computer does the rest; its tags make that hand-over
+/// exact. An older phone app keeps being sent the crop, since its frames can't show where the hand-over is as surely.
+pub fn split_zoom_tagged(zoom: f64, pan_x: f64, pan_y: f64, caps: Option<&PhoneZoomCaps>, current_ratio: f64, tagged: bool) -> ZoomSplit {
     let Some(caps) = caps else { return ZoomSplit { phone: None, desktop: (zoom, pan_x, pan_y) } };
     let zoom = zoom.max(1.0);
     let size = 1.0 / zoom;
     let centre = (window_centre(zoom, pan_x), window_centre(zoom, pan_y));
     let fit = 1.0 / (2.0 * (centre.0 - 0.5).abs().max((centre.1 - 0.5).abs()) + size);
     let ratio = lens_ratio(fit, caps, current_ratio, zoom);
-    let total = if caps.freeform { ratio.max(zoom.min(ratio * caps.crop_max)) } else { ratio };
+    let crops = caps.freeform && (ratio <= 1.0 || !tagged);
+    let total = if crops { ratio.max(zoom.min(ratio * caps.crop_max)) } else { ratio };
     let view = 1.0 / total;
-    let room = if caps.freeform { (1.0 / ratio - view) / 2.0 } else { 0.0 };
+    let room = if crops { (1.0 / ratio - view) / 2.0 } else { 0.0 };
     let (vx, vy) = (clamp(centre.0, 0.5 - room, 0.5 + room), clamp(centre.1, 0.5 - room, 0.5 + room));
     let phone = PhoneZoom { ratio: round4(ratio), crop: round4(total / ratio), x: round4((vx - 0.5) * ratio + 0.5), y: round4((vy - 0.5) * ratio + 0.5) };
     let rest = zoom / total;
@@ -673,6 +681,19 @@ mod tests {
         assert_eq!(phone.ratio, 3.7);
         assert!((phone.crop - 5.0 / 3.7).abs() < 1e-3);
         assert_eq!(split.desktop, (1.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn past_the_telephoto_a_phone_that_tags_its_frames_gets_no_crop_and_this_computer_does_the_rest() {
+        // A phone ignores the crop at a zoom ratio above 1, so none is sent there
+        let split = split_zoom_tagged(5.0, 0.0, 0.0, Some(&tele()), 1.0, true);
+        assert_eq!(split.phone, Some(PhoneZoom { ratio: 3.7, crop: 1.0, x: 0.5, y: 0.5 }));
+        assert!((split.desktop.0 - 5.0 / 3.7).abs() < 1e-9 && split.desktop.1 == 0.0 && split.desktop.2 == 0.0, "{:?}", split.desktop);
+        // On the main lens it still crops
+        assert_eq!(split_zoom_tagged(2.0, 0.5, 0.0, Some(&tele()), 1.0, true), split_zoom(2.0, 0.5, 0.0, Some(&tele()), 1.0));
+        let panned = split_zoom_tagged(4.5, 0.0526, 0.0, Some(&tele()), 3.7, true);
+        assert_eq!(panned.phone, Some(PhoneZoom { ratio: 3.7, crop: 1.0, x: 0.5, y: 0.5 }));
+        assert!(panned.desktop.1 > 0.0, "the pan is cropped here: {:?}", panned.desktop);
     }
 
     #[test]
