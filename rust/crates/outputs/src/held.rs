@@ -108,6 +108,8 @@ impl Gate {
 }
 
 struct Inner<J: Job> {
+    /// Itself, for the thread to start the next run when it ends.
+    me: Weak<Inner<J>>,
     job: Arc<J>,
     gate: Arc<Gate>,
     state: Mutex<HeldState>,
@@ -116,6 +118,8 @@ struct Inner<J: Job> {
 #[derive(Default)]
 struct HeldState {
     wanted: bool,
+    /// A start or restart came while the thread was still winding down: the next run starts when it ends.
+    restart: bool,
     thread: Option<(std::thread::JoinHandle<()>, Arc<Stop>, Arc<AtomicBool>)>,
 }
 
@@ -126,7 +130,7 @@ pub struct Held<J: Job> {
 
 impl<J: Job> Held<J> {
     pub fn new(job: J, gate: &Arc<Gate>) -> Held<J> {
-        let inner = Arc::new(Inner { job: Arc::new(job), gate: gate.clone(), state: Mutex::new(HeldState::default()) });
+        let inner = Arc::new_cyclic(|me| Inner { me: me.clone(), job: Arc::new(job), gate: gate.clone(), state: Mutex::new(HeldState::default()) });
         let weak: Weak<dyn Suspend> = Arc::downgrade(&(inner.clone() as Arc<dyn Suspend>));
         gate.register(weak);
         Held { inner }
@@ -193,25 +197,46 @@ const JOIN_WAIT: Duration = Duration::from_millis(150);
 
 impl<J: Job> Inner<J> {
     fn spawn(&self, st: &mut HeldState) {
-        if occupied(st) || self.gate.is_released() {
+        if self.gate.is_released() {
             return;
         }
+        if occupied(st) {
+            // A thread told to stop that hasn't yet: what was asked for starts once it ends (ended)
+            st.restart = st.thread.as_ref().is_some_and(|(_, stop, _)| stop.is_set());
+            return;
+        }
+        st.restart = false;
         if let Some((handle, _, _)) = st.thread.take() {
             let _ = handle.join();
         }
         let stop = Arc::new(Stop::default());
         let done = Arc::new(AtomicBool::new(false));
-        let (job, s, d) = (self.job.clone(), stop.clone(), done.clone());
+        let (job, s, d, me) = (self.job.clone(), stop.clone(), done.clone(), self.me.clone());
         let handle = std::thread::Builder::new().name("vcam".into()).spawn(move || {
             let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job.run(&s)));
             if caught.is_err() {
                 log::error!("A virtual camera job crashed");
             }
-            d.store(true, Ordering::SeqCst);
+            match me.upgrade() {
+                Some(inner) => inner.ended(&d),
+                None => d.store(true, Ordering::SeqCst),
+            }
         });
         match handle {
             Ok(handle) => st.thread = Some((handle, stop, done)),
             Err(e) => log::error!("Couldn't start a virtual camera thread: {e}"),
+        }
+    }
+
+    /// The thread's last step: it is done, and a start or restart that had to wait for it goes ahead now unless a stop or a reload came since.
+    fn ended(&self, done: &Arc<AtomicBool>) {
+        let mut st = self.state.lock().unwrap();
+        done.store(true, Ordering::SeqCst);
+        let ours = st.thread.as_ref().is_some_and(|(_, _, d)| Arc::ptr_eq(d, done));
+        if ours && st.restart && st.wanted && !self.gate.is_released() {
+            // This thread's own handle: it can't join itself and returns right after
+            drop(st.thread.take());
+            self.spawn(&mut st);
         }
     }
 
@@ -331,5 +356,47 @@ mod tests {
         }
         std::thread::sleep(Duration::from_millis(50));
         assert_eq!(held.job().runs.load(Ordering::SeqCst), 2);
+    }
+
+    fn slow_to_stop() -> (Held<Stubborn>, Arc<Gate>) {
+        let gate = Arc::new(Gate::default());
+        let held = Held::new(Stubborn { leave: AtomicBool::new(false), runs: AtomicUsize::new(0) }, &gate);
+        held.start();
+        let began = std::time::Instant::now() + Duration::from_secs(20);
+        while held.job().runs.load(Ordering::SeqCst) < 1 && std::time::Instant::now() < began {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        (held, gate)
+    }
+
+    fn runs_reach(held: &Held<Stubborn>, n: usize) -> bool {
+        let deadline = std::time::Instant::now() + Duration::from_secs(20);
+        while held.job().runs.load(Ordering::SeqCst) < n && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        held.job().runs.load(Ordering::SeqCst) >= n
+    }
+
+    #[test]
+    fn a_restart_that_finds_the_old_thread_slow_to_stop_happens_when_it_ends() {
+        let (held, _gate) = slow_to_stop();
+        let changed = AtomicBool::new(false);
+        held.restart_with(|| changed.store(true, Ordering::SeqCst));
+        assert!(changed.load(Ordering::SeqCst));
+        assert_eq!(held.job().runs.load(Ordering::SeqCst), 1);
+        // Nobody asks again: the thread leaving is what starts the new settings
+        held.job().leave.store(true, Ordering::SeqCst);
+        assert!(runs_reach(&held, 2));
+    }
+
+    #[test]
+    fn a_stop_after_a_waiting_restart_cancels_it() {
+        let (held, _gate) = slow_to_stop();
+        held.restart_with(|| {});
+        held.stop();
+        held.job().leave.store(true, Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(held.job().runs.load(Ordering::SeqCst), 1);
+        assert!(!held.wanted());
     }
 }
