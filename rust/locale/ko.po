@@ -1479,6 +1479,9 @@ msgstr "설치되지 않음: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "방향"
 
@@ -2159,10 +2162,10 @@ msgstr "Google 서버에서 오류 {code}을(를) 반환했어요. 나중에 다
 msgid "Grain size"
 msgstr "그레인 크기"
 
-msgid "Graphics card"
+msgid "Graphics API"
 msgstr ""
 
-msgid "Graphics priority"
+msgid "Graphics card"
 msgstr ""
 
 msgid "Green"
@@ -2679,9 +2682,6 @@ msgstr "렌즈 윤곽선"
 
 msgid "Lens switch"
 msgstr "렌즈 전환"
-
-msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
-msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "범위가 좁을수록 더 세밀하게 조절할 수 있어요. 범위가 넓으면 소리가 작은 휴대폰에 도움이 돼요."
@@ -4092,9 +4092,6 @@ msgstr "이전 줄"
 
 msgid "Primaries"
 msgstr "프라이머리"
-
-msgid "Priority"
-msgstr ""
 
 msgid "Privacy blur"
 msgstr "프라이버시 흐림 효과"
@@ -7420,12 +7417,6 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr "초록색, 파란색 또는 미리보기에서 선택한 색상을 배경막 색상으로 사용해요."
 
-msgid "Use less memory"
-msgstr ""
-
-msgid "Use less processor"
-msgstr ""
-
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "배경 또는 자동 프레이밍이 켜져 있는 동안 프로세서와 배터리를 적게 사용해요. 두 기능 모두 빠른 움직임에 대한 반응이 약간 느려져요."
 
@@ -7552,6 +7543,12 @@ msgstr ""
 msgid "Vision download required"
 msgstr "Vision 다운로드 필요"
 
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
+
 msgid "W"
 msgstr ""
 
@@ -7646,9 +7643,6 @@ msgstr "화면에 두 명 이상이 있을 때 실행할 동작이에요."
 msgid "What is sent when the sign turns on or off."
 msgstr "표시등이 켜지거나 꺼질 때 전송되는 내용이에요."
 
-msgid "What the graphics should save"
-msgstr ""
-
 msgid "What the shortcut does"
 msgstr "단축키 동작"
 
@@ -7703,6 +7697,9 @@ msgstr "현재 표시가 온에어 상태인지 여부"
 
 msgid "Which device to stream from"
 msgstr "스트리밍할 기기 선택"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8164,7 +8161,7 @@ msgid "density compact comfortable spacing padding room tight cramped"
 msgstr ""
 
 msgctxt "search"
-msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

@@ -134,71 +134,37 @@ fn windows_gpu_preference() -> Result<Option<String>, u32> {
     Ok(Some(String::from_utf16_lossy(&buf[..len]).trim_end_matches('\0').to_string()))
 }
 
-/// Whether TELESCOPE_VULKAN_FIRST asks Windows to try Vulkan before DX12 again, as up to 5.1.x (read once).
-fn vulkan_first_env() -> bool {
-    static ASKED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ASKED.get_or_init(|| {
-        let asked = std::env::var_os("TELESCOPE_VULKAN_FIRST").is_some_and(|v| !v.is_empty() && v != "0");
-        if asked && cfg!(windows) {
-            log::info!("TELESCOPE_VULKAN_FIRST is set, so Vulkan is tried before DX12");
-        }
-        asked
-    })
-}
-
-/// Whether Vulkan goes before DX12 on Windows: the environment asks for it, or Settings says "Use less memory".
+/// Whether Vulkan goes before DX12 on Windows: always, unless Settings asks for DirectX 12 first.
 pub fn vulkan_first_asked() -> bool {
-    vulkan_first_env() || less_memory()
+    !dx12_first_chosen()
 }
 
-/// Computers with less memory than this many GB start on "Use less memory" until the person picks.
-pub const LITTLE_MEMORY_GB: u64 = 8;
-
-/// Whether the saved choice (`memory`, `processor`, or empty for none yet) means "Use less memory" on a computer with `ram_gb` of memory.
-/// With no choice, only a computer with little memory (or one that can't say) starts there.
-pub fn less_memory_for(saved: &str, ram_gb: Option<u64>) -> bool {
-    match saved.trim() {
-        "memory" => true,
-        "processor" => false,
-        _ => ram_gb.is_none_or(|gb| gb < LITTLE_MEMORY_GB),
-    }
+/// Whether the saved choice (`dx12`, `vulkan`, or empty for none yet) asks for DirectX 12 first. Only `dx12` does.
+pub fn dx12_first_for(saved: &str) -> bool {
+    saved.trim() == "dx12"
 }
 
-static LESS_MEMORY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static DX12_FIRST: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static OPENED_API: std::sync::Mutex<Option<Api>> = std::sync::Mutex::new(None);
 
-/// Sets what Settings said ("Use less memory" is true), once at start before the window opens a card. Only Windows has the choice.
-pub fn set_less_memory(on: bool) {
-    LESS_MEMORY.store(on && cfg!(windows), std::sync::atomic::Ordering::Relaxed);
+/// Sets what Settings said ("DirectX 12 first" is true), once at start before the window opens a card. Only Windows has the choice.
+pub fn set_dx12_first(on: bool) {
+    DX12_FIRST.store(on && cfg!(windows), std::sync::atomic::Ordering::Relaxed);
 }
 
 /// What was set at start, whatever WGPU_BACKEND says: what Settings compares its own choice with to know a restart is due.
-pub fn less_memory_set() -> bool {
-    LESS_MEMORY.load(std::sync::atomic::Ordering::Relaxed)
+pub fn dx12_first_set() -> bool {
+    DX12_FIRST.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-/// Whether Settings' "Use less memory" counts: not when WGPU_BACKEND names the API itself (developers), which always wins.
-pub fn less_memory() -> bool {
-    less_memory_set() && std::env::var_os("WGPU_BACKEND").is_none_or(|v| v.is_empty())
+/// Whether Settings' "DirectX 12 first" counts: not when WGPU_BACKEND names the API itself (developers), which always wins.
+pub fn dx12_first_chosen() -> bool {
+    dx12_first_set() && std::env::var_os("WGPU_BACKEND").is_none_or(|v| v.is_empty())
 }
 
 /// Whether the card the window opened is Intel's, whose API the choice never moves (`order`).
 pub fn opened_is_intel() -> bool {
     window_card().starts_with(&format!("{VENDOR_INTEL:04x}:"))
-}
-
-/// Whether "Use less memory" really applies: set, and on a card that isn't Intel.
-pub fn less_memory_in_effect() -> bool {
-    less_memory() && !opened_is_intel()
-}
-
-/// Whether a plain stream must stay off the card: "Use less memory" is in effect, or this is Intel in Windows, whose DX12 pipeline device leaks.
-pub fn plain_held_back() -> bool {
-    plain_held_back_for(less_memory_in_effect(), cfg!(windows) && opened_is_intel())
-}
-
-fn plain_held_back_for(less_memory: bool, intel_in_windows: bool) -> bool {
-    less_memory || intel_in_windows
 }
 
 /// The API the window's card opened on, for the status line.
@@ -215,8 +181,8 @@ pub enum Role {
     Pipeline,
 }
 
-/// Whether DX12 goes before Vulkan for this adapter. Windows tries it first so a plain stream can stay on the card, unless Vulkan is asked
-/// for. Intel ignores that: its window stays on Vulkan (its DX12 driver leaks memory) and its pipeline on DX12 (see `order`).
+/// Whether DX12 goes before Vulkan for this adapter: on Windows only when Settings asks for DirectX 12 first. Intel ignores that:
+/// its window stays on Vulkan (its DX12 driver leaks memory) and its pipeline on DX12 (see `order`).
 fn dx12_first(c: &Candidate, role: Role, vulkan_first: bool) -> bool {
     c.windows && if c.vendor == VENDOR_INTEL { role == Role::Pipeline } else { !vulkan_first }
 }
@@ -229,10 +195,9 @@ pub fn window_serves_pipeline(api: Api, vendor: u32, windows: bool) -> bool {
 }
 
 /// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Between the real ones `prefer`
-/// decides which kind goes first. Inside a group DX12 goes first on Windows, because only DX12 shares decoded pictures with the decoder
-/// and keeps a plain stream on the card (TELESCOPE_VULKAN_FIRST or "Use less memory" put Vulkan first again). Elsewhere Vulkan goes
-/// first. Metal and GL follow, and inside an API the driver's own order stays. Intel in Windows ignores the choice: its window goes
-/// Vulkan first (its DX12 driver leaks memory) and its pipeline DX12 first.
+/// decides which kind goes first. Inside a group Vulkan goes first, unless Settings asks for DirectX 12 first on Windows, where only DX12
+/// shares decoded pictures with the decoder. Metal and GL follow, and inside an API the driver's own order stays. Intel in Windows
+/// ignores the choice: its window goes Vulkan first (its DX12 driver leaks memory) and its pipeline DX12 first.
 pub fn order(candidates: &[Candidate], prefer: Prefer, role: Role) -> Vec<usize> {
     order_by(candidates, prefer, role, vulkan_first_asked())
 }
@@ -389,19 +354,19 @@ mod tests {
     }
 
     #[test]
-    fn intel_elsewhere_keeps_vulkan_first_and_other_vendors_on_windows_go_dx12_first_for_both_roles() {
+    fn intel_elsewhere_keeps_vulkan_first_and_other_vendors_on_windows_go_dx12_first_only_when_asked_for_both_roles() {
         let list = [intel(Api::Dx12, 0, false), intel(Api::Vulkan, 1, false)];
         assert_eq!(order_by(&list, Prefer::Unchanged, Role::Pipeline, false), [1, 0]);
         let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
         let cards = [nvidia(Api::Vulkan, 0), nvidia(Api::Dx12, 1)];
         for role in [Role::Window, Role::Pipeline] {
             assert_eq!(order_by(&cards, Prefer::Unchanged, role, false), [1, 0]);
-            assert_eq!(order_by(&cards, Prefer::Unchanged, role, true), [0, 1], "asking for Vulkan puts it first");
+            assert_eq!(order_by(&cards, Prefer::Unchanged, role, true), [0, 1], "without the request Vulkan is first");
         }
     }
 
     #[test]
-    fn asking_for_vulkan_or_less_memory_never_moves_intel() {
+    fn asking_for_dx12_first_never_moves_intel() {
         for vulkan_first in [false, true] {
             for prefer in [Prefer::Unchanged, Prefer::HighPerformance, Prefer::PowerSaving] {
                 let list = [intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true)];
@@ -414,20 +379,13 @@ mod tests {
     }
 
     #[test]
-    fn a_plain_stream_stays_off_the_card_on_intel_in_windows_and_with_less_memory() {
-        assert!(!plain_held_back_for(false, false));
-        assert!(plain_held_back_for(true, false) && plain_held_back_for(false, true));
+    fn only_a_saved_dx12_choice_asks_for_dx12_first() {
+        assert!(dx12_first_for("dx12") && dx12_first_for(" dx12 "));
+        assert!(!dx12_first_for("") && !dx12_first_for("vulkan") && !dx12_first_for("nonsense"));
     }
 
     #[test]
-    fn less_memory_starts_only_on_a_computer_with_little_memory_until_chosen() {
-        assert!(less_memory_for("", Some(4)) && less_memory_for("", Some(6)) && less_memory_for("", None));
-        assert!(!less_memory_for("", Some(8)) && !less_memory_for("", Some(16)));
-        assert!(less_memory_for("memory", Some(32)) && !less_memory_for("processor", Some(4)));
-    }
-
-    #[test]
-    fn the_windows_card_stays_dx12_first_on_other_vendors_without_a_request() {
+    fn the_windows_card_goes_dx12_first_on_other_vendors_when_asked() {
         let gtx = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
         let list = [gtx(Api::Vulkan, 0), intel(Api::Vulkan, 1, true), intel(Api::Dx12, 2, true), gtx(Api::Dx12, 3)];
         assert_eq!(order_by(&list, Prefer::HighPerformance, Role::Window, false), [3, 0, 1, 2]);

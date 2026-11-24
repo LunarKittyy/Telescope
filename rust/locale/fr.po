@@ -1482,6 +1482,9 @@ msgstr "Échec de l'installation : {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Direction"
 
@@ -2162,10 +2165,10 @@ msgstr "Le serveur de Google a renvoyé l'erreur {code}. Réessayez plus tard."
 msgid "Grain size"
 msgstr "Taille du grain"
 
-msgid "Graphics card"
+msgid "Graphics API"
 msgstr ""
 
-msgid "Graphics priority"
+msgid "Graphics card"
 msgstr ""
 
 msgid "Green"
@@ -2685,9 +2688,6 @@ msgstr "Contours des objectifs"
 
 msgid "Lens switch"
 msgstr "Changement d'objectif"
-
-msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
-msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Une plage plus réduite offre des paliers plus précis. Une plage plus large compense un téléphone peu audible."
@@ -4101,9 +4101,6 @@ msgstr "Ligne précédente"
 
 msgid "Primaries"
 msgstr "Primaires"
-
-msgid "Priority"
-msgstr ""
 
 msgid "Privacy blur"
 msgstr "Flou de confidentialité"
@@ -7438,12 +7435,6 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr "Utiliser du vert, du bleu ou une couleur prélevée dans l'aperçu comme couleur du fond."
 
-msgid "Use less memory"
-msgstr ""
-
-msgid "Use less processor"
-msgstr ""
-
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Consommer moins de processeur et de batterie lorsque l'arrière-plan ou le Cadrage automatique est activé. Les deux réagissent aux mouvements rapides avec un léger décalage."
 
@@ -7570,6 +7561,12 @@ msgstr ""
 msgid "Vision download required"
 msgstr "Téléchargement Vision requis"
 
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
+
 msgid "W"
 msgstr ""
 
@@ -7664,9 +7661,6 @@ msgstr "Action à appliquer lorsque plusieurs personnes sont à l'image."
 msgid "What is sent when the sign turns on or off."
 msgstr "Ce qui est envoyé quand le voyant s'allume ou s'éteint."
 
-msgid "What the graphics should save"
-msgstr ""
-
 msgid "What the shortcut does"
 msgstr "Action du raccourci"
 
@@ -7721,6 +7715,9 @@ msgstr "Indique si l'indicateur est actuellement allumé"
 
 msgid "Which device to stream from"
 msgstr "Depuis quel appareil diffuser"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8183,7 +8180,7 @@ msgid "density compact comfortable spacing padding room tight cramped"
 msgstr ""
 
 msgctxt "search"
-msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

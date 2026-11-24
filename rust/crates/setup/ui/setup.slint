@@ -263,19 +263,19 @@ export component VideoSettings inherits Card {
             open: mode-shown;
             RailRow {
                 icon: Icons.gauge;
-                label: @tr("Priority");
-                tip: @tr("What the graphics should save");
-                tip-detail: mode-locked ? @tr("This choice has no effect on Intel graphics.") : @tr("Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart.");
+                label: @tr("Graphics API");
+                tip: @tr("Which graphics API is tried first");
+                tip-detail: mode-locked ? @tr("This choice has no effect on Intel graphics.") : @tr("Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart.");
                 named: true;
                 hue: root.hue;
                 enabled: !mode-locked;
-                keywords: @tr("search" => "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows");
+                keywords: @tr("search" => "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows");
                 ChoiceField {
                     preferred-width: Theme.control-w;
                     min-width: Theme.control-min;
                     max-width: Theme.control-w;
                     compact: true;
-                    name: @tr("Graphics priority");
+                    name: @tr("Graphics API");
                     items: root.mode-items;
                     current <=> root.mode-current;
                     picked(i) => { root.mode-current = i; root.mode-picked(i); }

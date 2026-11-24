@@ -206,14 +206,17 @@ impl Chain {
     }
 }
 
-/// Whether a plain stream may convert on the card: yes unless TELESCOPE_PLAIN_ON_CARD=0 switches it off, Settings says "Use less memory"
-/// (Vulkan, where every card path copies through memory anyway), or the card is Intel's in Windows (its DX12 pipeline device leaks memory).
+/// Whether a plain stream may convert on the card: always on Linux, on Windows only with TELESCOPE_PLAIN_ON_CARD set, since it hasn't run on a real card there yet.
 pub(crate) fn plain_allowed() -> bool {
-    plain_gate(std::env::var_os("TELESCOPE_PLAIN_ON_CARD").as_deref(), telescope_core::gpu_pick::plain_held_back())
+    plain_gate(cfg!(windows), plain_opted_in())
 }
 
-fn plain_gate(set: Option<&std::ffi::OsStr>, held_back: bool) -> bool {
-    !held_back && set.is_none_or(|v| v != "0")
+fn plain_opted_in() -> bool {
+    std::env::var_os("TELESCOPE_PLAIN_ON_CARD").is_some_and(|v| v != "0")
+}
+
+fn plain_gate(windows: bool, opted_in: bool) -> bool {
+    !windows || opted_in
 }
 
 /// A step that hides, as the frame last through the steps had it: what a frame sent again is compared with.
@@ -750,8 +753,9 @@ impl Pipeline {
 
     /// Whether no step runs and the plain picture isn't converted on the card, so a card picture can be left for the camera to take scaled.
     fn plain_for_fit(&self) -> bool {
-        // Tests stand in for a card where plain streams stay off it (Intel, "Use less memory"), the case the fit is for
-        self.no_steps_run() && !self.plain_on_card_if(!cfg!(test) && plain_allowed())
+        // Tests stand in for Windows, where a plain stream converts on the card only when opted in
+        let windows = cfg!(any(windows, test));
+        self.no_steps_run() && !self.plain_on_card_if(plain_gate(windows, plain_opted_in()))
     }
 
     /// The size the camera takes while it is open.
@@ -4234,11 +4238,10 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_plain_stream_converts_on_the_card_unless_switched_off() {
-        assert!(plain_gate(None, false), "on by default");
-        assert!(!plain_gate(None, true), "held back (Use less memory, Intel in Windows)");
-        assert!(!plain_gate(Some("0".as_ref()), false), "switched off");
-        assert!(plain_gate(Some("1".as_ref()), false));
+    fn a_plain_stream_converts_on_the_card_on_windows_only_when_asked_to() {
+        assert!(plain_gate(false, false), "Linux: on by default");
+        assert!(!plain_gate(true, false), "Windows: off by default");
+        assert!(plain_gate(true, true), "Windows: opted in");
     }
 
     #[test]

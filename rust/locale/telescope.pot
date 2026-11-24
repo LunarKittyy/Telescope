@@ -1480,6 +1480,9 @@ msgstr ""
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr ""
 
@@ -2160,10 +2163,10 @@ msgstr ""
 msgid "Grain size"
 msgstr ""
 
-msgid "Graphics card"
+msgid "Graphics API"
 msgstr ""
 
-msgid "Graphics priority"
+msgid "Graphics card"
 msgstr ""
 
 msgid "Green"
@@ -2682,9 +2685,6 @@ msgid "Lens outlines"
 msgstr ""
 
 msgid "Lens switch"
-msgstr ""
-
-msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
 msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
@@ -4098,9 +4098,6 @@ msgid "Previous line"
 msgstr ""
 
 msgid "Primaries"
-msgstr ""
-
-msgid "Priority"
 msgstr ""
 
 msgid "Privacy blur"
@@ -7404,12 +7401,6 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr ""
 
-msgid "Use less memory"
-msgstr ""
-
-msgid "Use less processor"
-msgstr ""
-
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr ""
 
@@ -7536,6 +7527,12 @@ msgstr ""
 msgid "Vision download required"
 msgstr ""
 
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
+
 msgid "W"
 msgstr ""
 
@@ -7630,9 +7627,6 @@ msgstr ""
 msgid "What is sent when the sign turns on or off."
 msgstr ""
 
-msgid "What the graphics should save"
-msgstr ""
-
 msgid "What the shortcut does"
 msgstr ""
 
@@ -7686,6 +7680,9 @@ msgid "Whether the sign is on air right now"
 msgstr ""
 
 msgid "Which device to stream from"
+msgstr ""
+
+msgid "Which graphics API is tried first"
 msgstr ""
 
 msgid "Which graphics card Telescope uses"
@@ -8149,7 +8146,7 @@ msgid "density compact comfortable spacing padding room tight cramped"
 msgstr ""
 
 msgctxt "search"
-msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

@@ -1485,6 +1485,9 @@ msgstr "Не вдалося встановити: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Напрямок"
 
@@ -2165,10 +2168,10 @@ msgstr "Сервер Google повернув помилку {code}. Спробу
 msgid "Grain size"
 msgstr "Розмір зерна"
 
-msgid "Graphics card"
+msgid "Graphics API"
 msgstr ""
 
-msgid "Graphics priority"
+msgid "Graphics card"
 msgstr ""
 
 msgid "Green"
@@ -2691,9 +2694,6 @@ msgstr "Контури об'єктивів"
 
 msgid "Lens switch"
 msgstr "Перемикання об'єктива"
-
-msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
-msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Вужчий діапазон забезпечує точніше налаштування. Ширший діапазон допомагає для тихого телефону."
@@ -4110,9 +4110,6 @@ msgstr "Попередній рядок"
 
 msgid "Primaries"
 msgstr "Основні"
-
-msgid "Priority"
-msgstr ""
 
 msgid "Privacy blur"
 msgstr "Приватне розмиття"
@@ -7456,12 +7453,6 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr "Використати зелений, синій або вибраний із попереднього перегляду колір як колір фону."
 
-msgid "Use less memory"
-msgstr ""
-
-msgid "Use less processor"
-msgstr ""
-
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Використовувати менше ресурсів процесора й акумулятора, коли увімкнено «Фон» або «Автокадрування». Обидва реагують на швидкі рухи трохи пізніше."
 
@@ -7588,6 +7579,12 @@ msgstr ""
 msgid "Vision download required"
 msgstr "Потрібне завантаження Vision"
 
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
+
 msgid "W"
 msgstr ""
 
@@ -7682,9 +7679,6 @@ msgstr "Що відбувається, коли в кадрі більше од�
 msgid "What is sent when the sign turns on or off."
 msgstr "Що надсилається, коли індикатор вмикається або вимикається."
 
-msgid "What the graphics should save"
-msgstr ""
-
 msgid "What the shortcut does"
 msgstr "Дія комбінації клавіш"
 
@@ -7739,6 +7733,9 @@ msgstr "Чи світиться табличка «В ефірі» просто 
 
 msgid "Which device to stream from"
 msgstr "З якого пристрою транслювати"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8202,7 +8199,7 @@ msgid "density compact comfortable spacing padding room tight cramped"
 msgstr ""
 
 msgctxt "search"
-msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

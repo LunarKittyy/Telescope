@@ -1482,6 +1482,9 @@ msgstr "Installazione non riuscita: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Direzione"
 
@@ -2162,10 +2165,10 @@ msgstr "Il server di Google ha restituito l'errore {code}. Riprova più tardi."
 msgid "Grain size"
 msgstr "Dimensione grana"
 
-msgid "Graphics card"
+msgid "Graphics API"
 msgstr ""
 
-msgid "Graphics priority"
+msgid "Graphics card"
 msgstr ""
 
 msgid "Green"
@@ -2685,9 +2688,6 @@ msgstr "Contorni obiettivi"
 
 msgid "Lens switch"
 msgstr "Cambio obiettivo"
-
-msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
-msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Un intervallo minore offre regolazioni più fini. Un intervallo maggiore aiuta con un telefono dal volume basso."
@@ -4101,9 +4101,6 @@ msgstr "Riga precedente"
 
 msgid "Primaries"
 msgstr "Primari"
-
-msgid "Priority"
-msgstr ""
 
 msgid "Privacy blur"
 msgstr "Sfocatura privacy"
@@ -7438,12 +7435,6 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr "Usa il verde, il blu o un colore scelto dall'anteprima come colore del telo."
 
-msgid "Use less memory"
-msgstr ""
-
-msgid "Use less processor"
-msgstr ""
-
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Usa meno processore e batteria quando Sfondo o Inquadratura automatica sono attivi. Entrambi reagiscono ai movimenti rapidi con un leggero ritardo."
 
@@ -7570,6 +7561,12 @@ msgstr ""
 msgid "Vision download required"
 msgstr "Download del pacchetto Vision richiesto"
 
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
+
 msgid "W"
 msgstr ""
 
@@ -7664,9 +7661,6 @@ msgstr "Cosa accade quando c'è più di una persona nell'immagine."
 msgid "What is sent when the sign turns on or off."
 msgstr "Cosa viene inviato quando l'avviso si accende o si spegne."
 
-msgid "What the graphics should save"
-msgstr ""
-
 msgid "What the shortcut does"
 msgstr "Cosa fa la scorciatoia"
 
@@ -7721,6 +7715,9 @@ msgstr "Indica se il segnale è attualmente On Air"
 
 msgid "Which device to stream from"
 msgstr "Da quale dispositivo trasmettere in streaming"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8183,7 +8180,7 @@ msgid "density compact comfortable spacing padding room tight cramped"
 msgstr ""
 
 msgctxt "search"
-msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

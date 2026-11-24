@@ -1479,6 +1479,9 @@ msgstr "Không thể cài đặt: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Hướng"
 
@@ -2159,10 +2162,10 @@ msgstr "Máy chủ của Google đã trả về lỗi {code}. Hãy thử lại s
 msgid "Grain size"
 msgstr "Cỡ hạt"
 
-msgid "Graphics card"
+msgid "Graphics API"
 msgstr ""
 
-msgid "Graphics priority"
+msgid "Graphics card"
 msgstr ""
 
 msgid "Green"
@@ -2679,9 +2682,6 @@ msgstr "Đường viền ống kính"
 
 msgid "Lens switch"
 msgstr "Chuyển ống kính"
-
-msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
-msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Phạm vi nhỏ hơn giúp các bước chỉnh chi tiết hơn. Phạm vi lớn hơn sẽ hỗ trợ điện thoại có âm lượng nhỏ."
@@ -4092,9 +4092,6 @@ msgstr "Dòng trước"
 
 msgid "Primaries"
 msgstr "Màu cơ bản"
-
-msgid "Priority"
-msgstr ""
 
 msgid "Privacy blur"
 msgstr "Làm mờ riêng tư"
@@ -7420,12 +7417,6 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr "Dùng màu xanh lá, xanh dương hoặc màu chọn từ khung xem trước làm màu phông nền."
 
-msgid "Use less memory"
-msgstr ""
-
-msgid "Use less processor"
-msgstr ""
-
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Sử dụng ít vi xử lý và pin hơn khi tính năng Nền hoặc Căn khung tự động đang bật. Cả hai sẽ phản hồi chuyển động nhanh trễ hơn một chút."
 
@@ -7552,6 +7543,12 @@ msgstr ""
 msgid "Vision download required"
 msgstr "Cần tải về gói thị giác"
 
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
+
 msgid "W"
 msgstr ""
 
@@ -7646,9 +7643,6 @@ msgstr "Điều sẽ xảy ra khi có nhiều hơn một người trong hình �
 msgid "What is sent when the sign turns on or off."
 msgstr "Nội dung được gửi khi biển báo bật hoặc tắt."
 
-msgid "What the graphics should save"
-msgstr ""
-
 msgid "What the shortcut does"
 msgstr "Chức năng của phím tắt"
 
@@ -7703,6 +7697,9 @@ msgstr "Liệu biển báo có đang lên sóng ngay bây giờ hay không"
 
 msgid "Which device to stream from"
 msgstr "Thiết bị dùng để truyền phát"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8164,7 +8161,7 @@ msgid "density compact comfortable spacing padding room tight cramped"
 msgstr ""
 
 msgctxt "search"
-msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"

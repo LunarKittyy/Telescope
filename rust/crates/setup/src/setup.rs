@@ -413,9 +413,9 @@ impl SetupPlugin {
         (cards.into_iter().map(|(_, name)| name).collect(), current)
     }
 
-    /// Whether the shown choice is "Use less memory", the saved one or the computer's own default.
-    fn less_memory(&self) -> bool {
-        telescope_core::gpu_pick::less_memory_for(&self.graphics_mode, telescope_core::machine::total_memory_gb())
+    /// Whether the shown choice is "DirectX 12 first": only a saved pick is.
+    fn dx12_first(&self) -> bool {
+        telescope_core::gpu_pick::dx12_first_for(&self.graphics_mode)
     }
 
     /// Intel's cards pick their own API (see `gpu_pick::order`), so the choice can't do anything once one is open.
@@ -425,7 +425,7 @@ impl SetupPlugin {
 
     /// The card and the way it is driven are set once when Telescope starts, so a change waits for the next start.
     fn gpu_restart_needed(&self) -> bool {
-        let mode = !self.linux && !self.graphics_mode_locked() && self.less_memory() != telescope_core::gpu_pick::less_memory_set();
+        let mode = !self.linux && !self.graphics_mode_locked() && self.dx12_first() != telescope_core::gpu_pick::dx12_first_set();
         mode || !self.gpu_card.trim().eq_ignore_ascii_case(telescope_core::gpu_pick::choice().trim())
     }
 
@@ -455,8 +455,8 @@ impl SetupPlugin {
         json!({
             "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode() && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
             "gpu-items": gpu_items, "gpu-current": gpu_current, "gpu-restart": self.gpu_restart_needed(), "gpu-line": self.gpu_line(),
-            "mode-shown": !self.linux, "mode-items": [tr("Use less processor"), tr("Use less memory")],
-            "mode-current": usize::from(self.less_memory() && !self.graphics_mode_locked()), "mode-locked": self.graphics_mode_locked(),
+            "mode-shown": !self.linux, "mode-items": [tr("Vulkan first"), tr("DirectX 12 first")],
+            "mode-current": usize::from(self.dx12_first() && !self.graphics_mode_locked()), "mode-locked": self.graphics_mode_locked(),
             "saving-checked": self.power_saving,
             "zoom-text": format!("{}×", self.max_zoom),
             "canvas-items": self.canvas_items(), "canvas-current": p.canvas_current,
@@ -1038,9 +1038,9 @@ impl SetupPlugin {
         host.schedule_save();
     }
 
-    /// How Windows drives the card for the next start: index 0 is "Use less processor", 1 is "Use less memory".
+    /// How Windows drives the card for the next start: index 0 is "Vulkan first", 1 is "DirectX 12 first".
     pub fn on_graphics_mode(&mut self, host: &mut dyn Host, index: usize) {
-        self.graphics_mode = if index == 1 { "memory" } else { "processor" }.to_string();
+        self.graphics_mode = if index == 1 { "dx12" } else { "vulkan" }.to_string();
         host.schedule_save();
     }
 
@@ -1466,7 +1466,7 @@ impl Plugin for SetupPlugin {
         self.power_saving = cfg.get("power_saving") == Some(&Value::Bool(true));
         self.gpu_card = cfg.get("gpu_card").and_then(Value::as_str).unwrap_or("").trim().to_ascii_lowercase();
         self.gpu_card_name = cfg.get("gpu_card_name").and_then(Value::as_str).unwrap_or("").to_string();
-        self.graphics_mode = cfg.get("graphics_mode").and_then(Value::as_str).filter(|m| matches!(*m, "processor" | "memory")).unwrap_or("").to_string();
+        self.graphics_mode = cfg.get("graphics_mode").and_then(Value::as_str).filter(|m| matches!(*m, "dx12" | "vulkan")).unwrap_or("").to_string();
         self.plugin_hues = cfg.get("plugin_hues") != Some(&Value::Bool(false));
         // A config an older Telescope wrote says classic_theme instead
         self.look = match cfg.get("look").and_then(Value::as_str).and_then(Look::from_name) {

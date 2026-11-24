@@ -218,8 +218,8 @@ fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
     adapters.iter().map(|a| { let i = a.get_info(); gpu_pick::Info { vendor: i.vendor, device: i.device, driver: i.driver, driver_info: i.driver_info } }).collect()
 }
 
-/// The adapters of one instance in the order to try them. WGPU_POWER_PREF set: wgpu's own pick for it. Otherwise real GPUs first, DX12
-/// before Vulkan on Windows and Vulkan first elsewhere (`gpu_pick::order`), and software or odd adapters last; wgpu's no-preference
+/// The adapters of one instance in the order to try them. WGPU_POWER_PREF set: wgpu's own pick for it. Otherwise real GPUs first, Vulkan
+/// before DX12 unless Settings asks for DirectX 12 first on Windows (`gpu_pick::order`), and software or odd adapters last; wgpu's no-preference
 /// request would take whatever is listed first, software adapters included.
 fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preference: Option<wgpu::PowerPreference>) -> Vec<(wgpu::Adapter, Card)> {
     let listed = gpu_marker::marked_while(&gpu_marker::probe_card(), || pollster::block_on(instance.enumerate_adapters(backends)));

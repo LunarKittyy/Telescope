@@ -1481,6 +1481,9 @@ msgstr "Installerades inte: {detail}"
 msgid "Different app versions"
 msgstr ""
 
+msgid "DirectX 12 first"
+msgstr ""
+
 msgid "Direction"
 msgstr "Riktning"
 
@@ -2161,10 +2164,10 @@ msgstr "Googles server returnerade fel {code}. Försök igen senare."
 msgid "Grain size"
 msgstr "Kornstorlek"
 
-msgid "Graphics card"
+msgid "Graphics API"
 msgstr ""
 
-msgid "Graphics priority"
+msgid "Graphics card"
 msgstr ""
 
 msgid "Green"
@@ -2684,9 +2687,6 @@ msgstr "Objektivramar"
 
 msgid "Lens switch"
 msgstr "Objektivbyte"
-
-msgid "Less processor uses DirectX 12 and does more of the work on the graphics card, roughly halving processor use, for about 150 MB more memory. Less memory uses Vulkan and keeps more of the work on the processor. A change applies after a restart."
-msgstr ""
 
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Mindre intervall ger finare steg. Större intervall hjälper en tyst telefon."
@@ -4100,9 +4100,6 @@ msgstr "Föregående rad"
 
 msgid "Primaries"
 msgstr "Primära"
-
-msgid "Priority"
-msgstr ""
 
 msgid "Privacy blur"
 msgstr "Integritetsoskärpa"
@@ -7437,12 +7434,6 @@ msgstr ""
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr "Använd grönt, blått eller en färg hämtad från förhandsvisningen som skärmfärg."
 
-msgid "Use less memory"
-msgstr ""
-
-msgid "Use less processor"
-msgstr ""
-
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Använd mindre processor och batteri medan Bakgrund eller Automatisk inramning är på. Båda reagerar på snabba rörelser lite senare."
 
@@ -7569,6 +7560,12 @@ msgstr ""
 msgid "Vision download required"
 msgstr "Vision-nedladdning krävs"
 
+msgid "Vulkan first"
+msgstr ""
+
+msgid "Vulkan first is the default and how Telescope drew before. DirectX 12 first lets the graphics card pass pictures to effects without a copy through memory, which can use less processor with effects and more memory, depending on the card. A change applies after a restart."
+msgstr ""
+
 msgid "W"
 msgstr ""
 
@@ -7663,9 +7660,6 @@ msgstr "Vad som händer när fler än en person syns i bilden."
 msgid "What is sent when the sign turns on or off."
 msgstr "Vad som skickas när skylten tänds eller släcks."
 
-msgid "What the graphics should save"
-msgstr ""
-
 msgid "What the shortcut does"
 msgstr "Vad kortkommandot gör"
 
@@ -7720,6 +7714,9 @@ msgstr "Om skylten är On Air just nu"
 
 msgid "Which device to stream from"
 msgstr "Vilken enhet det ska strömmas från"
+
+msgid "Which graphics API is tried first"
+msgstr ""
 
 msgid "Which graphics card Telescope uses"
 msgstr ""
@@ -8182,7 +8179,7 @@ msgid "density compact comfortable spacing padding room tight cramped"
 msgstr ""
 
 msgctxt "search"
-msgid "directx dx12 vulkan graphics api processor cpu memory ram usage low laptop 8 gb windows"
+msgid "directx dx12 vulkan graphics api priority processor cpu memory ram usage laptop windows"
 msgstr ""
 
 msgid "down"
