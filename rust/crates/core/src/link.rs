@@ -183,14 +183,14 @@ pub trait Link: Send + Sync {
     fn sensors(&self) -> Option<std::sync::Arc<dyn PhoneSensors>> {
         None
     }
-    /// Full-quality photos from the phones (stills.py), for the window's HostStills.
+    /// Full-quality photos from the phones, for the window's HostStills.
     fn stills(&self) -> Option<std::sync::Arc<dyn PhoneStills>> {
         None
     }
     /// At quit: stops LAN discovery and the adb server this app started.
     fn shutdown(&self) {}
 
-    // The stream flow's side of the Connection plugin (get_stream_info and the route methods in connection.py): the
+    // The stream flow's side of the Connection plugin: the
     // window calls these, and the Connection plugin, which shares their state inside the link crate, shows what
     // comes of them (the card, and the Start banner with its fixes). source_id None is the picked phone.
 
@@ -284,7 +284,7 @@ impl RoutePreference {
     }
 }
 
-/// How a phone is doing right now (phones.py's statuses, with the same names).
+/// How a phone is doing right now.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PhoneStatus {
     #[serde(rename = "ready")]

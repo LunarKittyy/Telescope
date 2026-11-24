@@ -4,7 +4,7 @@
 use crate::doc::{self, CardPlace, HeaderPlace, Piece};
 use crate::layout::Region;
 use crate::shell::{Effect, State};
-use crate::source::{scan, to_json, to_property};
+use crate::slint_source::{scan, to_json, to_property};
 use serde_json::Value;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
@@ -445,7 +445,7 @@ pub(crate) fn card_place(info: &PluginInfo, card: &CardSpec, id: &str) -> (CardP
     let place = CardPlace {
         piece: Piece { id: id.into(), file: file.clone(), component: card.ui.component.clone(), iface: scan(&text, &card.ui.component) },
         region: Region::from_name(&card.region),
-        fold_key: format!("{}/{}", info.name, crate::source::heading(&text, &card.ui.component).unwrap_or(title)),
+        fold_key: format!("{}/{}", info.name, crate::slint_source::heading(&text, &card.ui.component).unwrap_or(title)),
         category: info.category.clone(),
     };
     (place, (file, text))
@@ -599,7 +599,7 @@ impl Window {
             let action = match args.first() { Some(SValue::String(s)) => s.to_string(), _ => String::new() };
             let st = state.borrow();
             let listed = st.shortcut_menu.iter().flat_map(|(_, b)| b).filter(|b| action.split(' ').any(|a| a == b.action))
-                .map(|b| crate::source::from_json(&serde_json::json!({"id": b.id, "text": b.text}))).collect::<Vec<_>>();
+                .map(|b| crate::slint_source::from_json(&serde_json::json!({"id": b.id, "text": b.text}))).collect::<Vec<_>>();
             SValue::Model(slint::ModelRc::new(slint::VecModel::from(listed)))
         });
         let state = self.state.clone();

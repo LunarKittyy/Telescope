@@ -1,4 +1,4 @@
-// test_overlays.py::test_a_pick_carries_the_picture_shown_before_any_tint, through the window's real paint: a stream's
+// Through the window's real paint: a stream's
 // frame, a pass that tints it and a pick that ends on it.
 mod rig;
 

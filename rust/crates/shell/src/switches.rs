@@ -1,4 +1,4 @@
-//! Which built-in plugins are switched off or on (plugin_loader.py's "plugins" section of the settings). The added
+//! Which built-in plugins are switched off or on. The added
 //! plugins' part of the section is the plugin host's and is kept as it is.
 
 use serde_json::{json, Map, Value};

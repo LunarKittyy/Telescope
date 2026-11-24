@@ -11,7 +11,7 @@ use telescope_core::ui::SlintSource;
 use telescope_effects::photos::PhotosPlugin;
 use telescope_setup::monitoring::MonitoringPlugin;
 use telescope_shell::plugins::camera_control::CameraControl;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 type Heard = Rc<RefCell<Vec<(String, Vec<String>)>>>;
 

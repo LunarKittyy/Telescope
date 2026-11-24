@@ -1,4 +1,4 @@
-//! The Microphone's worker reading the phone's /v1/audio through link's real request (test_audio.py's worker tests). The phone is a
+//! The Microphone's worker reading the phone's /v1/audio through link's real request. The phone is a
 //! few lines of plain HTTP here; the worker hears what the wire says, not a stand-in for it.
 
 use std::collections::VecDeque;

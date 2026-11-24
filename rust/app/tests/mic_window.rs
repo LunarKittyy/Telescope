@@ -1,4 +1,4 @@
-//! test_microphone.py's two_cams: the real Microphone plugin in the window, moved by the window's own flow.
+//! Two cameras: the real Microphone plugin in the window, moved by the window's own flow.
 mod rig;
 
 use rig::{Listener, Rig};
@@ -156,7 +156,7 @@ fn two_cams(name: &str) -> Mic {
     mic
 }
 
-// test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it: the click itself, on the card's real meter
+// The click itself, on the card's real meter
 #[test]
 fn a_click_on_the_meter_clears_the_clip_light() {
     let m = two_cams("mic-meter");

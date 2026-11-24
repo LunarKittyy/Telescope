@@ -1,4 +1,4 @@
-//! People in the picture as a shared host service (vision.py's Vision, vision_download.py and vision_status.py). The vision
+//! People in the picture as a shared host service. The vision
 //! crate implements VisionService and the binary hands it to the shell in Services; plugins never see it. They get:
 //! - FrameContext::person_mask in a frame step (Background, Privacy blur, Fun pack's cloak), or person_mask_at for one that works at a smaller size,
 //! - HostVision::want_people, then Event::PeopleSeen (Person records, Auto framing) and Event::PeopleTracked (Track records
@@ -53,7 +53,7 @@ impl Turn {
     }
 }
 
-/// A point in the picture as shown at zoom 1 with turn `old` to where it is with turn `new` (the remap app.py and Auto framing do
+/// A point in the picture as shown at zoom 1 with turn `old` to where it is with turn `new` (the remap Auto framing does
 /// when the view is flipped or turned).
 pub fn turned(old: Turn, new: Turn) -> impl Fn(f64, f64) -> (f64, f64) {
     move |x, y| {

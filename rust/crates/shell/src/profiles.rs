@@ -1,4 +1,4 @@
-//! Each device's own copy of the device-local plugins' settings (app.py's device profile methods), as plain changes
+//! Each device's own copy of the device-local plugins' settings, as plain changes
 //! to the loaded settings so they can be tested without a window.
 
 use serde_json::{json, Map, Value};

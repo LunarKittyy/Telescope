@@ -1,4 +1,4 @@
-//! test_dev_profile.py: a dev profile keeps everything apart from the real app. The launcher's own tests are in app/src/dev.rs.
+//! A dev profile keeps everything apart from the real app. The launcher's own tests are in app/src/dev.rs.
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;

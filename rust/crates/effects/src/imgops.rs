@@ -1061,7 +1061,7 @@ mod tests {
         assert!(at(79) > 0 && at(79) < 255 && at(5) == 0 && at(155) == 255);
     }
 
-    /// test_pictures.py's scene: gradients with a disc in the middle.
+    /// The test scene: gradients with a disc in the middle.
     fn scene(w: usize, h: usize) -> Rgb {
         let mut image = Rgb::new(w, h);
         for y in 0..h {

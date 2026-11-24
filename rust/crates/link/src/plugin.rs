@@ -1,4 +1,4 @@
-//! The Connection plugin (plugins/connection.py's window half): the card, the phone picker, the Add device and Your
+//! The Connection plugin: the card, the phone picker, the Add device and Your
 //! phones dialogs, the Start banners and the UDP setting. Its decisions are connection.rs's; its state is shared with
 //! LinkService (shared.rs), which the window's stream flow calls, so the window never reaches into this plugin.
 
@@ -2813,7 +2813,6 @@ mod tests {
         e.host.events.iter().rev().find_map(|ev| match ev { Event::SourceSelected { source_id } => Some(source_id.clone()), _ => None })
     }
 
-    // test_browser_camera.py::test_sources_are_listed_after_the_phones_and_can_be_picked
     #[test]
     fn sources_are_listed_after_the_phones_and_can_be_picked() {
         let mut e = env();
@@ -2831,7 +2830,6 @@ mod tests {
         assert_eq!(picked(&e).as_deref(), Some(""));
     }
 
-    // test_browser_camera.py::test_a_saved_source_selection_is_restored
     #[test]
     fn a_saved_source_selection_is_restored() {
         let mut e = env();
@@ -3537,7 +3535,6 @@ mod tests {
         assert_eq!(e.props("card")["usb-text"], "Or plug the phone in over USB.");
     }
 
-    // test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another
     #[test]
     fn asking_while_a_download_runs_doesn_t_ask_or_start_another() {
         let link = FakeLink::new();

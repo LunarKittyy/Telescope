@@ -1,5 +1,5 @@
 //! Testing a plugin without Telescope: drive its hooks against a host that writes everything down, and check it the way
-//! check_plugin.py checked Python plugins. `check-plugin path/to/plugin` runs check() from the command line.
+//! the Python app checked its plugins. `check-plugin path/to/plugin` runs check() from the command line.
 
 use crate::load::{load_unchecked, LuaPlugin};
 use crate::manifest::{self, MANIFEST};
@@ -192,7 +192,7 @@ fn check_ui(spec: &UiSpec) -> Result<(), String> {
     if exported { Ok(()) } else { Err(format!("{path} has no `export component {}`", spec.component)) }
 }
 
-/// Everything check_plugin.py checked, for a Lua plugin: it loads, its card and shader are usable, its settings save and come back,
+/// Everything checked for a Lua plugin: it loads, its card and shader are usable, its settings save and come back,
 /// it gets through a stream starting and stopping, and its translations can be read.
 pub fn check(folder: &Path) -> Report {
     let mut report = Report::default();

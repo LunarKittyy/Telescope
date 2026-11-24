@@ -1,4 +1,4 @@
-//! Fetching VB-Audio Virtual Cable and opening its setup (virtual_mic.py's Windows half). VB-Cable isn't part of
+//! Fetching VB-Audio Virtual Cable and opening its setup. VB-Cable isn't part of
 //! Telescope: its readme doesn't allow putting it inside another setup without VB-Audio's agreement, so their setup
 //! runs as it is, with its own windows, and the person installing it sees whose it is first.
 

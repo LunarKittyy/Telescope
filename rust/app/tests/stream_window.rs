@@ -1,4 +1,4 @@
-// test_frames.py's window half: real streams through the real window, on a platform of our own that a test can pump.
+// Window half: real streams through the real window, on a platform of our own that a test can pump.
 // Linux only: the fixed canvas; on Windows a camera opens at the stream's size
 #![cfg(target_os = "linux")]
 

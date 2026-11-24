@@ -1,4 +1,4 @@
-//! Full-quality photos from the phone (stills.py, /v1/still in docs/development/protocol.md): what the lens can take, and taking
+//! Full-quality photos from the phone: what the lens can take, and taking
 //! them into a folder, one at a time per phone, each on a thread of its own.
 
 use crate::https::{Aborter, Error, PhoneAuth, Request};

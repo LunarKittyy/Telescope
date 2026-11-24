@@ -1,4 +1,4 @@
-//! Linux global shortcuts through the GlobalShortcuts desktop portal (platform/hotkeys_portal.py): Plasma 5.27+,
+//! Linux global shortcuts through the GlobalShortcuts desktop portal: Plasma 5.27+,
 //! GNOME 48+, Hyprland.
 //!
 //! Talks D-Bus on threads of its own. The flow: register the app id (an app outside Flatpak has to, before any other

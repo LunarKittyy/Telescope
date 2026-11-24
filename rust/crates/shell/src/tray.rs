@@ -1,4 +1,4 @@
-//! The tray icon (app.py's _setup_tray and what goes with it): Show, the plugins' tray actions and Quit, a click that
+//! The tray icon: Show, the plugins' tray actions and Quit, a click that
 //! shows or hides the window, a tooltip that says what's streaming, and closing to the tray while something streams or
 //! a plugin keeps Telescope there.
 

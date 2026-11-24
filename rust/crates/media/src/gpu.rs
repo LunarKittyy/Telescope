@@ -2919,7 +2919,7 @@ mod tests {
         assert!((out.data[0] as i32 - 16).abs() <= 2, "{}", out.data[0]);
     }
 
-    // test_colour.py::test_an_identity_lut_leaves_frames_alone: the lattice isn't rounded to whole levels on its way to the card
+    // The lattice isn't rounded to whole levels on its way to the card
     #[test]
     fn an_identity_lut_on_the_card_leaves_frames_alone() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
@@ -2940,7 +2940,7 @@ mod tests {
         }
     }
 
-    // test_colour.py::test_opencv_applies_a_3d_lut_like_trilinear_interpolation_does: here the card applies it
+    // Here the card applies it
     #[test]
     fn the_card_applies_a_3d_lut_like_trilinear_interpolation_does() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };

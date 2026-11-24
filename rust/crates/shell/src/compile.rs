@@ -1,8 +1,8 @@
 //! Compiling a generated document with slint-interpreter. Plugins' .slint text, the shell's own frame and the kit come
-//! through one file loader, which also puts every text in the person's language first (source::translate).
+//! through one file loader, which also puts every text in the person's language first (slint_source::translate).
 
 use crate::reach::{normalise, Reach};
-use crate::source::translate;
+use crate::slint_source::translate;
 use slint_interpreter::{Compiler, ComponentDefinition};
 use std::collections::HashMap;
 use std::io;

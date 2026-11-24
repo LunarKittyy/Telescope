@@ -14,7 +14,7 @@ use telescope_effects::framing::FramingPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::notes::NotesPlugin;
 use telescope_shell::offscreen;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 type Calls = Rc<RefCell<Vec<(String, Vec<Value>)>>>;
 

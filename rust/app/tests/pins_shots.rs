@@ -14,7 +14,7 @@ use telescope_core::testing::FakeHost;
 use telescope_core::ui::SlintSource;
 use telescope_setup::stats::StatsPlugin;
 use telescope_shell::offscreen;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 fn out() -> Option<PathBuf> {
     let dir = PathBuf::from(std::env::var("PIN_SHOTS").ok()?);

@@ -1,4 +1,4 @@
-//! Plugins that don't come with Telescope: finding them, installing them from a .zip, switching them on and removing them (plugin_loader.py).
+//! Plugins that don't come with Telescope: finding them, installing them from a .zip, switching them on and removing them.
 //!
 //! Each lives in a folder of its own under the plugins folder: a plugin.json describing it, a main.lua and whatever else it ships (a card.slint,
 //! shaders, locale/). Nothing in a folder runs until the user switches that plugin on, and switching it on remembers a fingerprint of its

@@ -1,4 +1,4 @@
-//! First-run checklist on the video stage (plugins/onboarding.py): virtual camera, phone app, add a phone, start
+//! First-run checklist on the video stage: virtual camera, phone app, add a phone, start
 //! streaming. It shows until the first stream has delivered frames, then gets out of the way until
 //! setup_guide_requested opens it again; the next one closes it.
 
@@ -299,7 +299,7 @@ mod tests {
     use super::*;
     use telescope_core::testing::FakeHost;
 
-    /// The plugin on its own, its card drawn once, as test_onboarding.py's env.
+    /// The plugin on its own, its card drawn once, for the tests.
     struct Env {
         o: Onboarding,
         host: FakeHost,
@@ -365,7 +365,6 @@ mod tests {
         }
     }
 
-    // test_onboarding.py::test_starts_as_a_checklist_with_nothing_done
     #[test]
     fn starts_as_a_checklist_with_nothing_done() {
         let env = Env::new();
@@ -377,7 +376,6 @@ mod tests {
         assert!((0..4).all(|i| env.step(i)["done"] == false));
     }
 
-    // test_onboarding.py::test_missing_v4l2loopback_says_which_package
     #[test]
     fn missing_v4l2loopback_says_which_package() {
         let mut env = Env::new();
@@ -387,7 +385,6 @@ mod tests {
         assert_eq!(env.step(0)["button"], "Check again");
     }
 
-    // test_onboarding.py::test_windows_offers_to_install_the_driver
     #[test]
     fn windows_offers_to_install_the_driver() {
         let mut env = Env::windows();
@@ -402,7 +399,6 @@ mod tests {
         assert_eq!(env.step(0)["button"], "Install driver");
     }
 
-    // test_onboarding.py::test_add_phone_goes_through_the_bus
     #[test]
     fn add_phone_goes_through_the_bus() {
         let mut env = Env::new();
@@ -410,7 +406,6 @@ mod tests {
         assert_eq!(env.host.events.iter().filter(|e| matches!(e, Event::AddPhoneRequested)).count(), 1);
     }
 
-    // test_onboarding.py::test_checklist_steps_aside_after_the_first_stream
     #[test]
     fn checklist_steps_aside_after_the_first_stream() {
         let mut env = Env::new();
@@ -427,7 +422,6 @@ mod tests {
         assert_eq!(env.o.get_config(), json!({"streamed": true}));
     }
 
-    // test_onboarding.py::test_a_saved_first_stream_keeps_the_checklist_away
     #[test]
     fn a_saved_first_stream_keeps_the_checklist_away() {
         let mut env = Env::new();
@@ -438,7 +432,6 @@ mod tests {
         assert!(env.shown(), "every phone removed: back to the checklist");
     }
 
-    // test_onboarding.py::test_a_paired_phone_alone_is_not_enough_without_the_camera
     #[test]
     fn a_paired_phone_alone_is_not_enough_without_the_camera() {
         let mut env = Env::new();
@@ -449,7 +442,6 @@ mod tests {
         assert!(!env.qr());
     }
 
-    // test_onboarding.py::test_a_stream_source_stands_in_for_the_phone_steps
     #[test]
     fn a_stream_source_stands_in_for_the_phone_steps() {
         let mut env = Env::new();
@@ -462,7 +454,6 @@ mod tests {
         assert!(env.shown());
     }
 
-    // test_onboarding.py::test_the_help_button_brings_the_phone_steps_back_until_closed
     #[test]
     fn the_help_button_brings_the_phone_steps_back_until_closed() {
         let mut env = Env::new();
@@ -483,7 +474,6 @@ mod tests {
         assert!(!env.shown(), "the same button closes it");
     }
 
-    // test_onboarding.py::test_a_stream_starting_closes_the_guide
     #[test]
     fn a_stream_starting_closes_the_guide() {
         let mut env = Env::new();
@@ -497,7 +487,6 @@ mod tests {
         assert!(!env.shown());
     }
 
-    // test_onboarding.py::test_streaming_hides_the_checklist
     #[test]
     fn streaming_hides_the_checklist() {
         let mut env = Env::new();

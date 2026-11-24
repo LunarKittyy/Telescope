@@ -1,4 +1,4 @@
-//! On Air (telescope/on_air.py): whether you're on a call from what Telescope knows, and the two ways of telling the people around
+//! On Air: whether you're on a call from what Telescope knows, and the two ways of telling the people around
 //! you. Debounce turns the raw answer into one that doesn't flap while an app reopens the camera. webhook_request builds what goes to
 //! a smart home hub and WebhookSender sends it off the window's thread. Sign answers a device that keeps the sign page open over
 //! HTTPS, with a link of its own that keeps working across restarts; it answers nothing but the page, its script and the state.

@@ -21,7 +21,7 @@ use telescope_effects::background::BackgroundPlugin;
 use telescope_effects::framing::FramingPlugin;
 use telescope_effects::notes::NotesPlugin;
 use telescope_effects::peek;
-use telescope_shell::source::{from_json, parse_color};
+use telescope_shell::slint_source::{from_json, parse_color};
 use telescope_shell::offscreen;
 
 const WIDTH: f32 = 460.0;
@@ -122,7 +122,7 @@ impl Wrap {
             let log = said.clone();
             let name = *name;
             w.set_callback(name, move |args| {
-                log.borrow_mut().push(UiEvent { ui: "card".into(), callback: name.into(), args: args.iter().map(telescope_shell::source::to_json).collect() });
+                log.borrow_mut().push(UiEvent { ui: "card".into(), callback: name.into(), args: args.iter().map(telescope_shell::slint_source::to_json).collect() });
                 Value::Void
             })
             .unwrap();

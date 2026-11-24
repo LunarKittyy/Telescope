@@ -1,4 +1,4 @@
-// A lock that's held by something that never answers (test_app.py's stale listener tests): the start says so rather than hang or
+// A lock that's held by something that never answers: the start says so rather than hang or
 // quit without a word, and the connection it tried is closed each time. Alone in its binary so no other test opens sockets meanwhile.
 #![cfg(target_os = "linux")]
 

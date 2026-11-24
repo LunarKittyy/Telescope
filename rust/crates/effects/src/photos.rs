@@ -1,4 +1,4 @@
-//! The Photos plugin (plugins/photos.py): full-quality photos taken on the phone through the host's stills service and saved in a
+//! The Photos plugin: full-quality photos taken on the phone through the host's stills service and saved in a
 //! folder. What the card offers follows the lens the shown stream is on (RAW, the maker's Night mode, bursts and brackets where it
 //! has them); the picks of another lens are kept for when it comes back. A stream with a camera of its own (a DSLR) answers the same
 //! service, and then the card also offers the camera's own ISO and shutter speed lists, where its mode allows them. Values that run in

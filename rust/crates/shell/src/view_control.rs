@@ -1,4 +1,4 @@
-//! The window's view of the shown stream (view_controller.py): what's asked of it, split between the phone's own zoom
+//! The window's view of the shown stream: what's asked of it, split between the phone's own zoom
 //! and the crop this computer does, the phone told only about changes, and what the Transforms card and the preview
 //! follow (ViewStatus, LensBoxes). It hears the stream hooks as a follower named "view", like Python's.
 

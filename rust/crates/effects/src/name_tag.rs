@@ -1,4 +1,4 @@
-//! The Name tag plugin (plugins/name_tag.py): a lower third with your name, pronouns and an optional second line, drawn onto the
+//! The Name tag plugin: a lower third with your name, pronouns and an optional second line, drawn onto the
 //! picture. The window's view (zoom, pan, flip and rotation) runs before every plugin's step, so the tag is drawn onto the
 //! picture as apps get it: Mirror in Transforms never mirrors the text, and left means left in the call.
 

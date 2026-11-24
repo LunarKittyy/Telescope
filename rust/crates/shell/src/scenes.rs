@@ -120,7 +120,7 @@ fn scratch(scene: &str) -> std::path::PathBuf {
     dir
 }
 
-/// Builds scenes and writes out/<scale>x/<id>.png for each scale, like render_scenes.py; (pictures written, "<scale>x
+/// Builds scenes and writes out/<scale>x/<id>.png for each scale; (pictures written, "<scale>x
 /// <id>: why" for the ones that failed).
 pub fn render(scenes: &[Scene], scales: &[f32], out: &Path) -> Result<(usize, Vec<String>), String> {
     if !crate::offscreen::install() {
@@ -250,7 +250,7 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             let settings = crate::settings::current().ok_or("no settings window")?;
             settings.call(&call.0, &call.1, &call.2);
             for (callback, args) in then {
-                let args: Vec<_> = args.iter().map(crate::source::from_json).collect();
+                let args: Vec<_> = args.iter().map(crate::slint_source::from_json).collect();
                 settings.call_with(&call.0, &call.1, callback, &args);
             }
             settle(&w);
@@ -264,7 +264,7 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
         Page::SettingsSearch { tab, query } => {
             crate::settings::open(&w, tab);
             let settings = crate::settings::current().ok_or("no settings window")?;
-            let typed = crate::source::from_json(&json!(query));
+            let typed = crate::slint_source::from_json(&json!(query));
             let _ = settings.ui.set_property("query", typed.clone());
             let _ = settings.ui.invoke("query-changed", &[typed]);
             settle(&w);

@@ -1,4 +1,4 @@
-//! test_browser_rtc.py's real connection: another str0m peer stands in for the browser and sends this build's H.264 and Opus. They go through the
+//! The real connection: another str0m peer stands in for the browser and sends this build's H.264 and Opus. They go through the
 //! real session, BrowserFeed and BrowserVideo into the real decoders, so what's checked is a picture and samples, not packets.
 
 use std::net::{IpAddr, UdpSocket};
@@ -166,7 +166,6 @@ fn a_keyframe_is_asked_for_until_one_comes() {
     stop.store(true, Ordering::SeqCst);
 }
 
-// test_browser_rtc.py::test_a_browser_over_webrtc_reaches_the_reader_and_the_mic
 #[test]
 fn a_browser_over_webrtc_reaches_the_reader_and_the_mic() {
     let greys: Vec<u8> = (0..50).map(|n| 100 + n).collect();

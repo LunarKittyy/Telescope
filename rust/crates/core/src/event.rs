@@ -1,4 +1,4 @@
-//! Everything on the event bus: one variant per EventBus signal of the Python app's plugin.py, same name, same meaning.
+//! Everything on the event bus: one variant per EventBus signal.
 
 use crate::host::{Pick, RequestId, View};
 use crate::stats::Snapshot;
@@ -44,7 +44,7 @@ macro_rules! events {
         }
 
         impl Event {
-            /// The signal's name in plugin.py, which is also its "event" field.
+            /// The signal's name, which is also its "event" field.
             pub fn name(&self) -> &'static str {
                 match self { $( Event::$variant { .. } => $name ),* }
             }
@@ -53,7 +53,7 @@ macro_rules! events {
             pub const FIELDS: &'static [(&'static str, &'static [(&'static str, &'static str)])] =
                 &[$(($name, &[$($((stringify!($field), stringify!($ty))),*)?])),*];
 
-            /// Every event name, in plugin.py's order.
+            /// Every event name, in declaration order.
             pub const NAMES: &'static [&'static str] = &[$($name),*];
         }
     };
@@ -190,67 +190,67 @@ events! {
     "still_caps_changed" => StillCapsChanged { source_id: String },
     /// A stream fell behind its frame rate, or caught up again; only the shown one is measured.
     "stream_behind" => StreamBehind { source_id: String, behind: bool },
-    /// Not in plugin.py: a stream's decoded frames changed size (a rotated phone, a Browser camera turning), whichever kind of source it is.
+    /// A stream's decoded frames changed size (a rotated phone, a Browser camera turning), whichever kind of source it is.
     "frame_size_changed" => FrameSizeChanged { source_id: String, width: u32, height: u32 },
 
-    /// Not in plugin.py: a pick_on_preview ended, with the pick or None when cancelled (Python's on_done callback).
+    /// A pick_on_preview ended, with the pick or None when cancelled (Python's on_done callback).
     "preview_picked" => PreviewPicked { owner: String, pick: Option<Pick> },
     /// The host dropped a preview message after its timeout, owner stop or stream end; only its owner hears it.
     "preview_message_ended" => PreviewMessageEnded { source_id: String },
-    /// Not in plugin.py: a host request that finishes later did (Python's on_done callbacks), with what it returned.
+    /// A host request that finishes later did (Python's on_done callbacks), with what it returned.
     "request_done" => RequestDone { request: RequestId, ok: bool, message: String, data: Value },
-    /// Not in plugin.py: progress on a host request that's still going (take_still's on_progress).
+    /// Progress on a host request that's still going (take_still's on_progress).
     "request_progress" => RequestProgress { request: RequestId, data: Value },
-    /// Not in plugin.py: a stream's /v1/state as it arrives, the streams behind the panels too (Monitoring reads their
+    /// A stream's /v1/state as it arrives, the streams behind the panels too (Monitoring reads their
     /// batteries the way Python's ctrl.get_state() did).
     "stream_state" => StreamState { source_id: String, state: Value },
     /// The answer to host.request_phone_state, to whoever polls and nobody else: the stream's session, and whether the panels show it.
     "phone_polled" => PhonePolled { source_id: String, session: u64, shown: bool, state: Value },
-    /// Not in plugin.py: a timer from Host::schedule went off; only the plugin that scheduled it (owner) hears it.
+    /// A timer from Host::schedule went off; only the plugin that scheduled it (owner) hears it.
     "timer_fired" => TimerFired { owner: String, token: String },
-    /// Not in plugin.py: a Poster's post arrived on the host thread; only the plugin it belongs to (owner) hears it.
+    /// A Poster's post arrived on the host thread; only the plugin it belongs to (owner) hears it.
     "posted" => Posted { owner: String, token: String, data: Value },
-    /// Not in plugin.py: the vision pack's download moved on (VisionDownload.progress): bytes so far, bytes in all (0: not known).
+    /// The vision pack's download moved on (VisionDownload.progress): bytes so far, bytes in all (0: not known).
     "vision_download_progress" => VisionDownloadProgress { done: u64, size: u64 },
-    /// Not in plugin.py: the vision pack's download ended (VisionDownload.finished): "" when it's ready, else what went wrong,
+    /// The vision pack's download ended (VisionDownload.finished): "" when it's ready, else what went wrong,
     /// and the optional plugin that waited for it (to switch on when it worked).
     "vision_download_finished" => VisionDownloadFinished { error: String, switch_on: String },
-    /// Not in plugin.py: about once a second while a stream runs, how it's going as numbers (core::stats::Snapshot), with the last minute of each series.
+    /// About once a second while a stream runs, how it's going as numbers (core::stats::Snapshot), with the last minute of each series.
     "stats_updated" => StatsUpdated { snapshot: Snapshot },
-    /// Not in plugin.py: how hard the heavy effects work changed (0 is full quality, up to 3 for the lightest), from the app's own step down
+    /// How hard the heavy effects work changed (0 is full quality, up to 3 for the lightest), from the app's own step down
     /// while frames run late, power-saving effects or a setting. Told about once a second after the change, with no stream needed.
     "effort_changed" => EffortChanged { level: u8 },
-    /// Not in plugin.py: Adjustments asks Stream output to send at a fixed bitrate (Auto) in place of Dynamic for now (on), or to go back to what is set. Not saved by the one that hears it.
+    /// Adjustments asks Stream output to send at a fixed bitrate (Auto) in place of Dynamic for now (on), or to go back to what is set. Not saved by the one that hears it.
     "fixed_bitrate_requested" => FixedBitrateRequested { on: bool },
-    /// Not in plugin.py: Stream output sends a smaller size than the one picked while frames run late (trimmed) or went back to the pick. The sizes are
+    /// Stream output sends a smaller size than the one picked while frames run late (trimmed) or went back to the pick. The sizes are
     /// the one sent now and the one picked.
     "stream_size_trimmed" => StreamSizeTrimmed { trimmed: bool, width: u32, height: u32, picked_width: u32, picked_height: u32 },
-    /// Not in plugin.py: Adjustments asks Stream output to keep the size that was picked (on) in place of trimming it while frames run late, or to go back to trimming.
+    /// Adjustments asks Stream output to keep the size that was picked (on) in place of trimming it while frames run late, or to go back to trimming.
     /// Not saved by the one that hears it.
     "stream_size_held" => StreamSizeHeld { on: bool },
-    /// Not in plugin.py: the readouts pinned to the bottom bar changed (a pin, an unpin, or the bar's own readouts came or went): every id
+    /// The readouts pinned to the bottom bar changed (a pin, an unpin, or the bar's own readouts came or went): every id
     /// pinned now, left side first. A card with a star for each readout redraws it from this.
     "bar_pins_changed" => BarPinsChanged { pinned: Vec<String> },
-    /// Not in plugin.py: something outside the window (the MCP server) wants the picture of a stream measured, about a second of steady
+    /// Something outside the window (the MCP server) wants the picture of a stream measured, about a second of steady
     /// frames, and whichever plugin can do that (Colour grading) answers with picture_measured and the same token. Nobody answering
     /// means nothing here can measure, which the asker finds out from its own timeout.
     "picture_measure_requested" => PictureMeasureRequested { token: String },
-    /// Not in plugin.py: the answer to picture_measure_requested: ok with the picture as numbers in data, or not with why in message.
+    /// The answer to picture_measure_requested: ok with the picture as numbers in data, or not with why in message.
     "picture_measured" => PictureMeasured { token: String, ok: bool, message: String, data: Value },
-    /// Not in plugin.py: something outside the window (the MCP server) read or changed these settings (ids as "plugin.key"). The window
+    /// Something outside the window (the MCP server) read or changed these settings (ids as "plugin.key"). The window
     /// outlines the controls that show them for a moment: changed is true for a change and false for a read. A control that isn't on
     /// screen is skipped, nothing is opened or scrolled to.
     "settings_touched" => SettingsTouched { ids: Vec<String>, changed: bool },
-    /// Not in plugin.py: the high quality cutout (Background's switch for it) went from not loaded to loading, ready or failed, the same as
+    /// The high quality cutout (Background's switch for it) went from not loaded to loading, ready or failed, the same as
     /// vision_state_changed for MediaPipe: host.matting_state() has the new state. Its download's progress and end come as the vision pack's do.
     "matting_state_changed" => MattingStateChanged { state: String },
     /// Legacy stream-only cut-out demand; built-in consumers also emit cut_out_wanted_by with an owner.
     "cut_out_wanted" => CutOutWanted { source_id: String, on: bool },
     /// A consumer requests or releases a stream's cut-out; demand remains while any owner wants it.
     "cut_out_wanted_by" => CutOutWantedBy { owner: String, source_id: String, on: bool },
-    /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
+    /// An event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
-    /// Not in plugin.py: a value in the host's registry (Host::share, read with Host::shared) was set, changed or removed. key is "<plugin>.<name>".
+    /// A value in the host's registry (Host::share, read with Host::shared) was set, changed or removed. key is "<plugin>.<name>".
     "shared_changed" => SharedChanged { key: String },
 }
 
@@ -269,7 +269,7 @@ mod tests {
         assert_eq!(Event::StreamStopped.name(), "stream_stopped");
     }
 
-    // The EventBus signals of the Python app's plugin.py; each has an Event of the same name
+    // The EventBus signals; each has an Event of the same name
     const PYTHON_SIGNALS: [&str; 58] = [
         "stream_started", "stream_stopped", "stream_start_failed", "stream_transport_changed", "stream_connected", "stream_lost",
         "phone_state_updated", "device_changed", "phones_changed", "add_phone_requested", "setup_guide_requested", "setup_needed",

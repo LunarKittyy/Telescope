@@ -1,4 +1,4 @@
-//! Open Telescope at sign-in: an XDG autostart entry on Linux, the per-user Run key on Windows; also the Linux app-menu entry and the hidden one the portal needs (platform/autostart.py).
+//! Open Telescope at sign-in: an XDG autostart entry on Linux, the per-user Run key on Windows; also the Linux app-menu entry and the hidden one the portal needs.
 
 use telescope_core::i18n::Fields;
 use std::path::{Path, PathBuf};
@@ -160,7 +160,7 @@ pub fn app_icon_png(size: u32) -> Vec<u8> {
     png
 }
 
-/// Linux: update_menu_entry with the app icon (main.py's call). Returns whether the entry was written.
+/// Linux: update_menu_entry with the app icon. Returns whether the entry was written.
 pub fn refresh_menu_entry(command: &[String], data: Option<&Path>) -> bool {
     cfg!(target_os = "linux") && update_menu_entry(|path| std::fs::write(path, app_icon_png(256)).is_ok(), command, data)
 }

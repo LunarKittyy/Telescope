@@ -346,7 +346,6 @@ mod tests {
         (stop, std::thread::spawn(move || run(&w, &s)))
     }
 
-    // test_vcam.py::test_watch_reports_only_changes
     #[test]
     fn watch_reports_only_changes() {
         let (w, seen) = watcher(deps());
@@ -357,7 +356,6 @@ mod tests {
         assert!(w.watched());
     }
 
-    // test_vcam.py::test_old_drivers_fall_back_to_looking_for_other_processes
     #[test]
     fn old_drivers_fall_back_to_looking_for_other_processes() {
         let calls = Arc::new(AtomicUsize::new(0));
@@ -371,7 +369,6 @@ mod tests {
         assert_eq!(seen.lock().unwrap()[..3], [false, true, false]);
     }
 
-    // test_vcam.py::test_linux_watch_retries_while_the_device_is_missing
     #[test]
     fn the_watch_retries_while_the_device_is_missing_and_stops_when_asked() {
         let (w, _seen) = watcher(WatchDeps { use_mf: Arc::new(|| false), ..deps() });
@@ -422,7 +419,6 @@ mod tests {
         held.stop();
     }
 
-    // test_vcam.py::test_windows_watch_counts_a_camera_no_app_has_opened_as_unwatched
     #[test]
     fn a_camera_no_app_has_opened_counts_as_unwatched() {
         let (w, seen) = watcher(WatchDeps { use_mf: Arc::new(|| false), ..deps() });
@@ -447,7 +443,6 @@ mod tests {
         }
     }
 
-    // test_vcam.py::test_windows_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture
     #[test]
     fn the_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture() {
         let closed = Arc::new(AtomicUsize::new(0));
@@ -464,7 +459,6 @@ mod tests {
         assert_eq!(closed.load(Ordering::SeqCst), 1);
     }
 
-    // test_vcam.py::test_the_watch_follows_the_windows_11_cameras_reader
     #[test]
     fn the_watch_follows_the_windows_11_cameras_reader() {
         let o = Opener::new(None);
@@ -483,7 +477,6 @@ mod tests {
         assert_eq!(o.closed.load(Ordering::SeqCst), o.opened.load(Ordering::SeqCst), "the watch never keeps it open itself");
     }
 
-    // test_vcam.py::test_the_watch_counts_a_stalled_reader_as_gone
     #[test]
     fn the_watch_counts_a_stalled_reader_as_gone() {
         let o = Opener::new(Some(reading(8, 4)));

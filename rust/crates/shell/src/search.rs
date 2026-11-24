@@ -1,4 +1,4 @@
-//! Finding settings (fuzzy.py and widgets/settings_search.py): typed words matched against a setting's name, keywords,
+//! Finding settings: typed words matched against a setting's name, keywords,
 //! card, tab and small print, forgiving about typos and word endings.
 
 use telescope_core::i18n::tr;

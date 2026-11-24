@@ -1,4 +1,4 @@
-//! The phone's session port (7480), reachable whenever the app is up, unlike the stream port (session_client.py).
+//! The phone's session port (7480), reachable whenever the app is up, unlike the stream port.
 
 use crate::https::{self, Error, PhoneAuth, Request, MAX_REPLY_BYTES};
 use crate::util::clean_name;

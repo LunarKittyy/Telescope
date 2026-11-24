@@ -1,4 +1,4 @@
-//! The tray icon on Linux (app.py's QSystemTrayIcon): a StatusNotifierItem with a dbusmenu, which Plasma, GNOME with
+//! The tray icon on Linux: a StatusNotifierItem with a dbusmenu, which Plasma, GNOME with
 //! AppIndicator and most panels show. Without a StatusNotifierWatcher on the bus there's no tray, as with Qt's
 //! isSystemTrayAvailable(). The menu's entries come from the shell through Tray::set_items.
 

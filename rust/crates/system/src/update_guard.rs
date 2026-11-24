@@ -678,7 +678,7 @@ pub fn python_venv_left(directory: &Path, this_build: Option<i64>, data_home: &P
     (!cfg!(windows) && telescope_core::system::appimage().is_none() && !unconfirmed && directory.join("update_guard.py").is_file() && venv.join(".telescope-requirements").is_file()).then_some(venv)
 }
 
-/// main.py's start: recover first and hand over to the right version when needed. True: carry on starting.
+/// The start: recover first and hand over to the right version when needed. True: carry on starting.
 pub fn guard_start(directory: &Path, after_update: bool) -> bool {
     let wait = Duration::from_secs(if after_update { 15 } else { 0 });
     match recover(directory, wait, &|| another_copy_running(after_update), TRIAL_GRACE) {
@@ -1736,7 +1736,6 @@ mod tests {
         }
     }
 
-    // test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts
     #[cfg(unix)]
     #[test]
     fn right_after_an_update_a_copy_from_before_the_per_user_lock_counts() {

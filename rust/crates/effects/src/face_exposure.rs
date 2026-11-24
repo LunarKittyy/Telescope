@@ -1,4 +1,4 @@
-//! The Expose for my face plugin (plugins/face_exposure.py): moves the phone's metering point (Tap a point's, or a meter-only one) to your face, calmly.
+//! The Expose for my face plugin: moves the phone's metering point (Tap a point's, or a meter-only one) to your face, calmly.
 
 use crate::shared::Paired;
 use crate::vision_row;

@@ -1,4 +1,4 @@
-//! Desk mode's maths (plugins/desk.py): four corners marked on the preview, the sheet's real shape worked out from them, the
+//! Desk mode's maths: four corners marked on the preview, the sheet's real shape worked out from them, the
 //! perspective warp that straightens it and the clean-up that makes the writing stand out. Pixels are RGB, 3 bytes each.
 
 use crate::imgops::{fixed_kernel, gauss_exact, grey_of, resize_area, resize_linear_fixed, Remap};

@@ -1,4 +1,4 @@
-//! Installing, switching on and loading plugins that don't come with Telescope (test_plugin_loader.py).
+//! Installing, switching on and loading plugins that don't come with Telescope.
 
 use super::*;
 use crate::switches::{Switches, AUTO_UPDATE};

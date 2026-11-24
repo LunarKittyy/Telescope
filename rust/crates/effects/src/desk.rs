@@ -1,4 +1,4 @@
-//! The Desk mode plugin (plugins/desk.py): four corners of a sheet marked on the preview, straightened with a perspective warp
+//! The Desk mode plugin: four corners of a sheet marked on the preview, straightened with a perspective warp
 //! in the geometry stage. The warp for a frame size is worked out on the stream's thread and posted back, so the plugin can tell
 //! the preview where each click on the straightened picture really lands (host.set_preview_warp).
 

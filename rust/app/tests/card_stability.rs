@@ -10,7 +10,7 @@ use telescope_effects::photos::PhotosPlugin;
 use telescope_setup::monitoring::MonitoringPlugin;
 use telescope_shell::offscreen;
 use telescope_shell::plugins::camera_control::CameraControl;
-use telescope_shell::source::to_property;
+use telescope_shell::slint_source::to_property;
 
 /// The card of `plugin` shown, then `change` applied to it; the y of the control labelled `probe` after the change and after each
 /// of the loop turns that follow.

@@ -1,4 +1,4 @@
-//! test_config.py, test by test.
+//! Tests for the settings file.
 
 use super::*;
 use crate::testing::scratch_dir;

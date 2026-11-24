@@ -1,4 +1,4 @@
-//! test_move_to_installed.py, test by test.
+//! Tests for moving to an installed copy.
 
 use super::*;
 use crate::update_guard::{failed_build, read_journal, write_journal};
@@ -283,7 +283,7 @@ fn the_installed_location_comes_from_the_setup_s_uninstall_entry() {
     assert_eq!(installed_location_in(&Reg { opened: RefCell::new(Vec::new()), value: Some("") }), None);
 }
 
-/// The uninstall entry's values, as the fake winreg in test_updates.py keeps them.
+/// The uninstall entry's values, as the fake registry keeps them.
 #[derive(Default)]
 struct Entry(RefCell<BTreeMap<String, String>>, RefCell<Vec<String>>);
 
@@ -310,7 +310,6 @@ impl Uninstall for Entry {
     }
 }
 
-// test_updates.py::test_note_installed_version_updates_the_apps_entry
 #[test]
 fn note_installed_version_updates_the_apps_entry() {
     let dir = scratch_dir("note-version");
@@ -326,7 +325,6 @@ fn note_installed_version_updates_the_apps_entry() {
     assert_eq!((reg.get("MajorVersion"), reg.get("MinorVersion")), ("3".to_string(), "4".to_string()));
 }
 
-// test_updates.py::test_note_installed_version_leaves_another_copys_entry
 #[test]
 fn note_installed_version_leaves_another_copys_entry() {
     let root = scratch_dir("note-other");

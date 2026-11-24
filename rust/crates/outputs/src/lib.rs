@@ -1,4 +1,4 @@
-//! Virtual cameras behind core's Outputs trait (vcam.py): v4l2loopback slots on Linux, the Windows 11 camera's shared
+//! Virtual cameras behind core's Outputs trait: v4l2loopback slots on Linux, the Windows 11 camera's shared
 //! memory and UnityCapture on Windows, the wait screen that holds them while idle and the watch that tells whether an
 //! app reads them. Also the Stream output card and the Webcam source, which the shell gets as plugins.
 
@@ -49,7 +49,7 @@ pub const PROC_SCAN_PERIOD: Duration = Duration::from_secs(5);
 /// Windows 11 camera: how often the watch looks at it.
 pub const MF_WATCH_PERIOD: Duration = Duration::from_millis(500);
 
-/// Everything holding the cameras while idle, for a driver reload (one per process, as in vcam.py).
+/// Everything holding the cameras while idle, for a driver reload.
 fn gate() -> &'static Arc<Gate> {
     static GATE: OnceLock<Arc<Gate>> = OnceLock::new();
     GATE.get_or_init(Arc::default)
@@ -474,7 +474,6 @@ mod tests {
         }
     }
 
-    // test_vcam.py::test_a_wait_screen_on_an_extra_camera_opens_that_one
     #[test]
     fn a_wait_screen_on_an_extra_camera_opens_that_one() {
         let (opened, asked) = (Arc::new(Mutex::new(Vec::new())), Arc::new(Mutex::new(Vec::new())));
@@ -524,7 +523,6 @@ mod tests {
         open_windows(reg, std::path::Path::new(""), slot, 8, 4, || shared.opener(), |_num| Box::new(NoFilter(closed))).ok().unwrap()
     }
 
-    // test_vcam.py::test_windows_opens_the_windows_11_camera_where_it_is_set_up
     #[test]
     fn windows_opens_the_windows_11_camera_where_it_is_set_up() {
         let reg = Arc::new(FakeRegistry::default().with_mf(&[0, 2]));
@@ -628,7 +626,6 @@ mod tests {
         windows_camera(&reg, 0, &shared, &Arc::default()).send(&convert::grey(8, 4, 0)).unwrap();
     }
 
-    // test_vcam.py::test_camera_changed_compares_the_kind_with_the_slots_camera
     #[test]
     fn a_camera_is_outdated_once_its_slot_goes_to_the_other_kind() {
         let reg = Arc::new(FakeRegistry::uc(&[(0, "Telescope"), (1, "Telescope #2")]).with_mf(&[0]));
@@ -643,7 +640,6 @@ mod tests {
         assert!(!Nothing(Arc::default()).outdated());
     }
 
-    // test_vcam.py::test_the_wait_screen_moves_to_a_camera_installed_while_it_runs
     #[test]
     fn the_wait_screen_moves_to_a_camera_installed_while_it_runs() {
         let reg = Arc::new(FakeRegistry { build: wincam::MF_MIN_BUILD, ..FakeRegistry::uc(&[(0, "Telescope")]) });
@@ -668,7 +664,7 @@ mod tests {
         assert!(closed.load(Ordering::SeqCst));
     }
 
-    // test_vcam.py::test_locked_size_is_linux_only (the Windows 11 camera has the size its reader picked, UnityCapture none)
+    // The Windows 11 camera has the size its reader picked, UnityCapture none
     #[test]
     fn only_the_windows_11_camera_has_a_locked_size_on_windows() {
         let reader = || MfMemory::new(Some(crate::mf::tests::reading(8, 4))).opener()();
@@ -678,7 +674,7 @@ mod tests {
         assert_eq!(locked_size_on(&reg, 0, || None), None);
     }
 
-    // app.py's remove_extra_cameras: with vcam.device_released() around install_camera
+    // Removing extra cameras: with vcam.device_released() around install_camera
     #[test]
     fn removing_extra_cameras_keeps_them_let_go_until_the_install_is_done() {
         let resumed = Arc::new(AtomicBool::new(false));

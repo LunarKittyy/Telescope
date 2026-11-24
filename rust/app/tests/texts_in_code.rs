@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use telescope_core::i18n::po;
 
 /// The files that read or write the calls themselves, so their examples aren't texts.
-const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
+const READERS: [&str; 4] = ["slint_source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -127,7 +127,7 @@ fn every_text_in_the_code_is_in_the_template() {
     assert!(missing.is_empty(), "{} texts that aren't in telescope.pot, run `python tools/i18n.py extract` in rust/:\n{}", missing.len(), missing.join("\n"));
 }
 
-// test_i18n.py::test_every_text_can_be_found: a text built with format!() can't be found by an extractor, and so can't be translated
+// A text built with format!() can't be found by an extractor, and so can't be translated
 #[test]
 fn no_text_is_built_from_pieces() {
     let mut files = Vec::new();
@@ -193,7 +193,7 @@ fn chained_fields(after: &str) -> Option<BTreeSet<String>> {
     got
 }
 
-// test_i18n.py::test_every_text_can_be_found, what find_texts checks: n_() and trn() take plain literals, the fields filled in are the
+// What find_texts checks: n_() and trn() take plain literals, the fields filled in are the
 // text's own, and one text has one plural
 #[test]
 fn every_text_can_be_found() {
@@ -248,7 +248,7 @@ fn every_text_can_be_found() {
     assert!(bad.is_empty(), "{} texts can't be found or filled in:\n{}", bad.len(), bad.join("\n"));
 }
 
-// test_i18n.py::test_the_template_has_every_text_in_the_code: what the template holds is in the code, and a plural is the template's plural
+// What the template holds is in the code, and a plural is the template's plural
 #[test]
 fn the_template_has_nothing_the_code_lacks() {
     let template = std::fs::read_to_string(root().join("locale/telescope.pot")).unwrap();

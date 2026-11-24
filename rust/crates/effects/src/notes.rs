@@ -1,4 +1,4 @@
-//! The Notes plugin (plugins/notes.py): notes for the phone's screen right under its front camera, to read while looking at the
+//! The Notes plugin: notes for the phone's screen right under its front camera, to read while looking at the
 //! people on the call. The card holds up to nine saved sets and sends the open one with its style (size, scroll speed, playing) as
 //! /v1/control bodies through Host::phone_control; what the phone says back (its state) says whether they are up.
 

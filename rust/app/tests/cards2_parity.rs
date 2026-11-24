@@ -170,7 +170,6 @@ fn the_reader_finds_what_python_finds_in_the_same_pictures() {
     assert!(missed.is_empty(), "{missed:#?}");
 }
 
-// test_photos.py::test_a_failed_photo_shows_why
 #[test]
 fn a_failed_photo_shows_why() {
     let (mut plugin, mut host) = (PhotosPlugin::new(), FakeHost::new());

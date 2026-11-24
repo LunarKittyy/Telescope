@@ -1,4 +1,4 @@
-//! tests/test_browser_rtc.py, test for test: the SDP helpers here. The real connection needs the decoders too, so it's in app/tests/browser_rtc.rs.
+//! The SDP helpers here. The real connection needs the decoders too, so it's in app/tests/browser_rtc.rs.
 
 use super::rtc::*;
 use std::sync::Arc;

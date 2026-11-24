@@ -1,4 +1,4 @@
-//! Which cards and sections are folded (widgets/collapse.py's Collapsing), remembered between runs.
+//! Which cards and sections are folded, remembered between runs.
 //!
 //! Keys are "<plugin>/<card title>" and "<plugin>/<card title>/<section>", in English so a fold survives a language
 //! change. Keys of cards that aren't there right now (a plugin switched off) stay, so switching it back on finds its

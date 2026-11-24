@@ -169,7 +169,6 @@ fn the_header_hears_the_presets_after_a_phone_is_picked() {
     assert!(t.effects.contains(&Effect::RefreshActions("presets".into())));
 }
 
-// test_presets.py::test_a_section_that_fails_to_apply_leaves_the_rest_applied
 #[test]
 fn a_section_that_fails_to_apply_leaves_the_rest_applied() {
     // One plugin that says no and one that panics, then one that takes its section, in presets like any other
@@ -190,7 +189,6 @@ fn a_section_that_fails_to_apply_leaves_the_rest_applied() {
     assert!(s.slots.iter().all(|slot| slot.plugin.is_some()), "a plugin that broke is back in its place");
 }
 
-// test_presets.py::test_stream_output_preset_sends_fps_quality_and_resolution
 #[test]
 fn a_stream_output_preset_sends_fps_quality_and_resolution_to_the_phone() {
     let (mut s, _) = fresh(vec![]);
@@ -214,7 +212,6 @@ fn a_stream_output_preset_sends_fps_quality_and_resolution_to_the_phone() {
     assert!(s.effects.iter().any(|e| matches!(e, Effect::UpdateOutput { change, .. } if change.fps == Some(Some(24)))));
 }
 
-// test_presets.py::test_full_round_trip_follows_the_lens_switch
 #[test]
 fn full_round_trip_follows_the_lens_switch() {
     let (mut s, _) = fresh(vec![Box::new(CameraControl::new())]);

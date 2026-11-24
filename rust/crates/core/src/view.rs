@@ -1,4 +1,4 @@
-//! Zoom, pan, flip, rotation and stretch of a stream's picture, and how the zoom is shared with the phone (view.py's
+//! Zoom, pan, flip, rotation and stretch of a stream's picture, and how the zoom is shared with the phone (the
 //! geometry; the pixel work is the frame pipeline's). Rotation is in degrees clockwise: 90, 180 or 270.
 //! Moved here from the shell: Transforms, Framing and the window's view step all need the same geometry.
 

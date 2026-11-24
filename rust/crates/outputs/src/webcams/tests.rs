@@ -18,20 +18,17 @@ fn choice(f: &str, w: u32, h: u32, fps: f64) -> Option<Choice> {
     Some(Choice { fourcc: f.into(), width: w, height: h, fps })
 }
 
-// test_webcams.py::test_raw_is_used_where_it_keeps_the_frame_rate
 #[test]
 fn raw_is_used_where_it_keeps_the_frame_rate() {
     assert_eq!(choose(&c920(), Some((640, 480)), 30.0), choice("YUYV", 640, 480, 30.0));
 }
 
-// test_webcams.py::test_mjpeg_is_used_where_raw_cant_keep_up
 #[test]
 fn mjpeg_is_used_where_raw_cant_keep_up() {
     assert_eq!(choose(&c920(), Some((1920, 1080)), 30.0), choice("MJPG", 1920, 1080, 30.0));
     assert_eq!(choose(&c920(), Some((1280, 720)), 60.0), choice("MJPG", 1280, 720, 60.0));
 }
 
-// test_webcams.py::test_auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate
 #[test]
 fn auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate() {
     assert_eq!(choose(&c920(), None, 30.0), choice("MJPG", 1920, 1080, 30.0));
@@ -39,21 +36,18 @@ fn auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate() {
     assert_eq!(choose(&raw_only, None, 30.0), choice("YUYV", 640, 480, 30.0));
 }
 
-// test_webcams.py::test_auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate
 #[test]
 fn auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate() {
     let slow = [Mode::new("YUYV", 640, 480, &[15.0]), Mode::new("YUYV", 1280, 720, &[10.0])];
     assert_eq!(choose(&slow, None, 30.0), choice("YUYV", 640, 480, 15.0));
 }
 
-// test_webcams.py::test_a_size_the_camera_lacks_takes_the_next_bigger_one
 #[test]
 fn a_size_the_camera_lacks_takes_the_next_bigger_one() {
     assert_eq!(choose(&c920(), Some((1024, 576)), 30.0).unwrap().width, 1280);
     assert_eq!(choose(&c920(), Some((7680, 4320)), 30.0).unwrap().width, 3840);
 }
 
-// test_webcams.py::test_rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for
 #[test]
 fn rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for() {
     let ntsc = [Mode::new("YUYV", 1280, 720, &[29.97, 59.94])];
@@ -62,13 +56,11 @@ fn rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for() {
     assert_eq!(choose(&ntsc, Some((1280, 720)), 120.0).unwrap().fps, 59.94);
 }
 
-// test_webcams.py::test_formats_opencv_cant_read_are_ignored
 #[test]
 fn formats_we_cant_read_are_ignored() {
     assert_eq!(choose(&[Mode::new("H264", 1920, 1080, &[30.0])], None, 30.0), None);
 }
 
-// test_webcams.py::test_sizes_and_rates_for_the_card
 #[test]
 fn sizes_and_rates_for_the_card() {
     assert_eq!(sizes(&c920())[..2], [(3840, 2160), (1920, 1080)]);
@@ -110,14 +102,12 @@ fn auto_ignores_the_slow_sizes_too() {
     assert_eq!((got.width, got.height), (1920, 1080));
 }
 
-// test_webcams.py::test_a_choice_describes_itself
 #[test]
 fn a_choice_describes_itself() {
     assert_eq!(choice("MJPG", 1920, 1080, 30.0).unwrap().describe(), "1920×1080, MJPEG, 30 fps");
     assert_eq!(choice("RAW", 1280, 720, 29.97).unwrap().describe(), "1280×720, 29.97 fps");
 }
 
-// test_webcams.py::test_telescopes_own_and_loopback_cameras_are_virtual
 #[test]
 fn telescopes_own_and_loopback_cameras_are_virtual() {
     assert!(is_virtual_on("Telescope", "", true) && is_virtual_on("Telescope #3", "", true));
@@ -128,7 +118,6 @@ fn telescopes_own_and_loopback_cameras_are_virtual() {
     assert!(!is_virtual_on("HD Pro Webcam C920", "uvcvideo", true));
 }
 
-// test_webcams.py::test_virtual_cameras_are_told_apart_by_name
 #[test]
 fn virtual_cameras_are_told_apart_by_name() {
     for linux in [true, false] {
@@ -143,7 +132,6 @@ fn virtual_cameras_are_told_apart_by_name() {
     }
 }
 
-// test_webcams.py::test_a_card_name_with_its_cut_off_repeat_is_tidied
 #[test]
 fn a_card_name_with_its_cut_off_repeat_is_tidied() {
     assert_eq!(tidy_name("HP 320 FHD Webcam: HP 320 FHD W"), "HP 320 FHD Webcam");
@@ -156,14 +144,12 @@ fn dev(key: &str, name: &str, loc: &str) -> Device {
     Device { key: key.into(), name: name.into(), location: loc.into(), modes: Vec::new() }
 }
 
-// test_webcams.py::test_two_cameras_of_one_model_are_numbered
 #[test]
 fn two_cameras_of_one_model_are_numbered() {
     let out = tell_apart(vec![dev("a", "C270", "/dev/video0"), dev("b", "C270", "/dev/video2"), dev("c", "Brio", "/dev/video4")]);
     assert_eq!(out.iter().map(|d| d.name.as_str()).collect::<Vec<_>>(), ["C270", "C270 (2)", "Brio"]);
 }
 
-// test_webcams.py::test_v4l2_structs_match_the_kernel
 #[test]
 fn v4l2_structs_match_the_kernel() {
     assert_eq!((CAP_SIZE, FMTDESC_SIZE, FRMSIZE_SIZE, FRMIVAL_SIZE), (104, 64, 44, 52));
@@ -220,7 +206,6 @@ impl Ioctl for FakeDriver {
     }
 }
 
-// test_webcams.py::test_modes_are_read_from_the_driver
 #[test]
 fn modes_are_read_from_the_driver() {
     let modes = list_modes(&FakeDriver);
@@ -277,7 +262,6 @@ fn sysfs() -> PathBuf {
     dir
 }
 
-// test_webcams.py::test_scanning_lists_capture_nodes_and_skips_the_rest
 #[cfg(unix)]
 #[test]
 fn scanning_lists_capture_nodes_and_skips_the_rest() {
@@ -318,7 +302,6 @@ fn a_node_that_answered_badly_once_is_asked_again() {
     assert_eq!(rig.opened.lock().unwrap().iter().filter(|n| *n == "video1").count(), 3);
 }
 
-// test_webcams.py::test_a_node_is_only_opened_again_once_it_was_replaced
 #[test]
 fn a_node_is_only_opened_again_once_it_was_replaced() {
     let root = sysfs();
@@ -349,7 +332,6 @@ fn usb(tmp: &Path, sysfs: &Path, name: &str, port: &str, serial: &str) {
     std::os::unix::fs::symlink(&iface, node(sysfs, name, "HD Pro Webcam C920", false).join("device")).unwrap();
 }
 
-// test_webcams.py::test_usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev
 #[cfg(unix)]
 #[test]
 fn usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev() {
@@ -360,7 +342,6 @@ fn usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev() {
     assert_eq!(s.scan()[0].key, "usb-046d:0892-ABC123-if00");
 }
 
-// test_webcams.py::test_identical_webcams_without_a_serial_are_told_apart_by_their_port
 #[cfg(unix)]
 #[test]
 fn identical_webcams_without_a_serial_are_told_apart_by_their_port() {
@@ -376,7 +357,6 @@ fn identical_webcams_without_a_serial_are_told_apart_by_their_port() {
     assert!(keys.iter().all(|k| k.starts_with("usb-port-") && k.ends_with(":1.0")), "{keys:?}");
 }
 
-// test_webcams.py::test_a_key_that_fell_back_to_the_node_is_looked_up_again
 #[cfg(unix)]
 #[test]
 fn a_key_that_fell_back_to_the_node_is_looked_up_again() {
@@ -390,7 +370,6 @@ fn a_key_that_fell_back_to_the_node_is_looked_up_again() {
     assert_eq!(rig.opened.lock().unwrap().len(), 1);
 }
 
-// test_webcams.py::test_a_node_that_cant_be_opened_is_tried_again
 #[test]
 fn a_node_that_cant_be_opened_is_tried_again() {
     let root = sysfs();
@@ -401,7 +380,6 @@ fn a_node_that_cant_be_opened_is_tried_again() {
     assert_eq!(s.scan().len(), 1);
 }
 
-// test_webcams.py::test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones
 #[cfg(unix)]
 #[test]
 fn other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones() {
@@ -421,7 +399,6 @@ fn other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones() {
     assert_eq!(rig.opened.lock().unwrap().iter().filter(|n| *n == "video10").count(), 2);
 }
 
-// test_webcams.py::test_who_uses_finds_the_program_holding_the_device
 #[cfg(unix)]
 #[test]
 fn who_uses_finds_the_program_holding_the_device() {

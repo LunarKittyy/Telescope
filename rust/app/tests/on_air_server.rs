@@ -1,4 +1,4 @@
-// The sign over a real HTTPS server, as a device reaches it (test_on_air.py's OnAirServer tests): the real TLS listener,
+// The sign over a real HTTPS server, as a device reaches it: the real TLS listener,
 // header parsing and answers, with On Air's own page handler behind them.
 use base64::Engine;
 use std::sync::mpsc;

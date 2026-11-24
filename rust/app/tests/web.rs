@@ -1,4 +1,4 @@
-// Telescope's own downloads are checked by the system's certificate store (tests/test_web.py, telescope/web.py): security software that
+// Telescope's own downloads are checked by the system's certificate store: security software that
 // inspects HTTPS with its own root still works, and a fresh Windows that hasn't fetched a root yet isn't a failed download. A certificate that can't be
 // checked is told apart from being offline where each download's failure is worded (fetch_error's tests in link and audio, updates.rs's NetError).
 use std::path::Path;
@@ -67,7 +67,7 @@ mod against_a_real_server {
         (certificate.cert.clone(), SystemWeb.serve(&certificate, &serve, Arc::new(Hello)).unwrap())
     }
 
-    // test_web.py::test_the_context_checks_certificates_and_hostnames and test_it_uses_the_system_store_when_truststore_is_there, with the store
+    // The system store is used when there is one, with the store
     // being the file the system's verifier reads on Linux
     #[test]
     fn every_download_checks_the_certificate_and_the_name_against_the_system_store() {

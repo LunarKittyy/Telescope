@@ -1,5 +1,4 @@
 // docs/state.json is one /v1/state that the phone's StateExampleTest.kt checks it still sends; this checks the desktop still reads it
-// (tests/test_state_example.py).
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use telescope_core::models::PhoneState;
@@ -15,7 +14,6 @@ fn example() -> Value {
     serde_json::from_str(&std::fs::read_to_string(root().join("docs/state.json")).unwrap()).unwrap()
 }
 
-// test_state_example.py::test_the_desktop_reads_the_phones_state
 #[test]
 fn the_desktop_reads_the_phones_state() {
     let raw = example();
@@ -40,7 +38,6 @@ fn the_desktop_reads_the_phones_state() {
     assert_eq!(state.raw, raw);
 }
 
-// test_state_example.py::test_nested_camera_and_control_consumers_read_the_same_contract
 #[test]
 fn nested_camera_and_control_consumers_read_the_same_contract() {
     let state = example();
@@ -137,7 +134,6 @@ fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-// test_state_example.py::test_every_state_field_the_desktop_asks_for_is_one_the_phone_sends
 #[test]
 fn every_state_field_the_desktop_asks_for_is_one_the_phone_sends() {
     // A field renamed or dropped on the phone shows up here, instead of as a control that quietly stops working

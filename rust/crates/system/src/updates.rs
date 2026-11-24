@@ -1,4 +1,4 @@
-//! Update check, download and install (telescope/updates.py). The network is an Opener, so tests stand in for GitHub.
+//! Update check, download and install. The network is an Opener, so tests stand in for GitHub.
 //!
 //! Each release carries a manifest.json with the version, the build number and every file's SHA-256; builds compare by
 //! build number, so switching channel never downgrades. Installing swaps the files through update_guard's journal.
@@ -1188,7 +1188,6 @@ mod tests {
         assert_eq!(seen, vec![vec!["a.dll".to_string(), "b.dll".into(), "sub".into()]]);
     }
 
-    // test_update_guard.py::test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to
     #[test]
     fn an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to() {
         let root = tmp("stale-old");

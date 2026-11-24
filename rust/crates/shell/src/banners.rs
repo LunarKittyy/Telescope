@@ -1,4 +1,4 @@
-//! In-window problem banners (widgets/banner.py's BannerArea): keyed issues stacked above the body. Showing a key
+//! In-window problem banners: keyed issues stacked above the body. Showing a key
 //! again replaces its banner.
 
 use telescope_core::ui::{Issue, IssueDoes};

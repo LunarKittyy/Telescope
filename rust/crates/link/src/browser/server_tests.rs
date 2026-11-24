@@ -1,4 +1,4 @@
-//! tests/test_browser_server.py, test for test: a client stands in for the browser over TLS and a WebSocket, and FakeRtc
+//! A client stands in for the browser over TLS and a WebSocket, and FakeRtc
 //! for its WebRTC side (rtc_tests.rs runs the real one).
 
 use super::feed::{BrowserAudio, BrowserFeed, BrowserHub, BrowserVideo, Frame, Sent};

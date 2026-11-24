@@ -148,7 +148,7 @@ pub fn control(args: &Args, services: &Services, body: &str) -> Result<(), Strin
     Ok(())
 }
 
-/// config_fixtures.py's NOW, 28 October 2026, for what the app forgets after a while.
+/// NOW, 28 October 2026, for what the app forgets after a while.
 pub const SNAPSHOT_NOW: f64 = 1793188800.0;
 
 /// No virtual cameras to touch, for config-snapshot.

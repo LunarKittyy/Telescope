@@ -1,4 +1,4 @@
-// The Stream output card drawn with the kit's real widgets (test_plugins.py's test_stream_quality_and_bitrate_reset_on_a_double_click).
+// The Stream output card drawn with the kit's real widgets.
 use i_slint_backend_testing::ElementHandle;
 use slint::platform::{PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};
@@ -11,7 +11,7 @@ use telescope_core::plugin::{Plugin, StreamInfo};
 use telescope_core::testing::FakeHost;
 use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_outputs::stream_output::StreamOutputPlugin;
-use telescope_shell::source::to_slint;
+use telescope_shell::slint_source::to_slint;
 
 /// Time for the pages to cross over (they are looked at as they go: a page's move starts when it is first laid out).
 fn let_it_move(ui: &ComponentInstance) {
