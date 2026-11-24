@@ -1172,11 +1172,18 @@ impl Shared {
             // what was published before went out under the old steps (hide_cached did this too when there was a frame to hide)
             self.slot.forget_history();
         }
+        let mut changed = replaced;
         if let Some(steps) = self.next_colour.lock().unwrap().take() {
             pipeline.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
+            changed = true;
         }
         for (owner, stage, steps) in std::mem::take(&mut *self.next_owner_steps.lock().unwrap()) {
             pipeline.replace_steps(&owner, stage, steps);
+            changed = true;
+        }
+        // The decoder's speed trial compares delivery rates, which these steps change
+        if changed {
+            self.stats.steps_changed();
         }
         let (rw, rh) = *self.size.lock().unwrap();
         let mask_space = telescope_core::frame::MaskSpace {
