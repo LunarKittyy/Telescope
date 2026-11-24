@@ -58,9 +58,9 @@ fn starts(r: &Rig, id: &str) -> usize {
 /// The state the phone has now, fetched as a poll does; true once a fetch came and went.
 fn polled(r: &Rig) {
     let control = r.link.control("pixel");
-    let before = control.asked.load(Ordering::SeqCst);
+    let before = control.answered.load(Ordering::SeqCst);
     r.skip(POLL_MS);
-    r.until("the fetch", |_| control.asked.load(Ordering::SeqCst) > before);
+    r.until("the fetch", |_| control.answered.load(Ordering::SeqCst) > before);
     r.pump();
 }
 
