@@ -293,7 +293,7 @@ impl Outputs for VirtualCameras {
             uc_want: Arc::new(move || {
                 let num = wincam::uc_filter_for(&wincam::System, &wininstall::unitycapture_dir(), slot)?;
                 let event = win::open_event(&wincam::uc_object_name("Want", num), win::SYNCHRONIZE)?;
-                Some(Box::new(watch::WinWant(event)) as Box<dyn watch::WantEvent>)
+                Some(Box::new(watch::WinWant(event, num)) as Box<dyn watch::WantEvent>)
             }),
             #[cfg(not(windows))]
             uc_want: Arc::new(|| None),
