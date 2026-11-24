@@ -1044,3 +1044,45 @@ fn the_declared_settings_round_trip() {
     let mut r = Rig::linux();
     telescope_core::testing::settings_round_trip(&mut r.plugin, &mut r.host);
 }
+
+#[test]
+fn a_status_read_during_a_persist_prompt_doesnt_unstick_the_cancelled_toggle() {
+    let mut r = Rig::linux();
+    r.plugin.panel.persist_checked = true;
+    r.plugin.panel.persist_enabled = false; // the prompt is open
+    r.plugin.show_v4l_status(true, true, false);
+    assert!(r.plugin.panel.persist_checked, "the read doesn't decide while the switch is being applied");
+    r.plugin.on_persist_result(false, "cancelled", "");
+    assert!(!r.plugin.panel.persist_checked, "cancelling puts the switch back off");
+}
+
+#[test]
+fn windows_background_check_knows_when_the_driver_files_are_there() {
+    let status = |driver_files| SetupStatus { driver_files, ..SetupStatus::default() };
+    for (there, text) in [(true, "Not installed"), (false, "Not installed (Install driver downloads it first)")] {
+        let mut r = Rig::with(false, FakeOutputs { status: Mutex::new(status(there)), ..FakeOutputs::default() });
+        r.plugin.check_win_setup(&mut r.host);
+        r.deliver();
+        assert_eq!(r.plugin.panel.uc.text, text);
+    }
+}
+
+#[test]
+fn a_finished_driver_install_is_no_longer_the_primary_button() {
+    let mut r = Rig::windows();
+    r.plugin.on_win_checks("", true, false, "", true);
+    assert!(r.plugin.panel.uc_primary);
+    r.plugin.on_uc_done(true, "");
+    assert!(!r.plugin.panel.uc_primary);
+}
+
+#[test]
+fn a_preset_applied_while_idle_reaches_the_host_and_the_open_sections() {
+    let mut r = Rig::linux();
+    r.plugin.on_plugins_ready(&mut r.host);
+    r.host.events.clear();
+    r.host.calls.clear();
+    r.plugin.apply_preset(&mut r.host, &json!({"limiter": false, "plugin_hues": false})).unwrap();
+    assert!(r.events().iter().any(|e| matches!(e, Event::LimiterChanged { on: false })));
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props microphone ")));
+}

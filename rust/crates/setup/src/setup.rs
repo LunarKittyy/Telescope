@@ -608,7 +608,10 @@ impl SetupPlugin {
         } else {
             Line::new(tr("Not loaded - click Load"), "status_err")
         };
-        self.panel.persist_checked = persisted;
+        // While a switch is being applied its answer decides, not this read
+        if self.panel.persist_enabled {
+            self.panel.persist_checked = persisted;
+        }
     }
 
     fn set_up(&mut self, host: &mut dyn Host, token: &str, action: SetupAction) {
@@ -696,7 +699,7 @@ impl SetupPlugin {
         self.spawn(host, "win-checks", move |_| {
             let s = outputs.setup_status();
             let mf = if s.windows_camera { if s.outdated { "update" } else { "ready" } } else if s.installable { "offer" } else { "" };
-            json!({"uc_name": s.registered_name, "adb": link.adb_available(), "in_app_folder": s.in_app_folder, "mf": mf})
+            json!({"uc_name": s.registered_name, "adb": link.adb_available(), "in_app_folder": s.in_app_folder, "mf": mf, "dlls": s.driver_files})
         });
     }
 
@@ -761,6 +764,7 @@ impl SetupPlugin {
             p.uc = Line::new(tr("Ready"), "status_ok");
             p.uc_button = tr("Reinstall");
             p.uc_tip = String::new();
+            p.uc_primary = false;
         } else {
             p.uc = Line::new(tr("Failed: {message}").field("message", msg), "status_err");
             p.uc_button = tr("Retry");
@@ -1111,7 +1115,7 @@ impl SetupPlugin {
             "win-checks" => {
                 let s = |k: &str| data.get(k).and_then(Value::as_str).unwrap_or("").to_string();
                 let b = |k: &str| data.get(k).and_then(Value::as_bool).unwrap_or(false);
-                self.on_win_checks(&s("uc_name"), b("adb"), b("in_app_folder"), &s("mf"), false);
+                self.on_win_checks(&s("uc_name"), b("adb"), b("in_app_folder"), &s("mf"), b("dlls"));
                 vec!["virtual-camera"]
             }
             "uc-msg" => {
@@ -1439,6 +1443,13 @@ impl Plugin for SetupPlugin {
         self.appearance = Appearance::from_json(cfg.get("appearance"));
         self.language = cfg.get("language").and_then(Value::as_str).unwrap_or("").to_string();
         self.pending = true;
+        Ok(())
+    }
+
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        self.set_config(cfg)?;
+        self.catch_up(host);
+        self.refresh(host, &["virtual-camera", "video", "microphone", "look"]);
         Ok(())
     }
 }

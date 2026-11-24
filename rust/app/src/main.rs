@@ -552,7 +552,6 @@ fn main() {
     });
     // Before the decoder and the stream start their threads, which would each get a pool of their own
     telescope_system::memory::limit_malloc_arenas(2);
-    telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
     #[cfg(windows)]
     {
@@ -619,6 +618,10 @@ fn main() {
             }
             Start::Go => {}
         }
+        // Only a window start, so a bridge or a command ending on SIGTERM never confirms the build. The profile goes first, since choosing it
+        // sets an environment variable, which can't race the signal thread started next.
+        use_own_profile();
+        telescope_system::update_guard::confirm_on_terminate(app_dir());
     }
     // Once an update is settled, and before the rest loads, which is most of a first start's wait
     let splash = if words.is_empty() { start_splash() } else { None };
