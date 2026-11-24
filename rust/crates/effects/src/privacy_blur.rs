@@ -208,11 +208,16 @@ impl PrivacyBlurPlugin {
         self.work_out();
         self.shown_blurs.store(self.active, Ordering::Relaxed);
         // Only blurring or covering hides anything: the step it always hands out does nothing the rest of the time
-        // Per stream: another stream's frozen step keeps blurring, so what this one says never speaks for it
+        // A stream with its own answer is read by it; the every-stream one ("") is for the others, and says blurring while any stream still is
         let sid = host.focused_source_id().unwrap_or_default();
-        if self.told_hiding.get(&sid) != Some(&self.active) {
+        if !sid.is_empty() && self.told_hiding.get(&sid) != Some(&self.active) {
             self.told_hiding.insert(sid.clone(), self.active);
-            host.set_hiding(NAME, (!sid.is_empty()).then_some(sid.as_str()), self.active);
+            host.set_hiding(NAME, Some(sid.as_str()), self.active);
+        }
+        let any = self.active || self.told_hiding.iter().any(|(id, on)| !id.is_empty() && *on);
+        if self.told_hiding.get("") != Some(&any) {
+            self.told_hiding.insert(String::new(), any);
+            host.set_hiding(NAME, None, any);
         }
         if before != (self.active, self.covered && self.wants_cover()) {
             host.refresh_frame_step();

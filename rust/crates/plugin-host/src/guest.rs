@@ -336,10 +336,9 @@ impl PluginContext {
 
     /// A module's source by its path inside the plugin: from the files kept when it started, or the folder when none were kept.
     pub fn module_source(&self, relative: &str) -> Result<String, String> {
-        match &self.modules {
-            Some(modules) => find_module(modules, relative, cfg!(windows)).cloned().ok_or_else(|| format!("the plugin has no {relative}")),
-            None => self.read_text(relative),
-        }
+        let kept = self.modules.as_ref().and_then(|modules| find_module(modules, &plain_relative(relative), cfg!(windows)));
+        // Files the snapshot doesn't cover (other extensions) come from the folder
+        kept.cloned().map_or_else(|| self.read_text(relative), Ok)
     }
 
     pub fn read_text(&self, relative: &str) -> Result<String, String> {
@@ -1138,6 +1137,12 @@ mod tests {
     }
 }
 
+/// A path inside the plugin as the snapshot spells it: without "./" parts.
+fn plain_relative(relative: &str) -> String {
+    let parts: Vec<_> = Path::new(relative).components().filter_map(|c| if let std::path::Component::Normal(p) = c { p.to_str() } else { None }).collect();
+    parts.join("/")
+}
+
 /// A kept module by its path. Where the filesystem ignores case (Windows) so does this, as `require("helper")` for `Helper.lua` did before the files were kept.
 fn find_module<'a>(modules: &'a std::collections::BTreeMap<String, String>, relative: &str, ignore_case: bool) -> Option<&'a String> {
     modules.get(relative).or_else(|| if ignore_case { modules.iter().find(|(path, _)| path.eq_ignore_ascii_case(relative)).map(|(_, text)| text) } else { None })
@@ -1147,6 +1152,12 @@ fn find_module<'a>(modules: &'a std::collections::BTreeMap<String, String>, rela
 mod module_lookup_tests {
     use super::find_module;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn a_dot_slash_path_reads_like_the_plain_one() {
+        assert_eq!(super::plain_relative("./lib/x.wgsl"), "lib/x.wgsl");
+        assert_eq!(super::plain_relative("x.wgsl"), "x.wgsl");
+    }
 
     #[test]
     fn a_module_is_found_by_any_spelling_only_where_case_is_ignored() {

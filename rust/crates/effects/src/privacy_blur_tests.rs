@@ -521,7 +521,8 @@ fn the_declared_settings_round_trip() {
 
 #[test]
 fn the_host_is_told_when_it_starts_and_stops_hiding_and_not_while_it_only_has_its_step() {
-    let told = |rig: &Rig| rig.host.hiding.clone();
+    let told = |rig: &Rig| rig.host.hiding.iter().filter(|(_, id, _)| id.is_some()).cloned().collect::<Vec<_>>();
+    let every = |rig: &Rig| rig.host.hiding.iter().rev().find(|(_, id, _)| id.is_none()).map(|(_, _, on)| *on);
     let mut rig = Rig::new();
     assert_eq!(told(&rig), [(NAME.to_string(), Some("phone".to_string()), false)], "its step is there, and hides nothing");
     rig.switch_on();
@@ -529,6 +530,7 @@ fn the_host_is_told_when_it_starts_and_stops_hiding_and_not_while_it_only_has_it
     assert_eq!(told(&rig).len(), 1, "one person, so nothing to hide");
     rig.see(2, EVERY);
     assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), Some("phone".to_string()), true)));
+    assert_eq!(every(&rig), Some(true), "streams with no answer of their own read the same");
     rig.see(2, 1.0);
     assert_eq!(told(&rig).len(), 2, "not said again while it carries on");
     rig.see(1, OFF_S + 1.0);
@@ -552,7 +554,7 @@ fn a_blurred_stream_stays_reported_hidden_while_another_is_in_front() {
     rig.plugin.on_focus_gained(&mut rig.host, &stream);
     let told = rig.host.hiding.clone();
     assert_eq!(told.last(), Some(&(NAME.to_string(), Some("laptop".to_string()), false)));
-    assert!(!told.iter().any(|(_, id, on)| id.is_none() && !on), "never a report for every stream");
+    assert_eq!(told.iter().rev().find(|(_, id, _)| id.is_none()).map(|(_, _, on)| *on), Some(true), "a stream never in front still reads blurring");
     // the phone's last word is still that it hides
     let last_for = |id: &str| told.iter().rev().find(|(_, s, _)| s.as_deref() == Some(id)).map(|(_, _, on)| *on);
     assert_eq!(last_for("phone"), Some(true));
