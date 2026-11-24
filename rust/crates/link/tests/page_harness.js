@@ -339,6 +339,27 @@ const scenarios = {
     assert.ok(page.socket().of("hello")[0].mic_error.includes("microphone"));
   },
 
+  // A mic reopen that fails after Stop and Start must not mark the new, working mic as broken
+  async an_old_mic_failure_does_not_blame_the_new_mic() {
+    const page = await connectedPage();
+    page.socket().message({ type: "config", width: 1280, height: 720, fps: 30, audio: true, max_kbps: 4000 });
+    const nav = page.value("navigator").mediaDevices, gum = nav.getUserMedia;
+    const old = deferred();
+    nav.getUserMedia = (c) => (c.video === false && c.audio ? old.promise : gum(c));
+    page.value("mic").end();
+    await page.flush();
+    await page.click("stop");
+    await page.click("start");
+    page.socket().open();
+    await page.flush();
+    assert.strictEqual(page.value("mic").readyState, "live");
+    const hellos = page.socket().of("hello").length;
+    old.reject(Object.assign(new Error("no"), { name: "NotReadableError" }));
+    await page.flush();
+    assert.strictEqual(page.value("micError"), "");
+    assert.strictEqual(page.socket().of("hello").length, hellos, "the old failure told the computer the mic is broken");
+  },
+
   // A new size the camera ignores (Safari) opens it again; a camera bigger than asked is scaled down when sending
   async a_size_the_camera_ignores_reopens_it() {
     const page = await connectedPage();
@@ -353,6 +374,33 @@ const scenarios = {
     const enc = videoSender(page.peer()).set.encodings[0];
     assert.strictEqual(enc.maxBitrate, 1_500_000);
     assert.strictEqual(enc.maxFramerate, 15);
+  },
+
+  // Going from 15 to 30 fps at the same size must reopen a camera that kept 15
+  async a_frame_rate_the_camera_ignores_reopens_it() {
+    const page = await connectedPage();
+    page.socket().message({ type: "config", width: 1280, height: 720, fps: 15, audio: false, max_kbps: 4000 });
+    page.world.cameraSettings = { width: 1280, height: 720, frameRate: 15, facingMode: "user" };
+    await page.flush();
+    page.socket().message({ type: "config", width: 1280, height: 720, fps: 30, audio: false, max_kbps: 4000 });
+    const asked = page.world.gum.length;
+    await page.flush();
+    assert.strictEqual(page.world.applied.frameRate.ideal, 30);
+    assert.strictEqual(page.world.gum.length, asked + 1, "a camera stuck at 15 fps wasn't opened again");
+  },
+
+  // A new bitrate cap only takes effect in a new answer, so the page offers again
+  async a_new_bitrate_cap_offers_again() {
+    const page = await connectedPage();
+    page.socket().message({ type: "answer", sdp: "answer", max_kbps: 4000 });
+    await page.flush();
+    const offers = page.socket().of("offer").length;
+    page.socket().message({ type: "config", width: 1280, height: 720, fps: 30, audio: false, max_kbps: 4000 });
+    await page.flush();
+    assert.strictEqual(page.socket().of("offer").length, offers, "the same cap offered again");
+    page.socket().message({ type: "config", width: 1920, height: 1080, fps: 30, audio: false, max_kbps: 9000 });
+    await page.flush();
+    assert.strictEqual(page.socket().of("offer").length, offers + 1, "the old cap stayed in force");
   },
 
   // New link on the computer stops the page for good instead of retrying a dead code
