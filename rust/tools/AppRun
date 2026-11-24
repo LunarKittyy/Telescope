@@ -74,14 +74,20 @@ if ! ours; then
     exec "$program" "$@"
 fi
 
-# A first start that fails shouldn't wait for someone to try again: the next run's guard rolls it back, or this does if the guard never ran
+# Whether the journal says $1 (started, retried)
+journal_has() {
+    grep -q "\"$1\": *true" "$journal" 2>/dev/null
+}
+
+# A first start that fails gets the guard's one more try here, not exec'd, so a second failure still reaches this launcher to roll back
 "$program" "$@"
 code=$?
 if [ "$code" -ne 0 ] && ours; then
-    if grep -q '"started": *true' "$journal"; then
-        exec "$program"
-    elif roll_back; then
-        start_the_old_one "$@"
+    if journal_has started && ! journal_has retried; then
+        "$program"
+        code=$?
+        [ "$code" -ne 0 ] && ours && journal_has retried || exit "$code"
     fi
+    roll_back && start_the_old_one "$@"
 fi
 exit "$code"

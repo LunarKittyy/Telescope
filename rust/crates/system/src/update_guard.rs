@@ -447,7 +447,7 @@ fn recover_as(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn() -> 
         if state == "trial" && started && journal["retried"].as_bool() != Some(true) {
             // Nothing says the first start failed: it may have been killed while the window was still coming up (a slow scan of the new exe,
             // a shutdown). It gets one more start before the build is rolled back and not offered again
-            write_journal_with(directory, &with(&journal, json!({"retried": true, "started_at": now()})), mv)?;
+            write_journal_with(directory, &with(&journal, json!({"retried": true, "started_at": now(), "started_pid": std::process::id()})), mv)?;
             return Ok(None);
         }
         if state == "rolling_back" || (state == "trial" && started) {
@@ -455,7 +455,7 @@ fn recover_as(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn() -> 
             return Ok(Some(relaunch_command(directory, false)));
         }
         if state == "trial" {
-            write_journal_with(directory, &with(&journal, json!({"started": true, "started_at": now()})), mv)?;
+            write_journal_with(directory, &with(&journal, json!({"started": true, "started_at": now(), "started_pid": std::process::id()})), mv)?;
         }
         Ok(None)
     })();
@@ -473,9 +473,28 @@ fn is_ours(journal: &Value, appimage: Option<&str>) -> bool {
     journal["appimage"].as_str() == appimage
 }
 
-/// A started trial with no running copy usually means it crashed, unless it's still loading before it takes the lock.
+/// Whether the process with this id is certainly gone (Linux: a start that crashed; elsewhere unknown, so not).
+fn process_gone(pid: u64) -> bool {
+    #[cfg(unix)]
+    {
+        let Ok(pid) = libc::pid_t::try_from(pid) else { return false };
+        // SAFETY: signal 0 only checks that the process exists
+        pid > 0 && unsafe { libc::kill(pid, 0) } != 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        false
+    }
+}
+
+/// A started trial with no running copy usually means it crashed, unless it's still loading before it takes the lock. A start that
+/// recorded its process id and is gone has crashed, so there's nothing to wait for.
 fn first_start_still_loading(journal: &Value, running_elsewhere: &dyn Fn() -> bool, grace: Duration) -> bool {
     let Some(started_at) = journal["started_at"].as_f64() else { return false };
+    if journal["started_pid"].as_u64().is_some_and(process_gone) && !running_elsewhere() {
+        return false;
+    }
     while now() - started_at < grace.as_secs_f64() {
         if running_elsewhere() {
             return true;
@@ -1120,6 +1139,42 @@ mod tests {
         assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
         assert_eq!(failed_build(&app), None);
         std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    /// The id of a process that has already exited.
+    #[cfg(unix)]
+    fn dead_pid() -> u32 {
+        let mut child = std::process::Command::new("true").spawn().unwrap();
+        let pid = child.id();
+        child.wait().unwrap();
+        pid
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_first_start_that_crashed_is_retried_and_then_rolled_back_without_waiting_out_the_grace() {
+        let base = root("crashed");
+        let app = updated_windows_app(&base);
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None); // the new version starts
+        let crashed = |app: &Path| write_journal(app, &with(&read_journal(app).unwrap(), json!({"started_pid": dead_pid()}))).unwrap();
+        crashed(&app);
+        let began = Instant::now();
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, TRIAL_GRACE), None, "one more start");
+        assert_eq!(read_journal(&app).unwrap()["retried"], true);
+        crashed(&app);
+        assert!(recover(&app, Duration::ZERO, &nobody, TRIAL_GRACE).is_some(), "rolled back");
+        assert!(began.elapsed() < Duration::from_secs(10), "neither start waited for a copy that was already gone");
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
+        assert_eq!(failed_build(&app), Some(131));
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_gone_first_start_does_not_hide_a_copy_that_is_running() {
+        let journal = json!({"started_at": now(), "started_pid": dead_pid()});
+        let running = || true;
+        assert!(first_start_still_loading(&journal, &running, Duration::from_secs(1)));
     }
 
     #[test]
