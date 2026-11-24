@@ -277,7 +277,7 @@ fn open_wgpu(select: &mut dyn FnMut(slint::wgpu_30::WGPUConfiguration) -> Result
             })();
             match tried {
                 Ok(opened) => {
-                    gpu_pick::set_opened(&info.name);
+                    gpu_pick::set_opened(&info.name, &gpu_pick::card_id(info.vendor, info.device));
                     return Ok(opened);
                 }
                 Err(e) => {

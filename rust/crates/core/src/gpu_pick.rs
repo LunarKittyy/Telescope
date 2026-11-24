@@ -151,8 +151,8 @@ fn dx12_first(c: &Candidate, role: Role) -> bool {
 /// Whether the window's device on this adapter can also run the frame pipeline. Not on Intel's Vulkan adapter in Windows: the pipeline wants
 /// the card's DX12 adapter there (see `order`) and opens its own device on it, so the preview is then painted from the pipeline's pictures
 /// in memory instead of from the card.
-pub fn window_serves_pipeline(window: &Candidate) -> bool {
-    !(dx12_first(window, Role::Pipeline) && window.api == Api::Vulkan)
+pub fn window_serves_pipeline(api: Api, vendor: u32, windows: bool) -> bool {
+    !(windows && vendor == VENDOR_INTEL && api == Api::Vulkan)
 }
 
 /// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Between the real ones `prefer`
@@ -189,6 +189,8 @@ static CHOICE: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
 static LISTED: std::sync::Mutex<Vec<Listed>> = std::sync::Mutex::new(Vec::new());
 /// The card the window opened, for Settings to show.
 static OPENED: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+/// The `card_id` of the card the window opened, so the frame pipeline can land on the same card.
+static WINDOW_CARD: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
 
 /// A real card as Settings lists it: the id it is saved by and the name it is shown by.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -211,9 +213,15 @@ pub fn choice() -> String {
     CHOICE.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
-/// Notes the card the window opened.
-pub fn set_opened(name: &str) {
+/// Notes the card the window opened, by name and by `card_id`.
+pub fn set_opened(name: &str, id: &str) {
     *OPENED.lock().unwrap_or_else(|e| e.into_inner()) = name.trim().to_string();
+    *WINDOW_CARD.lock().unwrap_or_else(|e| e.into_inner()) = id.to_ascii_lowercase();
+}
+
+/// The `card_id` of the card the window opened, empty before one did.
+pub fn window_card() -> String {
+    WINDOW_CARD.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
 /// The card the window opened (empty before one did, or when the window draws on the processor).
@@ -224,6 +232,7 @@ pub fn opened() -> String {
 /// Remembers which real cards (integrated or discrete) exist, once each, for the Settings list. `names` is indexed like `candidates`.
 pub fn note_listed(candidates: &[Candidate], names: &[String]) {
     let mut found: Vec<Listed> = Vec::new();
+    // the role only orders one card's APIs, which doesn't show in the list
     for i in order(candidates, Prefer::Unchanged, Role::Pipeline) {
         let c = &candidates[i];
         let real = matches!(c.kind, Kind::Integrated | Kind::Discrete);
@@ -259,18 +268,14 @@ pub fn with_choice(ordered: Vec<usize>, candidates: &[Candidate], choice: &str) 
     first.into_iter().chain(rest).collect()
 }
 
-/// `ordered` with one adapter (`Candidate::index`) moved to the front, for a power preference set in the environment. Unchanged when it isn't
-/// there or isn't a real card.
-pub fn move_to_front(mut ordered: Vec<usize>, candidates: &[Candidate], index: usize) -> Vec<usize> {
+/// `ordered` with the whole card that adapter (`Candidate::index`) belongs to moved to the front, keeping its adapters' order, for a power
+/// preference set in the environment. Unchanged when it isn't there or isn't a real card.
+pub fn move_to_front(ordered: Vec<usize>, candidates: &[Candidate], index: usize) -> Vec<usize> {
     // A power preference only picks between real cards, never software or odd adapters (`none` can name one)
-    if candidates.iter().any(|c| c.index == index && !matches!(c.kind, Kind::Integrated | Kind::Discrete)) {
+    let Some(picked) = candidates.iter().find(|c| c.index == index && matches!(c.kind, Kind::Integrated | Kind::Discrete)) else {
         return ordered;
-    }
-    if let Some(at) = ordered.iter().position(|&i| i == index) {
-        let found = ordered.remove(at);
-        ordered.insert(0, found);
-    }
-    ordered
+    };
+    with_choice(ordered, candidates, &card_id(picked.vendor, picked.device))
 }
 
 #[cfg(test)]
@@ -298,10 +303,10 @@ mod tests {
 
     #[test]
     fn the_window_device_serves_the_pipeline_except_on_intel_vulkan_in_windows() {
-        assert!(!window_serves_pipeline(&intel(Api::Vulkan, 0, true)));
-        assert!(window_serves_pipeline(&intel(Api::Dx12, 0, true)));
-        assert!(window_serves_pipeline(&intel(Api::Vulkan, 0, false)));
-        assert!(window_serves_pipeline(&Candidate { vendor: 0x10de, ..intel(Api::Vulkan, 0, true) }));
+        assert!(!window_serves_pipeline(Api::Vulkan, VENDOR_INTEL, true));
+        assert!(window_serves_pipeline(Api::Dx12, VENDOR_INTEL, true));
+        assert!(window_serves_pipeline(Api::Vulkan, VENDOR_INTEL, false));
+        assert!(window_serves_pipeline(Api::Vulkan, 0x10de, true));
     }
 
     #[test]
@@ -403,6 +408,21 @@ mod tests {
     }
 
     #[test]
+    fn a_chosen_intel_card_keeps_dx12_first_for_the_pipeline() {
+        let ordered = order(&laptop(), Prefer::HighPerformance, Role::Pipeline);
+        assert_eq!(with_choice(ordered, &laptop(), "8086:591b"), [2, 1, 0, 3]);
+    }
+
+    #[test]
+    fn the_pipeline_follows_the_windows_card_between_two_discrete_cards() {
+        let card = |api, index, vendor| Candidate { api, kind: Kind::Discrete, index, vendor, device: 0x1, windows: true };
+        let list = [card(Api::Vulkan, 0, VENDOR_INTEL), card(Api::Vulkan, 1, 0x10de), card(Api::Dx12, 2, VENDOR_INTEL), card(Api::Dx12, 3, 0x10de)];
+        let ordered = order(&list, Prefer::HighPerformance, Role::Pipeline);
+        assert_eq!(ordered, [1, 2, 0, 3], "alone, the other vendor's Vulkan adapter sorts before Intel's DX12 one");
+        assert_eq!(with_choice(ordered, &list, &card_id(VENDOR_INTEL, 0x1)), [2, 0, 1, 3], "the window's card goes first");
+    }
+
+    #[test]
     fn automatic_and_a_missing_card_change_nothing() {
         assert_eq!(with_choice(vec![3, 1], &laptop(), ""), [3, 1]);
         assert_eq!(with_choice(vec![3, 1], &laptop(), "  "), [3, 1]);
@@ -427,9 +447,9 @@ mod tests {
     #[test]
     fn one_adapter_can_be_moved_first() {
         let list = laptop();
-        assert_eq!(move_to_front(vec![2, 0, 3], &list, 3), [3, 2, 0]);
+        assert_eq!(move_to_front(vec![2, 0, 3], &list, 3), [0, 3, 2], "the whole card moves, in its own order");
         assert_eq!(move_to_front(vec![2, 0, 3], &list, 9), [2, 0, 3]);
-        assert_eq!(move_to_front(vec![2, 0, 1, 3], &list, 1), [1, 2, 0, 3], "Intel's Vulkan adapter can be moved first like any real card");
+        assert_eq!(move_to_front(vec![2, 1, 0, 3], &list, 1), [2, 1, 0, 3], "picking Intel's Vulkan adapter keeps the pipeline's DX12 first");
         let soft = [c(Api::Vulkan, Kind::Discrete, 0), c(Api::Vulkan, Kind::Cpu, 1)];
         assert_eq!(move_to_front(vec![0, 1], &soft, 1), [0, 1], "software never goes first");
     }
