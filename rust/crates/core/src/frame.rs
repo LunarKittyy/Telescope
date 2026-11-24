@@ -212,6 +212,18 @@ struct Decoded {
 pub trait DecodedSurface: std::fmt::Debug + Send + Sync {
     fn ram(&self) -> &Frame;
     fn as_any(&self) -> &dyn std::any::Any;
+    /// The RAM picture if a landing already made it, without waiting for the card.
+    fn landed(&self) -> Option<&Frame> {
+        None
+    }
+    /// Whether the card can scale this picture to exactly width x height before it comes down (see fitted).
+    fn can_fit(&self, _width: u32, _height: u32) -> bool {
+        false
+    }
+    /// The picture scaled to width x height on the card and brought down, in the same format as ram; None when that failed (the whole picture can still land).
+    fn fitted(&self, _width: u32, _height: u32) -> Option<Frame> {
+        None
+    }
 }
 
 /// The same picture as the frame's pixels, so it never decides whether two frames are equal.
