@@ -838,8 +838,9 @@ impl Plugin for ChromaKeyPlugin {
         }))
     }
 
+    // Always there while keying: it does nothing until a cut-out is wanted, and a request for an unfocused stream finds it already built
     fn staged_frame_steps(&mut self) -> Vec<(FrameStage, FrameStep)> {
-        let Some(key) = self.key_colour().filter(|_| self.on && !self.picking && self.wanted.any()) else { return Vec::new() };
+        let Some(key) = self.key_colour().filter(|_| self.on && !self.picking) else { return Vec::new() };
         let tables = self.tables(key);
         vec![(FrameStage::Reading, FrameStep::Cpu(Box::new(Cut { tables, wanted: self.wanted.clone() })))]
     }
