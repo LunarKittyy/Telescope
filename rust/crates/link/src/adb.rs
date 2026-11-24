@@ -302,6 +302,11 @@ pub struct Adb {
     pub runner: Runner,
 }
 
+/// Wireless debugging serials: `host:port` (also IPv6) or an mDNS `<id>._adb-tls-connect._tcp` name.
+fn is_wireless_serial(serial: &str) -> bool {
+    serial.contains(':') || serial.contains("._adb-tls-")
+}
+
 impl Adb {
     /// The adb found now, run for real.
     pub fn system() -> Adb {
@@ -333,8 +338,8 @@ impl Adb {
         }
     }
 
-    /// (serial, state, model) for each phone on a cable (or an emulator) in `adb devices -l`: wireless debugging has no
-    /// `usb:` entry. model is what adb names it, or "".
+    /// (serial, state, model) for each phone on a cable (or an emulator) in `adb devices -l`: wireless debugging shows as
+    /// `host:port` or an mDNS name (Windows adb prints no `usb:` field, so the serial is what tells). model is what adb names it, or "".
     fn cable_devices(&self) -> Vec<(String, String, String)> {
         let (rc, out, _) = self.run(None, &["devices", "-l"], RUN_TIMEOUT);
         if rc != 0 {
@@ -342,7 +347,7 @@ impl Adb {
         }
         out.lines().skip(1).filter_map(|line| {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() < 2 || !(parts[0].starts_with("emulator-") || parts[2..].iter().any(|p| p.starts_with("usb:"))) {
+            if parts.len() < 2 || is_wireless_serial(parts[0]) {
                 return None;
             }
             let model = parts[2..].iter().find_map(|p| p.strip_prefix("model:")).unwrap_or("");
@@ -637,11 +642,13 @@ mod tests {
         let output = "List of devices attached\n\
             cable-1                device usb:1-1 product:p model:Pixel_7 transport_id:1\n\
             192.168.1.9:5555       device product:p model:Pixel_7 transport_id:2\n\
-            adb-ABC123-xyz._adb-tls-connect._tcp device product:p model:Pixel_7 transport_id:3\n";
+            adb-ABC123-xyz._adb-tls-connect._tcp device product:p model:Pixel_7 transport_id:3\n\
+            [fe80::1]:5555         device product:p model:Pixel_7 transport_id:4\n\
+            win-cable              device product:p model:Pixel_7 transport_id:5\n";
         let (adb, _) = fake((0, output.into(), String::new()));
-        assert_eq!(adb.devices(), ["cable-1"]);
-        assert_eq!(adb.device_states(), [("cable-1".to_string(), "device".to_string())]);
-        assert_eq!(adb.device_models().len(), 1);
+        assert_eq!(adb.devices(), ["cable-1", "win-cable"]);
+        assert_eq!(adb.device_states().len(), 2);
+        assert_eq!(adb.device_models().len(), 2);
     }
 
     #[test]
