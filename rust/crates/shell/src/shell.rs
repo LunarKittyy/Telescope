@@ -202,14 +202,34 @@ fn stage_hides(info: &PluginInfo, stage: telescope_core::frame::FrameStage) -> b
     stage.hides() && !(stage == telescope_core::frame::FrameStage::Background && !info.added && info.name == "background")
 }
 
+/// Why a plugin was stopped during the frame steps; only the variant decides whether the picture stays hidden, never the text.
+enum StepFailure {
+    /// It panicked saying whether it hides, so it is taken to hide.
+    Hides(String),
+    /// It failed some other way.
+    Other(String),
+}
+
+impl StepFailure {
+    fn hides(&self) -> bool {
+        matches!(self, Self::Hides(_))
+    }
+
+    fn why(&self) -> &str {
+        match self {
+            Self::Hides(why) | Self::Other(why) => why,
+        }
+    }
+}
+
 /// Whether a plugin's step hides something, asked inside the panic guard: a step that panics answering is the plugin's error, not the window's.
-fn step_hides(info: &PluginInfo, stage: telescope_core::frame::FrameStage, step: &telescope_core::frame::FrameStep) -> Result<bool, String> {
+fn step_hides(info: &PluginInfo, stage: telescope_core::frame::FrameStage, step: &telescope_core::frame::FrameStep) -> Result<bool, StepFailure> {
     use telescope_core::frame::FrameStep;
     if stage_hides(info, stage) {
         return Ok(true);
     }
     match step {
-        FrameStep::Cpu(c) | FrameStep::Either(_, c) => telescope_core::diagnostics::catch_plugin(|| c.hides()).map_err(|panic| format!("hides: {}", panic_text(panic.as_ref()))),
+        FrameStep::Cpu(c) | FrameStep::Either(_, c) => telescope_core::diagnostics::catch_plugin(|| c.hides()).map_err(|panic| StepFailure::Hides(format!("hides: {}", panic_text(panic.as_ref())))),
         _ => Ok(false),
     }
 }
@@ -1545,7 +1565,7 @@ impl State {
                 }
                 Ok(None) => {}
                 Err(panic) => {
-                    failed.push((i, format!("frame_step: {}", panic_text(panic.as_ref()))));
+                    failed.push((i, StepFailure::Other(format!("frame_step: {}", panic_text(panic.as_ref())))));
                     continue;
                 }
             }
@@ -1559,18 +1579,18 @@ impl State {
                         plugin_steps.push(telescope_core::media::StagedStep { owner: owner.clone(), stage, step });
                     }
                 }
-                Err(panic) => failed.push((i, format!("staged_frame_steps: {}", panic_text(panic.as_ref())))),
+                Err(panic) => failed.push((i, StepFailure::Other(format!("staged_frame_steps: {}", panic_text(panic.as_ref()))))),
             }
             self.slots[i].hides |= hid_any;
         }
-        for (i, why) in failed {
+        for (i, failure) in failed {
             // A step that can't say whether it hides is taken to hide
-            if why.starts_with("hides:") {
+            if failure.hides() {
                 self.slots[i].hides = true;
             }
             let owner = self.slots[i].info.name.clone();
             plugin_steps.retain(|s| s.owner != owner);
-            self.stop_after_panic(i, &why);
+            self.stop_after_panic(i, failure.why());
         }
         if unwatched || background {
             self.colour_before.lock().unwrap().clear();
@@ -3365,6 +3385,16 @@ mod tests {
         s.pipeline_steps(None);
         assert_eq!(CLOSED.with(|c| c.borrow().clone()), ["unsure"]);
         assert!(!s.pipeline_steps(None).iter().any(|st| st.owner == "unsure"));
+    }
+
+    #[test]
+    fn a_hide_failure_hides_whatever_its_message_says() {
+        use telescope_core::frame::{FrameStage, FrameStep};
+        assert!(StepFailure::Hides("reworded".into()).hides());
+        assert!(!StepFailure::Other("hides: looks like one".into()).hides());
+        let info = PluginInfo { name: "unsure".into(), frame_stage: FrameStage::Effects, ..Default::default() };
+        let failure = step_hides(&info, FrameStage::Effects, &FrameStep::Cpu(Box::new(UnsureOnCpu))).expect_err("a panicking hides() fails");
+        assert!(failure.hides());
     }
 
     #[test]
