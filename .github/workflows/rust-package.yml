@@ -73,7 +73,8 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends build-essential curl ca-certificates git cmake nasm clang libclang-dev pkg-config \
             python3 python3-pip libfontconfig1-dev libxkbcommon-dev libva-dev libdrm-dev zlib1g-dev squashfs-tools libgphoto2-6 libgphoto2-port12 xz-utils
-          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          curl -sSf https://sh.rustup.rs -o rustup-init.sh
+          sh rustup-init.sh -y --profile minimal
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - uses: actions/checkout@v7
@@ -139,6 +140,7 @@ jobs:
         shell: pwsh
         run: |
           choco install nasm -y --no-progress
+          if ($LASTEXITCODE) { throw 'choco install nasm failed' }
           $env:PATH += ';C:\Program Files\NASM'
           $env:FFMPEG_DIR = (Resolve-Path ffmpeg).Path
           $env:LIBCLANG_PATH = 'C:\Program Files\LLVM\bin'
