@@ -22,7 +22,7 @@ class SessionServer(
     // Read per request, so flipping Local only takes effect without rebinding.
     private val localOnly: () -> Boolean = { false },
     // adb forward connects from the phone's own loopback, so that's what USB looks like here.
-    private val isUsbPeer: (Socket) -> Boolean = { it.inetAddress?.isLoopbackAddress == true },
+    private val isUsbPeer: (Socket) -> Boolean = LOOPBACK_IS_USB,
     private val authenticatedContact: (PairedComputer, Map<String, String>, String?) -> Unit = { _, _, _ -> },
     // An old port: a computer with an older Telescope still comes here. It is told to update (426), whatever it asked,
     // and this is told its name when its token is known.
@@ -197,6 +197,20 @@ class SessionServer(
         // Where the desktop's pairing server and the phone's session server were before the move to 7479 and 7480. Still
         // listened on for a couple of releases, only to tell an older Telescope on a computer to update.
         val OLD_PORTS = listOf(8765, 8766)
+
+        // An old port's server; localOnly has no default, since the real port's Local only must hold here too.
+        fun forOldPort(
+            port: Int,
+            computers: () -> PairedComputerList,
+            commands: SessionCommands,
+            socketFactory: javax.net.ServerSocketFactory,
+            localOnly: () -> Boolean,
+            onOldPortContact: (String?) -> Unit,
+            isUsbPeer: (Socket) -> Boolean = LOOPBACK_IS_USB,
+        ) = SessionServer(port, computers, commands, socketFactory = socketFactory, localOnly = localOnly, isUsbPeer = isUsbPeer,
+            oldPort = true, onOldPortContact = onOldPortContact)
+
+        private val LOOPBACK_IS_USB: (Socket) -> Boolean = { it.inetAddress?.isLoopbackAddress == true }
 
         // A dev build runs next to the real app, and holding 8766 would stop an older real app from opening its session port
         fun oldPortsFor(buildType: String): List<Int> = if (buildType == "dev") emptyList() else OLD_PORTS
