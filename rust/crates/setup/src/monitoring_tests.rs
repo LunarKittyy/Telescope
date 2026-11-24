@@ -523,3 +523,31 @@ fn the_declared_settings_round_trip() {
     let mut r = Rig::new();
     telescope_core::testing::settings_round_trip(&mut r.plugin, &mut r.host);
 }
+
+#[test]
+fn a_huge_saved_alert_is_held_to_the_bars_range() {
+    let t = Thresholds::from_saved(&json!({"battery_alert": 4_000_000_000_000_i64, "temp_alert": -5}));
+    assert_eq!((t.battery_alert, t.temp_alert), (95, 35));
+    assert_eq!(Thresholds::from_saved(&json!({"battery_alert": u64::MAX})).battery_alert, 95, "so battery_alert + 5 can't overflow");
+}
+
+#[test]
+fn forgetting_the_shown_stream_forgets_its_session_and_source() {
+    let mut r = Rig::new();
+    r.start("url");
+    assert!(r.plugin.sid.is_some());
+    r.plugin.on_stream_stop(&mut r.host);
+    assert_eq!((r.plugin.shown_session, r.plugin.sid.clone()), (None, None));
+}
+
+#[test]
+fn a_preset_or_a_device_switch_refreshes_the_card() {
+    let mut r = Rig::new();
+    r.host.calls.clear();
+    r.plugin.apply_preset(&mut r.host, &json!({"battery_alert": 33})).unwrap();
+    assert_eq!(r.plugin.battery_alert, 33);
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props card ") && c.contains("33")));
+    r.host.calls.clear();
+    r.plugin.on_profile_applied(&mut r.host);
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props card ")));
+}
