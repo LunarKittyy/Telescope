@@ -533,6 +533,12 @@ fn use_window_apartment() {
     unsafe { OleInitialize(std::ptr::null_mut()) };
 }
 
+#[cfg(windows)]
+mod leak_probe;
+#[cfg(windows)]
+#[global_allocator]
+static PROBE: leak_probe::Probe = leak_probe::Probe;
+
 /// Experiment: with LEAK_HEAPS=<file>, appends every process heap's allocated and committed bytes there every 20 s.
 #[cfg(windows)]
 fn log_heaps_later() {
@@ -572,7 +578,12 @@ fn log_heaps_later() {
 
 fn main() {
     #[cfg(windows)]
-    log_heaps_later();
+    {
+        log_heaps_later();
+        if let Some(path) = std::env::var_os("LEAK_STACKS") {
+            leak_probe::start(path);
+        }
+    }
     telescope_core::system::leave_appimage_environment();
     // Before any thread: it sets environment variables for libgphoto2
     telescope_outputs::webcam_capture::prepare_gphoto_environment();

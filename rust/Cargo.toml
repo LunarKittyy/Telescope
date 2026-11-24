@@ -103,7 +103,8 @@ i-slint-core = { path = "vendor/i-slint-core" }
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-strip = true
+strip = false
+debug = "line-tables-only"
 # No panic = "abort": the host catches a panicking plugin and carries on, as the Python app catches its exceptions
 
 # Nightlies and test packages: the release build without its slowest steps, a few minutes quicker on CI. Stable releases use release

@@ -164,6 +164,10 @@ jobs:
         shell: pwsh
         run: ./rust/tools/windows_move_check.ps1 -Setup setup/TelescopeSetup.exe -Bundle bundle
 
+      - name: Keep the symbols for the experiment
+        shell: pwsh
+        run: Get-ChildItem -Recurse -Path . -Filter telescope_rs.pdb | Select-Object -First 1 | Copy-Item -Destination bundle/
+
       - uses: actions/upload-artifact@v7
         with:
           name: windows-bundle
