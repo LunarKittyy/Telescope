@@ -149,6 +149,10 @@ object CameraRequestSelection {
     // The lens whose own settings a request needs, as its crop goes there; only a request made for that lens has them
     fun physicalSettingsId(cam: CameraEntry): String? = if (cam.logicalId != null && cam.cropZoomMax > 1f) cam.id else null
 
+    // The lens settings copy a control must also go into: it starts from the template and wins over the logical request for the keys the lens takes
+    fun <K> physicalKeyTarget(cam: CameraEntry, lensKeys: Set<K>, key: K): String? =
+        physicalSettingsId(cam)?.takeIf { key in lensKeys }
+
     // SCALER_CROP_REGION for phone-side zoom: 1/crop of the visible frame, centred on (cx, cy) in 0..1 of
     // it and kept inside it. Stream-shaped, so the camera crops nothing more to fit the output.
     fun cropRect(area: SensorBox, crop: Float, cx: Float, cy: Float, streamW: Int, streamH: Int): SensorBox {

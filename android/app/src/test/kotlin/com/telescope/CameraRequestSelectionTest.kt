@@ -358,4 +358,15 @@ class LowLightFpsRangeTest {
         assertNull(CameraRequestSelection.physicalSettingsId(lens("0", 1f)))  // no crop to set: the request stays plain
         assertNull(CameraRequestSelection.physicalSettingsId(lens(null, 4f)))  // a camera of its own
     }
+
+    @Test
+    fun `a manual control also goes into the lens copy when the lens takes that key`() {
+        fun lens(logical: String?, cropMax: Float) =
+            CameraEntry("3", logical, "Wide", false, 50, 3200, 100_000L, 1_000_000_000L, cropZoomMax = cropMax)
+        val keys = setOf("iso", "exposure")
+        assertEquals("3", CameraRequestSelection.physicalKeyTarget(lens("0", 4f), keys, "iso"))
+        assertNull(CameraRequestSelection.physicalKeyTarget(lens("0", 4f), keys, "focus"))  // the lens doesn't take it
+        assertNull(CameraRequestSelection.physicalKeyTarget(lens("0", 1f), keys, "iso"))  // no lens copy in the request
+        assertNull(CameraRequestSelection.physicalKeyTarget(lens(null, 4f), keys, "iso"))  // a camera of its own
+    }
 }
