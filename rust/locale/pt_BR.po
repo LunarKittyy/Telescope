@@ -418,6 +418,9 @@ msgstr ""
 msgid "Auto framing"
 msgstr "Enquadramento automático"
 
+msgid "Auto framing follows your body until you close Telescope, even while effects are lighter."
+msgstr ""
+
 msgid "Auto framing speed"
 msgstr "Velocidade do enquadramento automático"
 
@@ -1872,6 +1875,9 @@ msgstr "Buscar"
 msgid "Finding the current adb…"
 msgstr "Localizando o adb atual…"
 
+msgid "Finding your face costs a fraction of finding your body. Auto framing uses your body again when it finds no face or sees several people."
+msgstr ""
+
 msgid "Fine tune"
 msgstr "Ajuste fino"
 
@@ -1950,6 +1956,9 @@ msgstr "Seguir meu rosto"
 msgid "Follow one person"
 msgstr ""
 
+msgid "Follow your body"
+msgstr ""
+
 msgid "Forget this device."
 msgstr "Esquece este dispositivo."
 
@@ -1996,6 +2005,10 @@ msgstr "Quadros entregues"
 msgid "Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."
 msgstr "Quadros por segundo tanto para a captura do celular quanto para a câmera virtual. Valores menores economizam dados e bateria."
 
+#, python-brace-format
+msgid "Frames ran late and the camera can't use more than {sent}, picked {picked}"
+msgstr ""
+
 msgid "Frames to collect"
 msgstr ""
 
@@ -2004,6 +2017,9 @@ msgstr ""
 
 msgid "Framing"
 msgstr "Enquadramento"
+
+msgid "Framing by face"
+msgstr ""
 
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
@@ -2200,7 +2216,7 @@ msgstr ""
 msgid "Heavy"
 msgstr "Pesado"
 
-msgid "Heavy effects work less often while frames run late. They return to full quality once there is room."
+msgid "Heavy effects work less often while frames run late or the computer is saving power. They return to full quality once there is room."
 msgstr ""
 
 msgid "Height"
@@ -2673,6 +2689,9 @@ msgstr "Menos alcance oferece intervalos mais precisos. Mais alcance ajuda um ce
 msgid "Let Dynamic lower the bitrate and frame rate when the connection is slow. This applies only while Bitrate is set to Dynamic."
 msgstr ""
 
+msgid "Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked."
+msgstr ""
+
 msgid "Let an AI app read and change Telescope's settings."
 msgstr "Permite que um app de IA leia e altere as configurações do Telescope."
 
@@ -2752,6 +2771,9 @@ msgid "Lighter"
 msgstr ""
 
 msgid "Lighter effects"
+msgstr ""
+
+msgid "Lighter effects when saving power"
 msgstr ""
 
 msgid "Like the camera"
@@ -4760,6 +4782,9 @@ msgstr "Emissor não está em execução"
 msgid "Sending…"
 msgstr "Enviando…"
 
+msgid "Sends the size you picked until you close Telescope, even while frames run late."
+msgstr ""
+
 msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
 msgstr ""
 
@@ -5225,6 +5250,9 @@ msgstr "Velocidades mais lentas do obturador deixam a imagem mais clara, mas bor
 msgid "Small"
 msgstr "Pequeno"
 
+msgid "Smaller stream size"
+msgstr ""
+
 msgid "Smear"
 msgstr "Borrão"
 
@@ -5373,6 +5401,9 @@ msgstr "Iniciar"
 msgctxt "setting"
 msgid "Start"
 msgstr "Iniciar"
+
+msgid "Start Background and Auto framing at Power-saving level while the computer is in battery saver or a power-saver mode. Telescope only looks at this while a stream runs and doesn't keep or send it."
+msgstr ""
 
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "Inicia um novo layout com as transmissões ativas organizadas assim."
@@ -5580,10 +5611,19 @@ msgstr ""
 msgid "Stops"
 msgstr "Pontos"
 
+msgid "Stops Auto framing following your face to save effort, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Dynamic lowering the bitrate or frame rate, until you switch it back on under Video in Settings."
 msgstr ""
 
+msgid "Stops Telescope asking the phone for a smaller picture when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
 msgid "Stops Telescope lightening effects when frames run late, until you switch it back on under Video in Settings."
+msgstr ""
+
+msgid "Stops Telescope lightening effects when the computer is saving power, until you switch it back on under Video in Settings."
 msgstr ""
 
 msgid "Stops Telescope moving effects to the processor when the graphics card is busy, until you switch it back on under Video in Settings."
@@ -6297,6 +6337,9 @@ msgstr ""
 msgid "The computer is running on battery."
 msgstr ""
 
+msgid "The computer is saving power"
+msgstr ""
+
 msgid "The computer is too slow for the effects in use."
 msgstr ""
 
@@ -6516,6 +6559,9 @@ msgstr "O celular rejeitou a solicitação de microfone (HTTP {code})."
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "O celular rejeitou a solicitação para iniciar a transmissão ({error})."
+
+msgid "The phone sends the smallest picture that still fills the virtual camera, which is easier for this computer to decode. It moves up to the picked size when you zoom in or use Auto framing. A photo keeps the size it began at."
+msgstr ""
 
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "O celular enviou dados que esta versão não consegue ler. Atualize ambos os apps para a mesma versão."
@@ -7406,6 +7452,9 @@ msgstr "Usa o microfone do celular neste computador durante a transmissão. Os a
 msgid "Use the phone's microphone on this computer."
 msgstr "Usa o microfone do celular neste computador."
 
+msgid "Use the size I picked"
+msgstr ""
+
 msgid "Use zoom"
 msgstr ""
 
@@ -7658,6 +7707,9 @@ msgstr "Em que direção as faixas correm."
 
 msgid "While Telescope is in the background"
 msgstr "Enquanto o Telescope estiver em segundo plano"
+
+msgid "While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off."
+msgstr ""
 
 msgid "White"
 msgstr "Branco"
@@ -7994,11 +8046,15 @@ msgid "audio sound voice input volume"
 msgstr "som voz entrada de audio volume audio sound voice input volume"
 
 msgctxt "search"
+msgid "auto framing face head body tracking power saving lighter effects processor battery"
+msgstr ""
+
+msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr "iniciar parar automático câmera app abre discord obs zoom meet teams celular dispositivo pronto ocioso mãos livres auto start stop camera opens phone device ready idle hands free"
 
 msgctxt "search"
-msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate"
+msgid "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k"
 msgstr ""
 
 msgctxt "search"
@@ -8020,6 +8076,10 @@ msgstr "inicio automatico login iniciar sessao inicializacao executar ao iniciar
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "bateria energia notebook processador uso de cpu ventoinha calor lento desfoque enquadramento efeitos mais leves qualidade battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
+
+msgctxt "search"
+msgid "battery saver power saver profile mode laptop effects power saving"
+msgstr ""
 
 msgid "blue"
 msgstr "azul"
@@ -8418,6 +8478,10 @@ msgid "stable nightly beta release track builds testing"
 msgstr "estável canal versões compilações testes lançamento stable nightly beta release track builds testing"
 
 msgctxt "search"
+msgid "stream size resolution 4k 1080p 720p smaller lower decode slow late frames"
+msgstr ""
+
+msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "esticar comprimir achatar proporção aspecto vertical altura stretch squish aspect tall"
 
@@ -8453,6 +8517,9 @@ msgstr "o celular não está respondendo via USB"
 
 msgid "the phone plugged in over USB is a different one"
 msgstr "o celular conectado via USB é outro"
+
+msgid "the processor was late too and not much quicker than the card"
+msgstr ""
 
 msgid "the shutter speed"
 msgstr ""

@@ -121,12 +121,18 @@ export component AdjustmentsChip inherits Rectangle {
 export component AdjustmentsSettings inherits Card {
     in property <bool> reset-shown;
     in-out property <bool> effects: true;
+    in-out property <bool> heads: true;
     in-out property <bool> balance: true;
     in-out property <bool> dynamic: true;
+    in-out property <bool> power: true;
+    in-out property <bool> stream-size: true;
     callback reset-clicked;
     callback effects-toggled(bool);
+    callback heads-toggled(bool);
     callback balance-toggled(bool);
     callback dynamic-toggled(bool);
+    callback power-toggled(bool);
+    callback stream-size-toggled(bool);
 
     title: @tr("Automatic adjustments");
     tip: @tr("Switch off any of the automatic changes Telescope makes for a smoother stream.");
@@ -135,7 +141,7 @@ export component AdjustmentsSettings inherits Card {
     reset-label: @tr("Reset");
     reset-detail: @tr("Switch every automatic adjustment back on.");
     reset => { root.reset-clicked(); }
-    keywords: @tr("search" => "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate");
+    keywords: @tr("search" => "automatic adjustments adjusting lag stutter choppy falling behind slow computer old pc frames late step down lighter effects power saving dynamic bitrate frame rate stream size resolution 4k");
     icon: Icons.sliders;
     hue: Theme.plugin-hue("streaming");
 
@@ -148,6 +154,26 @@ export component AdjustmentsSettings inherits Card {
         hue: root.hue;
         checked <=> root.effects;
         toggled(on) => { root.effects-toggled(on); }
+    }
+    SwitchRow {
+        icon: Icons.framing;
+        label: @tr("Framing by face");
+        tip: @tr("Framing by face");
+        tip-detail: @tr("While effects are lighter, let Auto framing find your face rather than your body. That costs a fraction as much and only happens at Head or Chest with Show hands off.");
+        keywords: @tr("search" => "auto framing face head body tracking power saving lighter effects processor battery");
+        hue: root.hue;
+        checked <=> root.heads;
+        toggled(on) => { root.heads-toggled(on); }
+    }
+    SwitchRow {
+        icon: Icons.battery;
+        label: @tr("Lighter effects when saving power");
+        tip: @tr("Lighter effects when saving power");
+        tip-detail: @tr("Start Background and Auto framing at Power-saving level while the computer is in battery saver or a power-saver mode. Telescope only looks at this while a stream runs and doesn't keep or send it.");
+        keywords: @tr("search" => "battery saver power saver profile mode laptop effects power saving");
+        hue: root.hue;
+        checked <=> root.power;
+        toggled(on) => { root.power-toggled(on); }
     }
     SwitchRow {
         icon: Icons.chip;
@@ -168,5 +194,15 @@ export component AdjustmentsSettings inherits Card {
         hue: root.hue;
         checked <=> root.dynamic;
         toggled(on) => { root.dynamic-toggled(on); }
+    }
+    SwitchRow {
+        icon: Icons.gauge;
+        label: @tr("Smaller stream size");
+        tip: @tr("Smaller stream size");
+        tip-detail: @tr("Let Telescope ask the phone for a smaller picture while frames run late, when the virtual camera can't use all of the size picked.");
+        keywords: @tr("search" => "stream size resolution 4k 1080p 720p smaller lower decode slow late frames");
+        hue: root.hue;
+        checked <=> root.stream-size;
+        toggled(on) => { root.stream-size-toggled(on); }
     }
 }

@@ -143,10 +143,67 @@ fn read_text(path: &str) -> Option<String> {
     std::fs::read_to_string(path).ok()
 }
 
-/// The platform profile is "low-power" when the user picked the power saver; None where the file isn't there or can't be read.
-fn power_saver() -> Option<bool> {
-    let profile = std::fs::read_to_string("/sys/firmware/acpi/platform_profile").ok()?;
-    Some(profile.trim() == "low-power")
+/// The platform profile is "low-power" when the user picked the power saver, or power-profiles-daemon says it is on its power-saver profile;
+/// None where neither can be read.
+pub(super) fn power_saver() -> Option<bool> {
+    let platform = std::fs::read_to_string("/sys/firmware/acpi/platform_profile").ok().map(|p| p.trim() == "low-power");
+    let daemon = profiles_daemon::active().map(|p| p == "power-saver");
+    match (platform, daemon) {
+        (None, None) => None,
+        (a, b) => Some(a == Some(true) || b == Some(true)),
+    }
+}
+
+/// power-profiles-daemon's active profile over the system bus. It is asked only when the daemon is already running, so asking never starts it.
+mod profiles_daemon {
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant};
+    use zbus::blocking::{connection::Builder, Connection};
+    use zbus::zvariant::OwnedValue;
+
+    const NAME: &str = "net.hadess.PowerProfiles";
+    const PATH: &str = "/net/hadess/PowerProfiles";
+    /// A bus or daemon that doesn't answer in this long is left alone for a while, so a stuck one can't hold up whatever asks.
+    const ANSWER_WITHIN: Duration = Duration::from_millis(300);
+    const LEAVE_ALONE: Duration = Duration::from_secs(60);
+
+    struct Bus {
+        conn: Option<Connection>,
+        leave_alone_until: Option<Instant>,
+    }
+
+    static BUS: Mutex<Bus> = Mutex::new(Bus { conn: None, leave_alone_until: None });
+
+    pub(super) fn active() -> Option<String> {
+        let mut bus = BUS.lock().unwrap_or_else(|e| e.into_inner());
+        if bus.leave_alone_until.is_some_and(|t| Instant::now() < t) {
+            return None;
+        }
+        if bus.conn.is_none() {
+            bus.conn = Builder::system().and_then(|b| b.method_timeout(ANSWER_WITHIN).build()).ok();
+        }
+        let answer = bus.conn.as_ref().map(ask);
+        match answer {
+            Some(Ok(profile)) => profile,
+            // No system bus, or one that failed: try again later with a new connection
+            Some(Err(_)) | None => {
+                bus.conn = None;
+                bus.leave_alone_until = Some(Instant::now() + LEAVE_ALONE);
+                None
+            }
+        }
+    }
+
+    /// Ok(None) is "no daemon running", which is nothing to retry soon.
+    fn ask(conn: &Connection) -> zbus::Result<Option<String>> {
+        let running: bool = conn.call_method(Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"), "NameHasOwner", &(NAME,))?.body().deserialize()?;
+        if !running {
+            return Ok(None);
+        }
+        let reply = conn.call_method(Some(NAME), PATH, Some("org.freedesktop.DBus.Properties"), "Get", &(NAME, "ActiveProfile"))?;
+        let value: OwnedValue = reply.body().deserialize()?;
+        Ok(String::try_from(value).ok())
+    }
 }
 
 /// The busiest graphics card's load in percent, for drivers that say it (AMD and some others); None otherwise.

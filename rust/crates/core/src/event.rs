@@ -143,6 +143,9 @@ events! {
     "vcam_opened" => VcamOpened { width: u32, height: u32 },
     /// Any stream's virtual camera opened: its source id, slot (0 is Telescope's own), width and height.
     "camera_opened" => CameraOpened { source_id: String, slot: u32, width: u32, height: u32 },
+    /// The size a stream's frames are fitted to before they reach the virtual camera changed: the size it opened at, then the one an app reading it picks
+    /// where the camera can tell (the Windows 11 camera).
+    "camera_fit" => CameraFit { source_id: String, width: u32, height: u32 },
     /// Whether an app is reading the virtual camera (Wait screen watches it).
     "camera_watched" => CameraWatched { watched: bool },
     /// Something asks for the wait screen in place of the shown stream's picture, or lets go. `note` is the line to show under the name instead of the usual one (the default screen only).
@@ -219,6 +222,12 @@ events! {
     "effort_changed" => EffortChanged { level: u8 },
     /// Not in plugin.py: Adjustments asks Stream output to send at a fixed bitrate (Auto) in place of Dynamic for now (on), or to go back to what is set. Not saved by the one that hears it.
     "fixed_bitrate_requested" => FixedBitrateRequested { on: bool },
+    /// Not in plugin.py: Stream output sends a smaller size than the one picked while frames run late (trimmed) or went back to the pick. The sizes are
+    /// the one sent now and the one picked.
+    "stream_size_trimmed" => StreamSizeTrimmed { trimmed: bool, width: u32, height: u32, picked_width: u32, picked_height: u32 },
+    /// Not in plugin.py: Adjustments asks Stream output to keep the size that was picked (on) in place of trimming it while frames run late, or to go back to trimming.
+    /// Not saved by the one that hears it.
+    "stream_size_held" => StreamSizeHeld { on: bool },
     /// Not in plugin.py: the readouts pinned to the bottom bar changed (a pin, an unpin, or the bar's own readouts came or went): every id
     /// pinned now, left side first. A card with a star for each readout redraws it from this.
     "bar_pins_changed" => BarPinsChanged { pinned: Vec<String> },

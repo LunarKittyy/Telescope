@@ -878,3 +878,21 @@ fn a_pinned_plugin_timing_is_still_offered_when_it_is_not_among_the_listed_slowe
 fn the_declared_settings_round_trip() {
     telescope_core::testing::settings_round_trip(&mut StatsPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
+
+#[test]
+fn the_steps_row_says_where_the_shown_stream_s_steps_run() {
+    // Another stream's steps moved to the processor; the one shown kept its own on the card
+    let balance = Arc::new(Balance::free());
+    let other = balance.lane();
+    (0..6).for_each(|_| other.note_wait(25 * MS));
+    let hub = Hub::with_balance(balance);
+    let shown = hub.register("phone", 0);
+    shown.set_target_fps(30);
+    let place = |snap: &telescope_core::stats::Snapshot| {
+        rows(snap, &snap.sources[0], View::Nerd, &Context::default()).iter().find(|r| r.label == "Frame steps run on").unwrap().value.clone()
+    };
+    let now = telescope_core::time::monotonic_ns();
+    assert_eq!(place(&hub.snapshot_at(now + SECOND, None, None)), "The processor", "before it said, the app's");
+    shown.set_steps_on_card(true);
+    assert_eq!(place(&hub.snapshot_at(now + 2 * SECOND, None, None)), "The graphics card");
+}

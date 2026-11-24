@@ -284,6 +284,15 @@ pub struct StagedStep {
     pub step: FrameStep,
 }
 
+/// What a card picture's landing gave instead of the picture when the card failed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StandIn {
+    /// The picture the card's steps began from, without them (uncropped, ungraded): nothing to send in the picture's place but the last good one.
+    Unprocessed,
+    /// A dark frame, for a picture whose steps hide something: showing the room would be worse.
+    Dark,
+}
+
 /// A media-owned card picture; landing and its cache belong to the implementation.
 pub trait CardPicture: Send + Sync {
     fn land(&self) -> Frame;
@@ -293,6 +302,19 @@ pub trait CardPicture: Send + Sync {
     /// The RAM picture if a landing already made it, without waiting for the card.
     fn landed(&self) -> Option<Frame>;
     fn as_any(&self) -> &dyn std::any::Any;
+    /// The picture fitted into width x height as the virtual camera fits frames (image::fit_box, black bars), scaled on the card so only
+    /// that much comes back. None when this picture can't be (the caller lands it and fits it itself).
+    fn land_fitted(&self, _width: u32, _height: u32, _cancel: &dyn Fn() -> bool) -> Option<Frame> {
+        None
+    }
+    /// Whether the card can fit this picture into width x height (land_fitted may still fail), whether or not it landed already.
+    fn fits_on_card(&self, _width: u32, _height: u32) -> bool {
+        false
+    }
+    /// What stands in for the picture, once its landing failed; None while it is the real one (or not landed yet).
+    fn stood_in(&self) -> Option<StandIn> {
+        None
+    }
 }
 
 /// A finished pipeline picture; with a card picture its own frame has only the size and stamps, and every landing shares the same pixels.
@@ -329,6 +351,26 @@ impl PipelineFrame {
         frame.time_ns = self.frame.time_ns;
         frame.capture_ns = self.frame.capture_ns;
         frame
+    }
+
+    /// The picture fitted into width x height on the card with the publication's stamps (CardPicture::land_fitted), None for a picture
+    /// already in memory or one the card can't fit. The caller waits, like land.
+    pub fn land_fitted_until(&self, width: u32, height: u32, cancel: &dyn Fn() -> bool) -> Option<Frame> {
+        let mut frame = self.picture.as_ref()?.land_fitted(width, height, cancel)?;
+        frame.number = self.frame.number;
+        frame.time_ns = self.frame.time_ns;
+        frame.capture_ns = self.frame.capture_ns;
+        Some(frame)
+    }
+
+    /// Whether the card can fit the picture into width x height (CardPicture::fits_on_card); a picture in memory can't.
+    pub fn fits_on_card(&self, width: u32, height: u32) -> bool {
+        self.picture.as_ref().is_some_and(|p| p.fits_on_card(width, height))
+    }
+
+    /// What stands in for the picture when the card failed to land it (CardPicture::stood_in).
+    pub fn stood_in(&self) -> Option<StandIn> {
+        self.picture.as_ref()?.stood_in()
     }
 
     /// The RAM picture if it is there without a readback, so a thread that can't wait for the card can still read what has landed.

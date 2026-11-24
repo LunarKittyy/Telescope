@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the vision pack (MediaPipe and the two models) for Linux and Windows, from vision-pack-requirements.txt.
+"""Build the vision pack (MediaPipe and its three models) for Linux and Windows, from vision-pack-requirements.txt.
 
     python tools/build_vision_pack.py --check            # CI: both packs still match crates/vision/vision_pack.json
     python tools/build_vision_pack.py --write            # after changing a pin: update vision_pack.json
@@ -23,6 +23,7 @@ TOOLS = Path(__file__).resolve().parent
 PACK_INFO = TOOLS.parent / "crates" / "vision" / "vision_pack.json"
 SEGMENTER_MODEL = "selfie_segmenter_landscape.tflite"
 POSE_MODEL = "pose_landmarker_lite.task"
+FACE_MODEL = "blaze_face_short_range.tflite"
 _DONE = ".verified"  # written last by the app, holding the pack's id: it is not part of the hash
 
 
@@ -50,11 +51,15 @@ MODELS = {  # name: (url, sha256); version 1 of each, as tested
                              "490e9ea734313e0de10fa0cd9e3c6133e36ea4db2b7a49bde9ef019f72796b8e"),
     POSE_MODEL: (f"{_MODELS}/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
                         "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a"),
+    FACE_MODEL: (f"{_MODELS}/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+                 "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f"),
 }
+# How many older pack ids vision_pack.json keeps, which the app still runs so an update doesn't make everyone download again.
+OLDER_KEPT = 3
 NOTICES = """Telescope's vision pack, used by the Auto framing and Background plugins.
 
 MediaPipe (https://github.com/google-ai-edge/mediapipe), Apache License 2.0
-The selfie segmenter and pose landmarker models from MediaPipe, Apache License 2.0
+The selfie segmenter, pose landmarker and BlazeFace short range face detector models from MediaPipe, Apache License 2.0
 
 MediaPipe's full licence and third-party notices are in its .dist-info/licenses folder under site/.
 """
@@ -224,6 +229,11 @@ def main():
             write_zip(root, zipped)
             files = sum(1 for p in root.rglob("*") if p.is_file())
             info[key] = {"id": tree, "size": zipped.stat().st_size, "files": files}
+            # The pack this replaces still runs (without the newer model), so people who have it aren't asked to download again
+            before = known.get(key, {})
+            older = [i for i in [before.get("id"), *before.get("older", [])] if i and i != tree]
+            if older:
+                info[key]["older"] = list(dict.fromkeys(older))[:OLDER_KEPT]
             unpacked = sum(p.stat().st_size for p in root.rglob("*") if p.is_file())
             print(f"{key}: id {tree[:16]}, {files} files, {zipped.stat().st_size / 1e6:.1f} MB zipped, {unpacked / 1e6:.1f} MB unpacked")
             if args.check and known.get(key, {}).get("id") != tree:
