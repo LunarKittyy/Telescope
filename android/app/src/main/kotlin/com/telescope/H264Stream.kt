@@ -232,14 +232,15 @@ class CropLog(private val capacity: Int = 64) {
      */
     fun take(encoderUs: Long, waitMs: Long): FloatArray? = lock.withLock {
         val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitMs)
-        var share = find(encoderUs)
+        // Only the likeliest clock until the wait is over: on another, an earlier frame's result can sit at this one's time
+        var share = at(encoderUs + offsets[0])?.also { found(0) }
         while (share == null && due(encoderUs)) {
             val left = deadline - System.nanoTime()
             if (left <= 0) break
             arrived.awaitNanos(left)
-            share = find(encoderUs)
+            share = at(encoderUs + offsets[0])?.also { found(0) }
         }
-        share
+        share ?: find(encoderUs)
     }
 
     private fun find(encoderUs: Long): FloatArray? {

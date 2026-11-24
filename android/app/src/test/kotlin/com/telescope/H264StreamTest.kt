@@ -331,6 +331,31 @@ class H264StreamTest {
     }
 
     @Test
+    fun `an older frame on the other clock is never taken for a late frame`() {
+        // Asleep for exactly ten frames: on the other clock this frame's time is the first frame's, long logged
+        val asleep = 333_330L
+        val log = CropLog()
+        log.begin(longArrayOf(asleep, 0L))
+        for (k in 0..9) log.put(1_000_000 + k * 33_333L, crop(1f))
+        Thread { Thread.sleep(5); log.put(1_000_000 + asleep, crop(2f)) }.start()
+        assertArrayEquals(crop(2f), log.take(1_000_000, 2_000), "the likeliest clock's result is waited for first")
+    }
+
+    @Test
+    fun `a new encoder starts over with its own clock`() {
+        val asleep = 500_000L
+        val log = CropLog()
+        log.begin(longArrayOf(0L, asleep))
+        for (k in 0..3) log.put(asleep + k * 33_333L, crop(1f))
+        for (k in 0..3) log.take(k * 33_333L, 0)
+        // Promoted to the other clock; a lens switch begins again, and the log is empty with the new order
+        log.begin(longArrayOf(0L))
+        assertNull(log.take(0, 0))
+        log.put(0, crop(3f))
+        assertArrayEquals(crop(3f), log.take(0, 0))
+    }
+
+    @Test
     fun `a clock that keeps matching when the likeliest doesn't becomes the likeliest`() {
         val asleep = 500_000L
         val log = CropLog()
