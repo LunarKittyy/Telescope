@@ -809,7 +809,8 @@ impl Connection {
             None => "none",
         }));
         out.insert("Phone status".into(), json!(res.map(|r| status_name(r.status)).unwrap_or("not checked")));
-        if let Some(note) = res.and_then(|r| r.usb_note) {
+        let on_usb = matches!(route, Some(RouteSpec::Usb { .. })); // the last check's note is stale once the stream moved to the cable
+        if let Some(note) = res.and_then(|r| r.usb_note).filter(|_| !on_usb) {
             out.insert("USB".into(), serde_json::to_value(note).unwrap_or_default());
         }
         if let Some(v) = res.map(|r| r.phone_version.as_str()).filter(|v| !v.is_empty()) {
@@ -1334,6 +1335,20 @@ mod tests {
         assert_eq!(c.phones[0].active_ip.as_deref(), Some("10.0.0.77"));
         assert!(c.phones[0].ips.contains(&"10.0.0.77".to_string()));
         assert_eq!(not_using_usb(c.resolution.as_ref().unwrap()), None); // no cable, nothing to explain
+    }
+
+    #[test]
+    fn diagnostics_drop_the_usb_note_once_streaming_over_usb() {
+        let (mut c, _) = model();
+        add(&mut c, "id-a");
+        c.apply_resolution(Resolution { usb_note: Some(UsbNote::NoCable), ..ready(wifi()) });
+        c.streaming = true;
+        c.set_stream_route(Some(wifi()));
+        assert_eq!(c.diagnostics(None)["USB"], "no_cable");
+        c.set_stream_route(Some(usb()));
+        let d = c.diagnostics(None);
+        assert_eq!(d["Connection"], "usb");
+        assert!(d.get("USB").is_none());
     }
 
     #[test]
