@@ -14,6 +14,7 @@ Each file covers the work that led up to one release. Once a release ships its f
 
 The files up to 3.5 were written afterwards from the release notes, the commit history and the issues people opened. They're shorter than the notes but explain more about why.
 
+- [5.2](5.2.md) (November 2026) had Stargazer and Phototrap, 3D in a headset, one picture as a scene editor, a graphics card choice and a lighter, faster app
 - [5.1](5.1.md) (November 2026) had both apps redone, about a third of the processor with every effect on, and Filters, Stats and an MCP server
 - [5.0](5.0.md) (November 2026) had the desktop app rewritten in Rust, plugins in Lua, going back to Python and an AppImage
 - [4.4](4.4.md) (October 2026) had webcams and capture cards as sources, a Black screen button on the phone and UDP on Wi-Fi moved to Settings
