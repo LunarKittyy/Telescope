@@ -2911,8 +2911,8 @@ pub(crate) mod tests {
         assert!(readback_ns > 0, "the shader's picture came down");
         let (own_ms, readback_ms) = (own.load(Ordering::SeqCst) as f64 / 8e6, readback_ns as f64 / 8e6);
         let cost_ms = p.balance.cpu_cost().unwrap() as f64 / 1e6;
-        // 10% for a busy machine timing the step, far below a readback charge (seconds on a software card)
-        assert!(cost_ms <= own_ms * 1.1 + 0.3, "the CPU's cost was {cost_ms:.2} ms for a step that took {own_ms:.2} ms, with a readback of {readback_ms:.2} ms in front of it");
+        // a busy runner's timing noise (2 ms seen on Windows) stays well under a quarter of the readback a wrong charge would add
+        assert!(cost_ms <= own_ms * 1.25 + (readback_ms / 4.0).max(1.0), "the CPU's cost was {cost_ms:.2} ms for a step that took {own_ms:.2} ms, with a readback of {readback_ms:.2} ms in front of it");
     }
 
     #[test]
