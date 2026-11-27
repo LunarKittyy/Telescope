@@ -352,13 +352,29 @@ pub(crate) fn writable(directory: &Path) -> bool {
     ok
 }
 
+/// Does root own this folder? A package manager installs copies like that (an AUR package in /opt), and a user can't update them.
+fn owned_by_system(directory: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        std::fs::metadata(directory).is_ok_and(|m| m.uid() == 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = directory;
+        false
+    }
+}
+
 /// Why this copy can't replace itself (the UI then offers the release page), or None.
 pub fn self_update_blocker(directory: &Path, channel: &str) -> Option<String> {
     if channel == "dev" {
         return Some(tr("This is a source checkout. Update it with git."));
     }
     if !writable(directory) {
-        return Some(if telescope_core::system::appimage().is_some() {
+        return Some(if owned_by_system(directory) {
+            tr("Telescope was installed for the whole system, so update it the way you installed it, such as through your package manager.")
+        } else if telescope_core::system::appimage().is_some() {
             tr("Telescope can't update itself because the folder holding this AppImage isn't writable.")
         } else {
             tr("Telescope can't update itself in a folder that isn't writable.")
@@ -1451,6 +1467,18 @@ mod tests {
             }
         }
         assert!(self_update_blocker(&app, "dev").unwrap().contains("source checkout"));
+    }
+
+    #[test]
+    fn a_copy_installed_for_the_whole_system_points_to_the_package_manager() {
+        #[cfg(unix)]
+        {
+            assert!(owned_by_system(Path::new("/usr")));
+            // root writes anywhere, so the blocker itself can only be seen as a user
+            if !writable(Path::new("/usr")) {
+                assert!(self_update_blocker(Path::new("/usr"), "nightly").unwrap().contains("package manager"));
+            }
+        }
     }
 
     #[test]
