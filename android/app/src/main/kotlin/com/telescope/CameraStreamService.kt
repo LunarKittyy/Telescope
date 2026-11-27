@@ -1105,6 +1105,7 @@ class CameraStreamService : Service() {
             ois = snap?.ois ?: true,
             focus_mode = snap?.focusMode ?: "continuous",
             focus_distance = snap?.focusDistance ?: 0f,
+            lens_focus = snap?.lensFocus,
             nr_mode = snap?.nrMode ?: CaptureRequest.NOISE_REDUCTION_MODE_FAST,
             edge_mode = snap?.edgeMode ?: CaptureRequest.EDGE_MODE_FAST,
             ae_comp = snap?.aeComp ?: 0,

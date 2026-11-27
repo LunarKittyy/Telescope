@@ -42,6 +42,7 @@ data class CameraControlSnapshot(
     val bitrate:           Int,
     val codecFailure:      CodecFailure?,
     val activeLens:        String?,
+    val lensFocus:         Float? = null,  // diopters where the lens is focused now, on auto too; null = not known yet
     val dynamicFps:        Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
     val lowLight:          Boolean = false,
     val h264Profile:       String? = null,  // "high", "baseline" or "auto" while H.264 runs
@@ -115,6 +116,7 @@ class CameraSessionController(
     @Volatile private var appliedFpsRange: android.util.Range<Int>? = null
     @Volatile private var exposureNs: Long? = null
     @Volatile private var activeLens: String? = null  // which lens a multi-lens camera is using (capture results)
+    @Volatile private var lensFocus: Float? = null  // where the lens is focused (capture results), kept while it moves
     @Volatile private var currentFocusMode:     String = "continuous"
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
     // Set in "point" mode: x, y and size in the stream frame; mapped onto the sensor per request, through the zoom.
@@ -232,6 +234,7 @@ class CameraSessionController(
         bitrate         = currentBitrate(),
         codecFailure    = codecFailure,
         activeLens      = activeLens,
+        lensFocus       = lensFocus,
         dynamicFps      = frameRate?.cap ?: 0,
         lowLight        = currentLowLight,
         h264Profile     = encoder?.profile?.wire,
@@ -915,6 +918,7 @@ class CameraSessionController(
 
     private fun openCamera(openCameraId: String, physicalCameraId: String?) {
         activeLens = null
+        lensFocus = null
         startThread()
         buildOutputs()
 
@@ -1559,6 +1563,9 @@ class CameraSessionController(
             exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                 activeLens = result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)
+            // Only once the lens has settled, so the desktop's mark doesn't jump about while autofocus hunts
+            if (result.get(CaptureResult.LENS_STATE) != CaptureResult.LENS_STATE_MOVING)
+                result.get(CaptureResult.LENS_FOCUS_DISTANCE)?.let { lensFocus = it }
         }
     }
 
@@ -1582,7 +1589,7 @@ class CameraSessionController(
         meterPoint = null
         dropFrameRate()  // its rungs came from the old lens's ranges; the next link sample builds the new lens's
         // What the old lens last measured isn't this lens's: its colour matrix, gains and metered exposure
-        lastResult = null; lastCCM = null; lastMeasuredGains = null
+        lastResult = null; lastCCM = null; lastMeasuredGains = null; lensFocus = null
         currentCamera = entry
         // The heat's smaller size may not exist on this lens, or may now: the reader is rebuilt if the size moves
         val (w, h) = effectiveSize()

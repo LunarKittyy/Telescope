@@ -34,7 +34,7 @@ class StateExampleTest {
         )),
         auto = false, iso = 400, shutter_ns = 16_666_666L,
         wb_manual = true, wb_r = 2.1f, wb_ge = 1f, wb_go = 1f, wb_b = 1.8f,
-        ois = false, focus_mode = "manual", focus_distance = 2.5f, nr_mode = 2, edge_mode = 2, ae_comp = -3,
+        ois = false, focus_mode = "manual", focus_distance = 2.5f, lens_focus = 2.5f, nr_mode = 2, edge_mode = 2, ae_comp = -3,
         black_level_lock = true, torch = true, jpeg_quality = 90, phone_fps = 30, camera_fps = 29.8,
         codecs = listOf("mjpeg", "h264"), codec = "h264", bitrate = 8_087_040,
         dynamic_bitrate = true, dynamic_fps = 24, heat_fps = 15, heat_width = 1280, heat_height = 720, heat_paused = true, low_light = true, low_light_toggle = true, clean_video = true, clean_video_toggle = true,

@@ -120,6 +120,7 @@ data class V1State(
     val ois: Boolean,
     val focus_mode: String,
     val focus_distance: Float,
+    val lens_focus: Float? = null,  // diopters where the lens is focused now, from the camera's results, on auto too; an older phone leaves it out
     val nr_mode: Int,
     val edge_mode: Int,
     val ae_comp: Int,
