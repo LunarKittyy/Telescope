@@ -27,6 +27,8 @@ export component ShotControls inherits VerticalLayout {
     in property <float> focus-value;
     in property <bool> focus-unset: true;
     in property <string> focus-readout: @tr("Camera");
+    // Where the phone is focused now, as a dot the handle sticks to, when it says
+    in property <[float]> focus-marks;
     callback shutter-picked(int);
     callback iso-picked(int);
     callback focus-moved(float);
@@ -94,6 +96,7 @@ export component ShotControls inherits VerticalLayout {
             can-unset: true;
             unset: root.focus-unset;
             readout: root.focus-readout;
+            marks: root.focus-marks;
             reset => { root.focus-reset(); }
             moved(v) => { root.focus-moved(v); }
         }

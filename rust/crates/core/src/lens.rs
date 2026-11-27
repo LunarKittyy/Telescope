@@ -1,7 +1,7 @@
 //! How a phone camera's lens is named: the same short English name wherever the phone app was built,
 //! and the words of it in the language loaded. The Camera card's tiles and Transforms' lens notes both use it.
 
-use crate::i18n::tr_ctx;
+use crate::i18n::{number, tr_ctx};
 use serde_json::Value;
 
 /// Strips Android boilerplate ("Back", "[phys]") from a camera name; "[auto]" marks a multi-lens camera and goes first, since a
@@ -56,6 +56,12 @@ pub fn lens_name(label: &str) -> String {
     lens_words(label).split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// A focus position as Android gives it, in diopters (1 over metres): 0 is infinity and bigger is nearer. Few phones calibrate it
+/// to real distances, so it's shown as the phone's own number rather than as metres that would be wrong, and ∞ at 0.
+pub fn focus_label(diopters: f64) -> String {
+    if diopters < 0.005 { "∞".into() } else { number(diopters, 2, false) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -84,3 +90,4 @@ mod tests {
         assert_eq!(lens_name("Tele ~85mm OIS"), "Tele ~85mm OIS");
     }
 }
+

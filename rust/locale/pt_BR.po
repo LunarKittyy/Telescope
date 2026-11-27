@@ -87,6 +87,9 @@ msgstr "Uma linha de comando que faz o mesmo, para as configurações de teclado
 msgid "A copy of the old file is at {path}."
 msgstr "Uma cópia do arquivo antigo está em {path}."
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "Uma etapa do quadro falhou"
 
@@ -2299,6 +2302,9 @@ msgstr "O quão brilhante uma luz precisa ser para pintar."
 
 msgid "How bright something has to be to get stripes."
 msgstr "O quão brilhante algo precisa ser para ganhar listras."
+
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
 
 msgid "How far away the camera focuses."
 msgstr "A que distância a câmera foca."
@@ -4966,9 +4972,6 @@ msgstr "Define balanço de branco, brilho, contraste e cor a partir de cerca de 
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "Definiu {changes}"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "Configurando mais câmeras virtuais…"
@@ -8666,10 +8669,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} GHz, {n} dBm"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} já existe e não é um dispositivo v4l2loopback."
 
@@ -8692,6 +8691,10 @@ msgstr "{error}. Tente uma resolução ou FPS menor, ou mude para Pesado."
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. Você pode tentar o Leve novamente em Saída da transmissão."
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8783,10 +8786,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}, sem encaixe"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8839,14 +8838,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
@@ -8877,10 +8868,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "{n} no total"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} m"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11391,6 +11378,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "{name} não é uma classe TelescopePlugin."
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} m"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"

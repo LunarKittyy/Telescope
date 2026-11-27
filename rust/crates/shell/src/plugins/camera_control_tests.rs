@@ -155,7 +155,8 @@ fn kelvin_gains_are_symmetric_and_tint_is_clamped() {
 
 #[test]
 fn diopters_label() {
-    for (d, expected) in [(0.0, "∞"), (0.01, "∞"), (0.5, "2.00 m"), (2.0, "0.50 m")] {
+    // The phone's own focus number, since few phones get metres right
+    for (d, expected) in [(0.0, "∞"), (0.004, "∞"), (0.5, "0.50"), (2.0, "2.00")] {
         assert_eq!(diopters_to_label(d), expected);
     }
 }
@@ -417,7 +418,7 @@ fn focus_slider_conversion_and_manual_send() {
     r.cam.on_focus_slider(250);
     r.flush();
     assert_eq!(r.cam.slider_to_diopters(250), 2.0);
-    assert_eq!(r.cam.focus_text, "0.50 m");
+    assert_eq!(r.cam.focus_text, "2.00");
     assert_eq!(r.sent().last().unwrap(), &json!({"action": "focus_distance", "value": 2.0}));
     r.cam.set_focus_slider_value(100.0);
     assert_eq!(r.cam.focus_slider.value, 1000);
@@ -1263,26 +1264,26 @@ fn typing_brightness_sets_the_step_and_the_readout_follows() {
 }
 
 #[test]
-fn typed_focus_distance_is_read_in_metres_and_lands_on_the_nearest_position() {
-    // A lens that focuses as near as 0.1 m: 10 dioptres across 1000 positions
-    for text in ["0.5", "0,5", "0.5 m", "0.5m", " 0.50 m ", "0.5 metres"] {
+fn typed_focus_is_read_in_the_phones_numbers_and_lands_on_the_nearest_position() {
+    // A lens that focuses as near as 10: 10 across 1000 positions
+    for text in ["2", "2,0", " 2.00 ", "2.004"] {
         assert_eq!(parse_focus_position(text, 10.0), Some(200), "{text}");
     }
-    assert_eq!(parse_focus_position("2 m", 10.0), Some(50));
-    assert_eq!(parse_focus_position("0.1", 10.0), Some(1000), "the near limit");
-    assert_eq!(parse_focus_position("0.01", 10.0), Some(1000), "nearer than the lens goes is held to the limit");
-    for text in ["inf", "INF", "Infinity", "∞", "∞ m", "1000", "100 m"] {
-        assert_eq!(parse_focus_position(text, 10.0), Some(0), "{text}: too far to tell from infinity");
+    assert_eq!(parse_focus_position("0.5", 10.0), Some(50));
+    assert_eq!(parse_focus_position("10", 10.0), Some(1000), "the near limit");
+    assert_eq!(parse_focus_position("100", 10.0), Some(1000), "nearer than the lens goes is held to the limit");
+    for text in ["inf", "INF", "Infinity", "∞", "0", "0.004"] {
+        assert_eq!(parse_focus_position(text, 10.0), Some(0), "{text}: infinity");
     }
-    for bad in ["", "m", "0", "-1", "-2 m", "abc", "nan", "1 EV"] {
+    for bad in ["", "m", "-1", "2 m", "abc", "nan", "1 EV"] {
         assert_eq!(parse_focus_position(bad, 10.0), None, "{bad:?}");
     }
-    assert_eq!(parse_focus_position("1", 0.0), None, "no scale, no distance");
+    assert_eq!(parse_focus_position("1", 0.0), None, "no scale, no focus");
 }
 
 #[test]
 fn a_focus_readout_typed_back_reads_the_same_and_lands_on_the_same_position_where_it_can_tell() {
-    for max_diopters in [2.0, 5.0, 8.0, 10.0, 12.5] {
+    for max_diopters in [2.0, 5.0, 8.0, 10.0, 12.5, 20.0] {
         let mut r = Rig::new();
         r.cam.focus_max_diopters = max_diopters;
         for pos in 0..=FOCUS_STEPS {
@@ -1291,9 +1292,8 @@ fn a_focus_readout_typed_back_reads_the_same_and_lands_on_the_same_position_wher
             let back = parse_focus_position(&readout, max_diopters).unwrap_or_else(|| panic!("{readout} is not read"));
             r.cam.on_focus_slider(back);
             assert_eq!(r.cam.focus_text, readout, "max {max_diopters}: {pos} reads {readout} but comes back as {back}");
-            // A readout with two decimals can't tell the nearest positions apart, so exact where it can
-            let metres = 1.0 / (pos as f64 / FOCUS_STEPS as f64 * max_diopters);
-            if readout != "∞" && metres * metres * max_diopters / FOCUS_STEPS as f64 > 0.02 {
+            // A readout with two decimals can't tell positions closer than 0.01 apart, so exact where they're further apart
+            if readout != "∞" && max_diopters / FOCUS_STEPS as f64 > 0.01 {
                 assert_eq!(back, pos, "max {max_diopters}: {readout}");
             }
         }
@@ -1301,16 +1301,16 @@ fn a_focus_readout_typed_back_reads_the_same_and_lands_on_the_same_position_wher
 }
 
 #[test]
-fn typing_a_focus_distance_moves_the_slider_and_the_readout_follows() {
+fn typing_a_focus_moves_the_slider_and_the_readout_follows() {
     let mut r = Rig::new();
     r.streaming();
     r.cam.focus_max_diopters = 8.0;
     r.cam.manual_focus = true;
     r.cam.focus_slider.enabled = true;
     r.clear();
-    r.ui("focus-typed", vec![json!("0.5")]);
+    r.ui("focus-typed", vec![json!("2")]);
     assert_eq!(r.props()["focus-pos"], 250);
-    assert_eq!(r.props()["focus-text"], "0.50 m");
+    assert_eq!(r.props()["focus-text"], "2.00");
     assert!(r.sent().contains(&json!({"action": "focus_distance", "value": 2.0})));
     r.ui("focus-typed", vec![json!("inf")]);
     assert_eq!(r.props()["focus-pos"], 0);

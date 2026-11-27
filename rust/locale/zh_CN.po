@@ -87,6 +87,9 @@ msgstr "具有相同效果的命令行，用于桌面环境自带的键盘设置
 msgid "A copy of the old file is at {path}."
 msgstr "旧文件的副本位于 {path}。"
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "帧处理步骤失败"
 
@@ -2296,6 +2299,9 @@ msgstr "多亮的光源才能留下光绘轨迹。"
 
 msgid "How bright something has to be to get stripes."
 msgstr "触发斑马纹的亮度阈值。"
+
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
 
 msgid "How far away the camera focuses."
 msgstr "相机的对焦距离。"
@@ -4954,9 +4960,6 @@ msgstr "根据约一秒的画面自动设置白平衡、亮度、对比度和色
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "已将 {changes}"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "正在配置更多虚拟相机…"
@@ -8647,10 +8650,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} GHz，{n} dBm"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} 已存在且不是 v4l2loopback 设备。"
 
@@ -8673,6 +8672,10 @@ msgstr "{error}。请尝试降低分辨率或 FPS，或者切换至“完整”�
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}。你可以在“串流输出”中重新尝试“轻量”。"
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8762,10 +8765,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}，无吸附"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8818,14 +8817,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
@@ -8856,10 +8847,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "共 {n}"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} m"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11364,6 +11351,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "{name} 不是 TelescopePlugin 类。"
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} m"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"

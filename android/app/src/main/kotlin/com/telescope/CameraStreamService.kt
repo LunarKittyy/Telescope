@@ -64,6 +64,9 @@ data class CameraEntry(
     val focalMm: Int = 0,      // 35 mm equivalent; 0 = not known
     val lensKind: String = "", // LensLabel.PHYSICAL for one lens of a multi-lens camera, AUTO for the camera itself
     val sensorOrientation: Int = 0,  // SENSOR_ORIENTATION: the clockwise turn that makes the picture upright on the screen
+    val capabilities: List<String> = emptyList(),  // REQUEST_AVAILABLE_CAPABILITIES by name, sorted
+    val focusCalibration: String = "",  // LENS_INFO_FOCUS_DISTANCE_CALIBRATION: "uncalibrated", "approximate" or "calibrated"
+    val hyperfocal: Float = 0f,  // LENS_INFO_HYPERFOCAL_DISTANCE in diopters; 0 = not said
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -485,7 +488,15 @@ class CameraStreamService : Service() {
                             maxAfRegions, maxAeRegions, activeArray,
                             zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms,
                             highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind,
-                            sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0)
+                            sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0,
+                            capabilities = caps?.sorted()?.map(::cameraCapabilityName).orEmpty(),
+                            focusCalibration = when (chars.get(CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION)) {
+                                CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION_CALIBRATED -> "calibrated"
+                                CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION_APPROXIMATE -> "approximate"
+                                CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED -> "uncalibrated"
+                                else -> ""
+                            },
+                            hyperfocal = chars.get(CameraCharacteristics.LENS_INFO_HYPERFOCAL_DISTANCE) ?: 0f)
             }.onFailure { complete = false }.getOrNull()
 
             manager.cameraIdList.forEach { id ->
@@ -1081,6 +1092,7 @@ class CameraStreamService : Service() {
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop, cropTags = true,
                 lensZooms = e.lensZooms,
                 maxFps = e.aeFpsRanges.maxOfOrNull { it.upper } ?: 0,
+                capabilities = e.capabilities, focusCalibration = e.focusCalibration, hyperfocal = e.hyperfocal,
             )
         }
         capabilityCache = cameras to built
@@ -1105,6 +1117,9 @@ class CameraStreamService : Service() {
             ois = snap?.ois ?: true,
             focus_mode = snap?.focusMode ?: "continuous",
             focus_distance = snap?.focusDistance ?: 0f,
+            lens_focus = snap?.lensFocus,
+            frame_iso = snap?.frameIso, frame_shutter_ns = snap?.frameShutterNs,
+            af_state = snap?.afState, ae_state = snap?.aeState,
             nr_mode = snap?.nrMode ?: CaptureRequest.NOISE_REDUCTION_MODE_FAST,
             edge_mode = snap?.edgeMode ?: CaptureRequest.EDGE_MODE_FAST,
             ae_comp = snap?.aeComp ?: 0,

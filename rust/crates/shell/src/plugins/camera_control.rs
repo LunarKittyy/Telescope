@@ -59,12 +59,9 @@ pub fn kelvin_to_rggb(kelvin: f64, tint: f64) -> (f64, f64, f64, f64) {
     (r, g, g, b)
 }
 
-/// _diopters_to_label: a focus distance in metres, or infinity.
+/// _diopters_to_label: the focus as the phone numbers it (see focus_label), or infinity.
 pub fn diopters_to_label(d: f64) -> String {
-    if d <= 0.01 {
-        return "∞".into(); // focused at infinity: the same in every language
-    }
-    tr("{n} m").field("n", number(1.0 / d, 2, false))
+    telescope_core::lens::focus_label(d)
 }
 
 /// ns_to_display: an exposure time as the shutter row shows it.
@@ -470,20 +467,17 @@ fn parse_ev_steps(text: &str, step: f64, min: i64, max: i64) -> Option<i64> {
     Some((ev / step).round().clamp(min as f64, max as f64) as i64)
 }
 
-/// Focus distance as it is typed (0.5, 2 m, 1,5 metres, inf, ∞), as a slider position on the scale the readout uses: the nearest position, held to the lens's nearest distance. Too far to tell from infinity is infinity, as the readout says it.
+/// The focus as it is typed, in the phone's own numbers like the readout (2.5, 2,5, 0, inf, ∞), as a slider position: the nearest
+/// position, held to the lens's nearest focus. 0 and too near 0 to tell apart are infinity, as the readout says it.
 fn parse_focus_position(text: &str, max_diopters: f64) -> Option<i64> {
     if max_diopters <= 0.0 || !max_diopters.is_finite() {
         return None;
     }
-    let body = without_unit(text, &["metres", "metre", "meters", "meter", "m", &readout_unit("{n} m")]).to_lowercase();
+    let body = text.trim().to_lowercase();
     if matches!(body.as_str(), "inf" | "infinity" | "infinite" | "∞") {
         return Some(0);
     }
-    let metres = parse_decimal(&body).filter(|m| *m > 0.0)?;
-    let diopters = 1.0 / metres;
-    if diopters <= 0.01 {
-        return Some(0);
-    }
+    let diopters = parse_decimal(&body).filter(|d| *d >= 0.0)?;
     Some((diopters / max_diopters * FOCUS_STEPS as f64).round().clamp(0.0, FOCUS_STEPS as f64) as i64)
 }
 

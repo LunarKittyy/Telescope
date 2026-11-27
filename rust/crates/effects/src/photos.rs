@@ -14,6 +14,7 @@ use telescope_core::event::Event;
 use telescope_core::hold::{self, Hold, Tick, TICK_MS};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::i18n::{n_, tr, trn_open};
+use telescope_core::lens::focus_label;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -66,26 +67,14 @@ const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
 const MERGE_QUEUE_FULL: &str = n_("Still merging the last brackets. Try again in a moment.");
 const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
 
-/// The range of a focus bracket in one unit, nearest first: 0.25-2 m, 0.25 m-∞.
+/// The range of a focus bracket in the phone's own focus numbers, in the slider's order (far end first): 0.50-4.00, ∞-4.00.
 pub fn range_text(near: f64, far: f64) -> String {
-    let metres = |d: f64| {
-        let m = (1.0 / d * 100.0).round() / 100.0;
-        if m.fract() == 0.0 { format!("{m:.0}") } else { format!("{m}") }
-    };
-    if far < 0.01 {
-        tr("{near} m-∞").field("near", metres(near))
-    } else {
-        tr("{near}-{far} m").field("near", metres(near)).field("far", metres(far))
-    }
+    tr("{far}-{near}").field("far", focus_label(far)).field("near", focus_label(near))
 }
 
-/// A focus distance: 25 cm, 1.5 m, Infinity.
+/// One end of the range as the phone numbers it, ∞ for infinity.
 pub fn distance_text(diopters: f64) -> String {
-    match distance_parts(diopters) {
-        None => tr("Infinity"),
-        Some((cm, false)) => tr("{cm} cm").field("cm", cm.to_string()),
-        Some((tenths, true)) => tr("{m} m").field("m", if tenths % 10 == 0 { (tenths / 10).to_string() } else { format!("{}.{}", tenths / 10, tenths % 10) }),
-    }
+    focus_label(diopters)
 }
 
 fn index_of(list: &[&str], value: &str) -> usize {
@@ -366,6 +355,10 @@ impl PhotosPlugin {
             all.insert("customize-open".into(), json!(self.customize_open));
             all.insert("customize-shown".into(), json!(!caps.camera));
             if extension { all.insert("shot-iso-tip".into(), json!(tr("This mode sets its own exposure"))); }
+            if shots == "focus" && !extension {
+                all.insert("shot-focus-enabled".into(), json!(false));
+                all.insert("shot-focus-tip".into(), json!(tr("A focus bracket sets its own focus")));
+            }
         }
         props
     }
@@ -417,7 +410,8 @@ impl PhotosPlugin {
         json!({
             "active": self.paired.on(), "shown": self.card_shown(),
             "take-enabled": self.caps.is_some() && !self.busy, "take-tip": tip, "open-enabled": !self.last_saved.is_empty(),
-            "focus-live": Self::focus_now(host).is_some(), "focus-live-pos": Self::live_pos(&self.effective_caps(), Self::focus_now(host)).unwrap_or(0.0),
+            "focus-live": focus_now(host).is_some(), "focus-live-pos": Self::live_pos(&self.effective_caps(), focus_now(host)).unwrap_or(0.0),
+            "shot-focus-marks": shot_focus_marks(self.caps.as_ref(), focus_now(host)),
         })
     }
 
@@ -552,12 +546,6 @@ impl PhotosPlugin {
         }
     }
 
-    /// Where the phone is focused now in diopters, while it is on manual focus (the number may not follow the lens otherwise).
-    fn focus_now(host: &dyn Host) -> Option<f64> {
-        let state = host.phone_state(None)?;
-        (state.get("focus_mode").and_then(Value::as_str) == Some("manual")).then(|| state.get("focus_distance").and_then(Value::as_f64)).flatten()
-    }
-
     /// The ends of the focus bracket dragged on the slider (positions on the focus scale). A handle at its end is the lens's end, so
     /// both at the ends saves no range at all.
     fn move_focus_range(&mut self, host: &mut dyn Host, low: f64, high: f64) {
@@ -580,9 +568,9 @@ impl PhotosPlugin {
         host.schedule_save();
     }
 
-    /// Where the phone is focused now on the focus scale, while it is on manual focus.
+    /// Where the phone is focused now on the focus scale, on a whole step.
     fn live_pos(caps: &StillCaps, seen: Option<f64>) -> Option<f64> {
-        seen.filter(|_| caps.focus_near_max > 0.0).map(|d| (d / caps.focus_near_max * FOCUS_SCALE).clamp(0.0, FOCUS_SCALE))
+        seen.filter(|_| caps.focus_near_max > 0.0).map(|d| (d / caps.focus_near_max * FOCUS_SCALE).clamp(0.0, FOCUS_SCALE).round())
     }
 
     /// One step of a dial, `by` entries toward the end of its list (dir) or its start; false when it was already there.
@@ -715,7 +703,10 @@ impl PhotosPlugin {
         if !caps.camera {
             let can = offered(&caps, &self.choices);
             let maker = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes));
-            add_shot(&mut options, &shot_choice(self.choices.get("shot")), false, maker);
+            let mut shot = shot_choice(self.choices.get("shot"));
+            // A focus bracket sets the focus of each photo itself
+            if pick(text(&self.choices, "shots"), &can.shots) == "focus" { shot.focus_diopters = None; }
+            add_shot(&mut options, &caps, &shot, false, maker);
         }
         if caps.camera {
             camera_options(&mut options, self.camera_picks[0].as_deref(), self.camera_picks[1].as_deref());
@@ -930,6 +921,16 @@ impl Plugin for PhotosPlugin {
                 let maker = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes));
                 let mut shot = shot_choice(self.choices.get("shot"));
                 if !caps.camera && pick_shot(&mut shot, &caps, false, index(0), maker) {
+                    self.pick_value(host, "shot", shot.to_options_value());
+                }
+            }
+            "shot-focus-moved" | "shot-focus-reset" => {
+                let caps = self.effective_caps();
+                let can = offered(&caps, &self.choices);
+                let held = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes)) || pick(text(&self.choices, "shots"), &can.shots) == "focus";
+                let position = (event.callback == "shot-focus-moved").then(|| event.args.first().and_then(Value::as_f64).unwrap_or(0.0));
+                let mut shot = shot_choice(self.choices.get("shot"));
+                if !caps.camera && move_shot_focus(&mut shot, Some(&caps), position, held) {
                     self.pick_value(host, "shot", shot.to_options_value());
                 }
             }

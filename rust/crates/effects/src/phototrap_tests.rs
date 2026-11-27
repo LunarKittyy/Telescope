@@ -777,6 +777,29 @@ fn trap_shot_choices_survive_night_presets_and_reset() {
 }
 
 #[test]
+fn the_trap_focus_slider_sets_the_photos_focus_and_night_holds_it() {
+    let (mut p, _) = plugin();
+    let mut h = host();
+    h.plugins.clear();
+    let mut c = caps();
+    c["shot"] = json!({"focus": {"near_diopters": 10.0}});
+    h.still_caps = Some(c);
+    p.setup(&mut h);
+    assert_eq!(card(&h)["shot-focus-enabled"], true);
+    click(&mut p, &mut h, "shot-focus-moved", json!(250.0));
+    assert_eq!(p.get_config()["shot"], json!({"focus_diopters": 2.5}));
+    assert_eq!(p.options(p.caps.as_ref().unwrap(), &h)["shot"], json!({"focus_diopters": 2.5}));
+    assert_eq!(p.preset_config()["shot"], json!({"focus_diopters": 2.5}));
+    click(&mut p, &mut h, "night-toggled", json!(true));
+    assert_eq!(card(&h)["shot-focus-enabled"], false);
+    click(&mut p, &mut h, "shot-focus-reset", Value::Null);
+    assert_eq!(p.get_config()["shot"], json!({"focus_diopters": 2.5}));
+    click(&mut p, &mut h, "night-toggled", json!(false));
+    click(&mut p, &mut h, "shot-focus-reset", Value::Null);
+    assert!(p.get_config().get("shot").is_none());
+}
+
+#[test]
 fn a_late_trap_restore_failure_survives_the_request_ending() {
     let (mut p, _) = plugin();
     let mut h = host();

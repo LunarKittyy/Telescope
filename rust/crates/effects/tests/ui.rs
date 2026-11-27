@@ -116,10 +116,11 @@ fn the_cards_have_what_their_plugins_use() {
     compile(&mut photos);
     has_what_the_plugin_uses(&mut photos, &[
         "take-clicked", "open-clicked", "tile-picked", "tile-step", "tile-hold-down", "tile-hold-up", "quality-moved", "timer-picked", "best-toggled", "folder-clicked", "reset-clicked",
+        "shot-focus-moved", "shot-focus-reset",
     ]);
     let mut trap = PhototrapPlugin::new();
     compile(&mut trap);
-    has_what_the_plugin_uses(&mut trap, &["switch-toggled-by-hand", "draw-clicked", "clear-clicked", "sensitivity-moved", "count-moved", "pause-moved", "night-toggled"]);
+    has_what_the_plugin_uses(&mut trap, &["switch-toggled-by-hand", "draw-clicked", "clear-clicked", "sensitivity-moved", "count-moved", "pause-moved", "night-toggled", "shot-focus-moved", "shot-focus-reset"]);
     let mut stargazer = StargazerPlugin::new();
     compile(&mut stargazer);
     has_what_the_plugin_uses(&mut stargazer, &["mode-picked", "input-picked", "frames-moved", "keep-moved", "trail-moved", "photo-count-moved", "photo-every-moved", "run-clicked", "save-clicked", "reset-clicked", "settings-reset-clicked", "camera-toggled", "open-clicked", "customize-toggled", "shutter-picked", "iso-picked"]);

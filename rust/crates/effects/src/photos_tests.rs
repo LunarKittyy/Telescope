@@ -1042,10 +1042,10 @@ fn the_focus_range_slider_sets_the_ends_and_both_at_the_ends_is_the_whole_lens()
     rig.ui("focus-range-moved", vec![json!(50.0), json!(400.0)]);
     let cfg = rig.plugin.get_config();
     assert_eq!((cfg["focus_far"].clone(), cfg["focus_near"].clone()), (json!(0.5), json!(4.0)));
-    assert_eq!(rig.props()["focus-readout"], json!("0.25-2 m"));
+    assert_eq!(rig.props()["focus-readout"], json!("0.50-4.00"));
     // the far end at infinity says so
     rig.ui("focus-range-moved", vec![json!(0.0), json!(400.0)]);
-    assert_eq!(rig.props()["focus-readout"], json!("0.25 m-∞"));
+    assert_eq!(rig.props()["focus-readout"], json!("∞-4.00"));
     assert!(rig.plugin.get_config().get("focus_far").is_none());
     // both ends at the ends of the lens is no range at all
     rig.ui("focus-range-moved", vec![json!(0.0), json!(1000.0)]);
@@ -1085,6 +1085,56 @@ fn shot_iso_keeps_photos_exposure_and_is_suppressed_in_maker_modes() {
     rig.ui("take-clicked", vec![]);
     assert!(rig.host.stills_taken[1].0.get("shot").is_none());
     assert!(rig.host.stills_taken[1].0.get("exposure_ns").is_none());
+}
+
+#[test]
+fn the_focus_slider_sets_one_focus_for_the_photo_but_not_for_a_focus_bracket() {
+    let mut value = full_json();
+    value["shot"] = json!({"focus": {"near_diopters": 10.0}});
+    let mut rig = Rig::new(Some(value), true);
+    rig.caps_changed();
+    assert_eq!(rig.props()["shot-focus-enabled"], true);
+    rig.ui("shot-focus-moved", vec![json!(250.0)]);
+    assert_eq!(rig.plugin.get_config()["shot"], json!({"focus_diopters": 2.5}));
+    assert_eq!(rig.props()["shot-focus-value"], json!(250.0));
+    rig.ui("take-clicked", vec![]);
+    assert_eq!(rig.host.stills_taken[0].0["shot"], json!({"focus_diopters": 2.5}));
+    // The phone refuses one focus with a focus bracket, so the bracket's own range wins without losing the pick
+    rig.plugin.apply_preset(&mut rig.host, &json!({"shots": "focus"})).unwrap();
+    assert_eq!(rig.props()["shot-focus-enabled"], false);
+    rig.ui("shot-focus-moved", vec![json!(500.0)]);
+    assert_eq!(rig.plugin.get_config()["shot"], json!({"focus_diopters": 2.5}));
+    rig.ui("take-clicked", vec![]);
+    assert!(rig.host.stills_taken[1].0.get("shot").is_none());
+    rig.plugin.apply_preset(&mut rig.host, &json!({"shots": "single"})).unwrap();
+    rig.ui("shot-focus-reset", vec![]);
+    assert!(rig.plugin.get_config().get("shot").is_none());
+    assert_eq!(rig.props()["shot-focus-readout"], "Camera");
+    // A dot where the phone is focused now, on manual focus only
+    rig.host.phone_state = Some(json!({"focus_mode": "manual", "focus_distance": 5.0}));
+    rig.caps_changed();
+    assert_eq!(rig.props()["shot-focus-marks"], json!([500.0]));
+    rig.host.phone_state = Some(json!({"focus_mode": "continuous", "focus_distance": 5.0}));
+    rig.caps_changed();
+    assert_eq!(rig.props()["shot-focus-marks"], json!([]), "an older phone doesn't say where autofocus is");
+    // A phone that says where its lens is gets the dot on autofocus too
+    rig.host.phone_state = Some(json!({"focus_mode": "continuous", "focus_distance": 5.0, "lens_focus": 1.234}));
+    rig.caps_changed();
+    assert_eq!(rig.props()["shot-focus-marks"], json!([123.0]));
+    assert_eq!(rig.props()["focus-live"], json!(true));
+}
+
+#[test]
+fn a_phone_without_a_focus_for_one_photo_keeps_its_own_in_photos() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.plugin.set_config(&json!({"shot": {"focus_diopters": 2.5}, "folder": "/tmp/photos"})).unwrap();
+    rig.caps_changed();
+    assert_eq!(rig.props()["shot-focus-enabled"], false);
+    assert_eq!(rig.props()["shot-focus-readout"], "Camera");
+    rig.ui("shot-focus-moved", vec![json!(500.0)]);
+    assert_eq!(rig.plugin.get_config()["shot"], json!({"focus_diopters": 2.5}));
+    rig.ui("take-clicked", vec![]);
+    assert!(rig.host.stills_taken[0].0.get("shot").is_none(), "an older phone would refuse the photo");
 }
 
 #[test]

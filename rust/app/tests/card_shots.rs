@@ -118,7 +118,7 @@ fn camera_shots() {
     shoot(&dir, "camera-auto", &camera, &[camera_props()]);
     let manual = json!({
         "exposure-mode": 1, "iso-enabled": true, "shutter-enabled": true, "wb-mode": 1, "wb-enabled": true, "kelvin": 3800, "tint": -40,
-        "tint-text": "-40", "kelvin-text": "3800 K", "focus-mode": 2, "focus-enabled": true, "focus-pos": 400, "focus-text": "1.2 m",
+        "tint-text": "-40", "kelvin-text": "3800 K", "focus-mode": 2, "focus-enabled": true, "focus-pos": 400, "focus-text": "0.80",
         "ae-comp": 3, "ae-text": "+0.5 EV", "torch": {"checked": true, "enabled": true, "tip": ""}, "noise-reduction": 2,
     });
     shoot(&dir, "camera-manual", &camera, &[camera_props(), manual.clone()]);
