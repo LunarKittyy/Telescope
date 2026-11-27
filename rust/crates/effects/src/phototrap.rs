@@ -124,6 +124,8 @@ pub struct PhototrapPlugin {
     use_zoom: bool,
     shot: ShotChoice,
     customize_open: bool,
+    /// Where the dot on the Focus slider was last put, so a phone update that doesn't move it says nothing.
+    focus_marks: Vec<f64>,
     paired: Paired,
     /// The zones and sensitivity the watch on the host runs with, None while there's none.
     watch: Option<(Vec<[f32; 4]>, u32)>,
@@ -180,6 +182,7 @@ impl PhototrapPlugin {
             use_zoom: false,
             shot: ShotChoice::default(),
             customize_open: false,
+            focus_marks: Vec::new(),
             paired: Paired::default(),
             watch: None,
             source: None,
@@ -654,9 +657,12 @@ impl PhototrapPlugin {
         let streaming = self.can_snap(host);
         if self.read_caps(host) != self.caps || (self.armed && streaming != self.watch.is_some()) {
             self.sync(host);
-        } else {
-            // The phone's focus moved: only the dot on the Focus slider follows it
-            host.set_ui_props("card", &json!({"shot-focus-marks": shot_focus_marks(self.caps.as_ref(), focus_now(host))}));
+        }
+        // The phone's focus moved: only the dot on the Focus slider follows it
+        let marks = shot_focus_marks(self.caps.as_ref(), focus_now(host));
+        if marks != self.focus_marks {
+            host.set_ui_props("card", &json!({"shot-focus-marks": marks}));
+            self.focus_marks = marks;
         }
     }
 
