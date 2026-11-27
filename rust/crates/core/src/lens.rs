@@ -56,6 +56,12 @@ pub fn lens_name(label: &str) -> String {
     lens_words(label).split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// A focus position as Android gives it, in diopters (1 over metres): 0 is infinity and bigger is nearer. Few phones calibrate it
+/// to real distances, so it's shown as the phone's own number rather than as metres that would be wrong, and ∞ at 0.
+pub fn focus_label(diopters: f64) -> String {
+    if diopters < 0.005 { "∞".into() } else { number(diopters, 2, false) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,8 +91,3 @@ mod tests {
     }
 }
 
-/// A focus position as Android gives it, in diopters (1 over metres): 0 is infinity and bigger is nearer. Few phones calibrate it
-/// to real distances, so it's shown as the phone's own number rather than as metres that would be wrong, and ∞ at 0.
-pub fn focus_label(diopters: f64) -> String {
-    if diopters < 0.005 { "∞".into() } else { number(diopters, 2, false) }
-}
