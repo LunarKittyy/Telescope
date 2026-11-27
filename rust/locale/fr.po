@@ -2303,6 +2303,9 @@ msgstr "Luminosité minimale d'une source pour peindre."
 msgid "How bright something has to be to get stripes."
 msgstr "Luminosité minimale pour afficher les rayures."
 
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
+
 msgid "How far away the camera focuses."
 msgstr "Distance à laquelle la caméra fait la mise au point."
 
@@ -8666,10 +8669,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} GHz, {n} dBm"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} existe déjà et n'est pas un périphérique v4l2loopback."
 
@@ -8692,6 +8691,10 @@ msgstr "{error}. Essayez une résolution ou un FPS inférieur, ou passez à Lour
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. Vous pouvez réessayer Léger dans Flux de sortie."
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8783,10 +8786,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}, sans alignement"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8839,14 +8838,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} IL"
 
@@ -8877,10 +8868,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "{n} au total"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} m"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11391,6 +11378,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "{name} n'est pas une classe TelescopePlugin."
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} m"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"

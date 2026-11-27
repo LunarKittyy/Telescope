@@ -2306,6 +2306,9 @@ msgstr "Насколько ярким должен быть свет, чтобы
 msgid "How bright something has to be to get stripes."
 msgstr "При какой яркости на участке появляются полоски."
 
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
+
 msgid "How far away the camera focuses."
 msgstr "Как далеко фокусируется камера."
 
@@ -8685,10 +8688,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} ГГц, {n} дБм"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} уже существует и не является устройством v4l2loopback."
 
@@ -8711,6 +8710,10 @@ msgstr "{error}. Попробуй уменьшить разрешение или
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. Можно снова попробовать Легкий в карточке «Выходной поток»."
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8804,10 +8807,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}, без привязки"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8860,14 +8859,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
@@ -8898,10 +8889,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "всего {n}"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} м"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11418,6 +11405,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "{name} не является классом TelescopePlugin."
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} м"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"

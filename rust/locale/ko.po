@@ -2300,6 +2300,9 @@ msgstr "그림을 그리기 위해 빛이 얼마나 밝아야 하는지 조절�
 msgid "How bright something has to be to get stripes."
 msgstr "줄무늬를 표시할 밝기 기준을 조절해요."
 
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
+
 msgid "How far away the camera focuses."
 msgstr "카메라가 초점을 맞추는 거리예요."
 
@@ -8647,10 +8650,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} GHz, {n} dBm"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device}이(가) 이미 존재하지만 v4l2loopback 장치가 아니에요."
 
@@ -8673,6 +8672,10 @@ msgstr "{error}. 해상도나 FPS를 낮추거나, 무겁게 포맷으로 전환
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. 스트림 출력에서 가볍게 포맷을 다시 시도해 볼 수 있어요."
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8762,10 +8765,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}, 스냅 해제"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8818,14 +8817,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
@@ -8856,10 +8847,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "총 {n}개"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} m"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11364,6 +11351,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "{name}은(는) TelescopePlugin 클래스가 아니에요."
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} m"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"

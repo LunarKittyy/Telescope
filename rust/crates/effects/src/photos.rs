@@ -14,6 +14,7 @@ use telescope_core::event::Event;
 use telescope_core::hold::{self, Hold, Tick, TICK_MS};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::i18n::{n_, tr, trn_open};
+use telescope_core::lens::focus_label;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -66,26 +67,14 @@ const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
 const MERGE_QUEUE_FULL: &str = n_("Still merging the last brackets. Try again in a moment.");
 const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
 
-/// The range of a focus bracket in one unit, nearest first: 0.25-2 m, 0.25 m-∞.
+/// The range of a focus bracket in the phone's own focus numbers, in the slider's order (far end first): 0.50-4.00, ∞-4.00.
 pub fn range_text(near: f64, far: f64) -> String {
-    let metres = |d: f64| {
-        let m = (1.0 / d * 100.0).round() / 100.0;
-        if m.fract() == 0.0 { format!("{m:.0}") } else { format!("{m}") }
-    };
-    if far < 0.01 {
-        tr("{near} m-∞").field("near", metres(near))
-    } else {
-        tr("{near}-{far} m").field("near", metres(near)).field("far", metres(far))
-    }
+    tr("{far}-{near}").field("far", focus_label(far)).field("near", focus_label(near))
 }
 
-/// A focus distance: 25 cm, 1.5 m, Infinity.
+/// One end of the range as the phone numbers it, ∞ for infinity.
 pub fn distance_text(diopters: f64) -> String {
-    match distance_parts(diopters) {
-        None => tr("Infinity"),
-        Some((cm, false)) => tr("{cm} cm").field("cm", cm.to_string()),
-        Some((tenths, true)) => tr("{m} m").field("m", if tenths % 10 == 0 { (tenths / 10).to_string() } else { format!("{}.{}", tenths / 10, tenths % 10) }),
-    }
+    focus_label(diopters)
 }
 
 fn index_of(list: &[&str], value: &str) -> usize {
@@ -579,9 +568,9 @@ impl PhotosPlugin {
         host.schedule_save();
     }
 
-    /// Where the phone is focused now on the focus scale, while it is on manual focus.
+    /// Where the phone is focused now on the focus scale, on a whole step.
     fn live_pos(caps: &StillCaps, seen: Option<f64>) -> Option<f64> {
-        seen.filter(|_| caps.focus_near_max > 0.0).map(|d| (d / caps.focus_near_max * FOCUS_SCALE).clamp(0.0, FOCUS_SCALE))
+        seen.filter(|_| caps.focus_near_max > 0.0).map(|d| (d / caps.focus_near_max * FOCUS_SCALE).clamp(0.0, FOCUS_SCALE).round())
     }
 
     /// One step of a dial, `by` entries toward the end of its list (dir) or its start; false when it was already there.

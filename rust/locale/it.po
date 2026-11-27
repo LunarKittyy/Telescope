@@ -2303,6 +2303,9 @@ msgstr "Quanto deve essere intensa una luce per disegnare."
 msgid "How bright something has to be to get stripes."
 msgstr "Quanto deve essere luminosa un'area per mostrare le strisce."
 
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
+
 msgid "How far away the camera focuses."
 msgstr "A che distanza mette a fuoco la fotocamera."
 
@@ -8666,10 +8669,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} GHz, {n} dBm"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} esiste già e non è un dispositivo v4l2loopback."
 
@@ -8692,6 +8691,10 @@ msgstr "{error}. Prova una risoluzione o un FPS più bassi, oppure passa a Pesan
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. Puoi riprovare Leggero in Uscita streaming."
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8783,10 +8786,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}, senza aggancio"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8839,14 +8838,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
@@ -8877,10 +8868,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "{n} in tutto"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} m"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11391,6 +11378,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "{name} non è una classe TelescopePlugin."
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} m"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"

@@ -2306,6 +2306,9 @@ msgstr "Jak jasne musi być światło, aby malować."
 msgid "How bright something has to be to get stripes."
 msgstr "Jak jasny musi być obszar, aby pojawiły się na nim paski."
 
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
+
 msgid "How far away the camera focuses."
 msgstr "Jak daleko aparat ustawia ostrość."
 
@@ -8685,10 +8688,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} GHz, {n} dBm"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "Urządzenie {device} już istnieje i nie jest urządzeniem v4l2loopback."
 
@@ -8711,6 +8710,10 @@ msgstr "{error}. Wypróbuj niższą rozdzielczość lub fps albo przełącz na C
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. Możesz spróbować ponownie formatu Lekki w karcie Wyjście strumienia."
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8804,10 +8807,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}, bez przyciągania"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8860,14 +8859,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
@@ -8898,10 +8889,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "łącznie {n}"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} m"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11418,6 +11405,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "Klasa {name} nie jest klasą typu TelescopePlugin."
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} m"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"

@@ -2300,6 +2300,9 @@ msgstr "Độ sáng cần thiết để nguồn sáng vẽ thành vệt."
 msgid "How bright something has to be to get stripes."
 msgstr "Độ sáng cần thiết để hiện sọc vằn."
 
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
+
 msgid "How far away the camera focuses."
 msgstr "Khoảng cách lấy nét của camera."
 
@@ -8647,10 +8650,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} GHz, {n} dBm"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} đã tồn tại và không phải là thiết bị v4l2loopback."
 
@@ -8673,6 +8672,10 @@ msgstr "{error}. Hãy thử giảm độ phân giải hoặc FPS, hoặc chuyể
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. Bạn có thể thử lại định dạng Nhẹ trong Đầu ra luồng phát."
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8762,10 +8765,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}, không căn dính"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8818,14 +8817,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
@@ -8856,10 +8847,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "tổng cộng {n}"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} m"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11364,6 +11351,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "{name} không phải là một lớp TelescopePlugin."
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} m"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"

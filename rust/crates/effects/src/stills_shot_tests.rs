@@ -74,9 +74,10 @@ fn summaries_show_own_values_in_order() {
     assert_eq!(exposure_text(0.0), "Video");
     assert_eq!(exposure_text(1.0 / 250.0), "1/250 s");
     assert_eq!(exposure_text(10.0), "10 s");
-    assert_eq!(shot_focus_text(0.5), "2 m");
-    assert_eq!(shot_focus_text(4.0), "25 cm");
-    assert_eq!(choice.summary(|_| "Infinity".into()), "10 s · ISO 800 · focus ∞");
+    // The phone's own focus number, not metres most phones don't get right
+    assert_eq!(shot_focus_text(0.5), "0.50");
+    assert_eq!(shot_focus_text(4.0), "4.00");
+    assert_eq!(shot_focus_text(0.001), "∞");
     assert_eq!(ShotChoice { focus_diopters: Some(0.5), ..ShotChoice::default() }.summary(|_| "far".into()), "focus far");
 }
 

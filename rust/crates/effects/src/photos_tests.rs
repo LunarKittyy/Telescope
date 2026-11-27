@@ -1042,10 +1042,10 @@ fn the_focus_range_slider_sets_the_ends_and_both_at_the_ends_is_the_whole_lens()
     rig.ui("focus-range-moved", vec![json!(50.0), json!(400.0)]);
     let cfg = rig.plugin.get_config();
     assert_eq!((cfg["focus_far"].clone(), cfg["focus_near"].clone()), (json!(0.5), json!(4.0)));
-    assert_eq!(rig.props()["focus-readout"], json!("0.25-2 m"));
+    assert_eq!(rig.props()["focus-readout"], json!("0.50-4.00"));
     // the far end at infinity says so
     rig.ui("focus-range-moved", vec![json!(0.0), json!(400.0)]);
-    assert_eq!(rig.props()["focus-readout"], json!("0.25 m-∞"));
+    assert_eq!(rig.props()["focus-readout"], json!("∞-4.00"));
     assert!(rig.plugin.get_config().get("focus_far").is_none());
     // both ends at the ends of the lens is no range at all
     rig.ui("focus-range-moved", vec![json!(0.0), json!(1000.0)]);
@@ -1116,7 +1116,12 @@ fn the_focus_slider_sets_one_focus_for_the_photo_but_not_for_a_focus_bracket() {
     assert_eq!(rig.props()["shot-focus-marks"], json!([500.0]));
     rig.host.phone_state = Some(json!({"focus_mode": "continuous", "focus_distance": 5.0}));
     rig.caps_changed();
-    assert_eq!(rig.props()["shot-focus-marks"], json!([]));
+    assert_eq!(rig.props()["shot-focus-marks"], json!([]), "an older phone doesn't say where autofocus is");
+    // A phone that says where its lens is gets the dot on autofocus too
+    rig.host.phone_state = Some(json!({"focus_mode": "continuous", "focus_distance": 5.0, "lens_focus": 1.234}));
+    rig.caps_changed();
+    assert_eq!(rig.props()["shot-focus-marks"], json!([123.0]));
+    assert_eq!(rig.props()["focus-live"], json!(true));
 }
 
 #[test]

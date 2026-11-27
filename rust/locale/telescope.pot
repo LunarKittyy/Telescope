@@ -2301,6 +2301,9 @@ msgstr ""
 msgid "How bright something has to be to get stripes."
 msgstr ""
 
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
+
 msgid "How far away the camera focuses."
 msgstr ""
 
@@ -8632,10 +8635,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr ""
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr ""
 
@@ -8657,6 +8656,10 @@ msgstr ""
 
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
+msgstr ""
+
+#, python-brace-format
+msgid "{far}-{near}"
 msgstr ""
 
 #, python-brace-format
@@ -8749,10 +8752,6 @@ msgid "{mode}, no snapping"
 msgstr ""
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8805,14 +8804,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr ""
 
@@ -8842,10 +8833,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "{n} in all"
-msgstr ""
-
-#, python-brace-format
-msgid "{n} m"
 msgstr ""
 
 #, python-brace-format

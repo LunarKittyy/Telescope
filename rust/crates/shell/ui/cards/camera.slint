@@ -355,7 +355,7 @@ export component CameraCard inherits Card {
             readout: focus-text;
             typing: focus-text;
             tip: @tr("Distance");
-            tip-detail: focus-enabled ? @tr("How far away the camera focuses.") : focus-tips[2] != "" ? focus-tips[2] : @tr("Set Focus to Manual to use this");
+            tip-detail: focus-enabled ? @tr("How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer.") : focus-tips[2] != "" ? focus-tips[2] : @tr("Set Focus to Manual to use this");
             moved(v) => { focus-moved(v); }
             typed(text) => { focus-typed(text); }
         }

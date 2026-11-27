@@ -2303,6 +2303,9 @@ msgstr "पेंट करने के लिए रोशनी का कि
 msgid "How bright something has to be to get stripes."
 msgstr "धारियाँ दिखने के लिए किसी हिस्से का कितना चमकदार होना ज़रूरी है."
 
+msgid "How far away the camera focuses, as the phone numbers it: ∞ is far away and bigger numbers are nearer."
+msgstr ""
+
 msgid "How far away the camera focuses."
 msgstr "कैमरा कितनी दूरी पर फ़ोकस करता है."
 
@@ -8666,10 +8669,6 @@ msgid "{band} GHz, {n} dBm"
 msgstr "{band} GHz, {n} dBm"
 
 #, python-brace-format
-msgid "{cm} cm"
-msgstr ""
-
-#, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} पहले से मौजूद है और यह v4l2loopback डिवाइस नहीं है."
 
@@ -8692,6 +8691,10 @@ msgstr "{error}. कम रेज़ोल्यूशन या FPS आज़�
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. आप 'स्ट्रीम आउटपुट' में फिर से हल्का आज़मा सकते हैं."
+
+#, python-brace-format
+msgid "{far}-{near}"
+msgstr ""
 
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
@@ -8783,10 +8786,6 @@ msgid "{mode}, no snapping"
 msgstr "{mode}, बिना स्नैपिंग"
 
 #, python-brace-format
-msgid "{m} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{m} min {s} s left"
 msgstr ""
 
@@ -8839,14 +8838,6 @@ msgid "{name} {ms} ms"
 msgstr ""
 
 #, python-brace-format
-msgid "{near} m-∞"
-msgstr ""
-
-#, python-brace-format
-msgid "{near}-{far} m"
-msgstr ""
-
-#, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
@@ -8877,10 +8868,6 @@ msgstr ""
 #, python-brace-format
 msgid "{n} in all"
 msgstr "कुल {n}"
-
-#, python-brace-format
-msgid "{n} m"
-msgstr "{n} m"
 
 #, python-brace-format
 msgid "{n} min"
@@ -11391,6 +11378,10 @@ msgstr ""
 #, python-brace-format
 #~ msgid "{name} isn't a TelescopePlugin class."
 #~ msgstr "{name} कोई TelescopePlugin क्लास नहीं है."
+
+#, python-brace-format
+#~ msgid "{n} m"
+#~ msgstr "{n} m"
 
 #, python-brace-format
 #~ msgid "{n} plugin didn't start"
