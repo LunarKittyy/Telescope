@@ -1969,7 +1969,7 @@ private class AndroidCameraProbeBackend(
             postRawBoostMax = boostRange?.upper,
             aeFpsRanges = fpsRanges,
             highSpeedModes = highSpeed,
-            capabilities = capabilities.sorted().map(::capabilityName),
+            capabilities = capabilities.sorted().map(::cameraCapabilityName),
             timestampSource = timestampSource,
             minFocusDistance = minFocusDistance,
             physicalCameraIds = physicalIds,
@@ -2099,30 +2099,6 @@ private class AndroidCameraProbeBackend(
         runCatching { map.getOutputSizes(klass)?.map { ProbeSize(it.width, it.height) }.orEmpty() }
             .getOrDefault(emptyList())
 
-    private fun capabilityName(code: Int): String = when (code) {
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE -> "BACKWARD_COMPATIBLE"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR -> "MANUAL_SENSOR"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING -> "MANUAL_POST_PROCESSING"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW -> "RAW"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING -> "PRIVATE_REPROCESSING"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_READ_SENSOR_SETTINGS -> "READ_SENSOR_SETTINGS"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE -> "BURST_CAPTURE"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING -> "YUV_REPROCESSING"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT -> "DEPTH_OUTPUT"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO -> "CONSTRAINED_HIGH_SPEED_VIDEO"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MOTION_TRACKING -> "MOTION_TRACKING"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA -> "LOGICAL_MULTI_CAMERA"
-        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME -> "MONOCHROME"
-        13 -> "SECURE_IMAGE_DATA"
-        14 -> "SYSTEM_CAMERA"
-        15 -> "OFFLINE_PROCESSING"
-        16 -> "ULTRA_HIGH_RESOLUTION_SENSOR"
-        17 -> "REMOSAIC_REPROCESSING"
-        18 -> "DYNAMIC_RANGE_TEN_BIT"
-        19 -> "STREAM_USE_CASE"
-        20 -> "COLOR_SPACE_PROFILES"
-        else -> "CAP_$code"
-    }
 
     override fun registerThermalMonitor(
         worker: ProbeWorker,
@@ -2244,4 +2220,30 @@ private class AndroidCameraProbeBackend(
         private const val BURST_DRAIN_MS = 600L
         private const val BETWEEN_LENSES_MS = 150L
     }
+}
+
+// A REQUEST_AVAILABLE_CAPABILITIES code by its name, for the probe's report and the lens's capabilities in /v1/state
+internal fun cameraCapabilityName(code: Int): String = when (code) {
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE -> "BACKWARD_COMPATIBLE"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR -> "MANUAL_SENSOR"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING -> "MANUAL_POST_PROCESSING"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW -> "RAW"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING -> "PRIVATE_REPROCESSING"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_READ_SENSOR_SETTINGS -> "READ_SENSOR_SETTINGS"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE -> "BURST_CAPTURE"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING -> "YUV_REPROCESSING"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT -> "DEPTH_OUTPUT"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO -> "CONSTRAINED_HIGH_SPEED_VIDEO"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MOTION_TRACKING -> "MOTION_TRACKING"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA -> "LOGICAL_MULTI_CAMERA"
+    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME -> "MONOCHROME"
+    13 -> "SECURE_IMAGE_DATA"
+    14 -> "SYSTEM_CAMERA"
+    15 -> "OFFLINE_PROCESSING"
+    16 -> "ULTRA_HIGH_RESOLUTION_SENSOR"
+    17 -> "REMOSAIC_REPROCESSING"
+    18 -> "DYNAMIC_RANGE_TEN_BIT"
+    19 -> "STREAM_USE_CASE"
+    20 -> "COLOR_SPACE_PROFILES"
+    else -> "CAP_$code"
 }

@@ -91,7 +91,14 @@
                 "bracketMax": 15,
                 "focusStepsMax": 100,
                 "focusDistance": true
-            }
+            },
+            "capabilities": [
+                "BACKWARD_COMPATIBLE",
+                "MANUAL_SENSOR",
+                "RAW"
+            ],
+            "focusCalibration": "approximate",
+            "hyperfocal": 0.4
         }
     ],
     "auto": false,
@@ -106,6 +113,10 @@
     "focus_mode": "manual",
     "focus_distance": 2.5,
     "lens_focus": 2.5,
+    "frame_iso": 400,
+    "frame_shutter_ns": 16666666,
+    "af_state": "focused",
+    "ae_state": "converged",
     "nr_mode": 2,
     "edge_mode": 2,
     "ae_comp": -3,

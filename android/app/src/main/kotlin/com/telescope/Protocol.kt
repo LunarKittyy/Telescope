@@ -44,6 +44,9 @@ data class CameraCapability(
     val lensZooms: List<Float> = emptyList(),
     val maxFps: Int = 0,  // the fastest AE target FPS range this camera lists; 0 = none listed
     val stills: StillCapability? = null,  // what POST /v1/still can take with this lens; null = no photos here
+    val capabilities: List<String> = emptyList(),  // REQUEST_AVAILABLE_CAPABILITIES by name ("RAW", "BURST_CAPTURE", "DYNAMIC_RANGE_TEN_BIT"...)
+    val focusCalibration: String = "",  // "uncalibrated", "approximate" or "calibrated": whether focus numbers are real distances; "" = not said
+    val hyperfocal: Float = 0f,  // the hyperfocal distance in diopters (from there to infinity is sharp); 0 = not said
 )
 
 // A lens's photo options; the desktop only offers these
@@ -121,6 +124,10 @@ data class V1State(
     val focus_mode: String,
     val focus_distance: Float,
     val lens_focus: Float? = null,  // diopters where the lens is focused now, from the camera's results, on auto too; an older phone leaves it out
+    val frame_iso: Int? = null,  // the ISO the last frame used, on auto exposure too (iso is only the manual one); an older phone leaves it out
+    val frame_shutter_ns: Long? = null,  // and its exposure time
+    val af_state: String? = null,  // autofocus: "inactive", "scanning", "focused", "unfocused", "locked" or "locked_unfocused"
+    val ae_state: String? = null,  // auto exposure: "inactive", "searching", "converged", "locked", "flash_required" or "precapture"
     val nr_mode: Int,
     val edge_mode: Int,
     val ae_comp: Int,

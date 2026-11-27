@@ -26,6 +26,7 @@ fn the_desktop_reads_the_phones_state() {
     assert_eq!((state.ae_comp, state.nr_mode, state.edge_mode, state.black_level_lock, state.torch), (-3, 2, 2, true, true));
     assert_eq!((state.charging, state.battery_temp_c), (Some(true), Some(32.5)));
     assert_eq!(raw["lens_focus"].as_f64(), Some(2.5), "the photo cards' focus mark reads where the lens is");
+    assert_eq!((raw["frame_iso"].as_i64(), raw["af_state"].as_str()), (Some(400), Some("focused")));
     let first = &raw["cameras"][0];
     assert_eq!((first["facing"].as_str(), first["focalMm"].as_i64(), first["lensKind"].as_str()), (Some("back"), Some(24), Some("physical")));
     assert_eq!((camera.logical_id.as_deref(), camera.label.as_str(), camera.current, camera.has_ois, camera.iso_min), (Some("0"), "Back ~24mm OIS [phys]", true, true, 50));
