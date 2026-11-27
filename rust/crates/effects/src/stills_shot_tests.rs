@@ -106,12 +106,15 @@ fn shared_controls_suppress_overrides_without_erasing_choices() {
     assert_eq!(props["shot-shutter-enabled"], false);
     assert!(!pick_shot(&mut choice, &c, false, 0, true));
     let mut options = json!({});
-    add_shot(&mut options, &choice, true, true);
+    add_shot(&mut options, &c, &choice, true, true);
     assert_eq!(options, json!({}));
     assert_eq!(choice, kept);
-    add_shot(&mut options, &choice, false, false);
+    add_shot(&mut options, &c, &choice, false, false);
+    // This phone takes no focus for a photo, so the kept one is left out and not shown
     assert_eq!(options, json!({"shot": {"iso": 800}}));
-    assert_eq!(shot_control_props(Some(&c), &choice, false, false)["shot-summary"], "ISO 800 · focus ∞");
+    assert_eq!(shot_control_props(Some(&c), &choice, false, false)["shot-summary"], "ISO 800");
+    let near: StillCaps = serde_json::from_value(json!({"shot": {"iso_values": [100, 800], "focus": {"near_diopters": 10.0}}})).unwrap();
+    assert_eq!(shot_control_props(Some(&near), &choice, false, false)["shot-summary"], "ISO 800 · focus ∞");
 }
 
 #[test]
@@ -134,7 +137,7 @@ fn unavailable_shot_overrides_are_kept_for_validation() {
     assert_eq!(props["shot-shutter-enabled"], true);
     assert_eq!(props["shot-iso-enabled"], true);
     let mut options = json!({});
-    add_shot(&mut options, &choice, true, false);
+    add_shot(&mut options, &caps, &choice, true, false);
     assert_eq!(options["shot"], json!({"shutter_s": 10.0, "iso": 800}));
     assert!(telescope_core::shot::apply_to_dslr(options.as_object_mut().unwrap(), &json!({})).is_err());
 }
