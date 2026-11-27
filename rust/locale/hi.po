@@ -6124,6 +6124,9 @@ msgstr "Telescope ने ग्राफ़िक्स कार्ड बद�
 msgid "Telescope was installed but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope इंस्टॉल हो गया था लेकिन इसका फ़ोल्डर उम्मीद के मुताबिक जगह पर नहीं था. इसे स्टार्ट मेन्यू से खोलें."
 
+msgid "Telescope was installed for the whole system, so update it the way you installed it, such as through your package manager."
+msgstr ""
+
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
