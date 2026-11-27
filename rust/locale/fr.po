@@ -87,6 +87,9 @@ msgstr "Une ligne de commande équivalente, pour les paramètres clavier de votr
 msgid "A copy of the old file is at {path}."
 msgstr "Une copie de l'ancien fichier se trouve sous {path}."
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "Une étape d'image a échoué"
 
@@ -4966,9 +4969,6 @@ msgstr "Régler la balance des blancs, la luminosité, le contraste et la couleu
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "A réglé {changes}"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "Configuration de caméras virtuelles supplémentaires…"

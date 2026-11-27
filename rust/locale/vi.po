@@ -87,6 +87,9 @@ msgstr "Dòng lệnh có cùng tác dụng, dùng cho cài đặt bàn phím c�
 msgid "A copy of the old file is at {path}."
 msgstr "Bản sao của tệp cũ nằm tại {path}."
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "Một bước xử lý khung hình bị lỗi"
 
@@ -4954,9 +4957,6 @@ msgstr "Đặt cân bằng trắng, độ sáng, độ tương phản và màu s
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "Đã đặt {changes}"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "Đang thiết lập thêm camera ảo…"

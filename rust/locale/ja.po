@@ -87,6 +87,9 @@ msgstr "デスクトップ環境のキーボード設定で使用できる、同
 msgid "A copy of the old file is at {path}."
 msgstr "古いファイルのコピーが{path}にあります。"
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "フレーム処理の失敗"
 
@@ -4954,9 +4957,6 @@ msgstr "約1秒間の画像からホワイト バランス、明るさ、コン�
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "{changes}を設定"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "追加の仮想カメラを設定中…"

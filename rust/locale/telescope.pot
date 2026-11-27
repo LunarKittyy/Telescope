@@ -88,6 +88,9 @@ msgstr ""
 msgid "A copy of the old file is at {path}."
 msgstr ""
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr ""
 
@@ -4963,9 +4966,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "Set {changes}"
-msgstr ""
-
-msgid "Setting the focus from here comes in a later version."
 msgstr ""
 
 msgid "Setting up more virtual cameras…"

@@ -1,7 +1,7 @@
 //! The Phototrap plugin: zones drawn on the preview are watched for movement while it's armed, and each time something moves in one
 //! the phone takes a short burst of photos. Nothing is saved until something sets it off, and only photos, never video.
 
-use crate::stills::{build_options, default_folder, defaults, offered, add_shot, pick_shot, shot_choice, shot_control_props, ShotChoice, StillCaps};
+use crate::stills::{build_options, default_folder, defaults, focus_now, offered, add_shot, move_shot_focus, pick_shot, shot_focus_marks, shot_choice, shot_control_props, ShotChoice, StillCaps};
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use telescope_core::event::Event;
@@ -319,7 +319,7 @@ impl PhototrapPlugin {
         if caps.camera {
             if let Some(map) = options.as_object_mut() { map.remove("quality"); }
         }
-        add_shot(&mut options, &self.shot, true, night);
+        add_shot(&mut options, caps, &self.shot, true, night);
         options
     }
 
@@ -387,6 +387,7 @@ impl PhototrapPlugin {
             "night": self.night, "night-enabled": night_offered, "use-zoom": self.use_zoom,
             "night-tip": tr(if night_offered { NIGHT_TIP } else { NIGHT_OFF_TIP }),
             "reset-shown": self.reset_shown(), "customize-open": self.customize_open,
+            "shot-focus-marks": shot_focus_marks(self.caps.as_ref(), focus_now(host)),
         });
         if let (Some(all), Value::Object(more)) = (props.as_object_mut(), shot_control_props(self.caps.as_ref(), &self.shot, true, self.night && night_offered)) {
             all.extend(more);
@@ -653,6 +654,9 @@ impl PhototrapPlugin {
         let streaming = self.can_snap(host);
         if self.read_caps(host) != self.caps || (self.armed && streaming != self.watch.is_some()) {
             self.sync(host);
+        } else {
+            // The phone's focus moved: only the dot on the Focus slider follows it
+            host.set_ui_props("card", &json!({"shot-focus-marks": shot_focus_marks(self.caps.as_ref(), focus_now(host))}));
         }
     }
 
@@ -789,6 +793,14 @@ impl Plugin for PhototrapPlugin {
                 // Without the phone's capabilities (its stream stopped) Camera still clears an override
                 let caps = self.caps.clone().unwrap_or_default();
                 if pick_shot(&mut self.shot, &caps, event.callback == "shot-shutter-picked", number.max(0.0) as usize, suppressed) {
+                    self.show(host);
+                    host.schedule_save();
+                }
+            }
+            "shot-focus-moved" | "shot-focus-reset" => {
+                let suppressed = self.night && self.night_offered();
+                let position = (event.callback == "shot-focus-moved").then_some(number);
+                if move_shot_focus(&mut self.shot, self.caps.as_ref(), position, suppressed) {
                     self.show(host);
                     host.schedule_save();
                 }

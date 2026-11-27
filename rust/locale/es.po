@@ -87,6 +87,9 @@ msgstr "Una línea de comandos que hace lo mismo, para la configuración de tecl
 msgid "A copy of the old file is at {path}."
 msgstr "Hay una copia del archivo anterior en {path}."
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "Falló un paso del fotograma"
 
@@ -4966,9 +4969,6 @@ msgstr "Ajusta el balance de blancos, el brillo, el contraste y el color analiza
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "Cambió {changes}"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "Configurando más cámaras virtuales…"

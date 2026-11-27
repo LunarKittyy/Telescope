@@ -87,6 +87,9 @@ msgstr "Ein entsprechender Befehl für die Tastatureinstellungen deiner Desktop-
 msgid "A copy of the old file is at {path}."
 msgstr "Eine Kopie der alten Datei befindet sich unter {path}."
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "Ein Bildschritt ist fehlgeschlagen"
 
@@ -4966,9 +4969,6 @@ msgstr "Weißabgleich, Helligkeit, Kontrast und Farbe anhand von etwa einer Seku
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "{changes} gesetzt"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "Weitere virtuelle Kameras werden eingerichtet…"

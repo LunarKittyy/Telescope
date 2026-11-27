@@ -62,12 +62,16 @@ export component PhotosCard inherits Card {
     in property <int> shot-iso-index;
     in property <bool> shot-iso-enabled;
     in property <string> shot-iso-tip;
+    in property <bool> shot-focus-enabled;
     in property <string> shot-focus-tip;
     in property <float> shot-focus-value;
     in property <bool> shot-focus-unset: true;
     in property <string> shot-focus-readout: @tr("Camera");
+    in property <[float]> shot-focus-marks;
     callback customize-toggled(bool);
     callback shot-iso-picked(int);
+    callback shot-focus-moved(float);
+    callback shot-focus-reset();
     in property <bool> use-zoom;
     in property <bool> use-zoom-enabled: true;
     in property <string> use-zoom-tip;
@@ -413,12 +417,15 @@ export component PhotosCard inherits Card {
                     iso-index: root.shot-iso-index;
                     iso-enabled: root.shot-iso-enabled;
                     iso-tip: root.shot-iso-tip;
-                    focus-enabled: false;
+                    focus-enabled: root.shot-focus-enabled;
                     focus-tip: root.shot-focus-tip;
                     focus-value: root.shot-focus-value;
                     focus-unset: root.shot-focus-unset;
                     focus-readout: root.shot-focus-readout;
+                    focus-marks: root.shot-focus-marks;
                     iso-picked(i) => { root.shot-iso-picked(i); }
+                    focus-moved(v) => { root.shot-focus-moved(v); }
+                    focus-reset => { root.shot-focus-reset(); }
                 }
             }
         }

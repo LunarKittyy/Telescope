@@ -87,6 +87,9 @@ msgstr "데스크톱의 키보드 설정에서 동일하게 동작시킬 수 있
 msgid "A copy of the old file is at {path}."
 msgstr "이전 파일의 사본이 {path}에 있어요."
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "프레임 단계 실패"
 
@@ -4954,9 +4957,6 @@ msgstr "약 1초간의 화면을 분석해 화이트 밸런스, 밝기, 대비, 
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "{changes} 설정함"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "추가 가상 카메라 설정 중…"

@@ -366,6 +366,10 @@ impl PhotosPlugin {
             all.insert("customize-open".into(), json!(self.customize_open));
             all.insert("customize-shown".into(), json!(!caps.camera));
             if extension { all.insert("shot-iso-tip".into(), json!(tr("This mode sets its own exposure"))); }
+            if shots == "focus" && !extension {
+                all.insert("shot-focus-enabled".into(), json!(false));
+                all.insert("shot-focus-tip".into(), json!(tr("A focus bracket sets its own focus")));
+            }
         }
         props
     }
@@ -417,7 +421,8 @@ impl PhotosPlugin {
         json!({
             "active": self.paired.on(), "shown": self.card_shown(),
             "take-enabled": self.caps.is_some() && !self.busy, "take-tip": tip, "open-enabled": !self.last_saved.is_empty(),
-            "focus-live": Self::focus_now(host).is_some(), "focus-live-pos": Self::live_pos(&self.effective_caps(), Self::focus_now(host)).unwrap_or(0.0),
+            "focus-live": focus_now(host).is_some(), "focus-live-pos": Self::live_pos(&self.effective_caps(), focus_now(host)).unwrap_or(0.0),
+            "shot-focus-marks": shot_focus_marks(self.caps.as_ref(), focus_now(host)),
         })
     }
 
@@ -550,12 +555,6 @@ impl PhotosPlugin {
         if let Some(value) = value {
             self.pick_value(host, key, value);
         }
-    }
-
-    /// Where the phone is focused now in diopters, while it is on manual focus (the number may not follow the lens otherwise).
-    fn focus_now(host: &dyn Host) -> Option<f64> {
-        let state = host.phone_state(None)?;
-        (state.get("focus_mode").and_then(Value::as_str) == Some("manual")).then(|| state.get("focus_distance").and_then(Value::as_f64)).flatten()
     }
 
     /// The ends of the focus bracket dragged on the slider (positions on the focus scale). A handle at its end is the lens's end, so
@@ -715,7 +714,10 @@ impl PhotosPlugin {
         if !caps.camera {
             let can = offered(&caps, &self.choices);
             let maker = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes));
-            add_shot(&mut options, &shot_choice(self.choices.get("shot")), false, maker);
+            let mut shot = shot_choice(self.choices.get("shot"));
+            // A focus bracket sets the focus of each photo itself
+            if pick(text(&self.choices, "shots"), &can.shots) == "focus" { shot.focus_diopters = None; }
+            add_shot(&mut options, &caps, &shot, false, maker);
         }
         if caps.camera {
             camera_options(&mut options, self.camera_picks[0].as_deref(), self.camera_picks[1].as_deref());
@@ -930,6 +932,16 @@ impl Plugin for PhotosPlugin {
                 let maker = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes));
                 let mut shot = shot_choice(self.choices.get("shot"));
                 if !caps.camera && pick_shot(&mut shot, &caps, false, index(0), maker) {
+                    self.pick_value(host, "shot", shot.to_options_value());
+                }
+            }
+            "shot-focus-moved" | "shot-focus-reset" => {
+                let caps = self.effective_caps();
+                let can = offered(&caps, &self.choices);
+                let held = EXTENSIONS.contains(&pick(text(&self.choices, "mode"), &can.modes)) || pick(text(&self.choices, "shots"), &can.shots) == "focus";
+                let position = (event.callback == "shot-focus-moved").then(|| event.args.first().and_then(Value::as_f64).unwrap_or(0.0));
+                let mut shot = shot_choice(self.choices.get("shot"));
+                if !caps.camera && move_shot_focus(&mut shot, Some(&caps), position, held) {
                     self.pick_value(host, "shot", shot.to_options_value());
                 }
             }

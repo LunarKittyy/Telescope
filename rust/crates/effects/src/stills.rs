@@ -5,6 +5,7 @@ use crate::shared::py_float;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
+use telescope_core::host::Host;
 use telescope_core::i18n::{tr, Fields};
 
 pub const EXTENSIONS: [&str; 4] = ["night", "hdr", "bokeh", "auto"];
@@ -331,7 +332,9 @@ pub fn shot_control_props(caps: Option<&StillCaps>, choice: &ShotChoice, shutter
         else if !offered { missing }
         else { action }
     };
-    let summary = ShotChoice { shutter_s: choice.shutter_s.filter(|_| shutter), ..choice.clone() }.summary(shot_focus_text);
+    let near = shot_focus_near(caps);
+    let focus = shot_focus(caps, choice);
+    let summary = ShotChoice { shutter_s: choice.shutter_s.filter(|_| shutter), focus_diopters: focus, ..choice.clone() }.summary(shot_focus_text);
     json!({
         "shot-summary": summary,
         "shot-shutter-stops": shutter_labels, "shot-shutter-index": shutter_index,
@@ -341,10 +344,11 @@ pub fn shot_control_props(caps: Option<&StillCaps>, choice: &ShotChoice, shutter
         "shot-iso-stops": iso_labels, "shot-iso-index": iso_index,
         "shot-iso-enabled": !suppressed && (!isos.is_empty() || choice.iso.is_some()),
         "shot-iso-tip": tip(!isos.is_empty(), tr("Set the ISO for the photo."), tr("This camera can't set the ISO.")),
-        "shot-focus-tip": tr("Setting the focus from here comes in a later version."),
-        "shot-focus-value": focus_position(shot.and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters), choice.focus_diopters.unwrap_or(0.0)),
-        "shot-focus-unset": choice.focus_diopters.is_none(),
-        "shot-focus-readout": choice.focus_diopters.map_or_else(|| tr("Camera"), shot_focus_text),
+        "shot-focus-enabled": !suppressed && near > 0.0,
+        "shot-focus-tip": tip(near > 0.0, tr("Set the focus for the photos."), tr("This camera can't set the focus for a photo.")),
+        "shot-focus-value": focus_position(near, focus.unwrap_or(0.0)),
+        "shot-focus-unset": focus.is_none(),
+        "shot-focus-readout": focus.map_or_else(|| tr("Camera"), shot_focus_text),
     })
 }
 
@@ -369,17 +373,57 @@ pub fn pick_shot(choice: &mut ShotChoice, caps: &StillCaps, shutter: bool, index
     *choice != before
 }
 
+/// The nearest focus a photo can be set to, in diopters; 0 when this camera takes no focus for a photo (an older phone, a DSLR).
+pub fn shot_focus_near(caps: Option<&StillCaps>) -> f64 {
+    caps.and_then(|c| c.shot.as_ref()).and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters).max(0.0)
+}
+
+/// The focus the photo is taken at: none on a camera that can't set it, which then uses its own.
+pub fn shot_focus(caps: Option<&StillCaps>, choice: &ShotChoice) -> Option<f64> {
+    choice.focus_diopters.filter(|_| shot_focus_near(caps) > 0.0)
+}
+
+/// Where the phone on screen is focused now in diopters, while it is on manual focus: the only time it says.
+pub fn focus_now(host: &dyn Host) -> Option<f64> {
+    let state = host.phone_state(None)?;
+    (state.get("focus_mode").and_then(Value::as_str) == Some("manual")).then(|| state.get("focus_distance").and_then(Value::as_f64)).flatten()
+}
+
+/// A dot on the Focus slider where the phone is focused now, which a dragged handle sticks to; none when that isn't known.
+pub fn shot_focus_marks(caps: Option<&StillCaps>, now: Option<f64>) -> Vec<f64> {
+    let near = shot_focus_near(caps);
+    now.filter(|_| near > 0.0).map(|d| focus_position(near, d)).into_iter().collect()
+}
+
+/// The focus slider moved (position on the focus scale) or was reset to the camera's own (None); true when the choice changed.
+pub fn move_shot_focus(choice: &mut ShotChoice, caps: Option<&StillCaps>, position: Option<f64>, suppressed: bool) -> bool {
+    if suppressed { return false; }
+    // Camera always clears the override, like on the dials
+    let focus = match position {
+        None => None,
+        Some(p) => {
+            let near = shot_focus_near(caps);
+            if near <= 0.0 { return false; }
+            Some((p.clamp(0.0, FOCUS_SCALE) / FOCUS_SCALE * near * 100.0).round() / 100.0)
+        }
+    };
+    let changed = focus != choice.focus_diopters;
+    choice.focus_diopters = focus;
+    changed
+}
+
 pub fn shot_choice(value: Option<&Value>) -> ShotChoice {
     value.cloned().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default()
 }
 
 // Keep requested overrides so an unavailable setting is refused instead of silently falling back.
-pub fn add_shot(options: &mut Value, choice: &ShotChoice, shutter: bool, suppressed: bool) {
+// The focus is left out on a camera that can't set it, since an older phone would refuse the photo.
+pub fn add_shot(options: &mut Value, caps: &StillCaps, choice: &ShotChoice, shutter: bool, suppressed: bool) {
     if suppressed { return; }
     let shot = ShotChoice {
         shutter_s: choice.shutter_s.filter(|_| shutter),
         iso: choice.iso,
-        focus_diopters: None,
+        focus_diopters: shot_focus(Some(caps), choice),
     };
     if shot != ShotChoice::default() { options["shot"] = shot.to_options_value(); }
 }

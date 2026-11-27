@@ -190,8 +190,16 @@ export component RangeSlider inherits HorizontalLayout {
             }
         }
     }
+    // The column grows to fit a long range ("0.16-12.5 m") rather than cut it off, as text sizes go up
     Rectangle {
-        width: readout-width;
+        width: max(readout-width, ceil(fits.preferred-width / 1px) * 1px);
+        fits := Text {
+            visible: false;
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+        }
         Text {
             width: parent.width;
             height: parent.height;

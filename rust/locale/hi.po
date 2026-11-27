@@ -87,6 +87,9 @@ msgstr "वही काम करने वाली एक कमांड ल
 msgid "A copy of the old file is at {path}."
 msgstr "पुरानी फ़ाइल की एक कॉपी {path} पर है."
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "एक फ़्रेम चरण विफल रहा"
 
@@ -4966,9 +4969,6 @@ msgstr "तस्वीर के करीब एक सेकंड के ह
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "{changes} सेट किया"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "और वर्चुअल कैमरे सेट किए जा रहे हैं…"

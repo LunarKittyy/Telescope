@@ -87,6 +87,9 @@ msgstr "Masaüstü ortamının kendi klavye ayarları için aynı işlemi yapan 
 msgid "A copy of the old file is at {path}."
 msgstr "Eski dosyanın bir kopyası {path} konumunda."
 
+msgid "A focus bracket sets its own focus"
+msgstr ""
+
 msgid "A frame step failed"
 msgstr "Bir kare adımı başarısız oldu"
 
@@ -4966,9 +4969,6 @@ msgstr "Görüntünün yaklaşık bir saniyesinden beyaz dengesini, parlaklığ�
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "Ayarladı: {changes}"
-
-msgid "Setting the focus from here comes in a later version."
-msgstr ""
 
 msgid "Setting up more virtual cameras…"
 msgstr "Daha fazla sanal kamera kuruluyor…"
