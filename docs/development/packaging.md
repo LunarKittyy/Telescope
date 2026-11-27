@@ -99,4 +99,4 @@ None of these publish anything or block a pull request.
 
 ### `pages.yml`
 
-Publishes `site/`, the landing page, to GitHub Pages on pushes to `master` that touch `site/**`. There's no build step. The repository's Pages source has to be set to **GitHub Actions**. The page is served at `telescope.webcam`, set under Settings → Pages (not a `CNAME` file, which Actions deploys ignore), with DNS in Cloudflare as an unproxied CNAME to `lunarkittyy.github.io`.
+Publishes `site/`, the landing page, to GitHub Pages on pushes to `master` that touch `site/**`, on each release, and every 6 hours so the README's download and release badges stay current. There's no build step. The deploy is tried up to three times, 15 and then 60 seconds apart, because GitHub sometimes hasn't listed the just-uploaded site yet or refuses a deploy for a moment. The repository's Pages source has to be set to **GitHub Actions**. The page is served at `telescope.webcam`, set under Settings → Pages (not a `CNAME` file, which Actions deploys ignore), with DNS in Cloudflare as an unproxied CNAME to `lunarkittyy.github.io`.
